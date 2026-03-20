@@ -16,7 +16,7 @@ export default function Home() {
 
       const data = await response.json();
 
-      // 2. 最新方式：Stripeが発行したURLに直接ジャンプする
+      // 2. 取得したStripeのURLへリダイレクト（AP/GP/PayPayが統合された画面）
       if (data.url) {
         window.location.href = data.url; 
       } else {
@@ -39,27 +39,27 @@ export default function Home() {
       backgroundColor: '#f4f7f6'
     }}>
       <h1 style={{ color: '#333', fontSize: '3rem' }}>🔥 Direct Cheers</h1>
-      <p style={{ color: '#666', marginBottom: '30px' }}>現場の熱狂を、ダイレクトに届けよう。</p>
+      <p style={{ color: '#666', marginBottom: '30px' }}>爆速投げ銭システム（AP/GP/PayPay対応）</p>
       
       <button 
         onClick={handleCheckout}
         style={{
           padding: '18px 36px',
           fontSize: '22px',
-          backgroundColor: '#635bff',
+          backgroundColor: '#000',
           color: 'white',
           border: 'none',
-          borderRadius: '8px',
+          borderRadius: '12px',
           cursor: 'pointer',
           fontWeight: 'bold',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
         }}
       >
-        100円送る（テストモード）
+        100円送る
       </button>
       
       <p style={{ marginTop: '20px', fontSize: '0.8rem', color: '#999' }}>
-        ※テストモード：カード番号「4242...」で試せます。
+        ※テスト環境：カード・PayPay・スマホ決済が試せます
       </p>
     </div>
   );

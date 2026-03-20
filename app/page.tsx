@@ -1,28 +1,44 @@
 'use client';
 
-import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
 
 export default function Home() {
   const handleCheckout = async () => {
-    // 1. Stripeの準備（公開鍵を読み込む）
-    const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+    try {
+      // 1. Stripeの公開鍵を読み込む
+      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-    // 2. サーバー（さっき作った /api/checkout/route.ts）に「決済したい！」とリクエストを送る
-    const response = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+      if (!stripe) {
+        throw new Error("Stripeの読み込みに失敗しました。公開鍵を確認してください。");
+      }
 
-    const session = await response.json();
-
-    // 3. サーバーから返ってきた「決済用ID」を使って、Stripeの画面へジャンプ！
-    if (session.id && stripe) {
-      const { error } = await (stripe as any).redirectToCheckout({
-        sessionId: session.id,
+      // 2. サーバー(API)に決済セッションを要求
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
-      if (error) console.error(error);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "サーバーエラーが発生しました。");
+      }
+
+      const session = await response.json();
+
+      // 3. 取得したセッションIDを使って決済画面へジャンプ
+      if (session.id) {
+        const { error } = await (stripe as any).redirectToCheckout({
+          sessionId: session.id,
+        });
+        if (error) throw error;
+      } else {
+        throw new Error("決済セッションIDが取得できませんでした。");
+      }
+    } catch (err: any) {
+      console.error("決済エラー:", err);
+      alert(`エラーが発生しました: ${err.message}`);
     }
   };
 

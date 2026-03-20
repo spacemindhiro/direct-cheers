@@ -1,30 +1,60 @@
+'use client';
+
+// 1. 部品のインポート（必ず一番上！）
+import { loadStripe } from '@stripe/stripe-js';
+
 export default function Home() {
+  // 2. ボタンを押した時の処理
+  const handleCheckout = async () => {
+    // ストライプの公開鍵を読み込む（.env.local から取得）
+    const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+
+    if (!stripe) {
+      alert("Stripeの読み込みに失敗しました。");
+      return;
+    }
+
+    // 今はまだ「準備完了」のアラートだけ出す
+    alert("接続確認OK！次はここに本物の決済画面を呼び出す処理を書きます。");
+  };
+
+  // 3. 画面の見た目（HTML）
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white p-8">
-      <header className="text-center">
-        <h1 className="text-6xl font-extrabold text-orange-500 mb-4 drop-shadow-lg">
-          🔥 Direct Cheers
-        </h1>
-        <p className="text-xl text-slate-300 italic">
-          ～ キャッシュレス投げ銭で、現場の熱狂を可視化する ～
-        </p>
-      </header>
-
-      <main className="mt-12 bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-2xl max-w-md w-full">
-        <h2 className="text-2xl font-bold mb-4 border-b border-slate-600 pb-2">開発ステータス</h2>
-        <ul className="space-y-3 text-slate-400">
-          <li className="flex items-center">✅ プロジェクト基盤構築 (Next.js)</li>
-          <li className="flex items-center">⏳ 決済連携 (Stripe)</li>
-          <li className="flex items-center">⏳ リアルタイム演出 (Supabase)</li>
-        </ul>
-        <button className="mt-8 w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-lg transition-all transform hover:scale-105">
-          応援を開始する（準備中）
-        </button>
-      </main>
-
-      <footer className="mt-auto text-slate-500 text-sm">
-        © 2026 Direct Cheers Project - Built by Hiro
-      </footer>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      height: '100vh',
+      fontFamily: 'sans-serif',
+      backgroundColor: '#f4f7f6'
+    }}>
+      <h1 style={{ color: '#333', fontSize: '3rem' }}>🔥 Direct Cheers</h1>
+      <p style={{ color: '#666', marginBottom: '30px' }}>現場の熱狂を、ダイレクトに届けよう。</p>
+      
+      <button 
+        onClick={handleCheckout}
+        style={{
+          padding: '18px 36px',
+          fontSize: '22px',
+          backgroundColor: '#635bff', // Stripeカラーの紫
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontWeight: 'bold',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          transition: 'transform 0.2s'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        100円送る（テストモード）
+      </button>
+      
+      <p style={{ marginTop: '20px', fontSize: '0.8rem', color: '#999' }}>
+        ※テストモードのため、実際にお金はかかりません。
+      </p>
     </div>
-  )
+  );
 }

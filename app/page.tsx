@@ -1,66 +1,58 @@
-'use client';
+import { DeployButton } from "@/components/deploy-button";
+import { EnvVarWarning } from "@/components/env-var-warning";
+import { AuthButton } from "@/components/auth-button";
+import { Hero } from "@/components/hero";
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
+import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
+import { hasEnvVars } from "@/lib/utils";
+import Link from "next/link";
+import { Suspense } from "react";
 
 export default function Home() {
-  const handleCheckout = async () => {
-    try {
-      // 1. サーバー(API)に決済をリクエスト
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "サーバーエラー");
-      }
-
-      const data = await response.json();
-
-      // 2. 取得したStripeのURLへリダイレクト（AP/GP/PayPayが統合された画面）
-      if (data.url) {
-        window.location.href = data.url; 
-      } else {
-        throw new Error("決済URLが見つかりませんでした。");
-      }
-    } catch (err: any) {
-      console.error("決済エラー:", err);
-      alert(`エラーが発生しました: ${err.message}`);
-    }
-  };
-
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      height: '100vh',
-      fontFamily: 'sans-serif',
-      backgroundColor: '#f4f7f6'
-    }}>
-      <h1 style={{ color: '#333', fontSize: '3rem' }}>🔥 Direct Cheers</h1>
-      <p style={{ color: '#666', marginBottom: '30px' }}>爆速投げ銭システム（AP/GP/PayPay対応）</p>
-      
-      <button 
-        onClick={handleCheckout}
-        style={{
-          padding: '18px 36px',
-          fontSize: '22px',
-          backgroundColor: '#000',
-          color: 'white',
-          border: 'none',
-          borderRadius: '12px',
-          cursor: 'pointer',
-          fontWeight: 'bold',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-        }}
-      >
-        100円送る
-      </button>
-      
-      <p style={{ marginTop: '20px', fontSize: '0.8rem', color: '#999' }}>
-        ※テスト環境：カード・PayPay・スマホ決済が試せます
-      </p>
-    </div>
+    <main className="min-h-screen flex flex-col items-center">
+      <div className="flex-1 w-full flex flex-col gap-20 items-center">
+        <nav className="w-full flex justify-center border-b border-b-foreground/10 h-16">
+          <div className="w-full max-w-5xl flex justify-between items-center p-3 px-5 text-sm">
+            <div className="flex gap-5 items-center font-semibold">
+              <Link href={"/"}>Next.js Supabase Starter</Link>
+              <div className="flex items-center gap-2">
+                <DeployButton />
+              </div>
+            </div>
+            {!hasEnvVars ? (
+              <EnvVarWarning />
+            ) : (
+              <Suspense>
+                <AuthButton />
+              </Suspense>
+            )}
+          </div>
+        </nav>
+        <div className="flex-1 flex flex-col gap-20 max-w-5xl p-5">
+          <Hero />
+          <main className="flex-1 flex flex-col gap-6 px-4">
+            <h2 className="font-medium text-xl mb-4">Next steps</h2>
+            {hasEnvVars ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
+          </main>
+        </div>
+
+        <footer className="w-full flex items-center justify-center border-t mx-auto text-center text-xs gap-8 py-16">
+          <p>
+            Powered by{" "}
+            <a
+              href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
+              target="_blank"
+              className="font-bold hover:underline"
+              rel="noreferrer"
+            >
+              Supabase
+            </a>
+          </p>
+          <ThemeSwitcher />
+        </footer>
+      </div>
+    </main>
   );
 }

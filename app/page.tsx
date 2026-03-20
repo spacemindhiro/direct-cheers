@@ -1,6 +1,6 @@
 'use client';
 
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, Stripe } from '@stripe/stripe-js';
 
 export default function Home() {
   const handleCheckout = async () => {

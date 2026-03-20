@@ -18,10 +18,11 @@ export default function Home() {
     const session = await response.json();
 
     // 3. サーバーから返ってきた「決済用ID」を使って、Stripeの画面へジャンプ！
-    if (session.id) {
-      await stripe?.redirectToCheckout({ sessionId: session.id });
-    } else {
-      alert("決済セッションの作成に失敗しました。Vercelの秘密鍵の設定を確認してください。");
+    if (session.id && stripe) {
+      const { error } = await (stripe as any).redirectToCheckout({
+        sessionId: session.id,
+      });
+      if (error) console.error(error);
     }
   };
 

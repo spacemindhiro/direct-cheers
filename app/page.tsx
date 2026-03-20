@@ -1,40 +1,26 @@
 'use client';
 
-import { loadStripe } from '@stripe/stripe-js';
-
 export default function Home() {
   const handleCheckout = async () => {
     try {
-      // 1. Stripeの公開鍵を読み込む
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-
-      if (!stripe) {
-        throw new Error("Stripeの読み込みに失敗しました。公開鍵を確認してください。");
-      }
-
-      // 2. サーバー(API)に決済セッションを要求
+      // 1. サーバー(API)に決済をリクエスト
       const response = await fetch('/api/checkout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "サーバーエラーが発生しました。");
+        throw new Error(errorData.error || "サーバーエラー");
       }
 
-      const session = await response.json();
+      const data = await response.json();
 
-      // 3. 取得したセッションIDを使って決済画面へジャンプ
-      if (session.id) {
-        const { error } = await (stripe as any).redirectToCheckout({
-          sessionId: session.id,
-        });
-        if (error) throw error;
+      // 2. 最新方式：Stripeが発行したURLに直接ジャンプする
+      if (data.url) {
+        window.location.href = data.url; 
       } else {
-        throw new Error("決済セッションIDが取得できませんでした。");
+        throw new Error("決済URLが見つかりませんでした。");
       }
     } catch (err: any) {
       console.error("決済エラー:", err);
@@ -73,7 +59,7 @@ export default function Home() {
       </button>
       
       <p style={{ marginTop: '20px', fontSize: '0.8rem', color: '#999' }}>
-        ※テストモード：カード番号「4242 4242...」で決済を試せます。
+        ※テストモード：カード番号「4242...」で試せます。
       </p>
     </div>
   );

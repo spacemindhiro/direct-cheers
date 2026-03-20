@@ -1,70 +1,36 @@
-# direct-cheers　（以下DC）
-online donation system
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## 基本設計
+## Getting Started
 
-QRコードを掲示しておいて、それをカメラで読み取って、ドネーション決済ができる仕組み。
+First, run the development server:
 
-**機能一覧
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
 
-*共通
-・ログイン機能
-　DJ、オーガナイザー、管理者、ユーザーの4ロールを区別、また個人ごとの集金結果の確認ができるように
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
- ドネーションするだけのユーザーも、いままでのドネーション額によってvip対応とかそういったことをそのうちやる。
- スピード重視でログインとかアカウント作成なしでドネーションだけするのも可能とする。（最初はこっちだけ作る）
- 
-*オーガナイザー機能
-・パーティ／イベント情報の作成管理機能
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-　イベントの登録、変更、削除。過去イベの実績参照ができる。
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-・個人設定機能
+## Learn More
 
-　オーガナイザー名称の登録や、stripeのID登録したりする
+To learn more about Next.js, take a look at the following resources:
 
-・QR作成管理機能
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-　運営が10％取った後の分配を自由に設定できる。QRコード名称、QRの有効期限とか設定する。
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-  作ったQRの無効化や削除、変更ができる画面。
-  DJが配分を受け取るには、事前にオーガナイザーに配分先のDCアカウントIDを連携して、ここで登録してもらう必要がある。
-  ここで登録したら、動的にQRで飛んでくるページも生成する。ページにはログイン機能、ログインなしで進めるか選べるようにする。
+## Deploy on Vercel
 
-・メッセージ機能
-　運営やシステムからの通知の表示。情報提供を望んでいる一般ユーザーへの情報配信機能。履歴の表示。
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-*管理者機能
-・パーティ／イベントの手数料設定機能
-
-　基本は10％だが、管理者は自由に変更できる。初回割引とかそういうふうに使う。
-
-・レポート作成機能
-
-　パーティごとに誰がいついくらドネーションしたかをサマリーにして提供
-
-　寄付した人の一覧、リピーターはだれか、ハイローラーはだれか、ピークタイムはいつか
-
-
-*一般ユーザー機能
-・QRから飛んだページに飛ぶ（スマホの機能）
-
-・ドネーション機能
-
-　ユーザー名、コメント、金額を入力できるようにし、どのパーティの誰に寄付する決済なのかをちゃんと表示。よろしいか？の確認もする。
-
-　okになったらstripeに決済を任せると同時に、ログをDBに書き込む。
-
-・履歴参照機能
-
-　いつだれにいくらドネーションしたか、結果も含め表示。領収書発行機能とかつけてもいいかも。
-　vipレベルとかもここで出したらいいかも
-
-・個人設定機能
-
-　ユーザー名、メールアドレスの登録変更。
-
-・メッセージ機能
-
-　オーガナイザーからのメッセージを見れる。
- 
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

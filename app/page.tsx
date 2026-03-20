@@ -30,7 +30,7 @@ export default function Home() {
       backgroundColor: '#f4f7f6'
     }}>
       <h1 style={{ color: '#333', fontSize: '3rem' }}>🔥 Direct Cheers</h1>
-      <p style={{ color: '#666', marginBottom: '30px' }}>現場の熱狂を、ダイレクトに届けよう。</p>
+      <p style={{ color: '#666', marginBottom: '30px' }}>キャッシュレス投げ銭で、現場の熱狂を、ダイレクトに届けよう。</p>
       
       <button 
         onClick={handleCheckout}

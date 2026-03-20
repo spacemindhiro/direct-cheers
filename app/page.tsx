@@ -6,7 +6,7 @@ export default function Home() {
           🔥 Direct Cheers
         </h1>
         <p className="text-xl text-slate-300 italic">
-          ～ 投げ銭で、現場の熱狂を可視化する ～
+          ～ キャッシュレス投げ銭で、現場の熱狂を可視化する ～
         </p>
       </header>
 

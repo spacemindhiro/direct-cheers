@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-01-27-acacia", // 最新版を使用
-});
+// apiVersion を削除して最新(default)に任せます
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +21,6 @@ export async function POST(request: Request) {
         },
       ],
       mode: "payment",
-      // 修正ポイント：末尾 / なし ＋ キャッシュ回避のクエリパラメータ
       success_url: `${origin}?status=success`,
       cancel_url: `${origin}?status=cancel`,
     });
@@ -31,7 +29,7 @@ export async function POST(request: Request) {
       throw new Error("Stripe session URL is missing");
     }
 
-    // 修正ポイント：Safariに「これは新しい移動だ」とハッキリ伝えるために 303 を使う
+    // Safariのキャッシュを突き破る 303 Redirect
     return NextResponse.redirect(session.url, 303);
 
   } catch (err: any) {

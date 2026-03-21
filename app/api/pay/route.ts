@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 
-// ビルド時の解析を完全に拒否する
+// ビルド時の静的解析を物理的にバイパス
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    // 1. ビルド時ではなく「実行時」にライブラリを読み込む (重要)
-    const Stripe = require("stripe");
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    // 【重要】ビルドプロセスはこの中身を解析しません。
+    // サーバーが起動し、リクエストが来た瞬間にだけ Stripe を読み込みます。
+    const Stripe = (await import("stripe")).default;
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
     const origin = request.headers.get("origin") || "https://direct-cheers.com";
 
-    // 2. セッション作成
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [{
@@ -23,19 +23,14 @@ export async function POST(request: Request) {
         quantity: 1,
       }],
       mode: "payment",
-      success_url: `${origin}/?status=success&v=${Date.now()}`,
-      cancel_url: `${origin}/?status=cancel&v=${Date.now()}`,
+      success_url: `${origin}/?status=success`,
+      cancel_url: `${origin}/?status=cancel`,
     });
 
-    // 3. 確実にURLがある場合のみリダイレクト
-    if (session && session.url) {
-      // Safariのキャッシュを破壊する303リダイレクト
-      return NextResponse.redirect(session.url, 303);
-    }
+    // Safariのリダイレクトキャッシュを破壊する 303
+    return NextResponse.redirect(session.url!, 303);
 
-    throw new Error("No session URL");
   } catch (err: any) {
-    console.error(err);
-    return NextResponse.json({ error: "error" }, { status: 500 });
+    return NextResponse.json({ error: "Checkout Failed" }, { status: 500 });
   }
 }

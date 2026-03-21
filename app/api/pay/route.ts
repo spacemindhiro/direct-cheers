@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
+import { redirect } from 'next/navigation'; // 追加
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-export async function POST(req: Request) { return handle(req); }
-export async function GET(req: Request) { return handle(req); }
-
-async function handle(req: Request) {
+export async function POST(req: Request) {
   try {
     const { origin } = new URL(req.url);
     const session = await stripe.checkout.sessions.create({
@@ -21,9 +19,11 @@ async function handle(req: Request) {
       success_url: `${origin}/?success=true`,
       cancel_url: `${origin}/`,
     });
-    // SafariのURL直打ちなら303、fetchならJSONを返す
-    if (req.method === 'GET') return NextResponse.redirect(session.url, 303);
-    return NextResponse.json({ url: session.url });
+
+    // 【重要】JSONを返すのではなく、直接Stripeへリダイレクトさせる
+    // 303を指定することで、POSTからGETへ切り替えて確実に飛ばします
+    return NextResponse.redirect(session.url, 303); 
+
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

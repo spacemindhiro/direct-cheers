@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-// ビルド時の静的解析を避けるため、外側には何も書かない
-export const dynamic = "force-dynamic"; 
+// 【根本対処1】このAPIはビルド時に解析させず、常に実行時に動かすことを明示
+export const dynamic = "force-dynamic";
+
+// 【根本対処2】Stripeの初期化。apiVersionは型エラーを避けるため指定しない
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
 export async function POST(request: Request) {
   try {
-    // 1. 実行時（POSTされた時）に初めてStripeを初期化する
-    // これでビルド時の環境変数エラーや型チェックを物理的に回避
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-      apiVersion: "2025-01-27-acacia" as any, // ここは型エラーが出ても実行には影響しない
-    });
-
     const origin = request.headers.get("origin") || "https://direct-cheers.com";
 
-    // 2. チェックアウトセッション作成
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
@@ -28,19 +24,24 @@ export async function POST(request: Request) {
         },
       ],
       mode: "payment",
-      success_url: `${origin}?status=success`,
-      cancel_url: `${origin}?status=cancel`,
+      // 【根本対処3】Safariのキャッシュを物理的に無効化するクエリを付与
+      success_url: `${origin}?v=${Date.now()}&status=success`,
+      cancel_url: `${origin}?v=${Date.now()}&status=cancel`,
     });
 
     if (!session.url) {
-      throw new Error("Stripe session URL is missing");
+      throw new Error("Stripe Session URL generation failed.");
     }
 
-    // 3. Safariの「前のURLに戻る癖」を破壊する 303 Redirect
+    // 【根本対処4】303 See Other を使用。
+    // Safariに「以前のURL（/auth/login）は忘れろ」と強制的に命令するコードです。
     return NextResponse.redirect(session.url, 303);
 
   } catch (err: any) {
-    console.error("Critical Error:", err);
-    return NextResponse.json({ error: "System Error" }, { status: 500 });
+    console.error("Payment Error:", err);
+    return NextResponse.json(
+      { error: "Payment initialization failed" },
+      { status: 500 }
+    );
   }
 }

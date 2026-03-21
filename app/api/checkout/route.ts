@@ -4,7 +4,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 export async function POST() {
   try {
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card', 'paypay', 'google_pay', 'apple_pay'],
+      payment_method_types: ['card', 'paypay'],
       line_items: [{
         price_data: {
           currency: 'jpy',

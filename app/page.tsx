@@ -1,19 +1,17 @@
 "use client";
 
 export default function Page() {
-  const checkout = async () => {
-    try {
-      const res = await fetch('/api/pay/', { method: 'POST' });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } catch (e) { alert("通信エラー"); }
-  };
-
   return (
     <div style={{ display: 'grid', placeItems: 'center', height: '100vh' }}>
-      <button onClick={checkout} style={{ padding: '20px', fontSize: '20px', cursor: 'pointer' }}>
-        100円で応援する
-      </button>
+      {/* fetchを使わず、標準のPOSTフォームで飛ばす */}
+      <form action="/api/pay/" method="POST">
+        <button 
+          type="submit"
+          style={{ padding: '20px 40px', fontSize: '20px', cursor: 'pointer', backgroundColor: '#635bff', color: 'white', borderRadius: '8px', border: 'none' }}
+        >
+          100円で応援する
+        </button>
+      </form>
     </div>
   );
 }

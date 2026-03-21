@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
 
-// ビルド時の静的解析フリーズを避けるための強制動的フラグ
+// ビルド時の解析を完全に拒否する
 export const dynamic = "force-dynamic";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
 export async function POST(request: Request) {
   try {
+    // 1. ビルド時ではなく「実行時」にライブラリを読み込む (重要)
+    const Stripe = require("stripe");
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
     const origin = request.headers.get("origin") || "https://direct-cheers.com";
 
+    // 2. セッション作成
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [{
@@ -21,24 +23,19 @@ export async function POST(request: Request) {
         quantity: 1,
       }],
       mode: "payment",
-      // Safariのキャッシュを破壊するクエリ
-      success_url: `${origin}/?v=${Date.now()}`,
-      cancel_url: `${origin}/?v=${Date.now()}`,
+      success_url: `${origin}/?status=success&v=${Date.now()}`,
+      cancel_url: `${origin}/?status=cancel&v=${Date.now()}`,
     });
 
-    // 【修正点】nullチェックを厳格に行い、型エラー(2345)を解消する
-    const sessionUrl = session.url;
-
-    if (!sessionUrl) {
-      throw new Error("Stripe session URL is null");
+    // 3. 確実にURLがある場合のみリダイレクト
+    if (session && session.url) {
+      // Safariのキャッシュを破壊する303リダイレクト
+      return NextResponse.redirect(session.url, 303);
     }
 
-    // ここで sessionUrl は確実に string 型であることが保証されるため、エラーは消えます
-    return NextResponse.redirect(sessionUrl, 303);
-
+    throw new Error("No session URL");
   } catch (err: any) {
-    console.error("Stripe Checkout Error:", err);
-    // エラー時は元のページにリダイレクトさせるか、エラーメッセージを返す
-    return NextResponse.json({ error: "決済の初期化に失敗しました" }, { status: 500 });
+    console.error(err);
+    return NextResponse.json({ error: "error" }, { status: 500 });
   }
 }

@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// 修正後のコード
+export async function POST(request: Request) {
+  // ★重要: 今アクセスしているドメインをリクエストから直接取る
+  const { origin } = new URL(request.url);
 
-export async function POST() {
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card', 'paypay'],
@@ -9,18 +10,14 @@ export async function POST() {
         price_data: {
           currency: 'jpy',
           product_data: { name: '🔥 Direct Cheers (Demo)' },
-          unit_amount: 100, // 100円
+          unit_amount: 100,
         },
         quantity: 1,
       }],
       mode: 'payment',
-      success_url: `https://${process.env.VERCEL_URL || 'localhost:3000'}/success`,
-      cancel_url: `https://${process.env.VERCEL_URL || 'localhost:3000'}/`,
+      // ★修正: /success ではなく /?success=true にする（新しいページを作らなくて済む）
+      success_url: `${origin}/?success=true`,
+      cancel_url: `${origin}/`,
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (err: any) {
-    console.error("Stripe Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
-}

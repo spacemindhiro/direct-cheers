@@ -3,7 +3,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(request: Request) {
   try {
-    // リクエストから現在のドメインを特定（Safariのエラー対策）
+    // Safari対策：現在のドメイン（Origin）をリクエストから直接取得
     const { origin } = new URL(request.url);
 
     const session = await stripe.checkout.sessions.create({
@@ -12,12 +12,12 @@ export async function POST(request: Request) {
         price_data: {
           currency: 'jpy',
           product_data: { name: '🔥 Direct Cheers (Demo)' },
-          unit_amount: 100,
+          unit_amount: 100, // 100円
         },
         quantity: 1,
       }],
       mode: 'payment',
-      // 成功時はトップページに戻る（?success=trueを付けて判別可能にする）
+      // 成功・失敗時に確実に存在する「トップページ」へ戻す
       success_url: `${origin}/?success=true`,
       cancel_url: `${origin}/`,
     });

@@ -1,66 +1,41 @@
-'use client';
+"use client";
 
-export default function Home() {
+export default function HomePage() {
   const handleCheckout = async () => {
     try {
-      // 1. サーバー(API)に決済をリクエスト
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "サーバーエラー");
-      }
-
       const data = await response.json();
 
-      // 2. 取得したStripeのURLへリダイレクト（AP/GP/PayPayが統合された画面）
       if (data.url) {
-        window.location.href = data.url; 
+        // Safari対策：URLを正規化してから「assign」で飛ばす
+        const stripeUrl = new URL(data.url).toString();
+        window.location.assign(stripeUrl);
       } else {
-        throw new Error("決済URLが見つかりませんでした。");
+        alert("決済URLが取得できませんでした: " + (data.error || "Unknown error"));
       }
-    } catch (err: any) {
-      console.error("決済エラー:", err);
-      alert(`エラーが発生しました: ${err.message}`);
+    } catch (err) {
+      console.error("Checkout Error:", err);
+      alert("通信エラーが発生しました");
     }
   };
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      height: '100vh',
-      fontFamily: 'sans-serif',
-      backgroundColor: '#f4f7f6'
-    }}>
-      <h1 style={{ color: '#333', fontSize: '3rem' }}>🔥 Direct Cheers</h1>
-      <p style={{ color: '#666', marginBottom: '30px' }}>爆速投げ銭システム（AP/GP/PayPay対応）</p>
-      
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column' }}>
+      <h1>Direct Cheers デモ</h1>
       <button 
         onClick={handleCheckout}
-        style={{
-          padding: '18px 36px',
-          fontSize: '22px',
-          backgroundColor: '#000',
-          color: 'white',
-          border: 'none',
-          borderRadius: '12px',
-          cursor: 'pointer',
-          fontWeight: 'bold',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-        }}
+        style={{ padding: '20px 40px', fontSize: '20px', cursor: 'pointer', backgroundColor: '#635bff', color: 'white', border: 'none', borderRadius: '8px' }}
       >
-        100円送る
+        100円で応援する（Stripe決済）
       </button>
-      
-      <p style={{ marginTop: '20px', fontSize: '0.8rem', color: '#999' }}>
-        ※テスト環境：カード・PayPay・スマホ決済が試せます
-      </p>
+      {/* 成功時に表示されるメッセージ */}
+      {typeof window !== 'undefined' && window.location.search.includes('success=true') && (
+        <p style={{ color: 'green', marginTop: '20px' }}>✅ 決済が成功しました！ありがとうございます！</p>
+      )}
     </div>
   );
 }

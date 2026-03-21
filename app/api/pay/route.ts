@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 
-// ビルド時の静的解析を物理的にバイパス
+// ビルド時の静的解析を物理的に拒否
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    // 【重要】ビルドプロセスはこの中身を解析しません。
-    // サーバーが起動し、リクエストが来た瞬間にだけ Stripe を読み込みます。
-    const Stripe = (await import("stripe")).default;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+    // 【最重要】ビルド時にはここを読み込ませない。実行時にのみロード。
+    const Stripe = require("stripe");
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
     const origin = request.headers.get("origin") || "https://direct-cheers.com";
 
@@ -27,10 +26,15 @@ export async function POST(request: Request) {
       cancel_url: `${origin}/?status=cancel`,
     });
 
-    // Safariのリダイレクトキャッシュを破壊する 303
-    return NextResponse.redirect(session.url!, 303);
+    if (!session.url) {
+      throw new Error("Stripe URL generated as null");
+    }
+
+    // Safariのリダイレクトキャッシュを物理的に上書きする 303 Redirect
+    return NextResponse.redirect(session.url, 303);
 
   } catch (err: any) {
-    return NextResponse.json({ error: "Checkout Failed" }, { status: 500 });
+    console.error("Critical Runtime Error:", err);
+    return NextResponse.json({ error: "System Error" }, { status: 500 });
   }
 }

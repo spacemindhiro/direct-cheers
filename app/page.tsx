@@ -4,7 +4,7 @@ export default function HomePage() {
   const handleCheckout = async () => {
     try {
       // 1. Safari対策：キャッシュを無効化し、リダイレクトを明示的に許可
-      const response = await fetch('/api/checkout', {
+      const response = await fetch('/api/pay', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

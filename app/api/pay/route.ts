@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
+import Stripe from "stripe";
+
+// 環境変数の存在チェックを厳格に行い、型エラーを未然に防ぎます
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+if (!stripeSecretKey) {
+  throw new Error("STRIPE_SECRET_KEY is not defined in environment variables");
+}
+
+// 初期化。apiVersion を指定せず、型キャストで最新の構造に適合させます
+const stripe = new Stripe(stripeSecretKey, {} as any);
 
 export async function POST(request: Request) {
   try {
-    // 型チェックを回避するために require を使用
-    const Stripe = require("stripe");
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
     const origin = request.headers.get("origin") || "https://direct-cheers.com";
 
     const session = await stripe.checkout.sessions.create({
@@ -21,16 +28,15 @@ export async function POST(request: Request) {
         },
       ],
       mode: "payment",
-      // 末尾スラッシュなし
       success_url: `${origin}?status=success`,
       cancel_url: `${origin}?status=cancel`,
     });
 
-    if (!session || !session.url) {
+    if (!session.url) {
       throw new Error("Stripe session URL is missing");
     }
 
-    // Safariのキャッシュを破壊する303リダイレクト
+    // Safariの「ログイン画面へのリダイレクト記憶」を上書きする 303 See Other
     return NextResponse.redirect(session.url, 303);
 
   } catch (err: any) {

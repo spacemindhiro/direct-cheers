@@ -55,6 +55,11 @@ export async function updateSession(request: NextRequest) {
   ) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
+
+// 【追加】もしリクエストが決済APIなら、何もしないでスルーさせる
+if (url.pathname.includes('/api/pay')) {
+  return NextResponse.next();
+}
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }

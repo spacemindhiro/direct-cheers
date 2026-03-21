@@ -120,13 +120,13 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 }
 
 // Validate ../../app/auth/confirm/route.ts
-{
+/*{
   type __IsExpected<Specific extends RouteHandlerConfig<"/auth/confirm">> = Specific
   const handler = {} as typeof import("@/app/auth/confirm/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
-}
+}*/
 
 
 

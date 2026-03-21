@@ -3,7 +3,7 @@
 export default function Page() {
   const checkout = async () => {
     try {
-      const res = await fetch('/api/pay', { method: 'POST' });
+      const res = await fetch('/api/pay/', { method: 'POST' });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
     } catch (e) { alert("通信エラー"); }

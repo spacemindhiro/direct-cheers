@@ -1,47 +1,36 @@
 -- ==========================================
 -- Project: Direct Cheers (Financial Grade)
--- Version: v1.6 (High Precision / Numeric 8,6)
+-- Version: v1.7 (Normalized / High Precision)
 -- Description: master_schema.sql
 -- ==========================================
 
 -- 1. 共通更新関数
-create or replace function update_modified_column()
-returns trigger as $$
-begin
-    new.updated_at = now();
-    return new;
-end;
-$$ language 'plpgsql';
+create or replace function update_modified_column() returns trigger as $$
+begin new.updated_at = now(); return new; end; $$ language 'plpgsql';
 
 -- 2. イベント猶予期間計算関数
-create or replace function calculate_event_deadline()
-returns trigger as $$
-begin
-    new.settlement_deadline = new.end_at + interval '259200 seconds';
-    return new;
-end;
-$$ language 'plpgsql';
+create or replace function calculate_event_deadline() returns trigger as $$
+begin new.settlement_deadline = new.end_at + interval '259200 seconds'; return new; end; $$ language 'plpgsql';
 
--- 3. プロフィール (高精度: 0.125000 等に対応)
+-- 3. プロフィール (0.100000 = 10%)
 create table public.profiles (
   profile_id uuid references auth.users on delete cascade primary key,
   role text check (role in ('admin', 'organizer', 'dj')) not null default 'dj',
   display_name text not null,
   stripe_connect_id text unique,
-  -- 0.100000 (10%) デフォルト。1/8(0.125)も確実に保持。
   base_fee_rate numeric(8,6) default 0.100000 not null, 
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null,
   deleted_at timestamptz
 );
 
--- 4. コネクション
+-- 4. コネクション (集計項目を排除)
 create table public.connections (
   connection_id uuid default gen_random_uuid() primary key,
   organizer_profile_id uuid references public.profiles(profile_id) not null,
   dj_profile_id uuid references public.profiles(profile_id) not null,
+  -- 申請・承認・ブロックの状態管理
   status text check (status in ('pending', 'active', 'blocked')) default 'pending' not null,
-  total_earned_amount numeric(12,2) default 0.00 not null,
   event_count int default 0 not null,
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null,
@@ -57,7 +46,7 @@ create table public.events (
   end_at timestamptz not null,
   settlement_deadline timestamptz,
   is_fee_overridden boolean default false not null,
-  event_fee_rate numeric(8,6), -- 高精度レート
+  event_fee_rate numeric(8,6),
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null,
   deleted_at timestamptz
@@ -75,16 +64,16 @@ create table public.qr_configs (
   updated_at timestamptz default now() not null
 );
 
--- 7. QR配分ターゲット (0.125000 などの端数配分に対応)
+-- 7. QR配分ターゲット
 create table public.qr_config_targets (
   qr_config_target_id uuid default gen_random_uuid() primary key,
   qr_config_id uuid references public.qr_configs(qr_config_id) on delete cascade not null,
   profile_id uuid references public.profiles(profile_id) not null,
-  distribution_ratio numeric(8,6) not null, -- 合計 1.000000
+  distribution_ratio numeric(8,6) not null,
   check (distribution_ratio >= 0 and distribution_ratio <= 1)
 );
 
--- 8. トランザクション
+-- 8. トランザクション (親)
 create table public.transactions (
   transaction_id uuid default gen_random_uuid() primary key,
   stripe_payment_intent_id text unique not null,
@@ -97,7 +86,7 @@ create table public.transactions (
   updated_at timestamptz default now() not null
 );
 
--- 9. 配分明細 (Snapshotも高精度)
+-- 9. 配分明細 (子：Snapshot Ledger)
 create table public.transaction_distributions (
   transaction_distribution_id uuid default gen_random_uuid() primary key,
   transaction_id uuid references public.transactions(transaction_id) on delete cascade not null,
@@ -109,7 +98,10 @@ create table public.transaction_distributions (
   created_at timestamptz default now() not null
 );
 
--- 10. トリガー
+-- 集計用インデックス（性能対策）
+create index idx_dist_profile_amount on public.transaction_distributions(profile_id, amount);
+
+-- 10. トリガー適用
 create trigger update_profiles_modtime before update on public.profiles for each row execute function update_modified_column();
 create trigger update_connections_modtime before update on public.connections for each row execute function update_modified_column();
 create trigger update_events_modtime before update on public.events for each row execute function update_modified_column();
@@ -117,7 +109,7 @@ create trigger update_qr_configs_modtime before update on public.qr_configs for 
 create trigger update_transactions_modtime before update on public.transactions for each row execute function update_modified_column();
 create trigger set_event_deadline before insert or update of end_at on public.events for each row execute function calculate_event_deadline();
 
--- 11. Auth連携
+-- 11. Auth連携 (Profile自動生成)
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin

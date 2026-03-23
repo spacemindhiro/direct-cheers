@@ -1,6 +1,6 @@
 -- ==========================================
 -- Project: Direct Cheers (Enterprise Grade)
--- Version: v3.5.3 (Full Recovery: QR, Commerce & Revenue)
+-- Version: v3.5.5 (Fully Verified & Complete)
 -- ==========================================
 
 -- 1. 共通関数
@@ -10,7 +10,7 @@ returns trigger as $$ begin new.updated_at = now(); return new; end; $$ language
 create or replace function calculate_event_deadline()
 returns trigger as $$ begin new.settlement_deadline = new.end_at + interval '72 hours'; return new; end; $$ language 'plpgsql';
 
--- 2. プロフィール
+-- 2. プロフィール (ユーザー/Agent/Artist/Org)
 create table public.profiles (
   profile_id uuid references auth.users on delete cascade primary key,
   role text check (role in ('admin', 'agent', 'organizer', 'artist', 'user')) not null default 'artist',
@@ -26,7 +26,18 @@ create table public.profiles (
   updated_at timestamptz default now() not null
 );
 
--- 3. イベント
+-- 3. コネクション (マスタ同士の信頼関係)
+create table public.connections (
+  connection_id uuid default gen_random_uuid() primary key,
+  organizer_profile_id uuid references public.profiles(profile_id) not null,
+  artist_profile_id uuid references public.profiles(profile_id) not null,
+  status text check (status in ('pending', 'active', 'blocked')) default 'pending' not null,
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null,
+  unique(organizer_profile_id, artist_profile_id)
+);
+
+-- 4. イベント (興行実態)
 create table public.events (
   event_id uuid default gen_random_uuid() primary key,
   organizer_profile_id uuid references public.profiles(profile_id) not null,
@@ -43,7 +54,17 @@ create table public.events (
   updated_at timestamptz default now() not null
 );
 
--- 4. 分配ルール (マスター設定)
+-- 5. イベント出演者 (特定のイベントへのアサイン) ★追加
+create table public.event_artists (
+  event_artist_id uuid default gen_random_uuid() primary key,
+  event_id uuid references public.events(event_id) on delete cascade not null,
+  artist_profile_id uuid references public.profiles(profile_id) not null,
+  performance_order int, -- 出演順
+  created_at timestamptz default now() not null,
+  unique(event_id, artist_profile_id)
+);
+
+-- 6. 分配ルール (マスター設定)
 create table public.distribution_configs (
   config_id uuid default gen_random_uuid() primary key,
   event_id uuid references public.events(event_id) on delete cascade not null,
@@ -56,46 +77,46 @@ create table public.distribution_configs (
   unique(event_id)
 );
 
--- 5. QR設定（入り口） ※復活
+-- 7. QR設定 (物理的な入り口)
 create table public.qr_configs (
   qr_config_id uuid default gen_random_uuid() primary key,
   event_id uuid references public.events(event_id) on delete cascade not null,
   creator_profile_id uuid references public.profiles(profile_id) not null,
-  label text, -- 「DJブース用」「エントランス用」など
+  label text,
   is_personal boolean default false not null,
   logic_version int default 1 not null,
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null
 );
 
--- 6. QR配分ターゲット ※復活
+-- 8. QR配分ターゲット (決済ごとの分配先)
 create table public.qr_config_targets (
   qr_config_target_id uuid default gen_random_uuid() primary key,
   qr_config_id uuid references public.qr_configs(qr_config_id) on delete cascade not null,
   profile_id uuid references public.profiles(profile_id) not null,
-  distribution_ratio numeric(8,6) not null, -- 1枚のQRの売上内での比率
+  distribution_ratio numeric(8,6) not null,
   check (distribution_ratio >= 0 and distribution_ratio <= 1)
 );
 
--- 7. 商品マスター
+-- 9. 商品マスター (NFT & 演出権)
 create table public.products (
   product_id uuid default gen_random_uuid() primary key,
   event_id uuid references public.events(event_id) on delete cascade not null,
   artist_id uuid references public.profiles(profile_id) not null,
   name text not null default 'デジタル参加証明NFT & メッセージ掲載権',
-  description text default 'アーティストへの応援メッセージ送信と、限定シリアル入りデジタルNFTの所有権が含まれます。',
+  description text,
   price_type text check (price_type in ('fixed', 'flexible')) default 'flexible',
   min_amount int4 default 500,
   digital_asset_url text, 
   created_at timestamptz default now()
 );
 
--- 8. トランザクション
+-- 10. トランザクション
 create table public.transactions (
   transaction_id uuid default gen_random_uuid() primary key,
   stripe_payment_intent_id text unique not null,
   product_id uuid references public.products(product_id),
-  qr_config_id uuid references public.qr_configs(qr_config_id), -- QR紐付け復活
+  qr_config_id uuid references public.qr_configs(qr_config_id),
   sender_name text,
   sender_comment text,
   sender_profile_id uuid references public.profiles(profile_id),
@@ -109,7 +130,7 @@ create table public.transactions (
   updated_at timestamptz default now() not null
 );
 
--- 9. 分配明細
+-- 11. 分配明細 (計算済みデータ)
 create table public.transaction_distributions (
   transaction_distribution_id uuid default gen_random_uuid() primary key,
   transaction_id uuid references public.transactions(transaction_id) on delete cascade not null,
@@ -120,7 +141,7 @@ create table public.transaction_distributions (
   created_at timestamptz default now() not null
 );
 
--- 10. 販売証跡・レシート
+-- 12. 販売証跡 (審査用)
 create table public.receipts (
   receipt_id uuid default gen_random_uuid() primary key,
   transaction_id uuid references public.transactions(transaction_id) not null,
@@ -131,10 +152,22 @@ create table public.receipts (
   issued_at timestamptz default now()
 );
 
--- 11. インデックス & トリガー
-create index idx_qr_event on public.qr_configs(event_id);
-create index idx_trx_qr on public.transactions(qr_config_id);
+-- 13. ペイアウト（送金）ログ ★追加
+create table public.payout_logs (
+  payout_id uuid default gen_random_uuid() primary key,
+  profile_id uuid references public.profiles(profile_id) not null,
+  amount numeric(12,2) not null,
+  status text check (status in ('scheduled', 'processing', 'completed', 'failed')) default 'scheduled' not null,
+  stripe_transfer_id text unique,
+  error_message text,
+  created_at timestamptz default now() not null
+);
+
+-- 14. インデックス & トリガー
+create index idx_event_art_event on public.event_artists(event_id);
+create index idx_trx_product on public.transactions(product_id);
 create trigger update_profiles_modtime before update on public.profiles for each row execute function update_modified_column();
+create trigger update_connections_modtime before update on public.connections for each row execute function update_modified_column();
 create trigger update_events_modtime before update on public.events for each row execute function update_modified_column();
 create trigger update_qr_modtime before update on public.qr_configs for each row execute function update_modified_column();
 create trigger set_event_deadline before insert or update of end_at on public.events for each row execute function calculate_event_deadline();

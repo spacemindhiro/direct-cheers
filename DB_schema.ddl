@@ -1,13 +1,13 @@
 -- ==========================================
--- Project: Direct Cheers (Financial & Risk Control)
--- Version: v4.0.0 (The Definitive Settlement Layer)
+-- Project: Direct Cheers (Enterprise & Dynamic Content)
+-- Version: v4.1.0 (v4.0.0 Base + Content Synthesis Layer)
 -- ==========================================
 
--- 1. 共通関数（自動更新）
+-- 1. 共通関数
 create or replace function update_modified_column()
 returns trigger as $$ begin new.updated_at = now(); return new; end; $$ language 'plpgsql';
 
--- 2. プロフィール (v3.6.1 準拠)
+-- 2. プロフィール (v3.6.1 継承)
 create table public.profiles (
   profile_id uuid references auth.users on delete cascade primary key,
   role text check (role in ('admin', 'agent', 'organizer', 'artist', 'user')) not null default 'artist',
@@ -24,7 +24,7 @@ create table public.profiles (
   deleted_at timestamptz
 );
 
--- 3. コネクション (v3.6.1 準拠)
+-- 3. コネクション (v3.6.1 継承)
 create table public.connections (
   connection_id uuid default gen_random_uuid() primary key,
   organizer_profile_id uuid references public.profiles(profile_id) on delete restrict not null,
@@ -36,7 +36,7 @@ create table public.connections (
   unique(organizer_profile_id, artist_profile_id)
 );
 
--- 4. イベント (v3.6.1 準拠)
+-- 4. イベント (コンテンツ基盤拡張)
 create table public.events (
   event_id uuid default gen_random_uuid() primary key,
   organizer_profile_id uuid references public.profiles(profile_id) on delete restrict not null,
@@ -44,6 +44,8 @@ create table public.events (
   lifecycle_status text check (lifecycle_status in ('draft', 'published', 'ongoing', 'ended', 'settled')) default 'draft' not null,
   evidence_page_slug text unique,
   title text not null,
+  base_flyer_url text, -- 🖼️ ここにパーティのフライヤーを登録
+  timetable_url text,   -- 🕒 タイムテーブルもコンテンツとして利用可
   start_at timestamptz not null,
   end_at timestamptz not null,
   settlement_deadline timestamptz,
@@ -52,19 +54,20 @@ create table public.events (
   deleted_at timestamptz
 );
 
--- 5. イベント出演者 (v3.6.1 準拠)
+-- 5. イベント出演者 (感謝メッセージ追加)
 create table public.event_artists (
   event_artist_id uuid default gen_random_uuid() primary key,
   event_id uuid references public.events(event_id) on delete restrict not null,
   artist_profile_id uuid references public.profiles(profile_id) on delete restrict not null,
   performance_order int,
+  thanks_message text, -- 💬 決済完了画面に差し込むアーティストの一言
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null,
   deleted_at timestamptz,
   unique(event_id, artist_profile_id)
 );
 
--- 6. 分配ルール (v3.6.1 準拠)
+-- 6. 分配ルール (v3.6.1 継承)
 create table public.distribution_configs (
   config_id uuid default gen_random_uuid() primary key,
   event_id uuid references public.events(event_id) on delete restrict not null,
@@ -79,7 +82,7 @@ create table public.distribution_configs (
   unique(event_id)
 );
 
--- 7. QR設定 (v3.6.1 準拠)
+-- 7. QR設定 (v3.6.1 継承)
 create table public.qr_configs (
   qr_config_id uuid default gen_random_uuid() primary key,
   event_id uuid references public.events(event_id) on delete restrict not null,
@@ -91,7 +94,7 @@ create table public.qr_configs (
   deleted_at timestamptz
 );
 
--- 8. QR配分ターゲット (v3.6.1 準拠)
+-- 8. QR配分ターゲット (v3.6.1 継承)
 create table public.qr_config_targets (
   qr_config_target_id uuid default gen_random_uuid() primary key,
   qr_config_id uuid references public.qr_configs(qr_config_id) on delete restrict not null,
@@ -102,20 +105,20 @@ create table public.qr_config_targets (
   deleted_at timestamptz
 );
 
--- 9. 商品マスター (v3.6.1 準拠)
+-- 9. 商品マスター (v3.6.1 継承)
 create table public.products (
   product_id uuid default gen_random_uuid() primary key,
   event_id uuid references public.events(event_id) on delete restrict not null,
   artist_id uuid references public.profiles(profile_id) on delete restrict not null,
   name text not null,
   min_amount bigint not null default 500,
-  digital_asset_url text,
+  digital_asset_url text, -- 商品個別のアセット（もしあれば）
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null,
   deleted_at timestamptz
 );
 
--- 10. トランザクション (v3.6.1 準拠 ＋ 資金ステータス)
+-- 10. トランザクション (複数回決済・コンテンツ印字用拡張)
 create table public.transactions (
   transaction_id uuid default gen_random_uuid() primary key,
   stripe_payment_intent_id text unique not null,
@@ -126,17 +129,20 @@ create table public.transactions (
   sender_comment text,
   status text check (status in ('pending', 'succeeded', 'failed', 'refunded')) default 'pending' not null,
   total_gross_amount bigint not null,
-  nft_serial_number text unique,
-  is_nft_delivered boolean default false not null,
-  mint_tx_hash text,
+  
+  -- 🎫 動的コンテンツ用
+  nft_serial_number text unique, -- DC-YYYY-XXXX
+  sequence_number_in_event int4 default 1, -- 同一ユーザーのその日何回目の決済か
+  cumulative_amount_at_tx bigint, -- その時点での累計応援額
+  display_grade text default 'normal', -- normal, silver, gold
+  
   stripe_funds_status text check (stripe_funds_status in ('held_in_platform', 'transferred', 'refunded')) default 'held_in_platform' not null,
-  sequence_number_in_event int4 default 1,
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null,
   deleted_at timestamptz
 );
 
--- 11. 【追加】精算サマリ (GOサイン & 14日ホールド)
+-- 11. 精算サマリ (v4.0.0 継承)
 create table public.settlement_summaries (
   summary_id uuid default gen_random_uuid() primary key,
   event_id uuid references public.events(event_id) on delete restrict not null unique,
@@ -148,7 +154,7 @@ create table public.settlement_summaries (
   deleted_at timestamptz
 );
 
--- 12. 分配明細 (v3.6.1 準拠 ＋ 状態管理)
+-- 12. 分配明細 (v4.0.0 継承)
 create table public.transaction_distributions (
   transaction_distribution_id uuid default gen_random_uuid() primary key,
   transaction_id uuid references public.transactions(transaction_id) on delete restrict not null,
@@ -162,7 +168,7 @@ create table public.transaction_distributions (
   deleted_at timestamptz
 );
 
--- 13. 【追加】債権管理 (チャージバック/相殺用ダム)
+-- 13. 債権管理 (v4.0.0 継承)
 create table public.debt_claims (
   claim_id uuid default gen_random_uuid() primary key,
   profile_id uuid references public.profiles(profile_id) on delete restrict not null,
@@ -176,7 +182,7 @@ create table public.debt_claims (
   deleted_at timestamptz
 );
 
--- 14. 【追加】出金リクエスト (セルフ/手数料転嫁)
+-- 14. 出金リクエスト (v4.0.0 継承)
 create table public.payout_requests (
   request_id uuid default gen_random_uuid() primary key,
   profile_id uuid references public.profiles(profile_id) on delete restrict not null,
@@ -190,7 +196,7 @@ create table public.payout_requests (
   deleted_at timestamptz
 );
 
--- 15. 販売証跡 (v3.6.1 準拠)
+-- 15. 販売証跡 (v3.6.1 継承)
 create table public.receipts (
   receipt_id uuid default gen_random_uuid() primary key,
   transaction_id uuid references public.transactions(transaction_id) on delete restrict not null,
@@ -203,16 +209,20 @@ create table public.receipts (
   deleted_at timestamptz
 );
 
--- 16. 【追加】閲覧ログ (エビデンス)
+-- 16. アセットアクセスログ (閲覧履歴 = 納品完了の証拠)
 create table public.asset_access_logs (
   log_id uuid default gen_random_uuid() primary key,
   transaction_id uuid references public.transactions(transaction_id) on delete restrict not null,
+  ip_address text,
+  user_agent text,
   accessed_at timestamptz default now() not null
 );
 
 -- ==========================================
--- Logic View: 精算可能額 (債権相殺)
+-- Views & Triggers
 -- ==========================================
+
+-- 出金可能額のリアルタイム計算
 create or replace view public.view_withdrawable_balances as
 with accrued_confirmed as (
     select 
@@ -246,7 +256,7 @@ left join accrued_confirmed a on p.profile_id = a.profile_id
 left join active_debts d on p.profile_id = d.profile_id
 where p.deleted_at is null;
 
--- 🛡️ トリガー設定 (全自動)
+-- トリガー適用
 do $$
 declare t text;
 begin

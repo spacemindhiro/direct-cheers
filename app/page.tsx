@@ -3,7 +3,10 @@ import { ArrowRight, Zap, Wallet, ShieldCheck } from "lucide-react";
 import { Hero } from "@/components/hero";
 import { ConnectSupabaseSteps } from "@/components/tutorial/connect-supabase-steps";
 import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
-import { hasEnvVars } from "@/utils/supabase/check-env-vars";
+
+// エラーの出たパスを "@/utils/supabase/check-env-vars" から 
+// proxy.ts で動いていた形式 "../utils" に差し替えました。
+import { hasEnvVars } from "../utils";
 
 export default async function Index() {
   return (

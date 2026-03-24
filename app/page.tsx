@@ -8,7 +8,12 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-violet-600 rounded-lg shadow-lg shadow-pink-500/20 group-hover:scale-110 transition-transform" />
+            {/* 🕵️‍♂️ 修正ポイント：四角い div を排除し、生成した高解像度エンブレムを配置 */}
+            <img 
+              src="/logo-emblem.png" 
+              alt="Direct Cheers Logo" 
+              className="w-8 h-8 rounded-lg shadow-lg shadow-pink-500/10 group-hover:scale-110 transition-transform"
+            />
             <h1 className="text-xl font-black tracking-tighter text-white uppercase italic">Direct Cheers</h1>
           </Link>
           
@@ -120,7 +125,6 @@ export default function LandingPage() {
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium">
                 <li><Link href="/terms" className="hover:text-white transition-colors">利用規約</Link></li>
                 <li><Link href="/law" className="hover:text-white transition-colors">特定商取引法に基づく表記</Link></li>
-                {/* 🕵️‍♂️ 修正ポイント：Privacy Policyへのリンクを追加 */}
                 <li><Link href="/privacy" className="text-pink-500 font-bold hover:underline transition-all underline-offset-4">プライバシーポリシー</Link></li>
               </ul>
             </div>

@@ -1,4 +1,4 @@
-
+const user = { id: "demo-user" }; // ログイン判定を偽装してスルー
 
 export default function Page() {
   return (

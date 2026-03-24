@@ -3,12 +3,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
 
 export async function updateSession(request: NextRequest) {
+  // 1. 初期レスポンス作成（ここでの request 渡しが重要）
   let supabaseResponse = NextResponse.next({
     request,
   });
 
   if (!hasEnvVars) return supabaseResponse;
 
+  // 2. Supabaseクライアント作成
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -18,40 +20,39 @@ export async function updateSession(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options));
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     },
   );
 
-  // --- 【最優先】ログインチェックを完全にバイパスするパス ---
-  // APIや特定の公開ページは、user判定の前にスルーさせる
-  if (
-    request.nextUrl.pathname.startsWith('/api/demo/pay') ||
-    request.nextUrl.pathname.startsWith('/demo/success') // もしあれば
-  ) {
-    return supabaseResponse;
-  }
+  // 3. ユーザー情報の取得（getClaims ではなく getUser の方が確実な場合があります）
+  const { data: { user } } = await supabase.auth.getUser();
 
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims;
+  const path = request.nextUrl.pathname;
 
-  // --- 制限エリアの判定 ---
-  if (
-    request.nextUrl.pathname !== "/" &&
-    request.nextUrl.pathname !== "/law" &&
-    request.nextUrl.pathname !== "/terms" &&
-    request.nextUrl.pathname !== "/privacy" &&
-    !request.nextUrl.pathname.startsWith("/demo") && 
-    !request.nextUrl.pathname.startsWith("/concept") &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    !user // 最後にuserチェック
-  ) {
+  // --- 🕵️‍♂️ ホワイトリスト（ログイン不要で通すパス）の定義 ---
+  const isPublicPath = 
+    path === "/" ||
+    path === "/law" ||
+    path === "/terms" ||
+    path === "/privacy" ||
+    path.startsWith("/demo") || // これで /api/demo/pay も /demo/success もカバー
+    path.startsWith("/concept") ||
+    path.startsWith("/login") ||
+    path.startsWith("/auth");
+
+  // 4. 判定ロジック
+  if (!user && !isPublicPath) {
+    // ログインしていない、かつ公開ページでもない場合のみリダイレクト
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }
 
+  // 5. 【重要】全てのケースでこの supabaseResponse を返す
+  // これにより、APIコール時も正しくCookie（セッション）が維持されます
   return supabaseResponse;
 }

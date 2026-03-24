@@ -5,7 +5,7 @@ import { SignUpUserSteps } from "@/components/tutorial/sign-up-user-steps";
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 flex flex-col">
-      {/* --- Navigation：PMオリジナルの復元 --- */}
+      {/* --- Navigation --- */}
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 group">
@@ -27,7 +27,7 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* --- Hero Section：PMオリジナルの復元 --- */}
+      {/* --- Hero Section --- */}
       <section id="concept" className="relative py-28 px-6 overflow-hidden border-b border-slate-900">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-pink-500/5 blur-[120px] rounded-full -z-10" />
         
@@ -55,7 +55,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Features Section：リンク機能を追加 --- */}
+      {/* --- Features Section --- */}
       <section id="features" className="py-24 bg-slate-950 px-6">
         <div className="max-w-6xl mx-auto text-center">
           <div className="mb-20">
@@ -64,39 +64,36 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-10">
-            {/* 01: 演出連動 */}
+            {/* 01 */}
             <Link href="/concept/realtime" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/30 transition-all group text-left block">
               <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50">01</div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">リアルタイム演出連動</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
                 応援をトリガーに、会場のVJや照明が変化。あなたの「熱」が現場の景色を塗り替えます。
-                <span className="block mt-2 text-[10px] text-slate-600">※一部の演出対応イベントにて順次展開予定</span>
               </p>
             </Link>
 
-            {/* 02: スマホウォレット */}
+            {/* 02 */}
             <Link href="/concept/wallet" className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group text-left block">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 blur-3xl group-hover:bg-violet-500/20 transition-all" />
               <div className="text-violet-500 font-black text-5xl italic mb-6">02</div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">スマホのウォレットに保存</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
-                購入したデジタルアセットはApple WalletやGoogle Walletに簡単追加。
-                シリアル刻印入りの記念カードを、いつでもどこでもスマホから呼び出せます。
+                記念カードをApple/Google Walletに簡単追加。いつでもどこでもスマホから呼び出せます。
               </p>
             </Link>
 
-            {/* 03: 証跡管理 */}
+            {/* 03 */}
             <Link href="/concept/nft" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/30 transition-all text-left block">
               <div className="text-indigo-500 font-black text-5xl italic mb-6">03</div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">NFT技術による証跡管理</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
-                すべてのカードはブロックチェーン（NFT）によって唯一無二の価値を保証。
-                厳格なアクセスログ管理により、正当なデジタル取引をプラットフォームが支えます。
+                ブロックチェーンにより唯一無二の価値を保証。正当なデジタル取引をプラットフォームが支えます。
               </p>
             </Link>
           </div>
 
-          {/* 登録セクションをFeaturesの下に配置 */}
+          {/* 修正ポイント：余計な案内を消し、直接SignUpUserStepsを出す */}
           <div className="mt-24 pt-24 border-t border-slate-900 flex flex-col items-center">
             <h4 className="text-white font-black italic tracking-tighter text-3xl mb-12 uppercase">Join the Movement</h4>
             <div className="w-full max-w-md">
@@ -106,10 +103,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Footer Area：PMオリジナルの完全復旧 --- */}
+      {/* --- Footer --- */}
       <footer className="py-24 px-6 border-t border-slate-800 bg-slate-950 mt-auto">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-16">
-          <div className="space-y-6">
+          <div className="space-y-6 text-left">
             <h5 className="font-bold text-white tracking-tighter">DIRECT CHEERS</h5>
             <p className="text-slate-500 text-[10px] max-w-xs leading-relaxed uppercase tracking-[0.3em]">
               Digital Assets for Live Moments.

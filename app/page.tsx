@@ -1,11 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
-// 修正：問題の SignUpUserSteps ではなく、直接 Auth 関連のパーツ、またはシンプルなボタンに差し替えます
-import { ArrowRight } from "lucide-react";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 flex flex-col">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30">
       {/* --- Navigation --- */}
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
@@ -21,9 +19,9 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link href="/login" className="bg-white text-slate-950 px-5 py-2 rounded-full text-sm font-bold hover:bg-pink-500 hover:text-white transition-all shadow-xl shadow-white/5">
+            <button className="bg-white text-slate-950 px-5 py-2 rounded-full text-sm font-bold hover:bg-pink-500 hover:text-white transition-all shadow-xl shadow-white/5">
               JOIN NOW
-            </Link>
+            </button>
           </div>
         </div>
       </nav>
@@ -49,8 +47,8 @@ export default function LandingPage() {
             あなたのスマホのウォレットに直接届きます。
           </p>
           <div className="flex justify-center gap-6">
-            <Link href="/login" className="bg-slate-100 text-slate-900 px-10 py-4 rounded-full font-bold hover:bg-pink-500 hover:text-white transition-all shadow-2xl scale-110">
-              今すぐ始める
+            <Link href="#features" className="bg-slate-100 text-slate-900 px-10 py-4 rounded-full font-bold hover:bg-pink-500 hover:text-white transition-all shadow-2xl scale-110">
+              体験を詳しく知る
             </Link>
           </div>
         </div>
@@ -58,38 +56,42 @@ export default function LandingPage() {
 
       {/* --- Features Section --- */}
       <section id="features" className="py-24 bg-slate-950 px-6">
-        <div className="max-w-6xl mx-auto text-center">
-          <div className="mb-20">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-20">
             <h3 className="text-4xl font-black text-white mb-4 italic tracking-tighter uppercase">The Digital Experience</h3>
             <p className="text-slate-500">最新テクノロジーが変える、ライブエンターテインメントの未来</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-10">
+            {/* 01: 演出連動 */}
             <Link href="/concept/realtime" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/30 transition-all group block text-left">
               <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50">01</div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">リアルタイム演出連動</h4>
-              <p className="text-sm text-slate-400 leading-relaxed">応援をトリガーに、会場のVJや照明が変化。あなたの「熱」が現場の景色を塗り替えます。</p>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                応援をトリガーに、会場のVJや照明が変化。あなたの「熱」が現場の景色を塗り替えます。
+                <span className="block mt-2 text-[10px] text-slate-600">※一部の演出対応イベントにて順次展開予定</span>
+              </p>
             </Link>
 
+            {/* 02: スマホウォレット */}
             <Link href="/concept/wallet" className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group block text-left">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 blur-3xl group-hover:bg-violet-500/20 transition-all" />
               <div className="text-violet-500 font-black text-5xl italic mb-6">02</div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">スマホのウォレットに保存</h4>
-              <p className="text-sm text-slate-400 leading-relaxed">シリアル刻印入りの記念カードを、Apple/Google Walletへ。いつでもスマホから呼び出せます。</p>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                購入したデジタルアセットはApple WalletやGoogle Walletに簡単追加。
+                シリアル刻印入りの記念カードを、いつでもどこでもスマホから呼び出せます。
+              </p>
             </Link>
 
-            <Link href="/concept/nft" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/30 transition-all text-left block text-left">
+            {/* 03: 証跡管理 */}
+            <Link href="/concept/nft" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/30 transition-all block text-left">
               <div className="text-indigo-500 font-black text-5xl italic mb-6">03</div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">NFT技術による証跡管理</h4>
-              <p className="text-sm text-slate-400 leading-relaxed">ブロックチェーンで唯一無二の価値を保証。正当なデジタル取引をプラットフォームが支えます。</p>
-            </Link>
-          </div>
-
-          {/* 修正点：問題のコンポーネントを排除し、直接ログインへ誘導する「シュッとした」ボタンに置換 */}
-          <div className="mt-24 pt-24 border-t border-slate-900 flex flex-col items-center">
-            <h4 className="text-white font-black italic tracking-tighter text-3xl mb-12 uppercase">Join the Movement</h4>
-            <Link href="/login" className="group flex items-center gap-4 bg-gradient-to-r from-pink-500 to-violet-600 px-12 py-6 rounded-2xl font-black text-white text-xl hover:scale-105 transition-all shadow-2xl shadow-pink-500/20">
-              GET STARTED NOW <ArrowRight size={24} className="group-hover:translate-x-2 transition-transform" />
+              <p className="text-sm text-slate-400 leading-relaxed">
+                すべてのカードはブロックチェーン（NFT）によって唯一無二の価値を保証。
+                厳格なアクセスログ管理により、正当なデジタル取引をプラットフォームが支えます。
+              </p>
             </Link>
           </div>
         </div>
@@ -98,8 +100,8 @@ export default function LandingPage() {
       {/* --- Footer Area --- */}
       <footer className="py-24 px-6 border-t border-slate-800 bg-slate-950">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-16">
-          <div className="space-y-6 text-left">
-            <h5 className="font-bold text-white tracking-tighter italic text-xl">DIRECT CHEERS</h5>
+          <div className="space-y-6">
+            <h5 className="font-bold text-white tracking-tighter">DIRECT CHEERS</h5>
             <p className="text-slate-500 text-[10px] max-w-xs leading-relaxed uppercase tracking-[0.3em]">
               Digital Assets for Live Moments.
             </p>

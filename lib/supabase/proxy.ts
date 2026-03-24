@@ -49,6 +49,8 @@ export async function updateSession(request: NextRequest) {
 
   if (
     request.nextUrl.pathname !== "/" &&
+    request.nextUrl.pathname !== "/law" &&
+    request.nextUrl.pathname !== "/terms" &&
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/auth")

@@ -11,14 +11,14 @@ export default function LawPage() {
         <h1 className="text-3xl font-black mb-12 italic border-l-4 border-pink-500 pl-4 uppercase">特定商取引法に基づく表記</h1>
         
         <div className="space-y-1">
-          <div className={rowStyle}><div className={labelStyle}>販売業者</div><div className={contentStyle}>[PMのご氏名 または 屋号]</div></div>
-          <div className={rowStyle}><div className={labelStyle}>代表責任者</div><div className={contentStyle}>[PMのご氏名]</div></div>
-          <div className={rowStyle}><div className={labelStyle}>所在地</div><div className={contentStyle}>[郵便番号・住所]</div></div>
-          <div className={rowStyle}><div className={labelStyle}>電話番号</div><div className={contentStyle}>[電話番号] ※Stripe登録と一致させる</div></div>
-          <div className={rowStyle}><div className={labelStyle}>メールアドレス</div><div className={contentStyle}>[info@yourdomain.com 等]</div></div>
+          <div className={rowStyle}><div className={labelStyle}>販売業者</div><div className={contentStyle}>[SpaceMind Direct Cheers 事務局（代表：森脇 弘貴）]</div></div>
+          <div className={rowStyle}><div className={labelStyle}>代表責任者</div><div className={contentStyle}>[森脇 弘貴]</div></div>
+          <div className={rowStyle}><div className={labelStyle}>所在地</div><div className={contentStyle}>[〒223-0062 神奈川県横浜市港北区日吉本町x-x-x]</div></div>
+          <div className={rowStyle}><div className={labelStyle}>電話番号</div><div className={contentStyle}>[090-xxxx-xxxx]</div></div>
+          <div className={rowStyle}><div className={labelStyle}>メールアドレス</div><div className={contentStyle}>[spacemind.hiro@direct-cheers.com]</div></div>
           <div className={rowStyle}><div className={labelStyle}>販売価格</div><div className={contentStyle}>各商品の購入ページに表示される価格（税込）</div></div>
           <div className={rowStyle}><div className={labelStyle}>商品代金以外の必要料金</div><div className={contentStyle}>なし（インターネット接続費用は別途お客様負担）</div></div>
-          <div className={rowStyle}><div className={labelStyle}>支払方法</div><div className={contentStyle}>クレジットカード決済</div></div>
+          <div className={rowStyle}><div className={labelStyle}>支払方法</div><div className={contentStyle}>クレジットカード決済、PayPay決済、Link決済</div></div>
           <div className={rowStyle}><div className={labelStyle}>商品の引渡時期</div><div className={contentStyle}>決済完了後、直ちにブラウザ上のマイページにて閲覧可能な状態になります。</div></div>
           <div className={rowStyle}><div className={labelStyle}>返品・交換・キャンセル</div><div className={contentStyle}>デジタルコンテンツの特性上、決済完了後の返品・返金・キャンセルには応じられません。</div></div>
         </div>

@@ -59,7 +59,7 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
 
 // 【追加】もしリクエストが決済APIなら、何もしないでスルーさせる
-if (url.pathname.includes('/api/pay')) {
+if (url.pathname.includes('/api/demo/pay')) {
   return NextResponse.next();
 }
     url.pathname = "/auth/login";

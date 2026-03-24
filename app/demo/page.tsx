@@ -10,27 +10,32 @@ export default function DemoPage() {
     setLoading(true);
 
     try {
-      // POSTリクエストを投げる
+      // 外部の型定義に依存しない pure な fetch
       const response = await fetch('/api/pay', {
         method: 'POST',
-        // SafariのCookie制限を回避するため、認証情報を期待しない設定
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // SafariのCookie干渉を避ける
         credentials: 'omit', 
       });
 
-      // API側で 303 Redirect が返る場合、fetchはそのURLを追跡します
+      // API側がリダイレクト(303)を返した場合
       if (response.redirected) {
         window.location.href = response.url;
         return;
       }
 
-      // もしJSONで返るように変更した場合はこちら
+      // API側がJSONを返した場合
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
+      } else if (data.error) {
+        throw new Error(data.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Payment failed", error);
-      alert("決済を開始できませんでした。");
+      alert("決済を開始できませんでした: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -39,7 +44,8 @@ export default function DemoPage() {
   return (
     <main style={{ 
       display: 'flex', flexDirection: 'column', alignItems: 'center', 
-      justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f8f9fa' 
+      justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f8f9fa',
+      fontFamily: 'sans-serif'
     }}>
       <h1 style={{ marginBottom: '2rem', color: '#333' }}>Direct Cheers Demo</h1>
       

@@ -29,6 +29,6 @@ export async function POST() {
   } catch (err: any) {
     console.error(err);
     // エラー時はログイン画面へ戻すなどの処理
-    return NextResponse.redirect('https://direct-cheers.com/auth/login', 303);
+    return NextResponse.redirect('https://direct-cheers.com', 303);
   }
 }

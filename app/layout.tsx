@@ -7,10 +7,13 @@ const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
   : "http://localhost:3000";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(defaultUrl),
-  title: "Next.js and Supabase Starter Kit",
-  description: "The fastest way to build apps with Next.js and Supabase",
+export const metadata = {
+  title: {
+    default: "Direct Cheers | ライブの感動を、スマホのウォレットへ",
+    template: "%s | Direct Cheers",
+  },
+  description: "会場のQRコードから応援を贈り、ライブ演出をハックする。応援の証はシリアル入りのデジタルカードとして、あなたのスマホのウォレットに直接届きます。",
+  metadataBase: new URL("https://direct-cheers.com"), // 本番ドメインに合わせて変更してください
 };
 
 const geistSans = Geist({

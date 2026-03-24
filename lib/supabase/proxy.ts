@@ -1,58 +1,90 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { hasEnvVars } from "../utils";
+
+export async function middleware(request: NextRequest) {
+  return await updateSession(request);
+}
 
 export async function updateSession(request: NextRequest) {
-  // 1. 初期レスポンス作成（ここでの request 渡しが重要）
+  const path = request.nextUrl.pathname;
+
+  // 1. 【最優先】ホワイトリスト（ログイン不要でアクセスできるパス）
+  // /demo 配下や、そこから叩かれる /api/demo/pay を完全に「聖域化」します
+  const isPublicPath = 
+    path === "/" ||
+    path === "/law" ||
+    path === "/terms" ||
+    path === "/privacy" ||
+    path.startsWith("/demo") ||      // ページ遷移用
+    path.startsWith("/api/demo") ||  // 決済API用
+    path.startsWith("/concept") ||
+    path.startsWith("/login") ||
+    path.startsWith("/auth");
+
+  // 公開パスであれば、Supabaseの初期化やUser判定を待たずに即座にスルー
+  // これにより Safari がセッションを見失っていても API は叩けます
+  if (isPublicPath) {
+    return NextResponse.next({ request });
+  }
+
+  // 2. 認証が必要な領域（管理画面など）のためのレスポンス初期化
   let supabaseResponse = NextResponse.next({
     request,
   });
 
-  if (!hasEnvVars) return supabaseResponse;
+  // 環境変数のチェック（念のため）
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    return supabaseResponse;
+  }
 
-  // 2. Supabaseクライアント作成
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
       cookies: {
-        getAll() { return request.cookies.getAll(); },
+        getAll() {
+          return request.cookies.getAll();
+        },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
+          supabaseResponse = NextResponse.next({
+            request,
+          });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, options),
           );
         },
       },
     },
   );
 
-  // 3. ユーザー情報の取得（getClaims ではなく getUser の方が確実な場合があります）
+  // 3. セッション確認
+  // getClaimsよりも getUser の方がセッション復旧能力が高いためこちらを採用
   const { data: { user } } = await supabase.auth.getUser();
 
-  const path = request.nextUrl.pathname;
-
-  // --- 🕵️‍♂️ ホワイトリスト（ログイン不要で通すパス）の定義 ---
-  const isPublicPath = 
-    path === "/" ||
-    path === "/law" ||
-    path === "/terms" ||
-    path === "/privacy" ||
-    path.startsWith("/demo") || // これで /api/demo/pay も /demo/success もカバー
-    path.startsWith("/concept") ||
-    path.startsWith("/login") ||
-    path.startsWith("/auth");
-
-  // 4. 判定ロジック
-  if (!user && !isPublicPath) {
-    // ログインしていない、かつ公開ページでもない場合のみリダイレクト
+  // 4. ログインしていない & 公開パスでもない場合はログインへ
+  if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }
 
-  // 5. 【重要】全てのケースでこの supabaseResponse を返す
-  // これにより、APIコール時も正しくCookie（セッション）が維持されます
+  // 5. 認証済みレスポンスを返す（Cookie同期済み）
   return supabaseResponse;
 }
+
+// 適用範囲の設定
+export const config = {
+  matcher: [
+    /*
+     * 下記以外のすべてのパスにミドルウェアを適用:
+     * - _next/static (静的ファイル)
+     * - _next/image (画像最適化)
+     * - favicon.ico (ファビコン)
+     * - 公開画像ファイルなど
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};

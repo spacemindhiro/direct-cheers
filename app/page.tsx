@@ -101,7 +101,7 @@ export default function LandingPage() {
       <footer className="py-24 px-6 border-t border-slate-800 bg-slate-950">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-16">
           <div className="space-y-6">
-            <h5 className="font-bold text-white tracking-tighter">DIRECT CHEERS</h5>
+            <h5 className="font-bold text-white tracking-tighter italic text-xl">DIRECT CHEERS</h5>
             <p className="text-slate-500 text-[10px] max-w-xs leading-relaxed uppercase tracking-[0.3em]">
               Digital Assets for Live Moments.
             </p>
@@ -119,7 +119,9 @@ export default function LandingPage() {
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Legal</h6>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium">
                 <li><Link href="/terms" className="hover:text-white transition-colors">利用規約</Link></li>
-                <li><Link href="/law" className="text-pink-500 font-bold hover:underline transition-all underline-offset-4">特定商取引法に基づく表記</Link></li>
+                <li><Link href="/law" className="hover:text-white transition-colors">特定商取引法に基づく表記</Link></li>
+                {/* 🕵️‍♂️ 修正ポイント：Privacy Policyへのリンクを追加 */}
+                <li><Link href="/privacy" className="text-pink-500 font-bold hover:underline transition-all underline-offset-4">プライバシーポリシー</Link></li>
               </ul>
             </div>
             <div>

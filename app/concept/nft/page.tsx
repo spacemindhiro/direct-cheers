@@ -1,45 +1,96 @@
-import Link from "next/link";
-import { ShieldCheck, ChevronLeft, Database, Award } from "lucide-react";
+import React from 'react';
+import Link from 'next/link';
+import { ShieldCheck, Fingerprint, Share2, ArrowLeft } from "lucide-react";
 
 export default function NftConcept() {
   return (
-    <div className="max-w-3xl mx-auto px-6 py-20">
-      <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-8">
-        <ChevronLeft size={16} /> トップへ戻る
-      </Link>
-      
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-          <ShieldCheck className="text-green-600" size={28} />
-        </div>
-        <h1 className="text-3xl font-bold">NFT技術による証跡管理</h1>
-      </div>
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30">
+      <nav className="p-6 border-b border-slate-800">
+        <Link href="/" className="flex items-center gap-2 text-sm font-bold hover:text-pink-500 transition-colors">
+          <ArrowLeft size={16} /> BACK TO TOP
+        </Link>
+      </nav>
 
-      <div className="prose prose-neutral dark:prose-invert">
-        <p className="text-xl leading-relaxed text-muted-foreground mb-8">
-          あなたの応援は、改ざん不可能な「歴史」になる。
-        </p>
-
-        <section className="space-y-8">
-          <div className="p-6 bg-accent rounded-2xl border">
-            <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
-              <Database size={20} className="text-green-600" /> ブロックチェーンによる証明
-            </h2>
-            <p>
-              すべてのCheer（応援）履歴は、分散型台帳技術を用いて記録されます。運営会社が消えても、あなたの応援の事実はネットワーク上に永続的に残り続けます。
-            </p>
-          </div>
-
-          <div className="p-6 bg-accent rounded-2xl border">
-            <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
-              <Award size={20} className="text-green-600" /> 唯一無二のシリアル番号
-            </h2>
-            <p>
-              発行されるデジタルコンテンツにはすべて固有のIDが付与され、所有権が明確に定義されます。これは将来的に、アーティストからの特別な特典（先行予約権など）の鍵となります。
-            </p>
-          </div>
+      <main className="max-w-4xl mx-auto py-20 px-6">
+        {/* --- Header --- */}
+        <section className="mb-20">
+          <span className="text-indigo-500 font-black italic tracking-widest text-sm uppercase">Concept 03</span>
+          <h1 className="text-5xl md:text-7xl font-black text-white mt-4 mb-8 tracking-tighter italic uppercase leading-[1.1]">
+            「持っている」を、<br />
+            <span className="bg-gradient-to-r from-indigo-500 to-cyan-500 bg-clip-text text-transparent">
+              永遠に証明する
+            </span>
+            。
+          </h1>
+          <p className="text-xl text-slate-400 leading-relaxed font-medium">
+            あなたが手に入れたデジタルカードは、コピー可能なデータではありません。<br />
+            ブロックチェーン技術（NFT）により、その所有権は世界でただ一つのものとして記録されます。
+          </p>
         </section>
-      </div>
+
+        {/* --- Main Content --- */}
+        <div className="grid gap-12">
+          
+          {/* 所有権の証明：ここがNFTの役割 */}
+          <div className="bg-slate-900/50 p-10 rounded-[2.5rem] border border-slate-800 relative overflow-hidden group">
+            <div className="absolute -right-10 -top-10 w-40 h-40 bg-indigo-500/10 blur-3xl group-hover:bg-indigo-500/20 transition-all" />
+            <div className="flex items-start gap-6 relative z-10">
+              <div className="bg-indigo-500/10 p-4 rounded-2xl shrink-0">
+                <Fingerprint className="text-indigo-500" size={32} />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-4 italic text-left">デジタル資産としての所有権担保</h2>
+                <p className="text-slate-400 leading-relaxed text-left">
+                  発行される全てのデジタルCheers!カードには、ブロックチェーン上に固有のIDと所有者情報が刻まれます。
+                  たとえサービスが形を変えても、あなたが「あの日のあのライブで、このカードを手に入れた」という事実は、誰にも書き換えられないデジタルな証跡として残り続けます。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* シリアルナンバーの価値 */}
+          <div className="bg-slate-900/50 p-10 rounded-[2.5rem] border border-slate-800 relative overflow-hidden group">
+            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-cyan-500/10 blur-3xl group-hover:bg-cyan-500/20 transition-all" />
+            <div className="flex items-start gap-6 relative z-10">
+              <div className="bg-cyan-500/10 p-4 rounded-2xl shrink-0">
+                <ShieldCheck className="text-cyan-500" size={32} />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-4 italic text-left">偽造不可能なシリアルナンバー</h2>
+                <p className="text-slate-400 leading-relaxed text-left">
+                  全てのカードには、発行順に応じたシリアルナンバーが刻印されます。
+                  ブロックチェーンによる検証システムにより、そのカードが公式に発行された本物であることを、誰でも瞬時に確認可能。
+                  ファンとしての「熱量」が、客観的な信頼を伴う価値へと変わります。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 応援履歴との違い（内部DB） */}
+          <div className="bg-slate-900/50 p-10 rounded-[2.5rem] border border-slate-800">
+            <div className="flex items-start gap-6">
+              <div className="bg-slate-800 p-4 rounded-2xl shrink-0">
+                <Share2 className="text-slate-400" size={32} />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-4 italic text-left">プライバシーと利便性の両立</h2>
+                <p className="text-slate-400 leading-relaxed text-left">
+                  個別の「いつ、どのタイミングで応援したか」という詳細なアクション履歴は、プラットフォーム内部のセキュアなデータベースで厳重に管理。
+                  表舞台（ブロックチェーン）には「カードの所有権」という確固たる事実のみを公開することで、プライバシーを守りながら次世代のファン体験を支えます。
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* --- Footer Note --- */}
+        <footer className="mt-20 pt-10 border-t border-slate-900 text-center">
+          <p className="text-slate-600 text-sm italic font-mono uppercase tracking-widest">
+            Ownership verified on the blockchain.
+          </p>
+        </footer>
+      </main>
     </div>
   );
 }

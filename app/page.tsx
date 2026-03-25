@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { Play } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -19,6 +20,7 @@ export default function LandingPage() {
           
           <div className="hidden md:flex gap-8 text-sm font-medium">
             <Link href="#concept" className="hover:text-pink-500 transition-colors">コンセプト</Link>
+            <Link href="#demo" className="hover:text-pink-500 transition-colors italic">DEMO</Link>
             <Link href="#features" className="hover:text-pink-500 transition-colors">機能・体験</Link>
             <Link href="/law" className="text-slate-400 hover:text-white underline decoration-pink-500/50 transition-colors">特定商取引法</Link>
           </div>
@@ -52,9 +54,45 @@ export default function LandingPage() {
             あなたのスマホのウォレットに直接届きます。
           </p>
           <div className="flex justify-center gap-6">
-            <Link href="#features" className="bg-slate-100 text-slate-900 px-10 py-4 rounded-full font-bold hover:bg-pink-500 hover:text-white transition-all shadow-2xl scale-110">
+            <Link href="#demo" className="bg-slate-100 text-slate-900 px-10 py-4 rounded-full font-bold hover:bg-pink-500 hover:text-white transition-all shadow-2xl scale-110">
               体験を詳しく知る
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* --- ADDED: Demo Section --- */}
+      <section id="demo" className="py-24 px-6 relative border-b border-slate-900">
+        <div className="max-w-6xl mx-auto">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 p-8 md:p-16 rounded-[3rem] relative overflow-hidden flex flex-col md:flex-row items-center gap-12 group">
+            <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-pink-500/10 blur-[100px] rounded-full" />
+            
+            <div className="flex-1 relative z-10 text-left">
+              <span className="text-pink-500 font-black italic tracking-[0.3em] text-[10px] uppercase block mb-4">Live Simulation</span>
+              <h3 className="text-4xl md:text-5xl font-black text-white mb-6 italic tracking-tighter uppercase leading-tight">
+                その手で、<br />
+                演出をハックせよ。
+              </h3>
+              <p className="text-slate-400 leading-relaxed mb-8 max-w-md font-medium">
+                ブラウザだけで体験できるデモページを用意しました。<br />
+                スマホから応援を送り、ステージが反応する瞬間をシミュレーション。最後にはテスト用のウォレットカードも発行可能です。
+              </p>
+              <Link href="/demo" className="inline-flex items-center gap-3 bg-gradient-to-r from-pink-500 to-violet-600 text-white px-8 py-4 rounded-full font-bold hover:scale-105 transition-all shadow-xl shadow-pink-500/20">
+                <Play size={18} fill="currentColor" />
+                DEMOを今すぐ体験
+              </Link>
+            </div>
+
+            <div className="flex-1 relative z-10 w-full md:w-auto">
+              <div className="aspect-video bg-slate-800 rounded-3xl border border-slate-700 shadow-2xl relative overflow-hidden group-hover:border-pink-500/50 transition-colors">
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:scale-110 transition-transform duration-700" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 group-hover:bg-pink-500 transition-colors">
+                    <Play className="text-white ml-1" size={32} fill="currentColor" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -117,6 +155,7 @@ export default function LandingPage() {
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Navigation</h6>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium">
                 <li><Link href="/#concept" className="hover:text-pink-500 transition-colors">コンセプト</Link></li>
+                <li><Link href="/demo" className="hover:text-pink-500 transition-colors italic">デモ体験</Link></li>
                 <li><Link href="/#features" className="hover:text-pink-500 transition-colors">機能・体験</Link></li>
               </ul>
             </div>

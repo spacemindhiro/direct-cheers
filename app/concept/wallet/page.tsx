@@ -91,7 +91,7 @@ export default function WalletConcept() {
           <h2 className="text-xs font-black text-slate-500 tracking-[0.3em] uppercase mb-12 text-center">Explore Other Concepts</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Real-time */}
-            <Link href="/app/concept/realtime" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group text-left">
+            <Link href="/concept/realtime" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group text-left">
               <Zap className="text-slate-600 group-hover:text-pink-400 transition-colors mb-4" size={24} />
               <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">Real-time</h3>
               <p className="text-slate-600 text-sm mt-2 leading-relaxed">熱狂を瞬時に可視化するフィード</p>
@@ -106,7 +106,7 @@ export default function WalletConcept() {
             </div>
 
             {/* NFT */}
-            <Link href="/app/concept/nft" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group text-left">
+            <Link href="/concept/nft" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group text-left">
               <Fingerprint className="text-slate-600 group-hover:text-indigo-400 transition-colors mb-4" size={24} />
               <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">NFT Assets</h3>
               <p className="text-slate-600 text-sm mt-2 leading-relaxed">デジタル資産としての所有権証明</p>

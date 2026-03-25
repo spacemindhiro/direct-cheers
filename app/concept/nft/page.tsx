@@ -97,14 +97,14 @@ export default function NftConcept() {
             </div>
 
             {/* Real-time */}
-            <Link href="/app/concept/realtime" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group">
+            <Link href="/concept/realtime" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group">
               <Zap className="text-slate-600 group-hover:text-yellow-400 transition-colors mb-4" size={24} />
               <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">Real-time</h3>
               <p className="text-slate-600 text-sm mt-2 leading-relaxed">熱狂を瞬時に可視化するフィード</p>
             </Link>
 
             {/* Wallet */}
-            <Link href="/app/concept/wallet" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group">
+            <Link href="/concept/wallet" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group">
               <Wallet className="text-slate-600 group-hover:text-cyan-400 transition-colors mb-4" size={24} />
               <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">Wallet</h3>
               <p className="text-slate-600 text-sm mt-2 leading-relaxed">誰でも使えるWeb3への入り口</p>

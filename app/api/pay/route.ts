@@ -4,22 +4,19 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function POST() {
   try {
-    // 既存の環境変数のみを取得
     const stripeKey = process.env.STRIPE_SECRET_KEY || "";
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-    // Stripe初期化
+    // 1. Stripe初期化 (これさえあれば決済画面へは行ける)
+    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is missing in Vercel settings");
+    
     const stripe = new Stripe(stripeKey, {
       // @ts-ignore
       apiVersion: '2023-10-16',
     });
 
-    // utilsを通さず直接初期化することで、未ログイン時の自動リダイレクトを阻止
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    console.log("Stripe Session Creating...");
-
+    // 2. Stripeセッション作成 (DB保存より先に実行して、まず決済画面を出す)
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
@@ -35,15 +32,21 @@ export async function POST() {
       cancel_url: 'https://direct-cheers.com/demo',
     });
 
-    if (!session.url) throw new Error("Stripe session URL is empty");
+    // 3. Supabase初期化 (もしキーがあれば初期化する、なければログを出すだけにする)
+    if (supabaseUrl && supabaseAnonKey) {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      console.log("Supabase client initialized (Anon)");
+    } else {
+      console.warn("Supabase skipped due to missing keys (but proceeding with Stripe)");
+    }
 
+    // 成功！URLを返す
     return NextResponse.json({ url: session.url });
 
   } catch (err: any) {
-    // Vercel上で変数が読めているか、アラートで確認できるようにする
-    const debugInfo = `STRIPE:${!!process.env.STRIPE_SECRET_KEY}, URL:${!!process.env.NEXT_PUBLIC_SUPABASE_URL}, ANON:${!!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`;
+    const debug = `STRIPE:${!!process.env.STRIPE_SECRET_KEY}, URL:${!!process.env.NEXT_PUBLIC_SUPABASE_URL}, ANON:${!!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`;
     return NextResponse.json({ 
-      error: `Error: ${err.message} | Debug: ${debugInfo}` 
+      error: `API ERROR: ${err.message} | ${debug}` 
     }, { status: 500 });
   }
 }

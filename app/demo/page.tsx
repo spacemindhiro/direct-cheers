@@ -11,46 +11,42 @@ export default function DemoPage() {
 
     try {
       const response = await fetch('/api/pay', { method: 'POST' });
-      const text = await response.text();
       
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (parseErr) {
-        throw new Error("サーバーレスポンスが不正です (JSON parse error)");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server Error: ${response.status} - ${errorText.substring(0, 100)}`);
       }
 
+      const data = await response.json();
       if (data.url) {
         window.location.href = data.url;
       } else {
-        throw new Error(data.error || "決済URLを取得できませんでした");
+        throw new Error(data.error || "No URL returned");
       }
     } catch (error: any) {
-      console.error("Payment failed", error);
-      alert("決済エラー:\n" + error.message);
+      console.error(error);
+      alert("決済エラーが発生しました:\n" + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main style={{ display: 'grid', placeItems: 'center', height: '100vh', fontFamily: 'sans-serif', backgroundColor: '#fcfcfc' }}>
+    <main style={{ display: 'grid', placeItems: 'center', height: '100vh', fontFamily: 'sans-serif' }}>
       <div style={{ textAlign: 'center' }}>
-        <h1 style={{ marginBottom: '30px' }}>Direct Cheers Demo</h1>
+        <h1 style={{ marginBottom: '20px' }}>Direct Cheers Demo</h1>
         <form onSubmit={handlePayment}>
           <button 
             disabled={loading}
             style={{ 
-              padding: '20px 50px', fontSize: '1.4rem', fontWeight: 'bold',
+              padding: '20px 40px', fontSize: '1.2rem', fontWeight: 'bold',
               backgroundColor: '#635bff', color: 'white', border: 'none',
-              borderRadius: '12px', cursor: loading ? 'wait' : 'pointer',
-              boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+              borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            {loading ? '通信中...' : '100円で応援する'}
+            {loading ? '通信中...' : '100円で決済テスト'}
           </button>
         </form>
-        <p style={{ marginTop: '20px', color: '#888' }}>※ログイン不要でテスト可能です</p>
       </div>
     </main>
   );

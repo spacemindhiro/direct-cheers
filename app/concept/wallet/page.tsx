@@ -94,7 +94,7 @@ export default function WalletConcept() {
             <Link href="/concept/realtime" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group text-left">
               <Zap className="text-slate-600 group-hover:text-pink-400 transition-colors mb-4" size={24} />
               <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">Real-time</h3>
-              <p className="text-slate-600 text-sm mt-2 leading-relaxed">熱狂を瞬時に可視化するフィード</p>
+              <p className="text-slate-600 text-sm mt-2 leading-relaxed">01 リアルタイム演出連動</p>
             </Link>
 
             {/* Wallet (Current) */}
@@ -102,14 +102,14 @@ export default function WalletConcept() {
               <div className="absolute top-4 right-4 text-[10px] font-black text-violet-500 tracking-widest">YOU ARE HERE</div>
               <Smartphone className="text-violet-500 mb-4" size={24} />
               <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Wallet Connect</h3>
-              <p className="text-slate-500 text-sm mt-2 leading-relaxed">誰でも使えるWeb3への入り口</p>
+              <p className="text-slate-500 text-sm mt-2 leading-relaxed">02 スマホのウォレットに保存</p>
             </div>
 
             {/* NFT */}
             <Link href="/concept/nft" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group text-left">
               <Fingerprint className="text-slate-600 group-hover:text-indigo-400 transition-colors mb-4" size={24} />
               <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">NFT Assets</h3>
-              <p className="text-slate-600 text-sm mt-2 leading-relaxed">デジタル資産としての所有権証明</p>
+              <p className="text-slate-600 text-sm mt-2 leading-relaxed">03 NFT技術による証跡管理</p>
             </Link>
           </div>
         </section>

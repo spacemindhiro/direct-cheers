@@ -2,28 +2,32 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
+// Turbopackのキャッシュ競合エラーを避けるため dynamic 指定は削除
+
 export async function POST() {
   try {
-    // 1. 環境変数の存在チェック（ビルド時ではなく実行時に評価）
+    // 1. 既存の環境変数のみを使用
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!stripeKey || !supabaseUrl || !supabaseKey) {
-      throw new Error("Missing environment variables");
+    // 2. 最小限のバリデーション（ビルド時は通し、実行時にエラーを出す）
+    if (!stripeKey || !supabaseUrl || !supabaseAnonKey) {
+      console.error("Missing Env Vars:", { stripeKey: !!stripeKey, url: !!supabaseUrl, anon: !!supabaseAnonKey });
+      return NextResponse.json({ error: "Configuration error" }, { status: 500 });
     }
 
-    // 2. Stripe初期化
+    // 3. Stripe初期化
     const stripe = new Stripe(stripeKey, {
       // @ts-ignore
       apiVersion: '2023-10-16',
     });
 
-    // 3. Supabase初期化（Cookieに依存しない独立したクライアント）
-    // これにより、ログイン状態に関わらず実行可能になります
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // 4. 【重要】utilsを通さず、Anon Keyで直接クライアントを作成
+    // これにより、Cookieの有無（ログイン状態）に関わらずリダイレクトが発生しなくなります
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    console.log("Stripe Checkout Session creating...");
+    console.log("Stripe Session Creating...");
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -36,17 +40,18 @@ export async function POST() {
         quantity: 1,
       }],
       mode: 'payment',
+      // /demo への戻り先を明示
       success_url: 'https://direct-cheers.com/demo',
       cancel_url: 'https://direct-cheers.com/demo',
     });
 
-    if (!session.url) throw new Error("Failed to create Stripe session URL");
+    if (!session.url) throw new Error("Stripe session URL generation failed");
 
-    // 4. URLをJSONで返し、クライアントサイドで遷移させる
+    // 5. Safari/Googleアプリ対策：JSONで返してフロントのJSで遷移させる
     return NextResponse.json({ url: session.url });
 
   } catch (err: any) {
-    console.error("Payment API Error:", err.message);
+    console.error("API Error:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

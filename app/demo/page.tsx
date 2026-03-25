@@ -1,52 +1,43 @@
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
+'use client';
 
-// Stripeはサーバーサイドでのみ初期化（ビルド時はダミーキーでも通るため外でOK）
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_dummy', {
-  // @ts-ignore
-  apiVersion: '2023-10-16', 
-});
+import React, { useState } from 'react';
 
-// ビルドエラー回避のため、export const dynamic を追加
-export const dynamic = 'force-dynamic';
+export default function DemoPage() {
+  const [loading, setLoading] = useState(false);
 
-export async function POST() {
-  try {
-    // 【重要】ビルド時のエラーを防ぐため、関数内でクライアントを生成する
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const handlePay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Supabase environment variables are missing.");
+    try {
+      const res = await fetch('/api/pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "決済エラー");
+      }
+    } catch (err: any) {
+      alert("エラー: " + err.message);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
-
-    console.log("Stripe POST process started for /demo");
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: 'jpy',
-          product_data: { name: '応援' },
-          unit_amount: 100,
-        },
-        quantity: 1,
-      }],
-      mode: 'payment',
-      success_url: 'https://direct-cheers.com/demo',
-      cancel_url: 'https://direct-cheers.com/demo',
-    });
-
-    if (!session.url) throw new Error("Stripe URL missing");
-
-    // Safari対策：JSONでURLを返し、フロントの window.location.href で飛ばす
-    return NextResponse.json({ url: session.url });
-
-  } catch (err: any) {
-    console.error("Critical Stripe Error:", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
+  return (
+    <div style={{ display: 'grid', placeItems: 'center', height: '100vh' }}>
+      <form onSubmit={handlePay}>
+        <button 
+          disabled={loading}
+          style={{ padding: '20px 40px', fontSize: '1.5rem', cursor: 'pointer' }}
+        >
+          {loading ? '通信中...' : '100円で応援する'}
+        </button>
+      </form>
+    </div>
+  );
 }

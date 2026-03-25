@@ -2,21 +2,22 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
-// 1. 環境変数のチェック
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  // @ts-ignore
-  apiVersion: '2023-10-16', 
-});
-
-// 2. Cookieに依存しないSupabaseクライアント（デモ用/サーバー用）
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // または ANON_KEY
-);
+export const dynamic = 'force-dynamic';
 
 export async function POST() {
   try {
-    console.log("Starting Stripe session creation for /demo...");
+    // Stripe初期化（関数内で行うことでビルドエラーを物理的に回避）
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      // @ts-ignore
+      apiVersion: '2023-10-16',
+    });
+
+    // Supabase初期化（utilsを通さず、Cookieを参照しないAdmin/Anonクライアントを作成）
+    // これにより「未ログイン時の自動リダイレクト」を完全に封殺します
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -29,18 +30,15 @@ export async function POST() {
         quantity: 1,
       }],
       mode: 'payment',
-      // 移動後の /demo に戻すよう修正
       success_url: 'https://direct-cheers.com/demo',
       cancel_url: 'https://direct-cheers.com/demo',
     });
 
-    // StripeのURLへ直接リダイレクト
-    return NextResponse.redirect(session.url!, 303);
+    // フロントエンドで window.location.href を使うため、URLのみを返す
+    return NextResponse.json({ url: session.url });
 
   } catch (err: any) {
-    console.error("Payment API Error:", err.message);
-    // 【重要】絶対に /auth/login にリダイレクトさせない
-    // エラーが起きても /demo に戻す（クエリでエラーを把握可能にする）
-    return NextResponse.redirect(`https://direct-cheers.com/demo?error=${encodeURIComponent(err.message)}`, 303);
+    console.error("API Error:", err.message);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

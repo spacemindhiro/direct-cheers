@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Smartphone, Bell, Gift, ArrowLeft } from "lucide-react";
+import { Smartphone, Bell, Gift, ArrowLeft, Zap, Fingerprint } from "lucide-react";
 
 export default function WalletConcept() {
   return (
@@ -85,6 +85,34 @@ export default function WalletConcept() {
           </div>
 
         </div>
+
+        {/* --- ADDED: Concept Navigation --- */}
+        <section className="mt-32 pt-16 border-t border-slate-900">
+          <h2 className="text-xs font-black text-slate-500 tracking-[0.3em] uppercase mb-12 text-center">Explore Other Concepts</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Real-time */}
+            <Link href="/app/concept/realtime" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group text-left">
+              <Zap className="text-slate-600 group-hover:text-pink-400 transition-colors mb-4" size={24} />
+              <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">Real-time</h3>
+              <p className="text-slate-600 text-sm mt-2 leading-relaxed">熱狂を瞬時に可視化するフィード</p>
+            </Link>
+
+            {/* Wallet (Current) */}
+            <div className="p-8 rounded-[2rem] border-2 border-violet-500 bg-violet-500/5 relative overflow-hidden text-left">
+              <div className="absolute top-4 right-4 text-[10px] font-black text-violet-500 tracking-widest">YOU ARE HERE</div>
+              <Smartphone className="text-violet-500 mb-4" size={24} />
+              <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Wallet Connect</h3>
+              <p className="text-slate-500 text-sm mt-2 leading-relaxed">誰でも使えるWeb3への入り口</p>
+            </div>
+
+            {/* NFT */}
+            <Link href="/app/concept/nft" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group text-left">
+              <Fingerprint className="text-slate-600 group-hover:text-indigo-400 transition-colors mb-4" size={24} />
+              <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">NFT Assets</h3>
+              <p className="text-slate-600 text-sm mt-2 leading-relaxed">デジタル資産としての所有権証明</p>
+            </Link>
+          </div>
+        </section>
 
         {/* --- Footer Note --- */}
         <footer className="mt-20 pt-10 border-t border-slate-900 text-center">

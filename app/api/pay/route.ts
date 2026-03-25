@@ -2,32 +2,28 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
-// Turbopackのキャッシュ競合エラーを避けるため dynamic 指定は削除
+// Turbopackのキャッシュ制限を回避
+export const dynamic = 'force-dynamic';
 
 export async function POST() {
   try {
-    // 1. 既存の環境変数のみを使用
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // 1. 環境変数を取得。空なら空文字列を入れる（チェックで落とさない）
+    const stripeKey = process.env.STRIPE_SECRET_KEY || "";
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-    // 2. 最小限のバリデーション（ビルド時は通し、実行時にエラーを出す）
-    if (!stripeKey || !supabaseUrl || !supabaseAnonKey) {
-      console.error("Missing Env Vars:", { stripeKey: !!stripeKey, url: !!supabaseUrl, anon: !!supabaseAnonKey });
-      return NextResponse.json({ error: "Configuration error" }, { status: 500 });
-    }
-
-    // 3. Stripe初期化
+    // 2. Stripe初期化
+    // キーが空だとここでStripeがエラーを吐くので、それをキャッチして原因を特定する
     const stripe = new Stripe(stripeKey, {
       // @ts-ignore
       apiVersion: '2023-10-16',
     });
 
-    // 4. 【重要】utilsを通さず、Anon Keyで直接クライアントを作成
-    // これにより、Cookieの有無（ログイン状態）に関わらずリダイレクトが発生しなくなります
+    // 3. Supabase初期化 (既存のAnon Keyを使用)
+    // utilsを通さないのでリダイレクトは起きません
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    console.log("Stripe Session Creating...");
+    console.log("Creating session...");
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -40,18 +36,16 @@ export async function POST() {
         quantity: 1,
       }],
       mode: 'payment',
-      // /demo への戻り先を明示
       success_url: 'https://direct-cheers.com/demo',
       cancel_url: 'https://direct-cheers.com/demo',
     });
 
-    if (!session.url) throw new Error("Stripe session URL generation failed");
-
-    // 5. Safari/Googleアプリ対策：JSONで返してフロントのJSで遷移させる
     return NextResponse.json({ url: session.url });
 
   } catch (err: any) {
-    console.error("API Error:", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    // 【重要】何が足りないのか、ブラウザのアラートに直接表示させる
+    const errorMsg = `Message: ${err.message} | Keys: STRIPE=${!!process.env.STRIPE_SECRET_KEY}, URL=${!!process.env.NEXT_PUBLIC_SUPABASE_URL}, ANON=${!!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`;
+    console.error(errorMsg);
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users, Target, Mail, MapPin, Zap, Award, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck } from "lucide-react";
 
 export default function AboutPage() {
   return (
@@ -73,36 +73,37 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* --- Founder's Message (資格情報追加) --- */}
-        <section className="p-12 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-32 relative overflow-hidden">
-          <div className="flex flex-col md:flex-row gap-12 items-center relative z-10">
-            <div className="w-48 h-48 md:w-60 md:h-60 rounded-full border-4 border-slate-700 shadow-xl overflow-hidden flex-shrink-0 relative">
-              <img 
-                src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=400&auto=format&fit=crop" 
-                alt="Founder: Hirotaka Moriwaki" 
-                className="w-full h-full object-cover"
-              />
+        {/* --- Founder's Message (肖像適用版) --- */}
+        <section className="p-12 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-32 relative overflow-hidden flex flex-col md:flex-row gap-12 items-center">
+          
+          {/* ✅ 肖像画像の配置部分 */}
+          <div className="w-48 h-48 md:w-60 md:h-60 rounded-full border-4 border-slate-700 shadow-xl overflow-hidden flex-shrink-0 relative group">
+            <img 
+              src="/moriwaki-portrait.png" // public/moriwaki-portrait.pngを読み込む
+              alt="Founder: Hirotaka Moriwaki" 
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" // ホバーで少し拡大するエフェクト
+            />
+          </div>
+          
+          <div className="flex-1">
+            <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Founder's Message</span>
+            <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2">森脇 弘貴 / Hirotaka Moriwaki</h3>
+            <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-sm mb-6">Direct Cheers Founder & CEO</p>
+            
+            {/* ✅ 保有資格バッジ */}
+            <div className="flex flex-wrap gap-3 mb-8">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold uppercase tracking-tighter">
+                <Award size={14} /> 応用情報処理技術者
+              </span>
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-pink-500/40 text-pink-300 text-[10px] font-bold uppercase tracking-tighter">
+                <Award size={14} /> PMP (Project Management Professional)
+              </span>
             </div>
-            <div className="flex-1">
-              <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Founder's Message</span>
-              <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2">森脇 弘貴 / Hirotaka Moriwaki</h3>
-              <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-sm mb-6">Direct Cheers Founder & CEO</p>
-              
-              {/* ✅ 保有資格バッジセクション */}
-              <div className="flex flex-wrap gap-3 mb-8">
-                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold uppercase tracking-tighter">
-                  <Award size={14} /> 応用情報処理技術者
-                </span>
-                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-pink-500/40 text-pink-300 text-[10px] font-bold uppercase tracking-tighter">
-                  <Award size={14} /> PMP (Project Management Professional)
-                </span>
-              </div>
 
-              <div className="space-y-6 text-slate-300 font-medium leading-relaxed italic text-sm md:text-base">
-                <p>25年以上にわたるクレジットシステムのエンジニア経験と、20年以上にわたるDJイベントの主催経験。</p>
-                <p>この二つの背景を、国際標準のプロジェクト管理スキル（PMP）と確かな技術力（応用情報処理技術者）で統合し、Direct Cheersを構築しました。</p>
-                <p>音楽イベントにおける主催者と出演者の収益を改善し、ファンとの熱い交流を促すシステムの提供によって、音楽シーンの発展に寄与できるよう努めて参ります。</p>
-              </div>
+            <div className="space-y-6 text-slate-300 font-medium leading-relaxed italic text-sm md:text-base">
+              <p>25年以上にわたるクレジットシステムのエンジニア経験と、20年以上にわたるDJイベントの主催経験。</p>
+              <p>この二つの背景を、国際標準のプロジェクト管理スキル（PMP）と確かな技術力（応用情報処理技術者）で統合し、Direct Cheersを構築しました。</p>
+              <p>音楽イベントにおける主催者と出演者の収益を改善し、ファンとの熱い交流を促すシステムの提供によって、音楽シーンの発展に寄与できるよう努めて参ります。</p>
             </div>
           </div>
         </section>

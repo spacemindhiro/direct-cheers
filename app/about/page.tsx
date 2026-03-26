@@ -85,10 +85,13 @@ export default function AboutPage() {
           </div>
           <div className="flex-1">
             <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Founder's Message</span>
-            <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2">佐藤 亮 / Ryo Sato</h3>
+            <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2">森脇 弘貴 / Hirotaka Moriwaki</h3>
             <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-sm mb-10">Direct Cheers Founder & CEO</p>
             <div className="space-y-6 text-slate-300 font-medium leading-relaxed">
-              <p>「その瞬間の熱量」を永遠に留めておきたい。その想いでこのサービスを作りました。</p>
+              <p>25年以上にわたるクレジットシステムのエンジニアの経験と、20年以上にわたるDJイベントの主催経験をもとに、</p>
+              <p>PMPの管理スキルを駆使してサービスを構築しました。</p>
+              <p>音楽イベントにおける主催者と出演者の収益を改善し、ファンとの交流を促すシステムの提供によって</p>
+              <p>音楽シーンの発展に寄与できるよう努めて参ります。</p>
               <p>皆様の熱い応援が、新しいエンターテインメントの未来を創ります。</p>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users, Target, Mail, MapPin, Zap } from "lucide-react";
+import { ArrowLeft, Users, Target, Mail, MapPin, Zap, Award, ShieldCheck } from "lucide-react";
 
 export default function AboutPage() {
   return (
@@ -22,7 +22,7 @@ export default function AboutPage() {
               alt="Direct Cheers Logo" 
               className="w-9 h-9 rounded-lg shadow-lg shadow-pink-500/10 group-hover:scale-110 transition-transform"
             />
-            <h1 className="text-2xl font-black tracking-tighter text-white uppercase italic text-2xl">Direct Cheers</h1>
+            <h1 className="text-2xl font-black tracking-tighter text-white uppercase italic">Direct Cheers</h1>
           </Link>
           <div className="flex items-center gap-4 text-xs font-bold text-slate-500 tracking-widest uppercase bg-slate-900 px-5 py-2.5 rounded-full border border-slate-800">
             <Zap className="text-pink-500" size={16} fill="currentColor" />
@@ -47,10 +47,9 @@ export default function AboutPage() {
             <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">永遠のアセットに。</span>
           </h2>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium">
-            Direct Cheersは、アーティストとファンの熱狂をデジタル技術で記録し、共有可能な資産へと昇華させる新しいプラットフォームです。<br />
-            一過性の熱狂ではなく、絆の記録として、永遠に。
+            Direct Cheersは、アーティストとファンの熱狂をデジタル技術で記録し、共有可能な資産へと昇華させる新しいプラットフォームです。
           </p>
-        </section> {/* ← 💡 ここを正しく閉じました */}
+        </section>
 
         {/* --- Mission Section --- */}
         <section className="grid md:grid-cols-2 gap-12 mb-32 items-center">
@@ -60,7 +59,7 @@ export default function AboutPage() {
               <div className="w-14 h-14 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 shadow-lg shadow-pink-500/5">
                 <Target className="text-pink-400" size={30} />
               </div>
-              <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase text-2xl">PLATFORM MISSION</h3>
+              <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase">PLATFORM MISSION</h3>
             </div>
             <div className="space-y-6 text-slate-400 font-medium leading-relaxed relative z-10">
               <p>一瞬のライブ体験が持つ、あの熱量を永遠の記録として残すこと。</p>
@@ -69,52 +68,56 @@ export default function AboutPage() {
             </div>
           </div>
           <div className="space-y-6 text-center text-slate-500 p-8 rounded-[2.5rem] bg-slate-900 border border-slate-800 flex flex-col items-center justify-center h-full">
-            <Users className="text-slate-700" size={100} strokeWidth={1} />
-            <p className="font-mono text-[10px] uppercase tracking-widest text-slate-600">Building Connection</p>
+            <ShieldCheck className="text-slate-700" size={100} strokeWidth={1} />
+            <p className="font-mono text-[10px] uppercase tracking-widest text-slate-600 italic">Secure & Professional Management</p>
           </div>
         </section>
 
-        {/* --- Founder's Message --- */}
-        <section className="p-12 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-32 relative overflow-hidden flex flex-col md:flex-row gap-12 items-center">
-          <div className="w-48 h-48 md:w-60 md:h-60 rounded-full border-4 border-slate-700 shadow-xl overflow-hidden flex-shrink-0 relative">
-            <img 
-              src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=400&auto=format&fit=crop" 
-              alt="Founder: Ryo Sato" 
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="flex-1">
-            <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Founder's Message</span>
-            <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2">森脇 弘貴 / Hirotaka Moriwaki</h3>
-            <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-sm mb-10">Direct Cheers Founder & CEO</p>
-            <div className="space-y-6 text-slate-300 font-medium leading-relaxed">
-              <p>25年以上にわたるクレジットシステムのエンジニアの経験と、20年以上にわたるDJイベントの主催経験をもとに、</p>
-              <p>PMPの管理スキルを駆使してサービスを構築しました。</p>
-              <p>音楽イベントにおける主催者と出演者の収益を改善し、ファンとの交流を促すシステムの提供によって</p>
-              <p>音楽シーンの発展に寄与できるよう努めて参ります。</p>
-              <p>皆様の熱い応援が、新しいエンターテインメントの未来を創ります。</p>
+        {/* --- Founder's Message (資格情報追加) --- */}
+        <section className="p-12 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-32 relative overflow-hidden">
+          <div className="flex flex-col md:flex-row gap-12 items-center relative z-10">
+            <div className="w-48 h-48 md:w-60 md:h-60 rounded-full border-4 border-slate-700 shadow-xl overflow-hidden flex-shrink-0 relative">
+              <img 
+                src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=400&auto=format&fit=crop" 
+                alt="Founder: Hirotaka Moriwaki" 
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="flex-1">
+              <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Founder's Message</span>
+              <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2">森脇 弘貴 / Hirotaka Moriwaki</h3>
+              <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-sm mb-6">Direct Cheers Founder & CEO</p>
+              
+              {/* ✅ 保有資格バッジセクション */}
+              <div className="flex flex-wrap gap-3 mb-8">
+                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold uppercase tracking-tighter">
+                  <Award size={14} /> 応用情報処理技術者
+                </span>
+                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-pink-500/40 text-pink-300 text-[10px] font-bold uppercase tracking-tighter">
+                  <Award size={14} /> PMP (Project Management Professional)
+                </span>
+              </div>
+
+              <div className="space-y-6 text-slate-300 font-medium leading-relaxed italic text-sm md:text-base">
+                <p>25年以上にわたるクレジットシステムのエンジニア経験と、20年以上にわたるDJイベントの主催経験。</p>
+                <p>この二つの背景を、国際標準のプロジェクト管理スキル（PMP）と確かな技術力（応用情報処理技術者）で統合し、Direct Cheersを構築しました。</p>
+                <p>音楽イベントにおける主催者と出演者の収益を改善し、ファンとの熱い交流を促すシステムの提供によって、音楽シーンの発展に寄与できるよう努めて参ります。</p>
+              </div>
             </div>
           </div>
         </section>
 
         {/* --- Contact --- */}
-        <section className="text-center py-20 bg-gradient-to-br from-slate-900 to-slate-950 rounded-[3rem] border border-violet-500/10 shadow-3xl relative overflow-hidden flex flex-col items-center">
+        <section className="text-center py-20 bg-gradient-to-br from-slate-900 to-slate-950 rounded-[3rem] border border-violet-500/10 shadow-3xl relative overflow-hidden flex flex-col items-center group">
           <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-6">お問い合わせ</h3>
           <p className="text-slate-400 font-medium leading-relaxed max-w-xl mb-12">
-            プラットフォームのご利用方法や、掲載をご希望のアーティスト様はお気軽にご相談ください。
+            掲載をご希望のアーティスト様はお気軽にご相談ください。
           </p>
-          <div className="flex flex-col md:flex-row gap-6 w-full justify-center px-10">
+          <div className="flex flex-col md:flex-row gap-6 w-full justify-center px-10 relative z-10">
             <a href="mailto:support@direct-cheers.com" className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12">
               <Mail size={22} fill="currentColor" />
               お問い合わせフォームへ
             </a>
-            <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-left flex items-start gap-4 w-full md:w-auto">
-              <MapPin className="text-slate-700 mt-1" size={24} />
-              <div className="space-y-1">
-                <p className="text-slate-300 font-bold text-sm text-[12px]">Direct Cheers Platform</p>
-                <p className="text-slate-600 text-[10px] uppercase">Tokyo, Japan (Demo Address)</p>
-              </div>
-            </div>
           </div>
         </section>
       </main>

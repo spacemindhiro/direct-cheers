@@ -16,6 +16,7 @@ export async function updateSession(request: NextRequest) {
     path === "/law" ||
     path === "/terms" ||
     path === "/privacy" ||
+    path === "/about" ||
     path.startsWith("/demo") ||     // ページ遷移用
     path.startsWith("/api/pay") || // 決済API用
     path.startsWith("/concept") ||

@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { Play } from "lucide-react";
@@ -9,7 +11,6 @@ export default function LandingPage() {
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 group">
-            {/* 🕵️‍♂️ 修正ポイント：四角い div を排除し、生成した高解像度エンブレムを配置 */}
             <img 
               src="/logo-emblem.png" 
               alt="Direct Cheers Logo" 
@@ -19,6 +20,8 @@ export default function LandingPage() {
           </Link>
           
           <div className="hidden md:flex gap-8 text-sm font-medium">
+            {/* --- ✅ 修正箇所: About Us へのリンクを追加 --- */}
+            <Link href="/about" className="text-pink-500 font-bold hover:text-white transition-colors uppercase tracking-widest">About Us</Link>
             <Link href="#concept" className="hover:text-pink-500 transition-colors">コンセプト</Link>
             <Link href="#demo" className="hover:text-pink-500 transition-colors italic">DEMO</Link>
             <Link href="#features" className="hover:text-pink-500 transition-colors">機能・体験</Link>
@@ -61,7 +64,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- ADDED: Demo Section --- */}
+      {/* --- Demo Section --- */}
       <section id="demo" className="py-24 px-6 relative border-b border-slate-900">
         <div className="max-w-6xl mx-auto">
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 p-8 md:p-16 rounded-[3rem] relative overflow-hidden flex flex-col md:flex-row items-center gap-12 group">
@@ -106,7 +109,6 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-10">
-            {/* 01: 演出連動 */}
             <Link href="/concept/realtime" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/30 transition-all group block text-left">
               <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50">01</div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">リアルタイム演出連動</h4>
@@ -116,18 +118,16 @@ export default function LandingPage() {
               </p>
             </Link>
 
-            {/* 02: スマホウォレット */}
             <Link href="/concept/wallet" className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group block text-left">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 blur-3xl group-hover:bg-violet-500/20 transition-all" />
               <div className="text-violet-500 font-black text-5xl italic mb-6">02</div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">スマホのウォレットに保存</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
-                購入したデジタルアセットはApple WalletやGoogle Walletに簡単追加。
+                購入した digital アセットは Apple Wallet や Google Wallet に簡単追加。
                 シリアル刻印入りの記念カードを、いつでもどこでもスマホから呼び出せます。
               </p>
             </Link>
 
-            {/* 03: 証跡管理 */}
             <Link href="/concept/nft" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/30 transition-all block text-left">
               <div className="text-indigo-500 font-black text-5xl italic mb-6">03</div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">NFT技術による証跡管理</h4>
@@ -154,6 +154,8 @@ export default function LandingPage() {
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Navigation</h6>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium">
+                {/* --- ✅ 修正箇所: フッターのNavigationにも About Us を追加 --- */}
+                <li><Link href="/about" className="text-pink-500 font-bold hover:underline transition-all">私たちについて (About Us)</Link></li>
                 <li><Link href="/#concept" className="hover:text-pink-500 transition-colors">コンセプト</Link></li>
                 <li><Link href="/demo" className="hover:text-pink-500 transition-colors italic">デモ体験</Link></li>
                 <li><Link href="/#features" className="hover:text-pink-500 transition-colors">機能・体験</Link></li>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Music, Zap, Heart, ShieldCheck, ArrowLeft, MessageSquareHeart } from "lucide-react";
+import { Music, Zap, Heart, ShieldCheck, ArrowLeft, MessageSquareHeart, User } from "lucide-react";
 import Link from 'next/link';
 
 export default function ArtistCheersPage() {
@@ -9,12 +9,10 @@ export default function ArtistCheersPage() {
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // ✅ アーティスト情報を指定のものに差し替え
   const artist = {
     id: "night-streamer-001",
-    name: "NIGHT STREAMER", // 名前を変更
-    event: "SPACEMIND 2026.03.26", // イベントを変更
-    // ✅ サーファーからDJっぽい画像へ差し替え
+    name: "NIGHT STREAMER",
+    event: "SPACEMIND 2026.03.26",
     image: "https://images.unsplash.com/photo-1516873240891-4bf014598ab4?q=80&w=2070&auto=format&fit=crop"
   };
 
@@ -32,7 +30,6 @@ export default function ArtistCheersPage() {
           metadata: {
             nickName: nickName,
             comment: comment,
-            // thanksページで表示するために追加
             artistName: artist.name,
             eventName: artist.event
           }
@@ -40,7 +37,6 @@ export default function ArtistCheersPage() {
       });
 
       const data = await response.json();
-
       if (data.url) {
         window.location.href = data.url;
       } else {
@@ -55,49 +51,65 @@ export default function ArtistCheersPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-20 font-sans selection:bg-pink-500/30 overflow-x-hidden">
-      <div className="relative h-[40vh] w-full overflow-hidden">
-        {/* ✅ DJ画像が反映されます */}
+      {/* ヒーローエリア */}
+      <div className="relative h-[45vh] w-full overflow-hidden">
         <img src={artist.image} className="w-full h-full object-cover opacity-60 grayscale" alt={artist.name} />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+        
         <div className="absolute top-6 left-6">
-          <Link href="/demo" className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/10 text-white hover:bg-pink-500/20 transition-all">
+          <Link href="/demo" className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center border border-white/10 text-white hover:bg-pink-500 transition-all">
             <ArrowLeft size={20} />
           </Link>
         </div>
-        <div className="absolute bottom-8 left-6 right-6">
-          {/* ✅ 名前とイベントが反映されます */}
-          <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">{artist.name}</h2>
-          <p className="text-slate-400 text-sm font-bold mt-3 flex items-center gap-2 tracking-tight uppercase">
-            <Music size={14} className="text-pink-500" /> {artist.event}
-          </p>
+
+        <div className="absolute bottom-10 left-6 right-6 space-y-4">
+          {/* ✅ アーティスト名セクション */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em] flex items-center gap-1.5 ml-1">
+              <User size={12} /> Artist
+            </p>
+            <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-2xl">
+              {artist.name}
+            </h2>
+          </div>
+
+          {/* ✅ イベント名セクション */}
+          <div className="space-y-1 border-l-2 border-pink-500/30 pl-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-1.5">
+              <Music size={12} /> Playing At
+            </p>
+            <p className="text-slate-200 text-sm font-bold tracking-tight uppercase">
+              {artist.event}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="px-6 mt-10 space-y-12 max-w-md mx-auto">
+      <div className="px-6 -mt-4 relative z-10 space-y-12 max-w-md mx-auto">
         <section className="space-y-4">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2 ml-1">
             <MessageSquareHeart size={14} className="text-pink-500" /> Support Form
           </h3>
-          <div className="space-y-4 bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl">
+          <div className="space-y-4 bg-slate-900/80 backdrop-blur-lg p-6 rounded-[2.5rem] border border-slate-800 shadow-2xl">
             <input 
               type="text" 
               value={nickName}
               onChange={(e) => setNickName(e.target.value)}
-              placeholder="お名前（任意）" 
-              className="w-full h-12 bg-slate-950 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 outline-none transition-all"
+              placeholder="Your Nickname" 
+              className="w-full h-14 bg-slate-950/50 border border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 outline-none transition-all placeholder:text-slate-600"
             />
             <textarea 
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="アーティストへメッセージを贈る" 
+              placeholder="Message to Artist..." 
               rows={2}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-sm text-white focus:border-pink-500 outline-none resize-none transition-all"
+              className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl p-5 text-sm text-white focus:border-pink-500 outline-none resize-none transition-all placeholder:text-slate-600"
             />
           </div>
         </section>
 
         <section className="space-y-4">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2 ml-1">
             <Zap size={14} className="text-pink-500" /> Choose Cheers
           </h3>
           <div className="grid gap-4">
@@ -106,10 +118,13 @@ export default function ArtistCheersPage() {
                 key={val}
                 disabled={loading}
                 onClick={() => handleStripeCheckout(val)}
-                className="w-full p-6 bg-slate-900 border border-slate-800 rounded-[2.5rem] hover:border-pink-500 transition-all text-left flex justify-between items-center group active:scale-95 disabled:opacity-50"
+                className="w-full p-7 bg-slate-900 border border-slate-800 rounded-[2.5rem] hover:border-pink-500/50 hover:bg-slate-800/50 transition-all text-left flex justify-between items-center group active:scale-95 disabled:opacity-50"
               >
-                <div className="text-2xl font-black text-white italic tracking-tighter uppercase">¥{val.toLocaleString()}</div>
-                <div className="bg-white/5 p-3 rounded-full group-hover:bg-pink-500 group-hover:text-white transition-all">
+                <div className="text-3xl font-black text-white italic tracking-tighter uppercase flex items-baseline gap-1">
+                  <span className="text-sm font-bold not-italic text-slate-500">¥</span>
+                  {val.toLocaleString()}
+                </div>
+                <div className="bg-slate-950 p-4 rounded-full group-hover:bg-pink-500 group-hover:text-white transition-all shadow-xl border border-white/5">
                   <Heart size={20} className="group-hover:fill-current" />
                 </div>
               </button>
@@ -117,8 +132,8 @@ export default function ArtistCheersPage() {
           </div>
         </section>
 
-        <div className="p-6 bg-slate-900/40 border border-slate-800 rounded-[2rem] flex items-start gap-4 shadow-inner">
-          <ShieldCheck className="text-indigo-500 shrink-0 mt-1" size={18} />
+        <div className="p-6 bg-slate-900/40 border border-slate-800 rounded-[2.5rem] flex items-start gap-4 shadow-inner">
+          <ShieldCheck className="text-emerald-500 shrink-0 mt-1" size={18} />
           <p className="text-[10px] text-slate-500 leading-relaxed font-bold tracking-tight uppercase">
             SECURE CHECKOUT BY STRIPE.
           </p>

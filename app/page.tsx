@@ -108,32 +108,41 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-10">
-            <div className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/30 transition-all group block text-left">
-              <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50"><Zap size={40} /></div>
+            {/* ✅ 01: Real-time へのリンク */}
+            <Link href="/concept/realtime" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all group block text-left hover:bg-slate-900/40">
+              <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity">
+                <Zap size={40} />
+              </div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">リアルタイム演出連動</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
                 応援をトリガーに会場のVJや照明が変化。あなたの熱量が現場の景色を塗り替える、双方向のライブ体験を提供します。
               </p>
-            </div>
+            </Link>
 
-            <div className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group block text-left">
+            {/* ✅ 02: Wallet へのリンク */}
+            <Link href="/concept/wallet" className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group block text-left hover:border-violet-500/50 transition-all">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 blur-3xl group-hover:bg-violet-500/20 transition-all" />
-              <div className="text-violet-500 font-black text-5xl italic mb-6"><Wallet size={40} /></div>
+              <div className="text-violet-500 font-black text-5xl italic mb-6 group-hover:scale-110 transition-transform origin-left">
+                <Wallet size={40} />
+              </div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">スマホのウォレットに保存</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
                 発行されたデジタルカードは Apple Wallet / Google Wallet に追加可能。
                 シリアル刻印入りの記念証を、アプリ不要でいつでもスマホから呼び出せます。
               </p>
-            </div>
+            </Link>
 
-            <div className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/30 transition-all block text-left">
-              <div className="text-indigo-500 font-black text-5xl italic mb-6"><ShieldCheck size={40} /></div>
+            {/* ✅ 03: Proof (旧NFT) へのリンク */}
+            <Link href="/concept/proof" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all block text-left hover:bg-slate-900/40 group">
+              <div className="text-indigo-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity">
+                <ShieldCheck size={40} />
+              </div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">シリアルナンバー証跡管理</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
                 すべてのデジタル資産には独自のシリアルナンバーを付与。
                 改ざん不能な証跡管理システムにより、正当な支援の記録をプラットフォームが永続的に保証します。
               </p>
-            </div>
+            </Link>
           </div>
         </div>
       </section>

@@ -3,16 +3,25 @@ import Stripe from 'stripe';
 
 export async function POST(req: Request) {
   try {
-    const { amount, artistId, metadata } = await req.json(); // フロントから送られてくる値
-    const stripeKey = process.env.STRIPE_SECRET_KEY || "";
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://direct-cheers.com';
+    // フロントからデータを受け取る
+    const body = await req.json();
+    const { amount, artistId, metadata } = body;
 
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is missing");
+    const stripeKey = process.env.STRIPE_SECRET_KEY || "";
+    // 環境変数が無い場合に備えたフォールバック
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+    if (!stripeKey) {
+      console.error("Missing STRIPE_SECRET_KEY");
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
     
     const stripe = new Stripe(stripeKey, {
-      // @ts-ignore
-      apiVersion: '2023-10-16',
+      apiVersion: '2023-10-16' as any,
     });
+
+    // 💡 amount を確実に数値型に変換
+    const unitAmount = parseInt(String(amount), 10);
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -20,10 +29,10 @@ export async function POST(req: Request) {
         price_data: {
           currency: 'jpy',
           product_data: { 
-            name: `${artistId} への応援`,
-            description: metadata?.comment || ''
+            name: `${artistId || 'Artist'} への応援`,
+            description: metadata?.comment || 'Thank you for your support!',
           },
-          unit_amount: amount, // フロントから届いた金額 (1000, 3000, 5000)
+          unit_amount: unitAmount, 
         },
         quantity: 1,
       }],
@@ -31,16 +40,17 @@ export async function POST(req: Request) {
       success_url: `${baseUrl}/demo/thanks`,
       cancel_url: `${baseUrl}/demo/cheers`,
       metadata: {
-        artistId,
-        ...metadata
-      }
+        artistId: artistId || 'demo',
+        nickName: metadata?.nickName || '',
+        comment: metadata?.comment || '',
+      },
     });
 
-    // --- ✅ 修正：リダイレクトではなく、URLをJSONで返す ---
+    // ✅ 絶対にJSONとしてURLを返す
     return NextResponse.json({ url: session.url });
 
   } catch (err: any) {
-    console.error("Stripe Error:", err.message);
+    console.error("Stripe Session Creation Error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

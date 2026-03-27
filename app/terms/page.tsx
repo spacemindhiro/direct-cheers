@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ShieldCheck, AlertTriangle } from "lucide-react";
 
 export default function TermsPage() {
   return (
@@ -35,18 +35,20 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-xl font-bold text-white mb-4 italic border-l-4 border-pink-500 pl-4">第3条（決済および購入）</h2>
+              <h2 className="text-xl font-bold text-white mb-4 italic border-l-4 border-pink-500 pl-4">第3条（決済および役務の完了）</h2>
               <ul className="list-decimal ml-5 space-y-2">
                 <li>ユーザーは、本サービス上で定められた金額を支払うことにより、デジタルアセットを購入できます。</li>
                 <li>決済には、本サービスが指定する決済代行会社（Stripe）のシステムを利用するものとします。</li>
-                <li>デジタルアセットの所有権は、決済完了と同時にユーザーに付与されます。</li>
+                <li className="text-white font-bold italic underline decoration-pink-500/50">
+                  本サービスにおける役務の提供は、決済完了後、ユーザーのブラウザ上にデジタルアセットが正常に表示された時点をもって完了するものとします。
+                </li>
               </ul>
             </section>
 
             <section className="bg-pink-500/5 p-6 rounded-2xl border border-pink-500/20">
               <h2 className="text-xl font-bold text-pink-500 mb-4 italic border-l-4 border-pink-500 pl-4">第4条（返品・返金ポリシー）</h2>
               <p className="mb-4 text-white font-bold">商品の性質上（デジタルコンテンツおよびライブ演出連動）、決済完了後におけるユーザー都合によるキャンセル、返品、返金には一切応じられません。</p>
-              <p>ただし、システム上の不具合によりデジタルアセットの発行が正常に行われなかった場合に限り、個別に対応を行うものとします。</p>
+              <p>ただし、システム上の不具合によりデジタルアセットの発行（ブラウザ表示）が正常に行われなかった場合に限り、個別に対応を行うものとします。</p>
             </section>
 
             <section>
@@ -65,9 +67,22 @@ export default function TermsPage() {
               </ul>
             </section>
 
-            <section>
-              <h2 className="text-xl font-bold text-white mb-4 italic border-l-4 border-pink-500 pl-4">第7条（免責事項）</h2>
-              <p>当社は、通信環境の障害やライブイベントの中断等により、本サービスの提供が遅延または不能となった場合でも、一切の責任を負わないものとします。</p>
+            <section className="border border-slate-800 p-8 rounded-3xl space-y-6">
+              <div className="flex items-center gap-3 text-pink-500 mb-2">
+                <AlertTriangle size={20} />
+                <h2 className="text-xl font-bold italic uppercase">第7条（免責事項）</h2>
+              </div>
+              <ul className="list-decimal ml-5 space-y-4">
+                <li>
+                  <span className="text-white font-bold">【情報の正確性】</span> ユーザーによるメールアドレス等の入力ミスに起因する、デジタルアセットの受領不能、紛失、または第三者への誤送信について、当社は一切の責任を負わず、再発行や調査の義務も負わないものとします。
+                </li>
+                <li>
+                  <span className="text-white font-bold">【コレクション・保存】</span> 第3条に定める役務完了後の、OS標準ウォレット（Apple Wallet / Google Wallet）への追加操作、および保存状態の維持はユーザーの自己責任において行われるものとし、当社はこれに起因する紛失や表示の不具合について保証しません。
+                </li>
+                <li>
+                  当社は、通信環境の障害、ライブイベントの中断、各社ウォレットアプリの仕様変更等により、本サービスの提供が遅延または不能となった場合でも、一切の責任を負わないものとします。
+                </li>
+              </ul>
             </section>
 
             <section>

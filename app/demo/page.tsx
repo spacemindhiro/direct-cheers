@@ -2,20 +2,22 @@
 
 import React from 'react';
 import Link from 'next/link';
+// 実績のある Lucide アイコンセットを使用
 import { Smartphone, ArrowRight, QrCode, Zap, Music } from "lucide-react";
 
 export default function DemoEntrancePage() {
-  // 遷移先の固定パス
+  // 遷移先を現在の固定パスに設定
   const CHEERS_URL = "/demo/cheers";
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center px-6 relative overflow-hidden">
-      {/* 背景演出 */}
+      {/* 背景のネオン装飾演出 */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-pink-500/10 blur-[120px] rounded-full" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[120px] rounded-full" />
 
       <div className="max-w-md w-full text-center space-y-12 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
         
+        {/* ヘッダーセクション */}
         <div className="space-y-4 px-4">
           <div className="flex justify-center gap-2 mb-2">
             <Music className="text-pink-500 animate-pulse" size={24} />
@@ -25,30 +27,35 @@ export default function DemoEntrancePage() {
             Live Venue <br /><span className="text-pink-500">Simulation</span>
           </h1>
           <p className="text-slate-400 text-sm font-bold tracking-widest uppercase opacity-80">
-            QRをスキャンして応援ページへ
+            現場のQR体験をテストする
           </p>
         </div>
 
-        {/* ✅ 実績のある Lucide QrCode 表示 */}
+        {/* ✅ 実績のある Lucide QrCode 表示エリア */}
         <div className="relative group">
+          {/* 背後のグロー効果 */}
           <div className="absolute inset-0 bg-pink-500/20 blur-2xl group-hover:bg-pink-500/40 transition-all duration-500" />
-          <div className="relative bg-white p-8 rounded-[2.5rem] shadow-2xl mx-auto w-64 h-64 flex flex-col items-center justify-center border-4 border-slate-900">
-            {/* 以前表示されていたアイコンをそのまま配置 */}
+          
+          {/* QRコード本体のパネル */}
+          <div className="relative bg-white p-8 rounded-[2.5rem] shadow-2xl mx-auto w-64 h-64 flex flex-col items-center justify-center border-4 border-slate-900 transition-transform group-hover:scale-[1.02]">
+            {/* 以前表示できていたコンポーネントをそのまま配置 */}
             <QrCode size={160} className="text-slate-900" strokeWidth={1.5} />
-            <div className="mt-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+            <div className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
               Scan to Support
             </div>
           </div>
-          {/* スマホアイコンの演出 */}
+
+          {/* 右下のスマホバッジ演出 */}
           <div className="absolute -bottom-4 -right-4 bg-pink-500 p-4 rounded-2xl shadow-xl border-4 border-slate-950 text-white animate-bounce">
             <Smartphone size={24} />
           </div>
         </div>
 
+        {/* アクションセクション */}
         <div className="space-y-6 px-4">
           <div className="flex items-center justify-center gap-4 text-slate-500">
             <div className="h-px w-12 bg-slate-800" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Or Click below</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Or Click Below</span>
             <div className="h-px w-12 bg-slate-800" />
           </div>
 
@@ -62,8 +69,8 @@ export default function DemoEntrancePage() {
             </div>
           </Link>
 
-          <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">
-            ※実際の現場ではQRから直接Cheersページへ遷移します。
+          <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest leading-relaxed">
+            ※実際の現場では看板のQRから直接<br />Cheersページへ遷移します。
           </p>
         </div>
       </div>

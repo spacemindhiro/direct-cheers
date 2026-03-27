@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search, FileText, ExternalLink } from "lucide-react";
+import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search, FileText, ExternalLink, History } from "lucide-react";
 
 export default function AboutPage() {
   return (
@@ -33,27 +33,28 @@ export default function AboutPage() {
 
       <main className="max-w-7xl mx-auto py-20 px-6 relative z-10">
         <div className="mb-16">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-pink-500 transition-colors uppercase tracking-widest">
-            <ArrowLeft size={16} /> BACK TO TOP
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-pink-500 transition-colors uppercase tracking-widest group">
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> BACK TO TOP
           </Link>
         </div>
 
         {/* --- Hero Section --- */}
         <section className="text-center mb-32 relative py-16">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-br from-pink-500/15 via-indigo-500/10 to-transparent blur-[100px] rounded-full -z-10" />
-          <span className="text-pink-500 font-black italic tracking-[0.4em] text-xs uppercase mb-6 block">ABOUT THE PLATFORM</span>
+          <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase mb-6 block">ABOUT THE PLATFORM</span>
           <h2 className="text-4xl md:text-7xl font-black mb-10 tracking-tighter text-white leading-[1.1] uppercase italic">
             ライブ体験を、<br />
-            <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">永遠のアセットに。</span>
+            {/* ✅ 「永遠のアセット」から「不変の支援実績」へ */}
+            <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">不変の支援実績に。</span>
           </h2>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium">
-            Direct Cheersは、アーティストとファンの熱狂をデジタル技術で記録し、共有可能な資産へと昇華させる新しいプラットフォームです。
+            Direct Cheersは、アーティストとファンの熱狂を「確かな証跡」として記録し、<br className="hidden md:block" />
+            共創の歴史を永続的に証明する次世代の応援プラットフォームです。
           </p>
         </section>
 
         {/* --- Founder's Message --- */}
         <section className="p-8 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-24 relative overflow-hidden flex flex-col md:flex-row gap-12 items-center">
-          {/* ✅ ポートレート配置 */}
           <div className="w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-slate-700 shadow-2xl overflow-hidden flex-shrink-0 relative group bg-slate-950">
             <img 
               src="/moriwaki-portrait.png" 
@@ -63,9 +64,8 @@ export default function AboutPage() {
           </div>
           
           <div className="flex-1">
-            <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Founder's Message</span>
+            <span className="text-indigo-400 font-black italic tracking-[0.4em] text-[10px] uppercase mb-4 block">Founder's Message</span>
             
-            {/* ✅ 名前とFacebookリンク */}
             <div className="flex items-center gap-4 mb-2">
               <h3 className="text-2xl md:text-4xl font-black text-white italic tracking-tighter uppercase">森脇 弘貴 / Hirotaka Moriwaki</h3>
               <a 
@@ -81,7 +81,6 @@ export default function AboutPage() {
 
             <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-sm mb-6">Direct Cheers Founder & CEO</p>
             
-            {/* ✅ 資格バッジ（PMPリンク付き） */}
             <div className="flex flex-wrap gap-3 mb-8">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold uppercase tracking-tighter shadow-lg shadow-indigo-500/5">
                 <Award size={14} /> 応用情報処理技術者
@@ -117,7 +116,7 @@ export default function AboutPage() {
                   <span>SpaceMind</span>
                   <ExternalLink size={10} className="opacity-50" />
                 </a>
-                を主催。一方、イベントの現場で生まれる熱狂が、既存の商習慣では正しく評価・還元されていないという課題を痛感してきました。
+                を主催。イベントの現場で生まれる熱狂が、既存の商習慣では正しく評価・還元されていないという課題を痛感してきました。
               </p>
               
               <p>金融グレードの堅牢さと、音楽現場の熱量。この二つを最新のウェブ技術で統合し、ファンとアーティストの新しい経済圏を構築します。</p>
@@ -128,7 +127,7 @@ export default function AboutPage() {
         {/* --- Verification Flow Section --- */}
         <section className="mb-32 relative">
           <div className="text-center mb-16">
-            <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Trust & Safety</span>
+            <span className="text-indigo-400 font-black italic tracking-[0.4em] text-[10px] uppercase mb-4 block">Trust & Safety</span>
             <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">
               実在性と透明性の担保
             </h3>
@@ -166,7 +165,7 @@ export default function AboutPage() {
         {/* --- Tech Stack Section --- */}
         <section className="mb-32">
           <div className="text-center mb-16">
-            <span className="text-pink-500 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Technology Stack</span>
+            <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase mb-4 block">Technology Stack</span>
             <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase">金融グレードの設計思想</h3>
           </div>
 
@@ -185,7 +184,7 @@ export default function AboutPage() {
               {
                 title: "Data Integrity",
                 desc: "金融システム開発の知見を活かし、不整合が許されないアトミックなトランザクション管理をデータベース層で徹底。履歴の改ざんを防ぎます。",
-                icon: <Lock className="text-indigo-400" />
+                icon: <History className="text-indigo-400" />
               }
             ].map((tech, i) => (
               <div key={i} className="p-8 rounded-3xl bg-slate-900/50 border border-slate-800 hover:border-pink-500/50 transition-colors group">
@@ -207,8 +206,8 @@ export default function AboutPage() {
             掲載をご希望のアーティスト様、またはシステムに関するご質問はお気軽にご連絡ください。
           </p>
           <div className="flex flex-col md:flex-row gap-6 w-full justify-center px-10 relative z-10">
-            <a href="mailto:support@direct-cheers.com" className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12 shadow-2xl tracking-tighter">
-              <Mail size={22} fill="currentColor" />
+            <a href="mailto:support@direct-cheers.com" className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12 shadow-2xl tracking-tighter group">
+              <Mail size={22} className="group-hover:animate-bounce" />
               SUPPORT@DIRECT-CHEERS.COM
             </a>
           </div>

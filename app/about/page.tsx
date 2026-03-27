@@ -216,7 +216,7 @@ export default function AboutPage() {
             {[
               {
                 title: "Edge Realtime",
-                desc: "Next.jsとEdge Functionsを活用した超低遅延データ処理。ライブ会場での『今この瞬間』の応援を即座に反映します。",
+                desc: "Next.jsと最新のクラウド技術を活用した高速処理超低遅延データ処理。ライブ会場での『今この瞬間』の応援を即座に反映します。",
                 icon: <Zap className="text-yellow-400" />
               },
               {
@@ -226,7 +226,7 @@ export default function AboutPage() {
               },
               {
                 title: "Data Integrity",
-                desc: "金融システム開発の知見を活かし、不整合が許されないアトミックなトランザクション管理をデータベース層で徹底。履歴の改ざんを防ぎます。",
+                desc: "金融システム開発の知見を活かし、不整合が許されないアトミックなトランザクション管理をデータベース層で徹底。実際の決済結果との照合を行い、正確な記録を保ちます。",
                 icon: <History className="text-indigo-400" />
               }
             ].map((tech, i) => (

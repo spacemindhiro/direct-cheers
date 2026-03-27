@@ -56,7 +56,7 @@ export default function LandingPage() {
           </h2>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed mb-12 font-medium">
             Direct Cheersは、会場のQRコードから応援を贈るプラットフォーム。<br className="hidden md:block" />
-            応援の証（Cheers!）は、シリアル刻印入りのデジタル証明書を即座に発行。<br className="hidden md:block" />
+            応援の証（Cheers!）として、シリアル刻印入りのデジタル証明書を即座に発行。<br className="hidden md:block" />
             あなたのスマホの標準ウォレットアプリに格納できます。
           </p>
           <div className="flex justify-center gap-6">

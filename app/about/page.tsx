@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search, FileText, ExternalLink, History } from "lucide-react";
+import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search, FileText, ExternalLink, History, Calendar } from "lucide-react";
 
 export default function AboutPage() {
   return (
@@ -38,7 +38,7 @@ export default function AboutPage() {
           </Link>
         </div>
 
-{/* --- Hero Section --- */}
+        {/* --- Hero Section --- */}
         <section className="text-center mb-32 relative py-16">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-br from-pink-500/15 via-indigo-500/10 to-transparent blur-[100px] rounded-full -z-10" />
           <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase mb-6 block">ABOUT THE PLATFORM</span>
@@ -57,9 +57,9 @@ export default function AboutPage() {
             次の物語を共に創り出すためのプラットフォームです。
           </p>
         </section>
-        
+
         {/* --- Founder's Message --- */}
-        <section className="p-8 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-24 relative overflow-hidden flex flex-col md:flex-row gap-12 items-center">
+        <section className="p-8 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-32 relative overflow-hidden flex flex-col md:flex-row gap-12 items-center text-pretty">
           <div className="w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-slate-700 shadow-2xl overflow-hidden flex-shrink-0 relative group bg-slate-950">
             <img 
               src="/moriwaki-portrait.png" 
@@ -105,7 +105,7 @@ export default function AboutPage() {
               </a>
             </div>
 
-            <div className="space-y-6 text-slate-300 font-medium leading-relaxed italic text-sm md:text-base text-pretty">
+            <div className="space-y-6 text-slate-300 font-medium leading-relaxed italic text-sm md:text-base">
               <p>25年以上にわたり、ミッションクリティカルなクレジットカード基幹システムの開発・保守に従事。決済データの「1円の重み」と、止まることが許されないトランザクションの厳格さを熟知しています。</p>
               
               <p>
@@ -126,6 +126,44 @@ export default function AboutPage() {
               
               <p>金融グレードの堅牢さと、音楽現場の熱量。この二つを最新のウェブ技術で統合し、ファンとアーティストの新しい経済圏を構築します。</p>
             </div>
+          </div>
+        </section>
+
+        {/* --- Launch Roadmap Section --- */}
+        <section className="mb-32 relative">
+          <div className="text-center mb-16">
+            <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase mb-4 block">Project Timeline</span>
+            <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">
+              ローンチへの軌跡
+            </h3>
+          </div>
+
+          <div className="max-w-4xl mx-auto relative px-6">
+            {/* Center Line */}
+            <div className="absolute left-6 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-pink-500 via-indigo-500 to-transparent opacity-30" />
+
+            {[
+              { date: "2026.Q1", status: "Done", title: "Core Architecture", desc: "金融グレードの決済基盤およびEdge環境の構築が完了。堅牢なデータ整合性を確保。" },
+              { date: "2026.04", status: "Active", title: "Closed Beta / Demo", desc: "特定のオーガナイザー様との限定テストおよび、本サイトでの公開デモシミュレーターをリリース。" },
+              { date: "2026.05", status: "Next", title: "Stripe Connect Integration", desc: "Stripe Connectを用いた、アーティストへの迅速かつ透明性の高い分配システムの最終統合。" },
+              { date: "2026.06", status: "Launch", title: "Official Service Launch", desc: "都内音楽イベントを皮切りに正式稼働開始。ファンとアーティストを繋ぐ新たな応援文化をスタート。" }
+            ].map((item, i) => (
+              <div key={i} className={`relative flex items-center justify-between mb-12 md:mb-16 ${i % 2 === 0 ? 'md:flex-row-reverse' : ''}`}>
+                <div className="hidden md:block w-5/12" />
+                <div className="absolute left-6 md:left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-slate-950 border-2 border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.5)] z-10" />
+                
+                <div className="w-full md:w-5/12 pl-12 md:pl-0">
+                  <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 hover:border-pink-500/30 transition-all group shadow-xl">
+                    <span className={`text-[8px] font-black px-2 py-0.5 rounded border mb-3 inline-block uppercase tracking-widest ${item.status === 'Active' ? 'bg-pink-500/20 border-pink-500 text-pink-500 animate-pulse' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                      {item.status}
+                    </span>
+                    <div className="text-white font-black italic text-xl tracking-tighter mb-1 uppercase">{item.date}</div>
+                    <h4 className="text-indigo-400 font-bold text-sm mb-3 uppercase tracking-tighter">{item.title}</h4>
+                    <p className="text-slate-400 text-xs leading-relaxed font-medium">{item.desc}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -171,7 +209,7 @@ export default function AboutPage() {
         <section className="mb-32">
           <div className="text-center mb-16">
             <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase mb-4 block">Technology Stack</span>
-            <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase">金融グレードの設計思想</h3>
+            <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">金融グレードの設計思想</h3>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -204,11 +242,11 @@ export default function AboutPage() {
         </section>
 
         {/* --- Contact --- */}
-        <section className="text-center py-20 bg-gradient-to-br from-slate-900 to-slate-950 rounded-[3rem] border border-violet-500/10 shadow-3xl relative overflow-hidden flex flex-col items-center group">
+        <section className="text-center py-20 bg-gradient-to-br from-slate-900 to-slate-950 rounded-[3rem] border border-violet-500/10 shadow-3xl relative overflow-hidden flex flex-col items-center group mb-20">
           <div className="absolute inset-0 bg-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-6 relative z-10 text-balance">お問い合わせ</h3>
-          <p className="text-slate-400 font-medium leading-relaxed max-w-xl mb-12 relative z-10 text-pretty">
-            ご利用を希望のイベントオーガナイザー様、アーティスト様、またはシステムに関するご質問はお気軽にご連絡ください。
+          <p className="text-slate-400 font-medium leading-relaxed max-w-xl mb-12 relative z-10 text-pretty px-4">
+            掲載をご希望のイベントオーガナイザー様、アーティスト様、またはシステムに関するご質問はお気軽にご連絡ください。
           </p>
           <div className="flex flex-col md:flex-row gap-6 w-full justify-center px-10 relative z-10">
             <a href="mailto:support@direct-cheers.com" className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12 shadow-2xl tracking-tighter group">
@@ -220,7 +258,7 @@ export default function AboutPage() {
       </main>
 
       <footer className="py-24 px-6 border-t border-slate-800 bg-slate-950">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 text-pretty">
           <div className="flex flex-col gap-2">
             <p className="text-slate-600 text-[10px] font-mono italic tracking-widest uppercase">© 2026 Direct Cheers Platform.</p>
             <p className="text-slate-700 text-[8px] font-mono uppercase tracking-widest">Architected with Precision & Passion</p>

@@ -21,7 +21,13 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/api/pay") || // 決済API用
     path.startsWith("/concept") ||
     path.startsWith("/login") ||
-    path.startsWith("/auth");
+    path.startsWith("/auth") ||
+    // ✨ ここを追加：PDFファイルと画像ファイルへの直接アクセスを許可
+    path.endsWith(".pdf") ||
+    path.endsWith(".png") ||
+    path.endsWith(".jpg") ||
+    path.endsWith(".jpeg") ||
+    path.endsWith(".svg");
 
   // 🌟 ホワイトリスト対象なら、Supabaseの処理を一切せずに「放流」
   if (isPublicPath) {

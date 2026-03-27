@@ -11,13 +11,14 @@ export default function DemoEntrancePage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center px-6 relative overflow-hidden">
-      {/* 背景演出 */}
+      {/* 背景の装飾演出 */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-pink-500/10 blur-[120px] rounded-full" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[120px] rounded-full" />
 
       <div className="max-w-md w-full text-center space-y-12 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
         
-        <div className="space-y-4 px-4">
+        {/* ヘッダー演出 */}
+        <div className="space-y-4">
           <div className="flex justify-center gap-2 mb-2">
             <Music className="text-pink-500 animate-pulse" size={24} />
             <Zap className="text-yellow-400 animate-bounce" size={24} />
@@ -26,32 +27,33 @@ export default function DemoEntrancePage() {
             Live Venue <br /><span className="text-pink-500">Simulation</span>
           </h1>
           <p className="text-slate-400 text-sm font-bold tracking-widest uppercase opacity-80">
-            QR体験をテストする
+            現場のQR体験をテストする
           </p>
         </div>
 
-        {/* ✅ 実績のある Lucide QrCode 表示（リンク化） */}
-        <Link href={CHEERS_URL} className="relative group block mx-auto w-64 h-64 active:scale-95 transition-transform">
+        {/* ✅ これが表示できていた実績のあるQRエリア（全体をリンクにして体験を担保） */}
+        <Link href={CHEERS_URL} className="relative group block active:scale-95 transition-transform">
           <div className="absolute inset-0 bg-pink-500/20 blur-2xl group-hover:bg-pink-500/40 transition-all duration-500" />
           
-          <div className="relative bg-white p-8 rounded-[2.5rem] shadow-2xl w-full h-full flex flex-col items-center justify-center border-4 border-slate-900 overflow-hidden">
-            {/* 以前表示されていたアイコンをそのまま使用 */}
+          <div className="relative bg-white p-8 rounded-[2.5rem] shadow-2xl mx-auto w-64 h-64 flex flex-col items-center justify-center border-4 border-slate-900">
+            {/* 実績のある QrCode アイコン */}
             <QrCode size={160} className="text-slate-900" strokeWidth={1.5} />
-            <div className="mt-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+            <div className="mt-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
               Tap to Scan Simulation
             </div>
           </div>
 
-          {/* スマホアイコンの演出 */}
+          {/* スマホアイコンのバッジ */}
           <div className="absolute -bottom-4 -right-4 bg-pink-500 p-4 rounded-2xl shadow-xl border-4 border-slate-950 text-white animate-bounce">
             <Smartphone size={24} />
           </div>
         </Link>
 
-        <div className="space-y-6 px-4">
+        {/* 遷移ボタン */}
+        <div className="space-y-6">
           <div className="flex items-center justify-center gap-4 text-slate-500">
             <div className="h-px w-12 bg-slate-800" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Or Click below</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Or Click Below</span>
             <div className="h-px w-12 bg-slate-800" />
           </div>
 
@@ -64,6 +66,10 @@ export default function DemoEntrancePage() {
               <ArrowRight className="group-hover:translate-x-2 transition-transform" />
             </div>
           </Link>
+
+          <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">
+            ※デモにつき、QR部分をタップすることで<br />スキャン後の Cheers ページへ遷移します。
+          </p>
         </div>
       </div>
     </div>

@@ -17,7 +17,7 @@ export default function LawPage() {
       label: "商品代金以外の必要料金", 
       value: "システム利用料 10% および 決済手数料 3.6%（合計 13.6%）が、応援金額に含まれる、もしくは別途加算されます。詳細は各決済画面にて表示します。また、インターネット接続費用はお客様負担となります。" 
     },
-    { label: "支払方法", value: "クレジットカード決済（Stripe）、Google Pay、Apple Pay" },
+    { label: "支払方法", value: "クレジットカード決済（Stripe）、Google Pay、Apple Pay、PayPay" },
     { 
       label: "商品の引渡時期", 
       value: "決済完了後、直ちにデジタル応援証明書を発行します。ブラウザ上のマイページにて閲覧可能なほか、Apple Wallet / Google Walletへの格納が可能です。" 

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Play, Wallet, ShieldCheck, Zap, ArrowRight, Award, Database, Music, Mail, ExternalLink } from "lucide-react";
+import { Play, Wallet, ShieldCheck, Zap, ArrowRight, Award, Database, Music, Mail, Smartphone, CheckCircle2 } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -28,7 +28,6 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* ✅ JOIN NOW を mailto に修正 */}
             <a 
               href="mailto:support@direct-cheers.com?subject=【Direct Cheers】参加・導入に関するお問い合わせ"
               className="bg-white text-slate-950 px-5 py-2 rounded-full text-xs font-black hover:bg-pink-500 hover:text-white transition-all shadow-xl shadow-white/5 uppercase tracking-tighter flex items-center gap-2 group"
@@ -68,7 +67,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Demo Section --- */}
+      {/* --- Demo Section (Video Removed) --- */}
       <section id="demo" className="py-24 px-6 relative border-b border-slate-900">
         <div className="max-w-6xl mx-auto">
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 p-8 md:p-16 rounded-[3rem] relative overflow-hidden flex flex-col md:flex-row items-center gap-12 group">
@@ -77,26 +76,34 @@ export default function LandingPage() {
             <div className="flex-1 relative z-10 text-left">
               <span className="text-pink-500 font-black italic tracking-[0.3em] text-[10px] uppercase block mb-4">Live Simulation</span>
               <h3 className="text-4xl md:text-5xl font-black text-white mb-6 italic tracking-tighter uppercase leading-tight">
-                その手で、<br />
-                演出をハックせよ。
+                決済から保存まで、<br />
+                一連の流れを体験。
               </h3>
               <p className="text-slate-400 leading-relaxed mb-8 max-w-md font-medium">
-                cheers!の決済を体験できるデモページを用意しました。<br />
-                スムースな決済の最後にはあなたのiPhoneやAndroidに「応援証明書」が届く一連の流れをシミュレーションできます。
+                本番同様のフローを体験できるシミュレーターを用意しました。<br />
+                テスト決済の完了後、実際にあなたのスマホに「応援証明書」が届くスムーズなUXを体感してください。
               </p>
-              <Link href="/demo" className="inline-flex items-center gap-3 bg-gradient-to-r from-pink-500 to-violet-600 text-white px-8 py-4 rounded-full font-bold hover:scale-105 transition-all shadow-xl shadow-pink-500/20">
-                <Play size={18} fill="currentColor" />
+              <Link href="/demo" className="inline-flex items-center gap-3 bg-gradient-to-r from-pink-500 to-violet-600 text-white px-8 py-4 rounded-full font-bold hover:scale-105 transition-all shadow-xl shadow-pink-500/20 uppercase tracking-widest">
                 DEMOを今すぐ体験
               </Link>
             </div>
 
             <div className="flex-1 relative z-10 w-full md:w-auto">
-              <div className="aspect-video bg-slate-800 rounded-3xl border border-slate-700 shadow-2xl relative overflow-hidden group-hover:border-pink-500/50 transition-colors">
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:scale-110 transition-transform duration-700" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 group-hover:bg-pink-500 transition-colors">
-                    <Play className="text-white ml-1" size={32} fill="currentColor" />
-                  </div>
+              <div className="grid grid-cols-1 gap-4 p-8 bg-slate-950/50 rounded-[2rem] border border-slate-800 shadow-inner">
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-700/50">
+                  <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-500"><Smartphone size={20} /></div>
+                  <div className="text-xs font-bold text-slate-300">QRコード読み取り・決済選択</div>
+                  <CheckCircle2 size={16} className="ml-auto text-green-500" />
+                </div>
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-700/50">
+                  <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-500"><ShieldCheck size={20} /></div>
+                  <div className="text-xs font-bold text-slate-300">Apple / Google Pay 決済実行</div>
+                  <CheckCircle2 size={16} className="ml-auto text-green-500" />
+                </div>
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/80 border border-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.1)]">
+                  <div className="w-10 h-10 rounded-full bg-pink-500 flex items-center justify-center text-white"><Wallet size={20} /></div>
+                  <div className="text-xs font-bold text-white uppercase italic">Walletにデジタル証跡を保存</div>
+                  <Zap size={16} className="ml-auto text-yellow-400 animate-pulse" />
                 </div>
               </div>
             </div>
@@ -150,7 +157,7 @@ export default function LandingPage() {
       </section>
 
       {/* --- Strategic About Us Entry --- */}
-      <section className="py-32 px-6 bg-slate-950 relative overflow-hidden">
+      <section className="py-32 px-6 bg-slate-950 relative overflow-hidden text-pretty">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-indigo-500/5 blur-[120px] rounded-full -z-10" />
         
         <div className="max-w-5xl mx-auto">
@@ -202,13 +209,13 @@ export default function LandingPage() {
       <section id="contact" className="py-32 px-6 bg-slate-950 relative overflow-hidden text-center border-t border-slate-900">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-pink-500/5 blur-[120px] rounded-full -z-10" />
 
-        <div className="max-w-4xl mx-auto space-y-12">
+        <div className="max-w-4xl mx-auto space-y-12 text-pretty">
           <div className="space-y-4">
             <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase block">Contact Us</span>
             <h3 className="text-4xl md:text-5xl font-black text-white italic tracking-tighter uppercase leading-tight">
               お問い合わせ
             </h3>
-            <p className="text-slate-400 font-medium leading-relaxed max-w-xl mx-auto text-pretty">
+            <p className="text-slate-400 font-medium leading-relaxed max-w-xl mx-auto">
               掲載をご希望のオーガナイザー・アーティスト様、<br className="md:block hidden" />
               システム導入に関するご質問は、下記よりお気軽にご連絡ください。
             </p>
@@ -255,7 +262,7 @@ export default function LandingPage() {
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium tracking-widest uppercase">
                 <li><Link href="/terms" className="hover:text-white transition-colors">利用規約</Link></li>
                 <li><Link href="/law" className="hover:text-white transition-colors">特定商取引法</Link></li>
-                <li><Link href="/privacy" className="text-pink-500 font-bold hover:underline transition-all underline-offset-4">プライバシーポリシー</Link></li>
+                <li><Link href="/privacy" className="hover:text-white transition-colors">プライバシーポリシー</Link></li>
               </ul>
             </div>
             <div>

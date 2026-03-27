@@ -1,13 +1,13 @@
 import React from 'react';
 import Link from 'next/link';
-import { Smartphone, Bell, Gift, ArrowLeft, Zap, Fingerprint } from "lucide-react";
+import { Smartphone, Bell, Gift, ArrowLeft, Zap, ShieldCheck } from "lucide-react";
 
 export default function WalletConcept() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30">
-      <nav className="p-6 border-b border-slate-800">
-        <Link href="/" className="flex items-center gap-2 text-sm font-bold hover:text-pink-500 transition-colors">
-          <ArrowLeft size={16} /> BACK TO TOP
+      <nav className="p-6 border-b border-slate-800 backdrop-blur-md bg-slate-950/80 sticky top-0 z-50">
+        <Link href="/" className="flex items-center gap-2 text-sm font-bold hover:text-pink-500 transition-colors group">
+          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> BACK TO TOP
         </Link>
       </nav>
 
@@ -39,7 +39,7 @@ export default function WalletConcept() {
                 <Bell className="text-violet-500" size={32} />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white mb-4 italic text-left">ファンへの直接通知（Push Notification）</h2>
+                <h2 className="text-2xl font-bold text-white mb-4 italic text-left uppercase tracking-tighter">Direct Push Notification</h2>
                 <p className="text-slate-400 leading-relaxed text-left">
                   ウォレットにカードを持つファンだけへ、アーティストから直接メッセージを届けることができます。
                   次回のライブ先行案内や、限定メッセージ、未公開情報の解禁。
@@ -57,9 +57,9 @@ export default function WalletConcept() {
                 <Gift className="text-pink-500" size={32} />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white mb-4 italic text-left">ライブ後のサプライズ特典配布</h2>
+                <h2 className="text-2xl font-bold text-white mb-4 italic text-left uppercase tracking-tighter">Post-Live Surprise Gifts</h2>
                 <p className="text-slate-400 leading-relaxed text-left">
-                  ライブ中の応援の証として、後日デジタルギフトやクーポンを「エアドロップ」形式で配布可能。
+                  ライブ中の応援の証として、後日デジタルギフトやクーポンをプッシュ配信形式で配布可能。
                   「あの日のライブを共創した仲間」だけに贈られる特別なサービス。
                   一度きりのライブ体験が、終わらない物語へと変わります。
                 </p>
@@ -74,7 +74,7 @@ export default function WalletConcept() {
                 <Smartphone className="text-slate-400" size={32} />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white mb-4 italic text-left">OS標準の圧倒的な利便性</h2>
+                <h2 className="text-2xl font-bold text-white mb-4 italic text-left uppercase tracking-tighter">Native OS Experience</h2>
                 <p className="text-slate-400 leading-relaxed text-left">
                   専用アプリのインストールは不要です。
                   iPhoneやAndroidに最初から入っているウォレットアプリを使用するため、
@@ -86,30 +86,30 @@ export default function WalletConcept() {
 
         </div>
 
-        {/* --- ADDED: Concept Navigation --- */}
+        {/* --- Concept Navigation --- */}
         <section className="mt-32 pt-16 border-t border-slate-900">
           <h2 className="text-xs font-black text-slate-500 tracking-[0.3em] uppercase mb-12 text-center">Explore Other Concepts</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
             {/* Real-time */}
-            <Link href="/concept/realtime" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group text-left">
+            <Link href="/concept/realtime" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group">
               <Zap className="text-slate-600 group-hover:text-pink-400 transition-colors mb-4" size={24} />
               <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">Real-time</h3>
               <p className="text-slate-600 text-sm mt-2 leading-relaxed">01 リアルタイム演出連動</p>
             </Link>
 
             {/* Wallet (Current) */}
-            <div className="p-8 rounded-[2rem] border-2 border-violet-500 bg-violet-500/5 relative overflow-hidden text-left">
-              <div className="absolute top-4 right-4 text-[10px] font-black text-violet-500 tracking-widest">YOU ARE HERE</div>
+            <div className="p-8 rounded-[2rem] border-2 border-violet-500 bg-violet-500/5 relative overflow-hidden">
+              <div className="absolute top-4 right-4 text-[10px] font-black text-violet-500 tracking-widest uppercase">You are here</div>
               <Smartphone className="text-violet-500 mb-4" size={24} />
               <h3 className="text-xl font-black text-white italic uppercase tracking-tighter">Wallet Connect</h3>
               <p className="text-slate-500 text-sm mt-2 leading-relaxed">02 スマホのウォレットに保存</p>
             </div>
 
-            {/* NFT */}
-            <Link href="/concept/nft" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group text-left">
-              <Fingerprint className="text-slate-600 group-hover:text-indigo-400 transition-colors mb-4" size={24} />
-              <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">NFT Assets</h3>
-              <p className="text-slate-600 text-sm mt-2 leading-relaxed">03 NFT技術による証跡管理</p>
+            {/* Proof (Updated from NFT) */}
+            <Link href="/concept/proof" className="p-8 rounded-[2rem] border border-slate-800 bg-slate-900/30 hover:border-slate-600 hover:bg-slate-900/60 transition-all group">
+              <ShieldCheck className="text-slate-600 group-hover:text-indigo-400 transition-colors mb-4" size={24} />
+              <h3 className="text-xl font-black text-slate-400 group-hover:text-white italic uppercase tracking-tighter transition-colors">Digital Proof</h3>
+              <p className="text-slate-600 text-sm mt-2 leading-relaxed">03 シリアルナンバー証跡管理</p>
             </Link>
           </div>
         </section>

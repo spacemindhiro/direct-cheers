@@ -62,8 +62,8 @@ create table public.event_artists (
   artist_profile_id uuid references public.profiles(profile_id) on delete restrict not null,
   performance_order int,
   scheduled_start_at timestamptz,   -- 🕒 誰が今ステージにいるかの自動判定用
-  slot_duration_minutes int,        -- 🕒 持ち時間
-  thanks_message text,              -- 💬 完了画面に表示する一言
+  slot_duration_minutes int,         -- 🕒 持ち時間
+  thanks_message text,               -- 💬 完了画面に表示する一言
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null,
   deleted_at timestamptz,
@@ -176,7 +176,7 @@ create table public.debt_claims (
   claim_id uuid default gen_random_uuid() primary key,
   profile_id uuid references public.profiles(profile_id) on delete restrict not null,
   original_transaction_id uuid references public.transactions(transaction_id),
-  claim_amount bigint not null,          -- アーティストから回収する額（元本）
+  claim_amount bigint not null,           -- アーティストから回収する額（元本）
   stripe_dispute_fee bigint default 0,    -- Stripe手数料（プラットフォーム実損分）
   recovered_amount bigint default 0 not null,
   status text check (status in ('active', 'recovered', 'written_off')) default 'active' not null,

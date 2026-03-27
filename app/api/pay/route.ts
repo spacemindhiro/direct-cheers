@@ -3,25 +3,27 @@ import Stripe from 'stripe';
 
 export async function POST(req: Request) {
   try {
-    // フロントからデータを受け取る
     const body = await req.json();
     const { amount, artistId, metadata } = body;
 
     const stripeKey = process.env.STRIPE_SECRET_KEY || "";
-    // 環境変数が無い場合に備えたフォールバック
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    
+    // ✅ 修正：指定の環境変数 NEXT_PUBLIC_SITE_URL を使用
+    // 末尾のスラッシュの有無を考慮して正規化します
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const cleanSiteUrl = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl;
+
+    const successUrl = `${cleanSiteUrl}/demo/thanks?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${cleanSiteUrl}/demo/cheers`;
 
     if (!stripeKey) {
-      console.error("Missing STRIPE_SECRET_KEY");
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+      throw new Error("STRIPE_SECRET_KEY is missing");
     }
     
     const stripe = new Stripe(stripeKey, {
-      apiVersion: '2023-10-16' as any,
+      // @ts-ignore
+      apiVersion: '2023-10-16',
     });
-
-    // 💡 amount を確実に数値型に変換
-    const unitAmount = parseInt(String(amount), 10);
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -30,15 +32,14 @@ export async function POST(req: Request) {
           currency: 'jpy',
           product_data: { 
             name: `${artistId || 'Artist'} への応援`,
-            description: metadata?.comment || 'Thank you for your support!',
           },
-          unit_amount: unitAmount, 
+          unit_amount: parseInt(String(amount), 10), 
         },
         quantity: 1,
       }],
       mode: 'payment',
-      success_url: `${baseUrl}/demo/thanks`,
-      cancel_url: `${baseUrl}/demo/cheers`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       metadata: {
         artistId: artistId || 'demo',
         nickName: metadata?.nickName || '',
@@ -46,11 +47,11 @@ export async function POST(req: Request) {
       },
     });
 
-    // ✅ 絶対にJSONとしてURLを返す
+    // ✅ フロントエンドで window.location.href を書き換えるために JSON を返す
     return NextResponse.json({ url: session.url });
 
   } catch (err: any) {
-    console.error("Stripe Session Creation Error:", err);
+    console.error("Stripe Session Error:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

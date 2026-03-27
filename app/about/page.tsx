@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search } from "lucide-react";
+import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search, FileText } from "lucide-react";
 
 export default function AboutPage() {
   return (
@@ -22,9 +22,9 @@ export default function AboutPage() {
               alt="Direct Cheers Logo" 
               className="w-9 h-9 rounded-lg shadow-lg shadow-pink-500/10 group-hover:scale-110 transition-transform"
             />
-            <h1 className="text-2xl font-black tracking-tighter text-white uppercase italic">Direct Cheers</h1>
+            <h1 className="text-2xl font-black tracking-tighter text-white uppercase italic text-[1.2rem] md:text-2xl">Direct Cheers</h1>
           </Link>
-          <div className="flex items-center gap-4 text-xs font-bold text-slate-500 tracking-widest uppercase bg-slate-900 px-5 py-2.5 rounded-full border border-slate-800">
+          <div className="hidden md:flex items-center gap-4 text-xs font-bold text-slate-500 tracking-widest uppercase bg-slate-900 px-5 py-2.5 rounded-full border border-slate-800">
             <Zap className="text-pink-500" size={16} fill="currentColor" />
             Platform Info
           </div>
@@ -42,37 +42,49 @@ export default function AboutPage() {
         <section className="text-center mb-32 relative py-16">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-br from-pink-500/15 via-indigo-500/10 to-transparent blur-[100px] rounded-full -z-10" />
           <span className="text-pink-500 font-black italic tracking-[0.4em] text-xs uppercase mb-6 block">ABOUT THE PLATFORM</span>
-          <h2 className="text-5xl md:text-7xl font-black mb-10 tracking-tighter text-white leading-[1.1] uppercase italic text-balance">
+          <h2 className="text-4xl md:text-7xl font-black mb-10 tracking-tighter text-white leading-[1.1] uppercase italic">
             ライブ体験を、<br />
             <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">永遠のアセットに。</span>
           </h2>
-          <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium text-pretty">
+          <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium">
             Direct Cheersは、アーティストとファンの熱狂をデジタル技術で記録し、共有可能な資産へと昇華させる新しいプラットフォームです。
           </p>
         </section>
 
         {/* --- Founder's Message --- */}
-        <section className="p-12 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-24 relative overflow-hidden flex flex-col md:flex-row gap-12 items-center">
-          <div className="w-48 h-48 md:w-60 md:h-60 rounded-full border-4 border-slate-700 shadow-xl overflow-hidden flex-shrink-0 relative group">
+        <section className="p-8 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-24 relative overflow-hidden flex flex-col md:flex-row gap-12 items-center">
+          {/* ✅ ポートレート配置 */}
+          <div className="w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-slate-700 shadow-2xl overflow-hidden flex-shrink-0 relative group bg-slate-950">
             <img 
               src="/moriwaki-portrait.png" 
               alt="Founder: Hirotaka Moriwaki" 
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
             />
           </div>
           
           <div className="flex-1">
             <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Founder's Message</span>
-            <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2 text-balance">森脇 弘貴 / Hirotaka Moriwaki</h3>
+            <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2">森脇 弘貴 / Hirotaka Moriwaki</h3>
             <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-sm mb-6">Direct Cheers Founder & CEO</p>
             
+            {/* ✅ 資格バッジ（PMPリンク付き） */}
             <div className="flex flex-wrap gap-3 mb-8">
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold uppercase tracking-tighter">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold uppercase tracking-tighter shadow-lg shadow-indigo-500/5">
                 <Award size={14} /> 応用情報処理技術者
               </span>
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-pink-500/40 text-pink-300 text-[10px] font-bold uppercase tracking-tighter">
-                <Award size={14} /> PMP (Project Management Professional)
-              </span>
+              
+              <a 
+                href="/PMI Certification.pdf" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-pink-500/40 text-pink-300 text-[10px] font-bold uppercase tracking-tighter hover:bg-pink-500/10 transition-all cursor-pointer group shadow-lg shadow-pink-500/5"
+                title="View PMP Certificate"
+              >
+                <Award size={14} className="group-hover:scale-110 transition-transform text-pink-500" /> 
+                <span>PMP (Project Management Professional)</span>
+                <span className="ml-2 text-[8px] opacity-60 border-l border-pink-500/30 pl-2">Since 2008</span>
+                <FileText size={12} className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </a>
             </div>
 
             <div className="space-y-6 text-slate-300 font-medium leading-relaxed italic text-sm md:text-base">
@@ -161,7 +173,7 @@ export default function AboutPage() {
         <section className="text-center py-20 bg-gradient-to-br from-slate-900 to-slate-950 rounded-[3rem] border border-violet-500/10 shadow-3xl relative overflow-hidden flex flex-col items-center group">
           <div className="absolute inset-0 bg-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-6 relative z-10">お問い合わせ</h3>
-          <p className="text-slate-400 font-medium leading-relaxed max-w-xl mb-12 relative z-10 text-pretty">
+          <p className="text-slate-400 font-medium leading-relaxed max-w-xl mb-12 relative z-10">
             掲載をご希望のアーティスト様、またはシステムに関するご質問はお気軽にご連絡ください。
           </p>
           <div className="flex flex-col md:flex-row gap-6 w-full justify-center px-10 relative z-10">

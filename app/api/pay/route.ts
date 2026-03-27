@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
+    const { amount, artistId, metadata } = await req.json(); // フロントから送られてくる値
     const stripeKey = process.env.STRIPE_SECRET_KEY || "";
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://direct-cheers.com';
 
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is missing");
     
@@ -20,25 +19,28 @@ export async function POST() {
       line_items: [{
         price_data: {
           currency: 'jpy',
-          product_data: { name: '応援' },
-          unit_amount: 100,
+          product_data: { 
+            name: `${artistId} への応援`,
+            description: metadata?.comment || ''
+          },
+          unit_amount: amount, // フロントから届いた金額 (1000, 3000, 5000)
         },
         quantity: 1,
       }],
       mode: 'payment',
-      // --- 💡 遷移先をサンクスページに修正 ---
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://direct-cheers.com'}/demo/thanks`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://direct-cheers.com'}/demo`,
+      success_url: `${baseUrl}/demo/thanks`,
+      cancel_url: `${baseUrl}/demo/cheers`,
+      metadata: {
+        artistId,
+        ...metadata
+      }
     });
 
-    if (supabaseUrl && supabaseAnonKey) {
-      createClient(supabaseUrl, supabaseAnonKey);
-    }
-
-    // --- ✅ 修正ポイント：NextResponse.json ではなく redirect を使う ---
-    return NextResponse.redirect(session.url!, { status: 303 });
+    // --- ✅ 修正：リダイレクトではなく、URLをJSONで返す ---
+    return NextResponse.json({ url: session.url });
 
   } catch (err: any) {
+    console.error("Stripe Error:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

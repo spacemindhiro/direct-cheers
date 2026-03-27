@@ -2,8 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-// ✅ Mail アイコンを追加
-import { Play, Wallet, ShieldCheck, Zap, ArrowRight, Award, Database, Music, Mail } from "lucide-react";
+import { Play, Wallet, ShieldCheck, Zap, ArrowRight, Award, Database, Music, Mail, ExternalLink } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -29,9 +28,14 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="bg-white text-slate-950 px-5 py-2 rounded-full text-xs font-black hover:bg-pink-500 hover:text-white transition-all shadow-xl shadow-white/5 uppercase tracking-tighter">
+            {/* ✅ JOIN NOW を mailto に修正 */}
+            <a 
+              href="mailto:support@direct-cheers.com?subject=【Direct Cheers】参加・導入に関するお問い合わせ"
+              className="bg-white text-slate-950 px-5 py-2 rounded-full text-xs font-black hover:bg-pink-500 hover:text-white transition-all shadow-xl shadow-white/5 uppercase tracking-tighter flex items-center gap-2 group"
+            >
+              <Mail size={14} className="group-hover:animate-pulse" />
               JOIN NOW
-            </button>
+            </a>
           </div>
         </div>
       </nav>
@@ -44,7 +48,7 @@ export default function LandingPage() {
           <span className="inline-block px-4 py-1.5 rounded-full border border-slate-800 text-slate-400 text-[10px] font-bold tracking-[0.2em] uppercase mb-8 bg-slate-900/50">
             Next-Gen Live Experience Platform
           </span>
-          <h2 className="text-5xl md:text-8xl font-black mb-10 tracking-tighter text-white leading-[1.05]">
+          <h2 className="text-5xl md:text-8xl font-black mb-10 tracking-tighter text-white leading-[1.05] uppercase">
             ライブの感動を、<br />
             <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent italic">
               「スマホのウォレット」
@@ -194,7 +198,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ✅ 修正箇所: Contact Section (Top) */}
+      {/* --- Contact Section --- */}
       <section id="contact" className="py-32 px-6 bg-slate-950 relative overflow-hidden text-center border-t border-slate-900">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-pink-500/5 blur-[120px] rounded-full -z-10" />
 
@@ -239,25 +243,24 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-16 sm:gap-24 text-left">
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Navigation</h6>
-              <ul className="text-slate-500 text-[11px] space-y-4 font-bold">
-                <li><Link href="/about" className="text-pink-500 hover:text-white transition-all">私たちについて (About Us)</Link></li>
-                <li><Link href="/#concept" className="hover:text-pink-500 transition-colors uppercase tracking-widest">Concept</Link></li>
-                <li><Link href="/demo" className="hover:text-pink-500 transition-colors italic uppercase tracking-widest">Demo Experience</Link></li>
-                <li><Link href="/#features" className="hover:text-pink-500 transition-colors uppercase tracking-widest">Features</Link></li>
+              <ul className="text-slate-500 text-[11px] space-y-4 font-bold tracking-widest uppercase">
+                <li><Link href="/about" className="text-pink-500 hover:text-white transition-all">私たちについて</Link></li>
+                <li><Link href="#concept" className="hover:text-pink-500 transition-colors">Concept</Link></li>
+                <li><Link href="/demo" className="hover:text-pink-500 transition-colors italic">Demo Experience</Link></li>
+                <li><Link href="#features" className="hover:text-pink-500 transition-colors">Features</Link></li>
               </ul>
             </div>
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Legal</h6>
-              <ul className="text-slate-500 text-[11px] space-y-4 font-medium">
+              <ul className="text-slate-500 text-[11px] space-y-4 font-medium tracking-widest uppercase">
                 <li><Link href="/terms" className="hover:text-white transition-colors">利用規約</Link></li>
-                <li><Link href="/law" className="hover:text-white transition-colors">特定商取引法に基づく表記</Link></li>
+                <li><Link href="/law" className="hover:text-white transition-colors">特定商取引法</Link></li>
                 <li><Link href="/privacy" className="text-pink-500 font-bold hover:underline transition-all underline-offset-4">プライバシーポリシー</Link></li>
               </ul>
             </div>
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Support</h6>
-              <ul className="text-slate-500 text-[11px] space-y-4 font-medium">
-                {/* フッターのリンクも #contact へのアンカーリンク、もしくは mailto にすると親切です */}
+              <ul className="text-slate-500 text-[11px] space-y-4 font-medium tracking-widest uppercase">
                 <li><a href="mailto:support@direct-cheers.com" className="hover:text-white transition-colors">お問い合わせ</a></li>
               </ul>
             </div>

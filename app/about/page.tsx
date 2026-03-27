@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search, FileText } from "lucide-react";
+import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search, FileText, ExternalLink } from "lucide-react";
 
 export default function AboutPage() {
   return (
@@ -24,7 +24,7 @@ export default function AboutPage() {
             />
             <h1 className="text-2xl font-black tracking-tighter text-white uppercase italic text-[1.2rem] md:text-2xl">Direct Cheers</h1>
           </Link>
-          <div className="hidden md:flex items-center gap-4 text-xs font-bold text-slate-500 tracking-widest uppercase bg-slate-900 px-5 py-2.5 rounded-full border border-slate-800">
+          <div className="hidden md:flex items-center gap-4 text-xs font-bold text-slate-500 tracking-widest uppercase bg-slate-900 px-5 py-2.5 rounded-full border border-slate-800 shadow-inner">
             <Zap className="text-pink-500" size={16} fill="currentColor" />
             Platform Info
           </div>
@@ -58,7 +58,7 @@ export default function AboutPage() {
             <img 
               src="/moriwaki-portrait.png" 
               alt="Founder: Hirotaka Moriwaki" 
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 shadow-inner" 
             />
           </div>
           
@@ -101,9 +101,25 @@ export default function AboutPage() {
               </a>
             </div>
 
-            <div className="space-y-6 text-slate-300 font-medium leading-relaxed italic text-sm md:text-base">
+            <div className="space-y-6 text-slate-300 font-medium leading-relaxed italic text-sm md:text-base text-pretty">
               <p>25年以上にわたり、ミッションクリティカルなクレジットカード基幹システムの開発・保守に従事。決済データの「1円の重み」と、止まることが許されないトランザクションの厳格さを熟知しています。</p>
-              <p>同時に、20年以上にわたりDJイベントを主催。現場で生まれる熱狂が、既存の決済システムでは正しく評価・還元されていないという課題を痛感してきました。</p>
+              
+              <p>
+                同時に、2003年から20年以上にわたり、サイケデリックトランス・パーティー
+                <a 
+                  href="https://www.facebook.com/profile.php?id=100064419200791" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mx-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-white hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-300 transition-all font-bold not-italic group"
+                  title="SpaceMind (Activity Page)"
+                >
+                  <Zap size={14} className="text-pink-500 group-hover:scale-110 transition-transform" />
+                  <span>SpaceMind</span>
+                  <ExternalLink size={10} className="opacity-50" />
+                </a>
+                を主催。現場で生まれる熱狂が、既存の決済システムでは正しく評価・還元されていないという課題を痛感してきました。
+              </p>
+              
               <p>金融グレードの堅牢さと、音楽現場の熱量。この二つを最新のウェブ技術で統合し、ファンとアーティストの新しい経済圏を構築します。</p>
             </div>
           </div>
@@ -186,12 +202,12 @@ export default function AboutPage() {
         {/* --- Contact --- */}
         <section className="text-center py-20 bg-gradient-to-br from-slate-900 to-slate-950 rounded-[3rem] border border-violet-500/10 shadow-3xl relative overflow-hidden flex flex-col items-center group">
           <div className="absolute inset-0 bg-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-          <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-6 relative z-10">お問い合わせ</h3>
-          <p className="text-slate-400 font-medium leading-relaxed max-w-xl mb-12 relative z-10">
+          <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-6 relative z-10 text-balance">お問い合わせ</h3>
+          <p className="text-slate-400 font-medium leading-relaxed max-w-xl mb-12 relative z-10 text-pretty">
             掲載をご希望のアーティスト様、またはシステムに関するご質問はお気軽にご連絡ください。
           </p>
           <div className="flex flex-col md:flex-row gap-6 w-full justify-center px-10 relative z-10">
-            <a href="mailto:support@direct-cheers.com" className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12 shadow-2xl">
+            <a href="mailto:support@direct-cheers.com" className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12 shadow-2xl tracking-tighter">
               <Mail size={22} fill="currentColor" />
               SUPPORT@DIRECT-CHEERS.COM
             </a>

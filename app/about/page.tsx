@@ -49,7 +49,7 @@ export default function AboutPage() {
           </h2>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium">
             Direct Cheersは、アーティストとファンの熱狂を「確かな証跡」として記録し、<br className="hidden md:block" />
-            共創の歴史を永続的に証明する次世代の応援プラットフォームです。
+            イベントオーガナイザーやアーティストとファンとの新たな接点を創造する、次世代の応援プラットフォームです。
           </p>
         </section>
 

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Play } from "lucide-react";
+import { Play, Wallet, ShieldCheck, Zap } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -20,7 +20,6 @@ export default function LandingPage() {
           </Link>
           
           <div className="hidden md:flex gap-8 text-sm font-medium">
-            {/* --- ✅ 修正箇所: About Us へのリンクを追加 --- */}
             <Link href="/about" className="text-pink-500 font-bold hover:text-white transition-colors uppercase tracking-widest">About Us</Link>
             <Link href="#concept" className="hover:text-pink-500 transition-colors">コンセプト</Link>
             <Link href="#demo" className="hover:text-pink-500 transition-colors italic">DEMO</Link>
@@ -53,8 +52,8 @@ export default function LandingPage() {
           </h2>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed mb-12 font-medium">
             Direct Cheersは、会場のQRコードから応援を贈るプラットフォーム。<br className="hidden md:block" />
-            応援の証（Cheers!）は、シリアル入りのデジタルカードとして<br className="hidden md:block" />
-            あなたのスマホのウォレットに直接届きます。
+            応援の証（Cheers!）は、シリアル刻印入りのデジタル証明書として<br className="hidden md:block" />
+            あなたのスマホの標準ウォレットアプリに直接届きます。
           </p>
           <div className="flex justify-center gap-6">
             <Link href="#demo" className="bg-slate-100 text-slate-900 px-10 py-4 rounded-full font-bold hover:bg-pink-500 hover:text-white transition-all shadow-2xl scale-110">
@@ -78,7 +77,7 @@ export default function LandingPage() {
               </h3>
               <p className="text-slate-400 leading-relaxed mb-8 max-w-md font-medium">
                 ブラウザだけで体験できるデモページを用意しました。<br />
-                スマホから応援を送り、ステージが反応する瞬間をシミュレーション。最後にはテスト用のウォレットカードも発行可能です。
+                応援がステージを彩り、最後にはあなたのiPhoneやAndroidに「応援証明書」が届く一連の流れをシミュレーションできます。
               </p>
               <Link href="/demo" className="inline-flex items-center gap-3 bg-gradient-to-r from-pink-500 to-violet-600 text-white px-8 py-4 rounded-full font-bold hover:scale-105 transition-all shadow-xl shadow-pink-500/20">
                 <Play size={18} fill="currentColor" />
@@ -105,37 +104,36 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-20">
             <h3 className="text-4xl font-black text-white mb-4 italic tracking-tighter uppercase">The Digital Experience</h3>
-            <p className="text-slate-500">最新テクノロジーが変える、ライブエンターテインメントの未来</p>
+            <p className="text-slate-500">透明な決済と、消えない感動を両立するテクノロジー</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-10">
-            <Link href="/concept/realtime" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/30 transition-all group block text-left">
-              <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50">01</div>
+            <div className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/30 transition-all group block text-left">
+              <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50"><Zap size={40} /></div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">リアルタイム演出連動</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
-                応援をトリガーに、会場のVJや照明が変化。あなたの「熱」が現場の景色を塗り替えます。
-                <span className="block mt-2 text-[10px] text-slate-600">※一部の演出対応イベントにて順次展開予定</span>
+                応援をトリガーに会場のVJや照明が変化。あなたの熱量が現場の景色を塗り替える、双方向のライブ体験を提供します。
               </p>
-            </Link>
+            </div>
 
-            <Link href="/concept/wallet" className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group block text-left">
+            <div className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group block text-left">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 blur-3xl group-hover:bg-violet-500/20 transition-all" />
-              <div className="text-violet-500 font-black text-5xl italic mb-6">02</div>
+              <div className="text-violet-500 font-black text-5xl italic mb-6"><Wallet size={40} /></div>
               <h4 className="text-2xl font-bold text-white mb-4 italic">スマホのウォレットに保存</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
-                購入した digital アセットは Apple Wallet や Google Wallet に簡単追加。
-                シリアル刻印入りの記念カードを、いつでもどこでもスマホから呼び出せます。
+                発行されたデジタルカードは Apple Wallet / Google Wallet に追加可能。
+                シリアル刻印入りの記念証を、アプリ不要でいつでもスマホから呼び出せます。
               </p>
-            </Link>
+            </div>
 
-            <Link href="/concept/nft" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/30 transition-all block text-left">
-              <div className="text-indigo-500 font-black text-5xl italic mb-6">03</div>
-              <h4 className="text-2xl font-bold text-white mb-4 italic">NFT技術による証跡管理</h4>
+            <div className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/30 transition-all block text-left">
+              <div className="text-indigo-500 font-black text-5xl italic mb-6"><ShieldCheck size={40} /></div>
+              <h4 className="text-2xl font-bold text-white mb-4 italic">シリアルナンバー証跡管理</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
-                すべてのカードはブロックチェーン（NFT）によって唯一無二の価値を保証。
-                厳格なアクセスログ管理により、正当なデジタル取引をプラットフォームが支えます。
+                すべてのデジタル資産には独自のシリアルナンバーを付与。
+                改ざん不能な証跡管理システムにより、正当な支援の記録をプラットフォームが永続的に保証します。
               </p>
-            </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -154,7 +152,6 @@ export default function LandingPage() {
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Navigation</h6>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium">
-                {/* --- ✅ 修正箇所: フッターのNavigationにも About Us を追加 --- */}
                 <li><Link href="/about" className="text-pink-500 font-bold hover:underline transition-all">私たちについて (About Us)</Link></li>
                 <li><Link href="/#concept" className="hover:text-pink-500 transition-colors">コンセプト</Link></li>
                 <li><Link href="/demo" className="hover:text-pink-500 transition-colors italic">デモ体験</Link></li>

@@ -46,7 +46,7 @@ export default function AboutPage() {
           <h2 className="text-4xl md:text-7xl font-black mb-10 tracking-tighter text-white leading-[1.1] uppercase italic text-pretty">
             一晩の熱狂を、<br />
             <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">
-              一生の「繋がり」へ。
+             「続く関係」の起点に。
             </span>
           </h2>
           

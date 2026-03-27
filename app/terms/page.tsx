@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ShieldCheck, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ShieldCheck, AlertTriangle, Mail } from "lucide-react";
 
 export default function TermsPage() {
   return (
@@ -34,12 +34,15 @@ export default function TermsPage() {
               <p>本サービスは、ライブイベントにおいてアーティストに対し「応援（Cheers!）」を贈ることで、リアルタイムの演出参加および、その証跡としてのデジタル証明書（以下「デジタルアセット」）を取得できるプラットフォームです。</p>
             </section>
 
-            <section>
+            <section className="bg-slate-900/80 p-6 rounded-2xl border border-slate-800">
               <h2 className="text-xl font-bold text-white mb-4 italic border-l-4 border-pink-500 pl-4">第3条（決済および役務の完了）</h2>
-              <ul className="list-decimal ml-5 space-y-2">
+              <ul className="list-decimal ml-5 space-y-4">
                 <li>ユーザーは、本サービス上で定められた金額を支払うことにより、デジタルアセットを購入できます。</li>
                 <li>決済には、本サービスが指定する決済代行会社（Stripe）のシステムを利用するものとします。</li>
-                <li className="text-white font-bold italic underline decoration-pink-500/50">
+                <li className="text-white font-bold">
+                  【情報の取得】 デジタルアセットの権利紐付けおよび通知には、Stripeの決済画面で入力されたメールアドレス、または決済手段（Apple Pay / Google Pay等）に登録済みのメールアドレスが自動的に適用されます。
+                </li>
+                <li className="text-pink-500 font-black italic underline decoration-pink-500/50">
                   本サービスにおける役務の提供は、決済完了後、ユーザーのブラウザ上にデジタルアセットが正常に表示された時点をもって完了するものとします。
                 </li>
               </ul>
@@ -67,17 +70,20 @@ export default function TermsPage() {
               </ul>
             </section>
 
-            <section className="border border-slate-800 p-8 rounded-3xl space-y-6">
+            <section className="border border-slate-800 p-8 rounded-3xl space-y-6 relative overflow-hidden bg-slate-900/30">
+              <div className="absolute top-0 left-0 w-1 h-full bg-pink-500" />
               <div className="flex items-center gap-3 text-pink-500 mb-2">
                 <AlertTriangle size={20} />
                 <h2 className="text-xl font-bold italic uppercase">第7条（免責事項）</h2>
               </div>
-              <ul className="list-decimal ml-5 space-y-4">
+              <ul className="list-decimal ml-5 space-y-5">
                 <li>
-                  <span className="text-white font-bold">【情報の正確性】</span> ユーザーによるメールアドレス等の入力ミスに起因する、デジタルアセットの受領不能、紛失、または第三者への誤送信について、当社は一切の責任を負わず、再発行や調査の義務も負わないものとします。
+                  <span className="text-white font-bold underline decoration-slate-700">【決済登録情報の優先】</span> 
+                  ユーザーが決済時に使用したメールアドレスの誤入力、または決済アプリ（Apple Pay等）に登録されている古い情報や不正確な情報に起因する、デジタルアセットの受領不能、紛失、第三者への誤送信等について、当社は一切の責任を負わず、再発行や調査、返金の義務を負わないものとします。
                 </li>
                 <li>
-                  <span className="text-white font-bold">【コレクション・保存】</span> 第3条に定める役務完了後の、OS標準ウォレット（Apple Wallet / Google Wallet）への追加操作、および保存状態の維持はユーザーの自己責任において行われるものとし、当社はこれに起因する紛失や表示の不具合について保証しません。
+                  <span className="text-white font-bold underline decoration-slate-700">【コレクション・保存の自己責任】</span> 
+                  第3条に定める役務完了後の、OS標準ウォレット（Apple Wallet / Google Wallet）への追加操作、および保存状態の維持はユーザーの自己責任において行われるものとし、当社はこれに起因する紛失や表示の不具合について保証しません。
                 </li>
                 <li>
                   当社は、通信環境の障害、ライブイベントの中断、各社ウォレットアプリの仕様変更等により、本サービスの提供が遅延または不能となった場合でも、一切の責任を負わないものとします。
@@ -92,8 +98,14 @@ export default function TermsPage() {
 
           </div>
 
-          <div className="mt-20 pt-8 border-t border-slate-800 text-center text-slate-500 text-[10px] font-mono italic">
-            © 2026 Direct Cheers Platform. All Rights Reserved.
+          <div className="mt-20 pt-12 border-t border-slate-800 flex flex-col items-center gap-6">
+            <div className="flex items-center gap-2 text-slate-500 group">
+              <Mail size={14} />
+              <span className="text-[10px] font-bold tracking-[0.2em] uppercase transition-colors group-hover:text-pink-500">support@direct-cheers.com</span>
+            </div>
+            <div className="text-slate-600 text-[10px] font-mono italic">
+              © 2026 Direct Cheers Platform. All Rights Reserved.
+            </div>
           </div>
         </div>
       </div>

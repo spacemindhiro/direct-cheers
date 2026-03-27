@@ -2,7 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Play, Wallet, ShieldCheck, Zap, ArrowRight, Award, Database, Music } from "lucide-react";
+// ✅ Mail アイコンを追加
+import { Play, Wallet, ShieldCheck, Zap, ArrowRight, Award, Database, Music, Mail } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -76,8 +77,8 @@ export default function LandingPage() {
                 演出をハックせよ。
               </h3>
               <p className="text-slate-400 leading-relaxed mb-8 max-w-md font-medium">
-                ブラウザだけで体験できるデモページを用意しました。<br />
-                応援がステージを彩り、最後にはあなたのiPhoneやAndroidに「応援証明書」が届く一連の流れをシミュレーションできます。
+                cheers!の決済を体験できるデモページを用意しました。<br />
+                スムースな決済の最後にはあなたのiPhoneやAndroidに「応援証明書」が届く一連の流れをシミュレーションできます。
               </p>
               <Link href="/demo" className="inline-flex items-center gap-3 bg-gradient-to-r from-pink-500 to-violet-600 text-white px-8 py-4 rounded-full font-bold hover:scale-105 transition-all shadow-xl shadow-pink-500/20">
                 <Play size={18} fill="currentColor" />
@@ -144,7 +145,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- ADDED: Strategic About Us Entry --- */}
+      {/* --- Strategic About Us Entry --- */}
       <section className="py-32 px-6 bg-slate-950 relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-indigo-500/5 blur-[120px] rounded-full -z-10" />
         
@@ -193,6 +194,38 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ✅ 修正箇所: Contact Section (Top) */}
+      <section id="contact" className="py-32 px-6 bg-slate-950 relative overflow-hidden text-center border-t border-slate-900">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-pink-500/5 blur-[120px] rounded-full -z-10" />
+
+        <div className="max-w-4xl mx-auto space-y-12">
+          <div className="space-y-4">
+            <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase block">Contact Us</span>
+            <h3 className="text-4xl md:text-5xl font-black text-white italic tracking-tighter uppercase leading-tight">
+              お問い合わせ
+            </h3>
+            <p className="text-slate-400 font-medium leading-relaxed max-w-xl mx-auto text-pretty">
+              掲載をご希望のオーガナイザー・アーティスト様、<br className="md:block hidden" />
+              システム導入に関するご質問は、下記よりお気軽にご連絡ください。
+            </p>
+          </div>
+
+          <div className="flex flex-col items-center gap-6">
+            <a 
+              href="mailto:support@direct-cheers.com?subject=【Direct Cheers】お問い合わせ" 
+              className="group relative flex items-center justify-center gap-4 bg-white text-slate-950 px-8 md:px-16 py-6 rounded-[2rem] font-black text-lg hover:bg-pink-500 hover:text-white transition-all shadow-2xl shadow-white/5 tracking-tighter w-full md:w-auto"
+            >
+              <Mail size={22} className="group-hover:animate-bounce" />
+              <span>SUPPORT@DIRECT-CHEERS.COM</span>
+            </a>
+            
+            <p className="text-slate-600 text-[10px] font-bold uppercase tracking-[0.2em]">
+              通常 2営業日以内に担当よりご返信いたします
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* --- Footer Area --- */}
       <footer className="py-24 px-6 border-t border-slate-800 bg-slate-950">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-16">
@@ -224,7 +257,8 @@ export default function LandingPage() {
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Support</h6>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium">
-                <li><Link href="/contact" className="hover:text-white transition-colors">お問い合わせ</Link></li>
+                {/* フッターのリンクも #contact へのアンカーリンク、もしくは mailto にすると親切です */}
+                <li><a href="mailto:support@direct-cheers.com" className="hover:text-white transition-colors">お問い合わせ</a></li>
               </ul>
             </div>
           </div>

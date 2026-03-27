@@ -9,11 +9,13 @@ export default function ArtistCheersPage() {
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // ✅ アーティスト情報を指定のものに差し替え
   const artist = {
-    id: "demo-artist-001",
-    name: "D-Cheers Collective",
-    event: "Tech & Vibes Live 2026",
-    image: "https://images.unsplash.com/photo-1493225255756-d9584f8606e9?q=80&w=2070&auto=format&fit=crop"
+    id: "night-streamer-001",
+    name: "NIGHT STREAMER", // 名前を変更
+    event: "SPACEMIND 2026.03.26", // イベントを変更
+    // ✅ サーファーからDJっぽい画像へ差し替え
+    image: "https://images.unsplash.com/photo-1516873240891-4bf014598ab4?q=80&w=2070&auto=format&fit=crop"
   };
 
   const handleStripeCheckout = async (amount: number) => {
@@ -29,7 +31,10 @@ export default function ArtistCheersPage() {
           artistId: artist.id,
           metadata: {
             nickName: nickName,
-            comment: comment
+            comment: comment,
+            // thanksページで表示するために追加
+            artistName: artist.name,
+            eventName: artist.event
           }
         }),
       });
@@ -37,15 +42,12 @@ export default function ArtistCheersPage() {
       const data = await response.json();
 
       if (data.url) {
-        // Stripeへリダイレクト
         window.location.href = data.url;
       } else {
-        console.error("API Error Response:", data);
-        alert(`エラー: ${data.error || "決済URLが取得できませんでした"}`);
+        alert(`エラー: ${data.error}`);
         setLoading(false);
       }
     } catch (error) {
-      console.error("Fetch Error:", error);
       alert("サーバーとの通信に失敗しました。");
       setLoading(false);
     }
@@ -54,16 +56,18 @@ export default function ArtistCheersPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-20 font-sans selection:bg-pink-500/30 overflow-x-hidden">
       <div className="relative h-[40vh] w-full overflow-hidden">
-        <img src={artist.image} className="w-full h-full object-cover opacity-60 grayscale" alt="Artist" />
+        {/* ✅ DJ画像が反映されます */}
+        <img src={artist.image} className="w-full h-full object-cover opacity-60 grayscale" alt={artist.name} />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
         <div className="absolute top-6 left-6">
-          <Link href="/demo" className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/10 text-white">
+          <Link href="/demo" className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/10 text-white hover:bg-pink-500/20 transition-all">
             <ArrowLeft size={20} />
           </Link>
         </div>
         <div className="absolute bottom-8 left-6 right-6">
+          {/* ✅ 名前とイベントが反映されます */}
           <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">{artist.name}</h2>
-          <p className="text-slate-400 text-sm font-bold mt-3 flex items-center gap-2 tracking-tight">
+          <p className="text-slate-400 text-sm font-bold mt-3 flex items-center gap-2 tracking-tight uppercase">
             <Music size={14} className="text-pink-500" /> {artist.event}
           </p>
         </div>

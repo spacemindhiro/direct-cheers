@@ -2,11 +2,11 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Play, Wallet, ShieldCheck, Zap } from "lucide-react";
+import { Play, Wallet, ShieldCheck, Zap, ArrowRight, Award, Database, Music } from "lucide-react";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 overflow-x-hidden">
       {/* --- Navigation --- */}
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
@@ -19,16 +19,16 @@ export default function LandingPage() {
             <h1 className="text-xl font-black tracking-tighter text-white uppercase italic">Direct Cheers</h1>
           </Link>
           
-          <div className="hidden md:flex gap-8 text-sm font-medium">
-            <Link href="/about" className="text-pink-500 font-bold hover:text-white transition-colors uppercase tracking-widest">About Us</Link>
-            <Link href="#concept" className="hover:text-pink-500 transition-colors">コンセプト</Link>
-            <Link href="#demo" className="hover:text-pink-500 transition-colors italic">DEMO</Link>
-            <Link href="#features" className="hover:text-pink-500 transition-colors">機能・体験</Link>
-            <Link href="/law" className="text-slate-400 hover:text-white underline decoration-pink-500/50 transition-colors">特定商取引法</Link>
+          <div className="hidden md:flex gap-8 text-[11px] font-bold tracking-widest uppercase items-center">
+            <Link href="/about" className="text-pink-500 hover:text-white transition-colors border border-pink-500/30 px-3 py-1 rounded-md bg-pink-500/5">About Us</Link>
+            <Link href="#concept" className="text-slate-400 hover:text-pink-500 transition-colors">コンセプト</Link>
+            <Link href="#demo" className="text-slate-400 hover:text-pink-500 transition-colors italic">DEMO</Link>
+            <Link href="#features" className="text-slate-400 hover:text-pink-500 transition-colors">機能・体験</Link>
+            <Link href="/law" className="text-slate-500 hover:text-white underline decoration-pink-500/50 transition-colors">特定商取引法</Link>
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="bg-white text-slate-950 px-5 py-2 rounded-full text-sm font-bold hover:bg-pink-500 hover:text-white transition-all shadow-xl shadow-white/5">
+            <button className="bg-white text-slate-950 px-5 py-2 rounded-full text-xs font-black hover:bg-pink-500 hover:text-white transition-all shadow-xl shadow-white/5 uppercase tracking-tighter">
               JOIN NOW
             </button>
           </div>
@@ -100,7 +100,7 @@ export default function LandingPage() {
       </section>
 
       {/* --- Features Section --- */}
-      <section id="features" className="py-24 bg-slate-950 px-6">
+      <section id="features" className="py-24 bg-slate-950 px-6 border-b border-slate-900">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-20">
             <h3 className="text-4xl font-black text-white mb-4 italic tracking-tighter uppercase">The Digital Experience</h3>
@@ -108,41 +108,87 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-10">
-            {/* ✅ 01: Real-time へのリンク */}
-            <Link href="/concept/realtime" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all group block text-left hover:bg-slate-900/40">
+            <Link href="/concept/realtime" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all group block text-left hover:bg-slate-900/40 relative overflow-hidden">
               <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity">
                 <Zap size={40} />
               </div>
-              <h4 className="text-2xl font-bold text-white mb-4 italic">リアルタイム演出連動</h4>
-              <p className="text-sm text-slate-400 leading-relaxed">
+              <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Real-time連動</h4>
+              <p className="text-sm text-slate-400 leading-relaxed font-medium">
                 応援をトリガーに会場のVJや照明が変化。あなたの熱量が現場の景色を塗り替える、双方向のライブ体験を提供します。
               </p>
             </Link>
 
-            {/* ✅ 02: Wallet へのリンク */}
             <Link href="/concept/wallet" className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group block text-left hover:border-violet-500/50 transition-all">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 blur-3xl group-hover:bg-violet-500/20 transition-all" />
               <div className="text-violet-500 font-black text-5xl italic mb-6 group-hover:scale-110 transition-transform origin-left">
                 <Wallet size={40} />
               </div>
-              <h4 className="text-2xl font-bold text-white mb-4 italic">スマホのウォレットに保存</h4>
-              <p className="text-sm text-slate-400 leading-relaxed">
+              <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Wallet保存</h4>
+              <p className="text-sm text-slate-400 leading-relaxed font-medium">
                 発行されたデジタルカードは Apple Wallet / Google Wallet に追加可能。
-                シリアル刻印入りの記念証を、アプリ不要でいつでもスマホから呼び出せます。
+                記念証を、アプリ不要でいつでもスマホから呼び出せます。
               </p>
             </Link>
 
-            {/* ✅ 03: Proof (旧NFT) へのリンク */}
-            <Link href="/concept/proof" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all block text-left hover:bg-slate-900/40 group">
+            <Link href="/concept/proof" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all block text-left hover:bg-slate-900/40 group relative overflow-hidden">
               <div className="text-indigo-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity">
                 <ShieldCheck size={40} />
               </div>
-              <h4 className="text-2xl font-bold text-white mb-4 italic">シリアルナンバー証跡管理</h4>
-              <p className="text-sm text-slate-400 leading-relaxed">
-                すべてのデジタル資産には独自のシリアルナンバーを付与。
-                改ざん不能な証跡管理システムにより、正当な支援の記録をプラットフォームが永続的に保証します。
+              <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">デジタル証跡</h4>
+              <p className="text-sm text-slate-400 leading-relaxed font-medium">
+                すべての資産には独自のシリアルナンバーを付与。
+                改ざん不能な証跡管理システムにより、正当な支援の記録をプラットフォームが保証します。
               </p>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* --- ADDED: Strategic About Us Entry --- */}
+      <section className="py-32 px-6 bg-slate-950 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-indigo-500/5 blur-[120px] rounded-full -z-10" />
+        
+        <div className="max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-16 items-center bg-slate-900/40 border border-slate-800 rounded-[3.5rem] p-8 md:p-16 relative group hover:border-slate-700 transition-colors">
+            <div className="space-y-8">
+              <span className="text-indigo-400 font-black italic tracking-[0.4em] text-[10px] uppercase block">Platform Identity</span>
+              <h3 className="text-4xl md:text-5xl font-black text-white italic tracking-tighter uppercase leading-[1.1]">
+                金融の堅牢さと、<br />
+                現場の熱狂を<br />
+                <span className="text-pink-500">ひとつに。</span>
+              </h3>
+              <p className="text-slate-400 leading-relaxed font-medium">
+                Direct Cheersは、25年の金融システム開発キャリアを持つエンジニアが設計しました。
+                一時の流行ではなく、決済インフラとしての安定性と、音楽現場を知る者としての熱量を両立させています。
+              </p>
+              <Link href="/about" className="inline-flex items-center gap-4 bg-white text-slate-950 px-10 py-4 rounded-full font-black text-sm hover:bg-indigo-500 hover:text-white transition-all shadow-2xl group uppercase tracking-widest">
+                運営者について詳しく見る
+                <ArrowRight size={18} className="group-hover:translate-x-2 transition-transform" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-6 rounded-3xl bg-slate-950 border border-slate-800 space-y-4">
+                <Database className="text-indigo-400" size={24} />
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payment Logic</p>
+                <p className="text-white font-bold text-sm tracking-tighter leading-tight italic">25yrs Finance System Arch</p>
+              </div>
+              <div className="p-6 rounded-3xl bg-slate-950 border border-slate-800 space-y-4">
+                <Music className="text-pink-500" size={24} />
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Live Culture</p>
+                <p className="text-white font-bold text-sm tracking-tighter leading-tight italic">20yrs Event Promotion</p>
+              </div>
+              <div className="p-6 rounded-3xl bg-slate-950 border border-slate-800 space-y-4">
+                <Award className="text-yellow-500" size={24} />
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Certification</p>
+                <p className="text-white font-bold text-sm tracking-tighter leading-tight italic">PMP Project Management</p>
+              </div>
+              <div className="p-6 rounded-3xl bg-slate-950 border border-slate-800 space-y-4">
+                <Zap className="text-green-400" size={24} />
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Web Tech</p>
+                <p className="text-white font-bold text-sm tracking-tighter leading-tight italic">Latest Edge Functions</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -160,11 +206,11 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-16 sm:gap-24 text-left">
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Navigation</h6>
-              <ul className="text-slate-500 text-[11px] space-y-4 font-medium">
-                <li><Link href="/about" className="text-pink-500 font-bold hover:underline transition-all">私たちについて (About Us)</Link></li>
-                <li><Link href="/#concept" className="hover:text-pink-500 transition-colors">コンセプト</Link></li>
-                <li><Link href="/demo" className="hover:text-pink-500 transition-colors italic">デモ体験</Link></li>
-                <li><Link href="/#features" className="hover:text-pink-500 transition-colors">機能・体験</Link></li>
+              <ul className="text-slate-500 text-[11px] space-y-4 font-bold">
+                <li><Link href="/about" className="text-pink-500 hover:text-white transition-all">私たちについて (About Us)</Link></li>
+                <li><Link href="/#concept" className="hover:text-pink-500 transition-colors uppercase tracking-widest">Concept</Link></li>
+                <li><Link href="/demo" className="hover:text-pink-500 transition-colors italic uppercase tracking-widest">Demo Experience</Link></li>
+                <li><Link href="/#features" className="hover:text-pink-500 transition-colors uppercase tracking-widest">Features</Link></li>
               </ul>
             </div>
             <div>

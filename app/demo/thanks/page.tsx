@@ -1,10 +1,38 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Wallet, Share2, ArrowRight, Download, Sparkles } from "lucide-react";
+import { CheckCircle2, Wallet, ArrowRight, Sparkles, Smartphone, Download } from "lucide-react";
 
 export default function ThanksPage() {
+  const [os, setOs] = useState<'ios' | 'android' | 'pc'>('pc');
+
+  // OS判定
+  useEffect(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    if (/iphone|ipad|ipod/.test(ua)) {
+      setOs('ios');
+    } else if (/android/.test(ua)) {
+      setOs('android');
+    }
+  }, []);
+
+  const handleAddToWallet = () => {
+    if (os === 'ios') {
+      // 実際にはバックエンドで .pkpass ファイルを生成してダウンロードさせます
+      alert("Apple Wallet用のパス (.pkpass) を発行します。iPhoneの標準機能で追加画面が開きます。");
+      // window.location.href = "/api/wallet/apple"; // 将来の実装
+    } else if (os === 'android') {
+      alert("Google Walletに追加するためのリンクを発行します。");
+      // window.location.href = "/api/wallet/google"; // 将来の実装
+    } else {
+      alert("PC環境です。スマホでQRコードを読み取って追加してください。");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 overflow-x-hidden">
+      {/* Background Decor */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink-500/10 blur-[120px] rounded-full animate-pulse" />
       </div>
@@ -21,27 +49,55 @@ export default function ThanksPage() {
           </h1>
         </div>
 
-        <div className="mb-20">
-          <div className="relative inline-block group">
+        {/* Digital Asset Card */}
+        <div className="mb-16">
+          <div className="relative inline-block group perspective-1000">
             <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 to-indigo-500/20 blur-2xl group-hover:scale-110 transition-transform" />
-            <div className="relative bg-slate-900 border border-slate-700 w-72 md:w-80 aspect-[2/3] rounded-[2rem] overflow-hidden shadow-2xl">
-              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-60" />
+            <div className="relative bg-slate-900 border border-slate-700 w-72 md:w-80 aspect-[2/3] rounded-[2rem] overflow-hidden shadow-2xl transition-transform duration-700 group-hover:rotate-y-12">
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-60 grayscale hover:grayscale-0 transition-all duration-700" />
               <div className="absolute bottom-8 left-8 right-8 text-left">
                 <span className="text-pink-500 font-black text-[10px] tracking-widest uppercase mb-2 block">Exclusive Asset</span>
                 <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none mb-1">Night Streamer</h3>
-                <p className="text-slate-400 text-[10px] font-medium uppercase tracking-[0.2em]">Tokyo Garden Theater | 2026.03.26</p>
+                <p className="text-slate-400 text-[10px] font-medium uppercase tracking-[0.2em]">SpaceMind | 2026.03.26</p>
               </div>
             </div>
             <Sparkles className="absolute -top-4 -right-4 text-yellow-400 animate-pulse" size={32} />
           </div>
         </div>
 
+        {/* Action Area */}
         <div className="grid gap-4 max-w-sm mx-auto">
-          <button className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all shadow-xl group">
-            <Wallet size={20} fill="currentColor" /> Add to Apple Wallet
-            <ArrowRight className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" size={20} />
+          
+          {/* iOSの場合 */}
+          {(os === 'ios' || os === 'pc') && (
+            <button 
+              onClick={handleAddToWallet}
+              className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all shadow-xl group active:scale-95"
+            >
+              <Wallet size={20} fill="currentColor" /> Add to Apple Wallet
+              <ArrowRight className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" size={20} />
+            </button>
+          )}
+
+          {/* Androidの場合 */}
+          {(os === 'android' || os === 'pc') && (
+            <button 
+              onClick={handleAddToWallet}
+              className="flex items-center justify-center gap-3 bg-slate-900 text-white border border-slate-700 h-16 rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl group active:scale-95"
+            >
+              <Smartphone size={20} className="text-green-500" /> Add to Google Wallet
+              <ArrowRight className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" size={20} />
+            </button>
+          )}
+
+          {/* 画像として保存するオプション */}
+          <button className="flex items-center justify-center gap-2 text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest py-4 transition-colors">
+            <Download size={16} /> Save as Image
           </button>
-          <Link href="/" className="text-slate-500 hover:text-pink-500 transition-colors text-sm font-bold uppercase tracking-widest mt-8">Back to Top</Link>
+
+          <Link href="/" className="text-slate-600 hover:text-pink-500 transition-colors text-xs font-bold uppercase tracking-widest mt-8">
+            Back to Top
+          </Link>
         </div>
       </main>
     </div>

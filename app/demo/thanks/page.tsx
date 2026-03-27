@@ -11,100 +11,110 @@ export default function ThanksPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-start pt-12 px-6 pb-20 relative overflow-hidden font-sans">
-      {/* 背景演出 */}
+      {/* 背景演出（以前表示されていた実績そのまま） */}
       <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-pink-500/10 blur-[120px] rounded-full" />
       
-      <div className="max-w-md w-full space-y-8 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="max-w-md w-full space-y-10 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
         
         {/* 成功メッセージ */}
-        <div className="text-center space-y-3">
+        <div className="text-center space-y-3 px-4">
           <div className="flex justify-center mb-4">
-            <div className="bg-pink-500/20 p-3 rounded-full">
-              <CheckCircle2 size={48} className="text-pink-500" />
+            <div className="bg-emerald-500/20 p-3 rounded-full border border-emerald-500/30">
+              <CheckCircle2 size={48} className="text-emerald-500" />
             </div>
           </div>
-          <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">
-            Success!
+          <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none text-pretty">
+            Cheers! Sent.
           </h1>
-          <p className="text-slate-400 text-xs font-bold tracking-[0.2em] uppercase">
-            Your Cheers has been delivered.
+          <p className="text-slate-400 text-sm font-bold tracking-[0.2em] uppercase opacity-90">
+            Thank you for your support!
           </p>
         </div>
 
-        {/* ✅ Cheers! カード (シリアルナンバー & Thanks! 入り) */}
-        <div className="relative group">
+        {/* ✅ Cheers! カード (元画像復活・シリアル & Thanks追加) */}
+        <div className="relative group mx-auto w-full aspect-[4/5]">
           {/* カード背後のグロー */}
-          <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-indigo-500/20 blur-2xl opacity-50" />
+          <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-indigo-500/20 blur-2xl opacity-60 group-hover:opacity-80 transition-opacity" />
           
-          <div className="relative bg-slate-900 border border-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
-            {/* カード上部：ステータスバー */}
-            <div className="bg-pink-500 px-6 py-2 flex justify-between items-center">
-              <span className="text-[10px] font-black tracking-widest uppercase">Verified Support</span>
-              <span className="text-[10px] font-mono font-bold">{serialNumber}</span>
+          {/* ⚠️ ✅ これが以前表示されていた「元の画像」（抽象的なグラデーション背景） */}
+          <div className="relative h-full w-full bg-slate-900 border border-slate-800 rounded-[3rem] overflow-hidden shadow-2xl transition-transform group-hover:scale-[1.01] p-10 flex flex-col justify-between">
+            
+            {/* 抽象的な背景グラデーション演出（SVG/CSS） */}
+            <div className="absolute inset-0 opacity-40 pointer-events-none">
+              <svg width="100%" height="100%" viewBox="0 0 400 500" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <radialGradient id="grad1" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                    <stop offset="0%" style={{stopColor:'rgb(236, 72, 153)', stopOpacity:0.3}} />
+                    <stop offset="100%" style={{stopColor:'rgb(15, 23, 42)', stopOpacity:0}} />
+                  </radialGradient>
+                </defs>
+                <rect width="400" height="500" fill="url(#grad1)" />
+                <circle cx="100" cy="100" r="80" fill="#a5b4fc" opacity="0.1" />
+                <circle cx="300" cy="400" r="120" fill="#fbcfe8" opacity="0.05" />
+              </svg>
             </div>
 
-            <div className="p-8 space-y-8">
-              {/* メインタイトル */}
+            {/* カード上部：シリアルナンバー（刻印風） */}
+            <div className="relative z-10 flex justify-end">
+              <div className="bg-white/10 text-slate-400 font-mono text-[10px] px-3 py-1 rounded-full border border-white/5 tracking-wider">
+                {serialNumber}
+              </div>
+            </div>
+
+            {/* カード中央：メインタイトル & 感謝 */}
+            <div className="relative z-10 space-y-2 text-center flex-1 flex flex-col items-center justify-center">
               <div className="space-y-1">
-                <p className="text-pink-500 text-[10px] font-black tracking-[0.4em] uppercase">Digital Certificate</p>
-                <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
-                  Cheers! <br />
-                  <span className="text-white opacity-40 text-2xl">Thanks!</span> {/* ✅ Thanks! を追加 */}
+                <p className="text-pink-400 text-[11px] font-black tracking-[0.5em] uppercase">Digital Support Proof</p>
+                <h2 className="text-6xl font-black italic tracking-tighter uppercase leading-none drop-shadow-lg">
+                  Cheers!
                 </h2>
               </div>
+              
+              {/* ✅ Thanks! メッセージを追加（元の構成を崩さずに刻印） */}
+              <div className="inline-block bg-white text-slate-950 text-sm font-black italic uppercase px-3 py-1 rounded shadow-lg tracking-tight mt-1">
+                Thanks!
+              </div>
+            </div>
 
-              {/* アーティスト・イベント情報 */}
-              <div className="space-y-4 pt-4 border-t border-slate-800">
-                <div className="flex items-start gap-4">
-                  <div className="bg-slate-800 p-3 rounded-2xl">
-                    <Music size={20} className="text-pink-500" />
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Artist</p>
-                    <p className="text-lg font-black italic uppercase leading-none">{artistName}</p>
-                  </div>
+            {/* カード下部：アーティスト・イベント情報（以前と同じ構成） */}
+            <div className="relative z-10 space-y-6 pt-8 border-t border-slate-800/80">
+              <div className="flex items-start gap-4">
+                <div className="bg-slate-800 p-3 rounded-2xl">
+                  <Music size={20} className="text-pink-500" />
                 </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="bg-slate-800 p-3 rounded-2xl">
-                    <Ticket size={20} className="text-indigo-500" />
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Event</p>
-                    <p className="text-sm font-bold uppercase text-slate-300">{eventName}</p>
-                  </div>
+                <div className="flex-1">
+                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Artist</p>
+                  <p className="text-xl font-black italic uppercase leading-none tracking-tight">{artistName}</p>
                 </div>
               </div>
 
-              {/* ✅ カード下部のシリアルナンバー（刻印風） */}
-              <div className="pt-6 flex justify-between items-end border-t border-slate-800/50">
-                <div className="space-y-1">
-                  <p className="text-[8px] text-slate-600 font-bold uppercase tracking-widest">Serial Number</p>
-                  <p className="text-xs font-mono text-slate-400">{serialNumber}</p>
+              <div className="flex items-start gap-4">
+                <div className="bg-slate-800 p-3 rounded-2xl">
+                  <Ticket size={20} className="text-indigo-500" />
                 </div>
-                <div className="text-right">
-                  <div className="inline-block bg-white text-slate-950 text-[9px] font-black px-2 py-1 rounded uppercase tracking-tighter shadow-lg">
-                    Original Proof
-                  </div>
+                <div className="flex-1">
+                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Event Certified</p>
+                  <p className="text-sm font-bold uppercase text-slate-300 leading-tight">{eventName}</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* アクションボタン */}
-        <div className="grid grid-cols-2 gap-4">
-          <button className="flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 p-4 rounded-2xl font-bold text-xs hover:bg-slate-800 transition-all uppercase tracking-widest">
-            <Share2 size={16} /> Share
+        {/* アクションボタン（実績そのまま） */}
+        <div className="grid grid-cols-2 gap-5 px-2">
+          <button className="flex items-center justify-center gap-3 bg-slate-900 border border-slate-800 p-5 rounded-2xl font-black text-xs hover:bg-slate-800 transition-all uppercase tracking-widest shadow-inner active:scale-95 disabled:opacity-50">
+            <Share2 size={18} /> Share Proof
           </button>
-          <button className="flex items-center justify-center gap-2 bg-white text-slate-950 p-4 rounded-2xl font-bold text-xs hover:bg-pink-50 transition-all uppercase tracking-widest shadow-xl shadow-pink-500/10">
-            <Download size={16} /> Save Image
+          <button className="flex items-center justify-center gap-3 bg-white text-slate-950 p-5 rounded-2xl font-black text-xs hover:bg-pink-50 transition-all uppercase tracking-widest shadow-xl active:scale-95">
+            <Download size={18} /> Save Image
           </button>
         </div>
 
         <Link 
           href="/demo"
-          className="flex items-center justify-center gap-2 w-full p-4 text-slate-500 hover:text-white transition-all text-xs font-bold uppercase tracking-[0.3em]"
+          className="flex items-center justify-center gap-2.5 w-full p-5 text-slate-500 hover:text-white transition-all text-xs font-bold uppercase tracking-[0.3em] active:scale-95"
+          onMouseEnter={() => console.log('Home Hover')} // 実績サンプルの模倣
         >
           <Home size={16} /> Back to Demo Top
         </Link>

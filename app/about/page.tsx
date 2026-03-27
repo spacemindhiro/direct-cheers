@@ -38,21 +38,26 @@ export default function AboutPage() {
           </Link>
         </div>
 
-        {/* --- Hero Section --- */}
+{/* --- Hero Section --- */}
         <section className="text-center mb-32 relative py-16">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-br from-pink-500/15 via-indigo-500/10 to-transparent blur-[100px] rounded-full -z-10" />
           <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase mb-6 block">ABOUT THE PLATFORM</span>
-          <h2 className="text-4xl md:text-7xl font-black mb-10 tracking-tighter text-white leading-[1.1] uppercase italic">
-            ライブ体験を、<br />
-            {/* ✅ 「永遠のアセット」から「不変の支援実績」へ */}
-            <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">不変の支援実績に。</span>
+          
+          <h2 className="text-4xl md:text-7xl font-black mb-10 tracking-tighter text-white leading-[1.1] uppercase italic text-pretty">
+            一晩の熱狂を、<br />
+            <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">
+              一生の「繋がり」へ。
+            </span>
           </h2>
-          <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium">
-            Direct Cheersは、アーティストとファンの熱狂を「確かな証跡」として記録し、<br className="hidden md:block" />
-            イベントオーガナイザーやアーティストとファンとの新たな接点を創造する、次世代の応援プラットフォームです。
+          
+          <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed font-medium text-pretty px-4">
+            Direct Cheersは、単なる決済ツールではありません。<br className="hidden md:block" />
+            ライブ会場で生まれた一瞬の熱量を、シリアル刻印入りの「不変の支援実績」として記録。<br className="hidden md:block" />
+            イベントが終わった後も、オーガナイザーやアーティストがファンとダイレクトに繋がり、<br className="hidden md:block" />
+            次の物語を共に創り出すためのプラットフォームです。
           </p>
         </section>
-
+        
         {/* --- Founder's Message --- */}
         <section className="p-8 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-24 relative overflow-hidden flex flex-col md:flex-row gap-12 items-center">
           <div className="w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-slate-700 shadow-2xl overflow-hidden flex-shrink-0 relative group bg-slate-950">
@@ -203,7 +208,7 @@ export default function AboutPage() {
           <div className="absolute inset-0 bg-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-6 relative z-10 text-balance">お問い合わせ</h3>
           <p className="text-slate-400 font-medium leading-relaxed max-w-xl mb-12 relative z-10 text-pretty">
-            掲載をご希望のアーティスト様、またはシステムに関するご質問はお気軽にご連絡ください。
+            ご利用を希望のイベントオーガナイザー様、アーティスト様、またはシステムに関するご質問はお気軽にご連絡ください。
           </p>
           <div className="flex flex-col md:flex-row gap-6 w-full justify-center px-10 relative z-10">
             <a href="mailto:support@direct-cheers.com" className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12 shadow-2xl tracking-tighter group">

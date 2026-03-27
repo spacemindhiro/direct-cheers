@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { Zap, Flame, ArrowLeft, QrCode, Smartphone, Monitor } from "lucide-react";
 
 export default function DemoPage() {
-  // 現場のURL（デモの現在のURLをQRにする想定）
+  // ✅ 現場のURL（デモの現在のURLをQRにする想定）
   // 実際の本番では、イベントごとの一意のURLになります
   const demoUrl = "https://direct-cheers.com/demo"; 
+
+  // ✅ Google Chart APIのURL生成を修正（テンプレートリテラルを正しく使用）
   const qrImageUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(demoUrl)}&choe=UTF-8`;
 
   return (
@@ -60,6 +62,7 @@ export default function DemoPage() {
               <p className="text-xs font-bold text-slate-500 mb-8 leading-relaxed uppercase tracking-wider">
                 現場では、フライヤーやスクリーンのQRから決済ページへ。手元のスマホで読み取ってください。
               </p>
+              {/* ✅ QR画像を表示 */}
               <div className="bg-slate-100 p-6 rounded-3xl mb-8 flex items-center justify-center relative group-hover:bg-pink-50 transition-colors">
                 <img 
                   src={qrImageUrl} 

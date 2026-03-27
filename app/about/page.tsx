@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search } from "lucide-react";
 
 export default function AboutPage() {
   return (
@@ -42,55 +42,30 @@ export default function AboutPage() {
         <section className="text-center mb-32 relative py-16">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-br from-pink-500/15 via-indigo-500/10 to-transparent blur-[100px] rounded-full -z-10" />
           <span className="text-pink-500 font-black italic tracking-[0.4em] text-xs uppercase mb-6 block">ABOUT THE PLATFORM</span>
-          <h2 className="text-5xl md:text-7xl font-black mb-10 tracking-tighter text-white leading-[1.1] uppercase italic">
+          <h2 className="text-5xl md:text-7xl font-black mb-10 tracking-tighter text-white leading-[1.1] uppercase italic text-balance">
             ライブ体験を、<br />
             <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">永遠のアセットに。</span>
           </h2>
-          <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium">
+          <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium text-pretty">
             Direct Cheersは、アーティストとファンの熱狂をデジタル技術で記録し、共有可能な資産へと昇華させる新しいプラットフォームです。
           </p>
         </section>
 
-        {/* --- Mission Section --- */}
-        <section className="grid md:grid-cols-2 gap-12 mb-32 items-center">
-          <div className="p-12 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 shadow-2xl relative overflow-hidden group">
-            <div className="absolute -right-6 -top-6 w-40 h-40 bg-pink-500/10 blur-3xl group-hover:scale-110 transition-transform duration-500" />
-            <div className="flex items-center gap-5 mb-8 relative z-10">
-              <div className="w-14 h-14 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 shadow-lg shadow-pink-500/5">
-                <Target className="text-pink-400" size={30} />
-              </div>
-              <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase">PLATFORM MISSION</h3>
-            </div>
-            <div className="space-y-6 text-slate-400 font-medium leading-relaxed relative z-10">
-              <p>一瞬のライブ体験が持つ、あの熱量を永遠の記録として残すこと。</p>
-              <p>ファンからアーティストへの直接的な「Cheers!（応援）」を、最速かつ安全に届けること。</p>
-              <p>デジタル証明技術を活用し、ファンの「応援の履歴」を所有可能な資産へと変えること。</p>
-            </div>
-          </div>
-          <div className="space-y-6 text-center text-slate-500 p-8 rounded-[2.5rem] bg-slate-900 border border-slate-800 flex flex-col items-center justify-center h-full">
-            <ShieldCheck className="text-slate-700" size={100} strokeWidth={1} />
-            <p className="font-mono text-[10px] uppercase tracking-widest text-slate-600 italic">Secure & Professional Management</p>
-          </div>
-        </section>
-
-        {/* --- Founder's Message (肖像適用版) --- */}
-        <section className="p-12 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-32 relative overflow-hidden flex flex-col md:flex-row gap-12 items-center">
-          
-          {/* ✅ 肖像画像の配置部分 */}
+        {/* --- Founder's Message --- */}
+        <section className="p-12 md:p-16 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl mb-24 relative overflow-hidden flex flex-col md:flex-row gap-12 items-center">
           <div className="w-48 h-48 md:w-60 md:h-60 rounded-full border-4 border-slate-700 shadow-xl overflow-hidden flex-shrink-0 relative group">
             <img 
-              src="/moriwaki-portrait.png" // public/moriwaki-portrait.pngを読み込む
+              src="/moriwaki-portrait.png" 
               alt="Founder: Hirotaka Moriwaki" 
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" // ホバーで少し拡大するエフェクト
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
             />
           </div>
           
           <div className="flex-1">
             <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Founder's Message</span>
-            <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2">森脇 弘貴 / Hirotaka Moriwaki</h3>
+            <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2 text-balance">森脇 弘貴 / Hirotaka Moriwaki</h3>
             <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-sm mb-6">Direct Cheers Founder & CEO</p>
             
-            {/* ✅ 保有資格バッジ */}
             <div className="flex flex-wrap gap-3 mb-8">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950 border border-indigo-500/40 text-indigo-300 text-[10px] font-bold uppercase tracking-tighter">
                 <Award size={14} /> 応用情報処理技術者
@@ -101,23 +76,98 @@ export default function AboutPage() {
             </div>
 
             <div className="space-y-6 text-slate-300 font-medium leading-relaxed italic text-sm md:text-base">
-              <p>25年以上にわたるクレジットシステムのエンジニア経験と、20年以上にわたるDJイベントの主催経験。</p>
-              <p>この二つの背景を、国際標準のプロジェクト管理スキル（PMP）と確かな技術力（応用情報処理技術者）で統合し、Direct Cheersを構築しました。</p>
-              <p>音楽イベントにおける主催者と出演者の収益を改善し、ファンとの熱い交流を促すシステムの提供によって、音楽シーンの発展に寄与できるよう努めて参ります。</p>
+              <p>25年以上にわたり、ミッションクリティカルなクレジットカード基幹システムの開発・保守に従事。決済データの「1円の重み」と、止まることが許されないトランザクションの厳格さを熟知しています。</p>
+              <p>同時に、20年以上にわたりDJイベントを主催。現場で生まれる熱狂が、既存の決済システムでは正しく評価・還元されていないという課題を痛感してきました。</p>
+              <p>金融グレードの堅牢さと、音楽現場の熱量。この二つを最新のウェブ技術で統合し、ファンとアーティストの新しい経済圏を構築します。</p>
             </div>
+          </div>
+        </section>
+
+        {/* --- Verification Flow Section --- */}
+        <section className="mb-32 relative">
+          <div className="text-center mb-16">
+            <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Trust & Safety</span>
+            <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">
+              実在性と透明性の担保
+            </h3>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                title: "イベント実在性の確認",
+                desc: "申請されたイベントの公式情報や主催者の活動実績をスタッフが1件ずつ目視で確認。実体のない架空イベントの登録を徹底排除します。",
+                icon: <Search className="text-pink-500" size={24} />
+              },
+              {
+                title: "権利と還元の保護",
+                desc: "アーティストのパブリシティ権を尊重し、主催者との正当な関係性を確認。ファンからの応援が確実に届くルートのみを承認します。",
+                icon: <ShieldCheck className="text-indigo-400" size={24} />
+              },
+              {
+                title: "不審取引の常時監視",
+                desc: "Stripeの高度な不正検知システムと連携。不自然な決済パターンを24時間体制でモニタリングし、健全な応援環境を維持します。",
+                icon: <Lock className="text-yellow-400" size={24} />
+              }
+            ].map((item, i) => (
+              <div key={i} className="p-10 rounded-[2rem] bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all group shadow-xl">
+                <div className="mb-6 w-14 h-14 rounded-2xl bg-slate-950 flex items-center justify-center border border-slate-800 shadow-inner group-hover:scale-110 transition-transform">
+                  {item.icon}
+                </div>
+                <h4 className="text-xl font-black text-white italic mb-4 uppercase tracking-tighter">{item.title}</h4>
+                <p className="text-slate-400 text-sm leading-relaxed font-medium">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* --- Tech Stack Section --- */}
+        <section className="mb-32">
+          <div className="text-center mb-16">
+            <span className="text-pink-500 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Technology Stack</span>
+            <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase">金融グレードの設計思想</h3>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                title: "Edge Realtime",
+                desc: "Next.jsとEdge Functionsを活用した超低遅延データ処理。ライブ会場での『今この瞬間』の応援を即座に反映します。",
+                icon: <Zap className="text-yellow-400" />
+              },
+              {
+                title: "Stripe Connect",
+                desc: "世界標準の決済インフラを採用。PCI-DSS準拠のセキュアな取引と、アーティストへの迅速な送金を実現しています。",
+                icon: <Database className="text-green-400" />
+              },
+              {
+                title: "Data Integrity",
+                desc: "金融システム開発の知見を活かし、不整合が許されないアトミックなトランザクション管理をデータベース層で徹底。履歴の改ざんを防ぎます。",
+                icon: <Lock className="text-indigo-400" />
+              }
+            ].map((tech, i) => (
+              <div key={i} className="p-8 rounded-3xl bg-slate-900/50 border border-slate-800 hover:border-pink-500/50 transition-colors group">
+                <div className="mb-6 w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800 group-hover:rotate-12 transition-transform">
+                  {tech.icon}
+                </div>
+                <h4 className="text-xl font-black text-white italic mb-4 uppercase tracking-tighter">{tech.title}</h4>
+                <p className="text-slate-400 text-sm leading-relaxed font-medium">{tech.desc}</p>
+              </div>
+            ))}
           </div>
         </section>
 
         {/* --- Contact --- */}
         <section className="text-center py-20 bg-gradient-to-br from-slate-900 to-slate-950 rounded-[3rem] border border-violet-500/10 shadow-3xl relative overflow-hidden flex flex-col items-center group">
-          <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-6">お問い合わせ</h3>
-          <p className="text-slate-400 font-medium leading-relaxed max-w-xl mb-12">
-            掲載をご希望のアーティスト様はお気軽にご相談ください。
+          <div className="absolute inset-0 bg-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-6 relative z-10">お問い合わせ</h3>
+          <p className="text-slate-400 font-medium leading-relaxed max-w-xl mb-12 relative z-10 text-pretty">
+            掲載をご希望のアーティスト様、またはシステムに関するご質問はお気軽にご連絡ください。
           </p>
           <div className="flex flex-col md:flex-row gap-6 w-full justify-center px-10 relative z-10">
-            <a href="mailto:support@direct-cheers.com" className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12">
+            <a href="mailto:support@direct-cheers.com" className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12 shadow-2xl">
               <Mail size={22} fill="currentColor" />
-              お問い合わせフォームへ
+              SUPPORT@DIRECT-CHEERS.COM
             </a>
           </div>
         </section>
@@ -125,7 +175,10 @@ export default function AboutPage() {
 
       <footer className="py-24 px-6 border-t border-slate-800 bg-slate-950">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-          <p className="text-slate-600 text-[10px] font-mono italic tracking-widest uppercase">© 2026 Direct Cheers Platform.</p>
+          <div className="flex flex-col gap-2">
+            <p className="text-slate-600 text-[10px] font-mono italic tracking-widest uppercase">© 2026 Direct Cheers Platform.</p>
+            <p className="text-slate-700 text-[8px] font-mono uppercase tracking-widest">Architected with Precision & Passion</p>
+          </div>
           <Link href="/" className="text-slate-500 hover:text-pink-500 transition-colors text-xs font-bold uppercase tracking-widest">Back to Top</Link>
         </div>
       </footer>

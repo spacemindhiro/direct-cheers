@@ -121,7 +121,7 @@ export default function AboutPage() {
                   <span>SpaceMind</span>
                   <ExternalLink size={10} className="opacity-50" />
                 </a>
-                を主催。イベントの現場で生まれる熱狂が、既存の商習慣では正しく評価・還元されていないという課題を痛感してきました。
+                を主催。イベントの現場で生まれる純粋な熱狂を、デジタル技術によって可視化し、アーティストやオーガナイザーへよりダイレクトに還元できる仕組みを作りたいと願ってきました。
               </p>
               
               <p>金融グレードの堅牢さと、音楽現場の熱量。この二つを最新のウェブ技術で統合し、ファンとアーティストの新しい経済圏を構築します。</p>
@@ -146,7 +146,7 @@ export default function AboutPage() {
               { date: "2026.Q1", status: "Done", title: "Core Architecture", desc: "金融グレードの決済基盤およびEdge環境の構築が完了。堅牢なデータ整合性を確保。" },
               { date: "2026.04", status: "Active", title: "Closed Beta / Demo", desc: "特定のオーガナイザー様との限定テストおよび、本サイトでの公開デモシミュレーターをリリース。" },
               { date: "2026.05", status: "Next", title: "Stripe Connect Integration", desc: "Stripe Connectを用いた、アーティストへの迅速かつ透明性の高い分配システムの最終統合。" },
-              { date: "2026.06", status: "Launch", title: "Official Service Launch", desc: "都内音楽イベントを皮切りに正式稼働開始。ファンとアーティストを繋ぐ新たな応援文化をスタート。" }
+              { date: "2026.06", status: "Launch", title: "Official Service Launch", desc: "特定オーガナイザー様の音楽イベントを皮切りに正式稼働開始。ファンとアーティストを繋ぐ新たな応援文化をスタート。" }
             ].map((item, i) => (
               <div key={i} className={`relative flex items-center justify-between mb-12 md:mb-16 ${i % 2 === 0 ? 'md:flex-row-reverse' : ''}`}>
                 <div className="hidden md:block w-5/12" />

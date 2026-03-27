@@ -64,7 +64,21 @@ export default function AboutPage() {
           
           <div className="flex-1">
             <span className="text-indigo-400 font-black italic tracking-[0.4em] text-xs uppercase mb-4 block">Founder's Message</span>
-            <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase mb-2">森脇 弘貴 / Hirotaka Moriwaki</h3>
+            
+            {/* ✅ 名前とFacebookリンク */}
+            <div className="flex items-center gap-4 mb-2">
+              <h3 className="text-2xl md:text-4xl font-black text-white italic tracking-tighter uppercase">森脇 弘貴 / Hirotaka Moriwaki</h3>
+              <a 
+                href="https://www.facebook.com/spacemind.hiro?locale=ja_JP" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="p-2.5 bg-blue-600/10 hover:bg-blue-600/30 rounded-full transition-all text-blue-400 border border-blue-500/20 shadow-inner group"
+                title="Facebook: Spacemind Hiro"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:scale-110 transition-transform"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+              </a>
+            </div>
+
             <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-sm mb-6">Direct Cheers Founder & CEO</p>
             
             {/* ✅ 資格バッジ（PMPリンク付き） */}

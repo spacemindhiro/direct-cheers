@@ -326,7 +326,7 @@ export default function AboutPage() {
         },
         { 
           phase: "02", 
-          title: "広報・告知", 
+          title: "ルール設定", 
           time: "随時", 
           task: "分配ルールを登録し、QRコードを準備。", 
           status: "Published",

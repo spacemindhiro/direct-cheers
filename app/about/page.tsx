@@ -2,9 +2,13 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search, FileText, ExternalLink, History, Calendar } from "lucide-react";
+import { ArrowLeft, Users, Target, Mail, Zap, Award, ShieldCheck, Database, Lock, Search, FileText, ExternalLink, History, Calendar, CheckCircle2 } from "lucide-react";
 
 export default function AboutPage() {
+  const contactEmail = "support@direct-cheers.com";
+  const contactSubject = encodeURIComponent("【Direct Cheers】お問い合わせ");
+  const mailUrl = `mailto:${contactEmail}?subject=${contactSubject}`;
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 overflow-x-hidden">
       {/* --- Background Effect --- */}
@@ -205,6 +209,60 @@ export default function AboutPage() {
           </div>
         </section>
 
+        {/* --- Settlement Flow Section (追加) --- */}
+        <section className="mb-32 relative py-20 bg-slate-900/40 border-y border-slate-800/50 rounded-[3rem] px-8 md:px-16 overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] rounded-full" />
+          <div className="max-w-4xl mx-auto text-left relative z-10">
+            <div className="mb-16">
+              <span className="text-pink-500 font-black italic tracking-[0.3em] text-[10px] uppercase block mb-4">Financial Governance</span>
+              <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">
+                清算・支払管理フローの厳格化
+              </h3>
+              <p className="mt-6 text-slate-400 font-medium leading-relaxed text-sm md:text-base">
+                本サービスでは、決済の安全性を担保するため、以下のステップを経て初めて精算を実行します。
+              </p>
+            </div>
+
+            <div className="space-y-12">
+              <div className="flex gap-6 md:gap-10">
+                <div className="flex-none w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white text-xs font-black italic shadow-inner">01</div>
+                <div className="space-y-2">
+                  <h4 className="text-lg font-bold text-white tracking-tight flex items-center gap-3">
+                    イベント開催の実在性確認 <span className="text-slate-600 text-[10px] uppercase tracking-widest font-black hidden sm:inline">Evidence Check</span>
+                  </h4>
+                  <p className="text-slate-400 text-xs md:text-sm leading-relaxed font-medium">
+                    イベント終了後、主催者より「会場でのQR設置写真」「開催報告のSNS公式投稿」「セットリスト」等の証跡提出を義務付けます。運営側でこれらを確認・照合するまで、当該決済の清算はロック（保留）されます。
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-6 md:gap-10">
+                <div className="flex-none w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white text-xs font-black italic shadow-inner">02</div>
+                <div className="space-y-2">
+                  <h4 className="text-lg font-bold text-white tracking-tight flex items-center gap-3">
+                    決済データの二重照合 <span className="text-slate-600 text-[10px] uppercase tracking-widest font-black hidden sm:inline">Reconciliation</span>
+                  </h4>
+                  <p className="text-slate-400 text-xs md:text-sm leading-relaxed font-medium">
+                    決済代行会社（Stripe）の提供データと、システムDB内の支援ログを全件自動照合。1円の不一致も許さない突合確認を行います。
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-6 md:gap-10">
+                <div className="flex-none w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white text-xs font-black italic shadow-inner">03</div>
+                <div className="space-y-2">
+                  <h4 className="text-lg font-bold text-white tracking-tight flex items-center gap-3">
+                    リスク待機期間の設定 <span className="text-slate-600 text-[10px] uppercase tracking-widest font-black hidden sm:inline">Chargeback Protection</span>
+                  </h4>
+                  <p className="text-slate-400 text-xs md:text-sm leading-relaxed font-medium">
+                    クレジットカード決済特有のチャージバックリスクを考慮し、決済完了から2週間のホールド期間を設定。この期間中に不正利用の申告がないことを確認した上で、最終的な支払い可能残高として確定させます。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* --- Tech Stack Section --- */}
         <section className="mb-32">
           <div className="text-center mb-16">
@@ -249,7 +307,7 @@ export default function AboutPage() {
             当サービスの導入をご希望のイベントオーガナイザー様、アーティスト様、および、システムに関するご質問はお気軽にご連絡ください。
           </p>
           <div className="flex flex-col md:flex-row gap-6 w-full justify-center px-10 relative z-10">
-            <a href="mailto:support@direct-cheers.com" className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12 shadow-2xl tracking-tighter group">
+            <a href={mailUrl} className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all w-full md:w-auto md:px-12 shadow-2xl tracking-tighter group">
               <Mail size={22} className="group-hover:animate-bounce" />
               SUPPORT@DIRECT-CHEERS.COM
             </a>

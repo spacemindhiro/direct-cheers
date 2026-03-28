@@ -225,7 +225,6 @@ export default function LandingPage() {
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Contact</h6>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium tracking-widest uppercase">
                 <li><a href={mailUrl} className="hover:text-white transition-colors">お問い合わせ</a></li>
-                <li><span className="text-slate-700">Tokyo, Japan</span></li>
               </ul>
             </div>
           </div>

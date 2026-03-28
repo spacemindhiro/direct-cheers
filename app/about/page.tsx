@@ -298,7 +298,115 @@ export default function AboutPage() {
             ))}
           </div>
         </section>
+{/* --- Organizer Operation Flow Section --- */}
+<section className="mb-32 relative py-20 bg-slate-900/30 border-y border-slate-800/50 rounded-[3rem] px-6">
+  <div className="max-w-5xl mx-auto">
+    <div className="text-center mb-16">
+      <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase mb-4 block">Standard Operating Procedure</span>
+      <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">
+        オーガナイザー業務フロー
+      </h3>
+      <p className="mt-4 text-slate-500 text-sm font-medium">
+        イベントの企画から最終的な清算まで、透明性の高いガバナンスに基づいた標準フローを定義しています。
+      </p>
+    </div>
 
+    <div className="relative">
+      {/* 垂直ライン (Mobile/Desktop共通) */}
+      <div className="absolute left-4 md:left-8 top-0 bottom-0 w-px bg-gradient-to-b from-pink-500 via-indigo-500 to-slate-800 opacity-20" />
+
+      {[
+        { 
+          phase: "01", 
+          title: "企画・登録", 
+          time: "開催1ヶ月前〜", 
+          task: "イベント詳細・出演者の登録。口座未登録者のsprite onboardingを依頼。", 
+          status: "Draft",
+          icon: <Calendar size={18} />
+        },
+        { 
+          phase: "02", 
+          title: "広報・告知", 
+          time: "随時", 
+          task: "分配ルールを登録し、QRコードを準備。", 
+          status: "Draft → Published",
+          icon: <Zap size={18} />
+        },
+        { 
+          phase: "03", 
+          title: "現場運営", 
+          time: "イベント当日", 
+          task: "会場（DJブース等）へのQRコード設置。開催の証跡となる写真撮影を推奨。", 
+          status: "Live",
+          important: true,
+          icon: <Users size={18} />
+        },
+        { 
+          phase: "04", 
+          title: "実績報告", 
+          time: "翌日〜3日以内", 
+          task: "SNS報告URL、会場写真のアップロード。", 
+          status: "Evidence Submitted",
+          icon: <FileText size={18} />
+        },
+        { 
+          phase: "05", 
+          title: "照合・待機", 
+          time: "開催後14日間", 
+          task: "運営側での照合完了およびリスク監視（チャージバック等）の待機。", 
+          status: "Locked / Verification",
+          icon: <Lock size={18} />
+        },
+        { 
+          phase: "06", 
+          title: "清算確定", 
+          time: "15日目〜", 
+          task: "すべての照合が完了し、支払い可能残高（Payoutable）として確定。", 
+          status: "Cleared",
+          icon: <CheckCircle2 size={18} />
+        },
+        { 
+          phase: "07", 
+          title: "出金実行", 
+          time: "任意", 
+          task: "自身の銀行口座への出金指示（Stripe Payout）。", 
+          status: "Paid Out",
+          icon: <ExternalLink size={18} />
+        }
+      ].map((item, i) => (
+        <div key={i} className="relative pl-12 md:pl-20 mb-10 last:mb-0 group">
+          {/* Step Number Dot */}
+          <div className={`absolute left-0 md:left-4 top-0 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500 z-10 ${item.important ? 'bg-pink-500 border-pink-400 text-white shadow-[0_0_20px_rgba(236,72,153,0.4)]' : 'bg-slate-950 border-slate-700 text-slate-400 group-hover:border-indigo-500 group-hover:text-indigo-400'}`}>
+            <span className="text-[10px] font-black italic">{item.phase}</span>
+          </div>
+
+          <div className="grid md:grid-cols-[1fr_2fr_1fr] gap-4 md:gap-8 items-start p-6 rounded-2xl bg-slate-900/40 border border-slate-800/50 hover:bg-slate-900/60 hover:border-slate-700 transition-all">
+            {/* Phase & Time */}
+            <div>
+              <div className="flex items-center gap-2 text-indigo-400 mb-1">
+                {item.icon}
+                <span className="text-xs font-black uppercase tracking-tighter">{item.title}</span>
+              </div>
+              <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{item.time}</div>
+            </div>
+
+            {/* Task */}
+            <div className="text-slate-300 text-sm font-medium leading-relaxed">
+              {item.task}
+            </div>
+
+            {/* Status Indicator */}
+            <div className="flex md:justify-end items-center">
+              <span className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter border ${item.important ? 'bg-pink-500/10 border-pink-500/30 text-pink-400' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
+                {item.status}
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
         {/* --- Contact --- */}
         <section className="text-center py-20 bg-gradient-to-br from-slate-900 to-slate-950 rounded-[3rem] border border-violet-500/10 shadow-3xl relative overflow-hidden flex flex-col items-center group mb-20">
           <div className="absolute inset-0 bg-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />

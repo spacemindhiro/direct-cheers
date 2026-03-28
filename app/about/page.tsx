@@ -209,6 +209,42 @@ export default function AboutPage() {
           </div>
         </section>
 
+        {/* --- Tech Stack Section --- */}
+        <section className="mb-32">
+          <div className="text-center mb-16">
+            <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase mb-4 block">Technology Stack</span>
+            <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">金融グレードの設計思想</h3>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                title: "Edge Realtime",
+                desc: "Next.jsと最新のクラウド技術を活用した高速処理超低遅延データ処理。ライブ会場での『今この瞬間』の応援を即座に反映します。",
+                icon: <Zap className="text-yellow-400" />
+              },
+              {
+                title: "Stripe Connect",
+                desc: "世界標準の決済インフラを採用。PCI-DSS準拠のセキュアな取引と、アーティストへの迅速な送金を実現しています。",
+                icon: <Database className="text-green-400" />
+              },
+              {
+                title: "Data Integrity",
+                desc: "金融システム開発の知見を活かし、不整合が許されないアトミックなトランザクション管理をデータベース層で徹底。実際の決済結果との照合を行い、正確な記録を保ちます。",
+                icon: <History className="text-indigo-400" />
+              }
+            ].map((tech, i) => (
+              <div key={i} className="p-8 rounded-3xl bg-slate-900/50 border border-slate-800 hover:border-pink-500/50 transition-colors group">
+                <div className="mb-6 w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800 group-hover:rotate-12 transition-transform">
+                  {tech.icon}
+                </div>
+                <h4 className="text-xl font-black text-white italic mb-4 uppercase tracking-tighter">{tech.title}</h4>
+                <p className="text-slate-400 text-sm leading-relaxed font-medium">{tech.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* --- Settlement Flow Section (追加) --- */}
         <section className="mb-32 relative py-20 bg-slate-900/40 border-y border-slate-800/50 rounded-[3rem] px-8 md:px-16 overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] rounded-full" />
@@ -262,42 +298,7 @@ export default function AboutPage() {
             </div>
           </div>
         </section>
-
-        {/* --- Tech Stack Section --- */}
-        <section className="mb-32">
-          <div className="text-center mb-16">
-            <span className="text-pink-500 font-black italic tracking-[0.4em] text-[10px] uppercase mb-4 block">Technology Stack</span>
-            <h3 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">金融グレードの設計思想</h3>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                title: "Edge Realtime",
-                desc: "Next.jsと最新のクラウド技術を活用した高速処理超低遅延データ処理。ライブ会場での『今この瞬間』の応援を即座に反映します。",
-                icon: <Zap className="text-yellow-400" />
-              },
-              {
-                title: "Stripe Connect",
-                desc: "世界標準の決済インフラを採用。PCI-DSS準拠のセキュアな取引と、アーティストへの迅速な送金を実現しています。",
-                icon: <Database className="text-green-400" />
-              },
-              {
-                title: "Data Integrity",
-                desc: "金融システム開発の知見を活かし、不整合が許されないアトミックなトランザクション管理をデータベース層で徹底。実際の決済結果との照合を行い、正確な記録を保ちます。",
-                icon: <History className="text-indigo-400" />
-              }
-            ].map((tech, i) => (
-              <div key={i} className="p-8 rounded-3xl bg-slate-900/50 border border-slate-800 hover:border-pink-500/50 transition-colors group">
-                <div className="mb-6 w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center border border-slate-800 group-hover:rotate-12 transition-transform">
-                  {tech.icon}
-                </div>
-                <h4 className="text-xl font-black text-white italic mb-4 uppercase tracking-tighter">{tech.title}</h4>
-                <p className="text-slate-400 text-sm leading-relaxed font-medium">{tech.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+        
 {/* --- Organizer Operation Flow Section --- */}
 <section className="mb-32 relative py-20 bg-slate-900/30 border-y border-slate-800/50 rounded-[3rem] px-6">
   <div className="max-w-5xl mx-auto">

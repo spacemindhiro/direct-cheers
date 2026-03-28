@@ -14,7 +14,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 overflow-x-hidden">
       {/* --- Navigation --- */}
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
+        <div className="max-w-6xl mx-auto flex justify-between items-center text-left">
           <Link href="/" className="flex items-center gap-2 group">
             <img 
               src="/logo-emblem.png" 
@@ -72,7 +72,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Demo Section (Revised 4-Step Flow) --- */}
+      {/* --- Demo Section (Optimized 4-Step Flow) --- */}
       <section id="demo" className="py-24 px-6 relative border-b border-slate-900">
         <div className="max-w-6xl mx-auto">
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 p-8 md:p-16 rounded-[3rem] relative overflow-hidden flex flex-col md:flex-row items-center gap-12 group">
@@ -96,40 +96,40 @@ export default function LandingPage() {
             <div className="flex-1 relative z-10 w-full md:w-auto">
               <div className="grid grid-cols-1 gap-3 p-6 bg-slate-950/50 rounded-[2.5rem] border border-slate-800 shadow-inner">
                 
-                {/* Step 1: Entry */}
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-700/50 opacity-80">
-                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 text-[10px] font-black">01</div>
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-left">QR / 決済選択</div>
-                  <CheckCircle2 size={14} className="ml-auto text-green-500/50" />
+                {/* Step 1: Entry - 明るく修正 */}
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-700/50 hover:border-pink-500/30 transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-500 text-[10px] font-black">01</div>
+                  <div className="text-[11px] font-bold text-white uppercase tracking-wider text-left">QR / 決済選択</div>
+                  <CheckCircle2 size={14} className="ml-auto text-green-500" />
                 </div>
 
-                {/* Step 2: Pay */}
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-700/50 opacity-80">
-                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 text-[10px] font-black">02</div>
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-left">Apple / Google Pay</div>
-                  <CheckCircle2 size={14} className="ml-auto text-green-500/50" />
+                {/* Step 2: Pay - 明るく修正 */}
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-700/50 hover:border-indigo-500/30 transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-500 text-[10px] font-black">02</div>
+                  <div className="text-[11px] font-bold text-white uppercase tracking-wider text-left">Apple / Google Pay</div>
+                  <CheckCircle2 size={14} className="ml-auto text-green-500" />
                 </div>
 
-                {/* ✅ Step 3: Asset Delivery (中核機能) */}
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900 border border-pink-500/40 shadow-[0_0_20px_rgba(236,72,153,0.15)] relative group-hover:scale-[1.02] transition-transform">
-                  <div className="w-8 h-8 rounded-full bg-pink-500 flex items-center justify-center text-white text-[10px] font-black">03</div>
+                {/* Step 3: Asset Delivery - 1,2とトーンを合わせて明るく */}
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-700/50 hover:border-pink-500/30 transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-500 text-[10px] font-black">03</div>
                   <div className="flex flex-col text-left">
                     <div className="text-[11px] font-black text-white uppercase italic tracking-wider">応援証明書の発行</div>
-                    <div className="text-[9px] text-pink-500 font-bold uppercase tracking-widest leading-none mt-1">Digital Asset Delivery</div>
+                    <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-none mt-1">Digital Asset Delivery</div>
                   </div>
                   <Zap size={14} className="ml-auto text-yellow-400 animate-pulse" />
                 </div>
 
-                {/* ✅ Step 4: Wallet (将来拡張) */}
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/40 border border-amber-500/10 relative overflow-hidden">
+                {/* Step 4: Wallet - ここだけを明確に「工事中」としてトーンを落とす */}
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/40 border border-amber-500/10 relative overflow-hidden group/wallet">
                   <div className="absolute inset-0 opacity-[0.03] bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#f59e0b_10px,#f59e0b_20px)] pointer-events-none" />
-                  <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500/40 text-[10px] font-black relative">
+                  <div className="w-8 h-8 rounded-full bg-amber-500/5 flex items-center justify-center text-amber-500/20 text-[10px] font-black relative">
                     <Wallet size={16} />
                     <Construction size={8} className="absolute -bottom-1 -right-1" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <div className="text-[11px] font-bold text-amber-500/30 uppercase italic leading-none mb-1 text-left">Wallet Integration</div>
-                    <div className="text-[8px] text-slate-600 font-bold uppercase tracking-[0.2em] text-left">Phase 2: Mobile Pass</div>
+                    <div className="text-[11px] font-bold text-slate-600 uppercase italic leading-none mb-1 text-left">Wallet Integration</div>
+                    <div className="text-[8px] text-slate-700 font-bold uppercase tracking-[0.2em] text-left">Phase 2: Mobile Pass</div>
                   </div>
                 </div>
 
@@ -139,9 +139,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Features Section --- */}
+      {/* --- Features / About / Footer は変更なし (そのまま保持) --- */}
       <section id="features" className="py-24 bg-slate-950 px-6 border-b border-slate-900">
-        <div className="max-w-6xl mx-auto text-center mb-20">
+        <div className="max-w-6xl mx-auto text-center mb-20 text-pretty">
           <h3 className="text-4xl font-black text-white mb-4 italic tracking-tighter uppercase">The Digital Experience</h3>
           <p className="text-slate-500">透明な決済と、消えない感動を両立するテクノロジー</p>
         </div>
@@ -151,14 +151,12 @@ export default function LandingPage() {
               <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Real-time連動</h4>
               <p className="text-sm text-slate-400 leading-relaxed font-medium">応援をトリガーに会場のVJや照明が変化。あなたの熱量が現場の景色を塗り替える体験を提供します。</p>
             </Link>
-
             <Link href="/concept/wallet" className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group block text-left hover:border-violet-500/50 transition-all text-pretty">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 blur-3xl group-hover:bg-violet-500/20 transition-all" />
               <div className="text-violet-500 font-black text-5xl italic mb-6 group-hover:scale-110 transition-transform origin-left"><Wallet size={40} /></div>
               <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Wallet保存</h4>
               <p className="text-sm text-slate-400 leading-relaxed font-medium">発行されたカードは Apple/Google Wallet に追加予定。アプリ不要でスマホから呼び出せます。</p>
             </Link>
-
             <Link href="/concept/proof" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all block text-left hover:bg-slate-900/40 group relative overflow-hidden text-pretty">
               <div className="text-indigo-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity"><ShieldCheck size={40} /></div>
               <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">デジタル証跡</h4>
@@ -167,7 +165,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Strategic About Us Entry --- */}
       <section className="py-32 px-6 bg-slate-950 relative overflow-hidden">
         <div className="max-w-5xl mx-auto">
           <div className="grid md:grid-cols-2 gap-16 items-center bg-slate-900/40 border border-slate-800 rounded-[3.5rem] p-8 md:p-16 relative group hover:border-slate-700 transition-colors text-pretty text-left">
@@ -182,20 +179,19 @@ export default function LandingPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="p-6 rounded-3xl bg-slate-950 border border-slate-800 space-y-4">
                 <Database className="text-indigo-400" size={24} />
-                <p className="text-white font-bold text-sm italic tracking-tighter">Finance System Arch</p>
+                <p className="text-white font-bold text-sm italic tracking-tighter uppercase">Finance System Arch</p>
               </div>
               <div className="p-6 rounded-3xl bg-slate-950 border border-slate-800 space-y-4">
                 <Music className="text-pink-500" size={24} />
-                <p className="text-white font-bold text-sm italic tracking-tighter">Live Culture</p>
+                <p className="text-white font-bold text-sm italic tracking-tighter uppercase">Live Culture</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* --- Footer Area --- */}
-      <footer className="py-24 px-6 border-t border-slate-800 bg-slate-950">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-16 text-left text-pretty">
+      <footer className="py-24 px-6 border-t border-slate-800 bg-slate-950 text-left">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-16 text-pretty">
           <div className="space-y-6">
             <h5 className="font-bold text-white tracking-tighter italic text-xl">DIRECT CHEERS</h5>
             <p className="text-slate-500 text-[10px] uppercase tracking-[0.3em]">Digital Assets for Live Moments.</p>

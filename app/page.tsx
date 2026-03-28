@@ -101,7 +101,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-700/50">
                   <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-500"><ShieldCheck size={20} /></div>
-                  <div className="text-xs font-bold text-slate-300">Apple / Google Pay 決済実行</div>
+                  <div className="text-xs font-bold text-slate-300">Apple / Google Pay等 決済実行</div>
                   <CheckCircle2 size={16} className="ml-auto text-green-500" />
                 </div>
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-700/50">

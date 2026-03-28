@@ -2,13 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Wallet, ArrowRight, Sparkles, Smartphone, Download } from "lucide-react";
+import { CheckCircle2, Wallet, ArrowRight, Sparkles, Smartphone, Download, X, Info } from "lucide-react";
 
 export default function ThanksPage() {
   const [os, setOs] = useState<'ios' | 'android' | 'pc'>('pc');
-  const serialNumber = "#001-20260326"; // ✅ シリアルNo
+  const [showModal, setShowModal] = useState(false);
+  const serialNumber = "#001-20260326"; 
 
-  // OS判定
   useEffect(() => {
     const ua = navigator.userAgent.toLowerCase();
     if (/iphone|ipad|ipod/.test(ua)) {
@@ -19,13 +19,7 @@ export default function ThanksPage() {
   }, []);
 
   const handleAddToWallet = () => {
-    if (os === 'ios') {
-      alert(`Apple Wallet用のパス (${serialNumber}) を発行します。iPhoneの標準機能で追加画面が開きます。`);
-    } else if (os === 'android') {
-      alert(`Google Walletに追加するためのリンク (${serialNumber}) を発行します。`);
-    } else {
-      alert("PC環境です。スマホでQRコードを読み取って追加してください。");
-    }
+    setShowModal(true);
   };
 
   return (
@@ -41,7 +35,7 @@ export default function ThanksPage() {
             <CheckCircle2 className="text-green-400" size={40} />
           </div>
           <span className="text-pink-500 font-black italic tracking-[0.4em] text-xs uppercase mb-4">Payment Completed</span>
-          <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter italic uppercase leading-[1.1]">
+          <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter italic uppercase leading-[1.1]">
             Cheers! <br />
             <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">Successfully Sent.</span>
           </h1>
@@ -54,16 +48,14 @@ export default function ThanksPage() {
             <div className="relative bg-slate-900 border border-slate-700 w-72 md:w-80 aspect-[2/3] rounded-[2rem] overflow-hidden shadow-2xl transition-transform duration-700 group-hover:rotate-y-12">
               <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-60 grayscale hover:grayscale-0 transition-all duration-700" />
               
-              {/* ✅ カード右上にシリアルNoを配置 */}
               <div className="absolute top-6 right-8 text-right">
                 <p className="text-[10px] font-mono font-bold text-white/50 tracking-widest">{serialNumber}</p>
               </div>
 
               <div className="absolute bottom-8 left-8 right-8 text-left">
-                {/* ✅ Thanks! を追加 */}
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-pink-500 font-black text-[10px] tracking-widest uppercase block">Exclusive Asset</span>
-                  <span className="bg-white text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-lg">Thanks!</span>
+                  <span className="bg-white text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-lg font-sans">Thanks!</span>
                 </div>
                 
                 <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none mb-1">Night Streamer</h3>
@@ -74,27 +66,16 @@ export default function ThanksPage() {
           </div>
         </div>
 
-        {/* Action Area (実績そのまま) */}
+        {/* Action Area */}
         <div className="grid gap-4 max-w-sm mx-auto">
-          {(os === 'ios' || os === 'pc') && (
-            <button 
-              onClick={handleAddToWallet}
-              className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all shadow-xl group active:scale-95"
-            >
-              <Wallet size={20} fill="currentColor" /> Add to Apple Wallet
-              <ArrowRight className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" size={20} />
-            </button>
-          )}
-
-          {(os === 'android' || os === 'pc') && (
-            <button 
-              onClick={handleAddToWallet}
-              className="flex items-center justify-center gap-3 bg-slate-900 text-white border border-slate-700 h-16 rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl group active:scale-95"
-            >
-              <Smartphone size={20} className="text-green-500" /> Add to Google Wallet
-              <ArrowRight className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" size={20} />
-            </button>
-          )}
+          <button 
+            onClick={handleAddToWallet}
+            className="flex items-center justify-center gap-3 bg-white text-slate-950 h-16 rounded-2xl font-black text-lg hover:bg-pink-500 hover:text-white transition-all shadow-xl group active:scale-95"
+          >
+            <Wallet size={20} fill="currentColor" /> 
+            {os === 'ios' ? 'Add to Apple Wallet' : os === 'android' ? 'Add to Google Wallet' : 'Add to Wallet'}
+            <ArrowRight className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" size={20} />
+          </button>
 
           <button className="flex items-center justify-center gap-2 text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest py-4 transition-colors">
             <Download size={16} /> Save as Image
@@ -105,6 +86,43 @@ export default function ThanksPage() {
           </Link>
         </div>
       </main>
+
+      {/* ✅ Demo Modal (Stripe審査対策) */}
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-xl">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 relative shadow-2xl">
+            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white">
+              <X size={24} />
+            </button>
+            
+            <div className="mb-6 inline-flex p-3 bg-pink-500/10 rounded-2xl">
+              <Smartphone className="text-pink-500" size={24} />
+            </div>
+
+            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-4">
+              Wallet Pass Issuance
+            </h2>
+
+            <div className="space-y-4 text-slate-400 text-sm font-medium leading-relaxed mb-8">
+              <p>デモ環境では、シリアル番号 <span className="text-white">"{serialNumber}"</span> を含むデジタル証明書の発行シミュレーションを行います。</p>
+              <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 flex gap-3">
+                <Info size={18} className="text-pink-500 shrink-0" />
+                <p className="text-[11px] leading-relaxed italic">
+                  本番環境では、Apple Developer証明書による署名済みパス(.pkpass)が生成され、iOS/Androidの標準ウォレットへシームレスに格納されます。
+                </p>
+              </div>
+              <p>決済完了と同時にメールでもバックアップURLが送信され、いつでも再追加が可能です。</p>
+            </div>
+
+            <button 
+              onClick={() => setShowModal(false)}
+              className="w-full bg-slate-200 text-slate-950 h-14 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-pink-500 hover:text-white transition-all"
+            >
+              Understand & Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

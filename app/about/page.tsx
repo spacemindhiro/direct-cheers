@@ -344,7 +344,7 @@ export default function AboutPage() {
         { 
           phase: "04", 
           title: "実績報告", 
-          time: "翌日〜3日以内", 
+          time: "翌日〜5日以内", 
           task: "SNS報告URL、会場写真のアップロード。", 
           status: "Evidence Submitted",
           icon: <FileText size={18} />

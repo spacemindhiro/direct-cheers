@@ -17,11 +17,11 @@ export default function LawPage() {
     },
     { 
       label: "所在地", 
-      value: "〒223-0062 神奈川県横浜市港北区日吉本町x-x-x" // 👈 Stripe登録住所と完全一致させること
+      value: "〒223-0062 神奈川県横浜市港北区日吉本町4-7-9" // 👈 Stripe登録住所と完全一致させること
     },
     { 
       label: "電話番号", 
-      value: "050-xxxx-xxxx" // 👈 取得した050番号
+      value: "090-4736-1464" 
     },
     { 
       label: "メールアドレス", 
@@ -37,7 +37,7 @@ export default function LawPage() {
     },
     { 
       label: "支払方法", 
-      value: "クレジットカード決済（Visa, Mastercard, American Express, JCB）、Google Pay、Apple Pay" 
+      value: "クレジットカード決済、Google Pay、Apple Pay、およびその他Stripeが提供する決済手段を予定しております。対応する決済手段は、ユーザーのデバイスや地域によって異なる場合があります。" 
     },
     { 
       label: "支払時期", 

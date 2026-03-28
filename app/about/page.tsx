@@ -231,7 +231,7 @@ export default function AboutPage() {
                     イベント開催の実在性確認 <span className="text-slate-600 text-[10px] uppercase tracking-widest font-black hidden sm:inline">Evidence Check</span>
                   </h4>
                   <p className="text-slate-400 text-xs md:text-sm leading-relaxed font-medium">
-                    イベント終了後、主催者より「会場でのQR設置写真」「開催報告のSNS公式投稿」「セットリスト」等の証跡提出を義務付けます。運営側でこれらを確認・照合するまで、当該決済の清算はロック（保留）されます。
+                    イベント終了後、主催者より「会場でのQR設置写真」「開催報告のSNS公式投稿」等の証跡提出を義務付けます。運営側でこれらを確認・照合するまで、当該決済の清算はロック（保留）されます。
                   </p>
                 </div>
               </div>
@@ -255,7 +255,7 @@ export default function AboutPage() {
                     リスク待機期間の設定 <span className="text-slate-600 text-[10px] uppercase tracking-widest font-black hidden sm:inline">Chargeback Protection</span>
                   </h4>
                   <p className="text-slate-400 text-xs md:text-sm leading-relaxed font-medium">
-                    クレジットカード決済特有のチャージバックリスクを考慮し、決済完了から2週間のホールド期間を設定。この期間中に不正利用の申告がないことを確認した上で、最終的な支払い可能残高として確定させます。
+                    クレジットカード決済特有のチャージバックリスクを考慮し、イベント終了から2週間のホールド期間を設定。この期間中に不正利用の申告がないことを確認した上で、最終的な支払い可能残高として確定させます。
                   </p>
                 </div>
               </div>

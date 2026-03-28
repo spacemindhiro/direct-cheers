@@ -329,14 +329,14 @@ export default function AboutPage() {
           title: "広報・告知", 
           time: "随時", 
           task: "分配ルールを登録し、QRコードを準備。", 
-          status: "Draft → Published",
+          status: "Published",
           icon: <Zap size={18} />
         },
         { 
           phase: "03", 
           title: "現場運営", 
           time: "イベント当日", 
-          task: "会場（DJブース等）へのQRコード設置。開催の証跡となる写真撮影を推奨。", 
+          task: "会場（DJブース等）へのQRコード設置。イベント開催の証跡となる写真撮影を推奨。", 
           status: "Live",
           important: true,
           icon: <Users size={18} />

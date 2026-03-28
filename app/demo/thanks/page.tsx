@@ -1,41 +1,18 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Wallet, ArrowRight, Sparkles, Smartphone, Download, X } from "lucide-react";
+import { CheckCircle2, Wallet, ArrowRight, Sparkles, X, Smartphone, Info } from "lucide-react";
 
 export default function ThanksPage() {
-  const [os, setOs] = useState<'ios' | 'android' | 'pc'>('pc');
   const [showModal, setShowModal] = useState(false);
-  
   const serialNumber = "#001-20260326";
-  // ✅ この画像をそのままダウンロード対象にする
-  const cardImageUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=2070&auto=format&fit=crop";
-
-  useEffect(() => {
-    const ua = navigator.userAgent.toLowerCase();
-    if (/iphone|ipad|ipod/.test(ua)) {
-      setOs('ios');
-    } else if (/android/.test(ua)) {
-      setOs('android');
-    }
-  }, []);
-
-  // ✅ シンプルなダウンロード処理
-  const handleSaveImage = () => {
-    const link = document.createElement('a');
-    link.href = cardImageUrl;
-    link.download = `Cheers_Asset_${serialNumber}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 overflow-x-hidden">
       {/* Background Decor */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink-500/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink-500/10 blur-[120px] rounded-full" />
       </div>
 
       <main className="max-w-4xl mx-auto pt-20 pb-32 px-6 relative z-10 text-center">
@@ -50,16 +27,12 @@ export default function ThanksPage() {
           </h1>
         </div>
 
-        {/* Digital Asset Card */}
+        {/* Digital Asset Card (View Only) */}
         <div className="mb-16">
           <div className="relative inline-block group perspective-1000">
             <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 to-indigo-500/20 blur-2xl group-hover:scale-110 transition-transform" />
             <div className="relative bg-slate-900 border border-slate-700 w-72 md:w-80 aspect-[2/3] rounded-[2rem] overflow-hidden shadow-2xl transition-transform duration-700 group-hover:rotate-y-12">
-              {/* 表示されている画像 */}
-              <div 
-                className="absolute inset-0 bg-cover bg-center opacity-60 grayscale transition-all duration-700 hover:grayscale-0" 
-                style={{ backgroundImage: `url(${cardImageUrl})` }}
-              />
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-60 grayscale" />
               
               <div className="absolute top-6 right-8 text-right">
                 <p className="text-[10px] font-mono font-bold text-white/50 tracking-widest">{serialNumber}</p>
@@ -68,7 +41,7 @@ export default function ThanksPage() {
               <div className="absolute bottom-8 left-8 right-8 text-left">
                 <div className="mb-2 flex items-center gap-2">
                   <span className="text-pink-500 font-black text-[10px] tracking-widest uppercase block">Exclusive Asset</span>
-                  <span className="bg-white text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter font-sans shadow-lg">Thanks!</span>
+                  <span className="bg-white text-slate-950 text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter shadow-lg font-sans">Thanks!</span>
                 </div>
                 <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none mb-1">Night Streamer</h3>
                 <p className="text-slate-400 text-[10px] font-medium uppercase tracking-[0.2em]">SpaceMind | 2026.03.26</p>
@@ -88,32 +61,33 @@ export default function ThanksPage() {
             <ArrowRight className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" size={20} />
           </button>
 
-          {/* シンプルな保存ボタン */}
-          <button 
-            onClick={handleSaveImage}
-            className="flex items-center justify-center gap-2 text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest py-4 transition-colors"
-          >
-            <Download size={16} /> Save as Image
-          </button>
+          <p className="text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em] mt-4">
+            ※デジタル証明書はブラウザ上で即時発行され、本表示をもって役務完了となります。
+          </p>
 
-          <Link href="/demo" className="text-slate-600 hover:text-pink-500 transition-colors text-xs font-bold uppercase tracking-widest mt-8">
+          <Link href="/demo" className="text-slate-500 hover:text-pink-500 transition-colors text-xs font-bold uppercase tracking-widest mt-8">
             Back to Demo Top
           </Link>
         </div>
       </main>
 
-      {/* Wallet Modal (Stripe審査用エビデンス) */}
+      {/* Wallet Modal (審査用：本番では飛ぶよという証拠) */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-xl">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 relative shadow-2xl">
-            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white">
-              <X size={24} />
-            </button>
-            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-4 text-center">Wallet Pass</h2>
-            <p className="text-slate-400 text-sm font-medium leading-relaxed mb-8 text-center">
-              本番環境では、決済完了と同時にシリアル番号入りのApple Wallet / Google Walletパスが発行されます。
-            </p>
-            <button onClick={() => setShowModal(false)} className="w-full bg-slate-200 text-slate-950 h-14 rounded-2xl font-black uppercase tracking-widest text-xs">Close</button>
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 relative shadow-2xl text-left">
+            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X size={24} /></button>
+            <div className="mb-6 inline-flex p-3 bg-pink-500/10 rounded-2xl"><Smartphone className="text-pink-500" size={24} /></div>
+            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-4">Wallet Integration</h2>
+            <div className="space-y-4 text-slate-400 text-sm font-medium leading-relaxed mb-8">
+              <p>本番環境では、決済完了と同時にApple Wallet / Google Wallet用のパスファイル(.pkpass等)が自動生成されます。</p>
+              <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 flex gap-3">
+                <Info size={18} className="text-pink-500 shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed italic">
+                  ユーザーはワンタップでスマートフォンに証明書を保存でき、オフライン時でもサポート実績を確認することが可能です。
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setShowModal(false)} className="w-full bg-slate-200 text-slate-950 h-14 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-pink-500 hover:text-white transition-all">Close Demo</button>
           </div>
         </div>
       )}

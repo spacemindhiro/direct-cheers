@@ -320,7 +320,7 @@ export default function AboutPage() {
         { 
           phase: "01", 
           title: "企画・登録", 
-          time: "開催1ヶ月前〜", 
+          time: "〜開催1ヶ月前", 
           task: "イベント詳細・出演者の登録。口座未登録者のstripe onboardingを依頼。", 
           status: "Draft",
           icon: <Calendar size={18} />

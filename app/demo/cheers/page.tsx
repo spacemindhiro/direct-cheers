@@ -103,7 +103,7 @@ export default function ArtistCheersPage() {
             />
             <textarea 
               value={comment}
-              onChange={(e) => setNickName(e.target.value)}
+              onChange={(e) => setComment(e.target.value)}
               placeholder="Message to Artist..." 
               rows={2}
               className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl p-5 text-sm text-white focus:border-pink-500 outline-none resize-none transition-all placeholder:text-slate-600"

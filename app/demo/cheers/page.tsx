@@ -85,23 +85,25 @@ export default function ArtistCheersPage() {
 
       <div className="px-6 -mt-4 relative z-10 space-y-10 max-w-md mx-auto">
         
-        {/* --- 審査用バイパスリンク追加箇所 --- */}
-        <div className="px-2">
-          <Link 
-            href="/demo/thanks" 
-            className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all group"
-          >
-            <div className="flex items-center gap-3">
-              <Info size={16} className="text-pink-500" />
-              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                購入後の発行カード（提供商品）を確認する
-              </span>
-            </div>
-            <ExternalLink size={14} className="text-slate-500 group-hover:text-pink-500" />
-          </Link>
-        </div>
-        {/* ---------------------------------- */}
-
+{/* --- 審査用バイパスリンク修正箇所 --- */}
+<div className="px-2">
+  <Link 
+    href="/demo/thanks" 
+    className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all group"
+  >
+    <div className="flex items-center gap-3">
+      <Info size={16} className="text-pink-500" />
+      <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+        決済完了後の発行カード（提供商品）を確認する
+      </span>
+    </div>
+    <div className="flex items-center gap-2">
+      <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter italic">DEMO BYPASS</span>
+      <ExternalLink size={14} className="text-slate-500 group-hover:text-pink-500" />
+    </div>
+  </Link>
+</div>
+{/* ---------------------------------- */}
         {/* サポートフォーム */}
         <section className="space-y-4">
           <div className="flex justify-between items-end px-1">

@@ -9,31 +9,22 @@ function ThanksContent() {
   const searchParams = useSearchParams();
   const [showModal, setShowModal] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
-  
-  // ⚡️ 状態管理：初期値はURLのemail、なければLoading
-  const [userEmail, setUserEmail] = useState(searchParams.get('email') || "Loading...");
+  const [userEmail, setUserEmail] = useState("Loading...");
   const serialNumber = "#001-20260326";
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
-    const emailParam = searchParams.get('email');
-
-    // ⚡️ session_idが正しい形式（cs_から始まる）かチェックしてFetch
+    // Stripeから直接メアドを引く（URL置換に頼らない一番確実な方法）
     if (sessionId && sessionId.startsWith('cs_')) {
       fetch(`/api/get-session?session_id=${sessionId}`)
         .then(res => res.json())
         .then(data => {
           if (data.email) setUserEmail(data.email);
+          else setUserEmail("No Email Registered");
         })
-        .catch(err => console.error("Session fetch failed:", err));
-    } else if (emailParam && !emailParam.includes('{')) {
-      setUserEmail(emailParam);
+        .catch(() => setUserEmail("Fetch Error"));
     }
   }, [searchParams]);
-
-  const handlePasskeyRegister = async () => {
-    setTimeout(() => setIsRegistered(true), 800);
-  };
 
   return (
     <main className="max-w-4xl mx-auto pt-20 pb-32 px-6 relative z-10 text-center">
@@ -49,17 +40,15 @@ function ThanksContent() {
 
         <div className="mt-6 px-4 py-2 bg-white/5 border border-white/10 rounded-full inline-flex items-center gap-2 backdrop-blur-md">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Registered ID:</span>
-          <span className="text-sm font-mono text-pink-400">
-            {userEmail === "Loading..." ? "Checking Identity..." : userEmail}
-          </span>
+          <span className="text-sm font-mono text-pink-400">{userEmail}</span>
         </div>
       </div>
 
-      {/* 💳 復活したデジタルカード部分 */}
+      {/* 💳 デザイン完全復旧：デジタルカード */}
       <div className="mb-16">
         <div className="relative inline-block group perspective-1000">
           <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 to-indigo-500/20 blur-2xl transition-transform duration-700" />
-          <div className="relative bg-slate-900 border border-slate-700 w-72 md:w-80 aspect-[2/3] rounded-[2rem] overflow-hidden shadow-2xl transition-transform duration-500 group-hover:rotate-1 group-hover:scale-[1.02]">
+          <div className="relative bg-slate-900 border border-slate-700 w-72 md:w-80 aspect-[2/3] rounded-[2rem] overflow-hidden shadow-2xl transition-all duration-500 group-hover:scale-[1.02] group-hover:rotate-1">
             <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-60 grayscale group-hover:grayscale-0 transition-all duration-700" />
             <div className="absolute top-6 right-8 text-right">
               <p className="text-[10px] font-mono font-bold text-white/50 tracking-widest">{serialNumber}</p>
@@ -76,15 +65,13 @@ function ThanksContent() {
         </div>
       </div>
 
-      {/* ボタンエリア */}
       <div className="grid gap-4 max-w-sm mx-auto">
         {!isRegistered ? (
           <button 
-            onClick={handlePasskeyRegister}
+            onClick={() => setIsRegistered(true)}
             className="flex items-center justify-center gap-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white h-16 rounded-2xl font-black text-lg hover:from-pink-500 hover:to-orange-500 transition-all shadow-[0_0_20px_rgba(168,85,247,0.4)] group active:scale-95"
           >
-            <Fingerprint size={24} className="animate-pulse" /> 
-            顔パス（生体認証）を有効化
+            <Fingerprint size={24} className="animate-pulse" /> 顔パスを有効化
             <ArrowRight className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" size={20} />
           </button>
         ) : (
@@ -100,33 +87,20 @@ function ThanksContent() {
           <Wallet size={20} fill="currentColor" /> Add to Wallet
         </button>
 
-        <p className="text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em] mt-4 leading-relaxed">
-          ※決済時に取得したメアドで仮登録されています。<br />
-          生体認証を有効化すると次回からパスワード不要でログイン可能です。
-        </p>
-
         <Link href="/demo" className="text-slate-500 hover:text-pink-500 transition-colors text-xs font-bold uppercase tracking-widest mt-8">
           Back to Demo Top
         </Link>
       </div>
 
-      {/* モーダル部分 */}
+      {/* モーダル */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-xl">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 relative shadow-2xl text-left">
-            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors">
-              <X size={24} />
-            </button>
-            <div className="mb-6 inline-flex p-3 bg-pink-500/10 rounded-2xl tracking-tighter">
-              <Smartphone className="text-pink-500" size={24} />
-            </div>
-            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-4">Wallet Integration</h2>
-            <p className="text-sm text-slate-400 leading-relaxed mb-8 font-medium">
-              本番環境では、決済完了と同時にApple Wallet / Google Wallet用のパスファイルを自動生成。
-            </p>
-            <button onClick={() => setShowModal(false)} className="w-full bg-slate-200 text-slate-950 h-14 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-pink-500 hover:text-white transition-all">
-              Close
-            </button>
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 relative shadow-2xl">
+            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X size={24} /></button>
+            <div className="mb-6 inline-flex p-3 bg-pink-500/10 rounded-2xl"><Smartphone className="text-pink-500" size={24} /></div>
+            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-4">Wallet</h2>
+            <p className="text-sm text-slate-400 mb-8 leading-relaxed">決済完了と同時にApple Wallet用のパスファイルを自動生成します。</p>
+            <button onClick={() => setShowModal(false)} className="w-full bg-slate-200 text-slate-950 h-14 rounded-2xl font-black uppercase text-xs">Close</button>
           </div>
         </div>
       )}
@@ -136,11 +110,8 @@ function ThanksContent() {
 
 export default function ThanksPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 overflow-x-hidden">
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink-500/10 blur-[120px] rounded-full" />
-      </div>
-      <Suspense fallback={<div className="pt-40 text-center text-slate-500 uppercase tracking-widest">Loading...</div>}>
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
+      <Suspense fallback={<div className="pt-40 text-center">Loading...</div>}>
         <ThanksContent />
       </Suspense>
     </div>

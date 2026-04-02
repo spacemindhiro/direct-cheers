@@ -10,6 +10,7 @@ function ThanksContent() {
   const [showModal, setShowModal] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
@@ -27,7 +28,7 @@ function ThanksContent() {
           setUserEmail(data.email);
         } else if (retryCount < maxRetries) {
           retryCount++;
-          setTimeout(fetchEmail, 2000); // StripeのDB反映待ちで2秒置く
+          setTimeout(fetchEmail, 2000); 
         } else {
           setUserEmail("verification@example.com");
         }
@@ -41,6 +42,53 @@ function ThanksContent() {
 
     fetchEmail();
   }, [searchParams]);
+
+  // 🔥 生体認証（顔パス・指紋）の実行ロジック
+  const handlePassActivation = async () => {
+    if (isRegistered || isAuthenticating) return;
+
+    setIsAuthenticating(true);
+
+    try {
+      if (!window.PublicKeyCredential) {
+        alert("このブラウザは生体認証に対応していません。");
+        setIsAuthenticating(false);
+        return;
+      }
+
+      // WebAuthn API を呼び出して OS 標準の認証ダイアログを起動
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+
+      const createCredentialOptions: any = {
+        publicKey: {
+          challenge,
+          rp: { name: "Direct Cheers" },
+          user: {
+            id: new Uint8Array(16),
+            name: userEmail || "guest",
+            displayName: userEmail || "Guest User",
+          },
+          pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+          timeout: 60000,
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required",
+          },
+        },
+      };
+
+      await navigator.credentials.create(createCredentialOptions);
+      
+      // 認証成功
+      setIsRegistered(true);
+    } catch (err) {
+      console.error("Authentication failed:", err);
+      // キャンセル時は何もしない
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
 
   return (
     <main className="max-w-4xl mx-auto pt-20 pb-32 px-6 relative z-10 text-center">
@@ -67,12 +115,11 @@ function ThanksContent() {
         </div>
       </div>
 
-      {/* 💳 デジタルカード（完全復旧版） */}
+      {/* 💳 デジタルカード */}
       <div className="mb-16">
         <div className="relative inline-block group perspective-1000">
           <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/30 to-indigo-500/30 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
           <div className="relative bg-slate-900 border border-slate-700 w-72 md:w-80 aspect-[2/3] rounded-[2.5rem] overflow-hidden shadow-2xl transition-all duration-700 group-hover:scale-[1.02] group-hover:rotate-1">
-            {/* 背景画像 */}
             <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-60 grayscale group-hover:grayscale-0 transition-all duration-1000" />
             
             <div className="absolute top-8 right-8 text-right">
@@ -92,12 +139,13 @@ function ThanksContent() {
       {/* アクションボタン */}
       <div className="grid gap-4 max-w-sm mx-auto">
         <button 
-          onClick={() => setIsRegistered(!isRegistered)} 
-          className={`flex items-center justify-center gap-3 h-16 rounded-2xl font-black text-lg transition-all active:scale-95 ${isRegistered ? 'bg-green-500/10 border border-green-500/30 text-green-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_0_30px_rgba(168,85,247,0.4)] hover:brightness-110'}`}
+          onClick={handlePassActivation}
+          disabled={isAuthenticating}
+          className={`flex items-center justify-center gap-3 h-16 rounded-2xl font-black text-lg transition-all active:scale-95 ${isRegistered ? 'bg-green-500/10 border border-green-500/30 text-green-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_0_30px_rgba(168,85,247,0.4)] hover:brightness-110'} ${isAuthenticating ? 'opacity-70 cursor-wait' : ''}`}
         >
-          {isRegistered ? <CheckCircle2 size={24} /> : <Fingerprint size={24} />}
-          {isRegistered ? '生体認証 登録済み' : '顔パスを有効化'}
-          {!isRegistered && <ArrowRight size={20} className="ml-1" />}
+          {isAuthenticating ? <Loader2 size={24} className="animate-spin" /> : isRegistered ? <CheckCircle2 size={24} /> : <Fingerprint size={24} />}
+          {isAuthenticating ? '認証中...' : isRegistered ? '顔パス 登録済み' : '顔パスを有効化'}
+          {!isRegistered && !isAuthenticating && <ArrowRight size={20} className="ml-1" />}
         </button>
 
         <button 

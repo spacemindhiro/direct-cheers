@@ -43,7 +43,7 @@ function ThanksContent() {
     fetchEmail();
   }, [searchParams]);
 
-  // 🔥 生体認証（顔パス・指紋）の実行ロジック
+  // 🔥 生体認証（顔パス・指紋）+ 振動エフェクト
   const handlePassActivation = async () => {
     if (isRegistered || isAuthenticating) return;
 
@@ -56,7 +56,6 @@ function ThanksContent() {
         return;
       }
 
-      // WebAuthn API を呼び出して OS 標準の認証ダイアログを起動
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
 
@@ -80,11 +79,15 @@ function ThanksContent() {
 
       await navigator.credentials.create(createCredentialOptions);
       
-      // 認証成功
+      // ✨ 認証成功時のハプティクス（振動）
+      // [40ms振動, 30ms休止, 40ms振動] で「コトッ」という高級感のあるフィードバック
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate([40, 30, 40]);
+      }
+      
       setIsRegistered(true);
     } catch (err) {
       console.error("Authentication failed:", err);
-      // キャンセル時は何もしない
     } finally {
       setIsAuthenticating(false);
     }
@@ -143,7 +146,7 @@ function ThanksContent() {
           disabled={isAuthenticating}
           className={`flex items-center justify-center gap-3 h-16 rounded-2xl font-black text-lg transition-all active:scale-95 ${isRegistered ? 'bg-green-500/10 border border-green-500/30 text-green-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_0_30px_rgba(168,85,247,0.4)] hover:brightness-110'} ${isAuthenticating ? 'opacity-70 cursor-wait' : ''}`}
         >
-          {isAuthenticating ? <Loader2 size={24} className="animate-spin" /> : isRegistered ? <CheckCircle2 size={24} /> : <Fingerprint size={24} />}
+          {isAuthenticating ? <Loader2 size={24} className="animate-spin" /> : isRegistered ? <CheckCircle2 size={24} className="animate-bounce" /> : <Fingerprint size={24} />}
           {isAuthenticating ? '認証中...' : isRegistered ? '顔パス 登録済み' : '顔パスを有効化'}
           {!isRegistered && !isAuthenticating && <ArrowRight size={20} className="ml-1" />}
         </button>
@@ -191,7 +194,6 @@ function ThanksContent() {
 export default function ThanksPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 overflow-x-hidden">
-      {/* 背景光エフェクト */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-pink-500/10 blur-[120px] rounded-full opacity-60" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[100px] rounded-full opacity-40" />

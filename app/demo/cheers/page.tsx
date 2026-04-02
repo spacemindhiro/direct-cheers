@@ -88,13 +88,13 @@ export default function ArtistCheersPage() {
         {/* --- 審査用バイパスリンク追加箇所 --- */}
         <div className="px-2">
           <Link 
-            href="/artist/cheers/success?demo=true" 
+            href="/demo/thanks" 
             className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all group"
           >
             <div className="flex items-center gap-3">
               <Info size={16} className="text-pink-500" />
               <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                購入後の発行カード（成果物）を確認する
+                購入後の発行カード（提供商品）を確認する
               </span>
             </div>
             <ExternalLink size={14} className="text-slate-500 group-hover:text-pink-500" />

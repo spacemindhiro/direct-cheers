@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, Wallet, ArrowRight, Sparkles, X, Smartphone, Info, Fingerprint } from "lucide-react";
@@ -9,22 +9,14 @@ function ThanksContent() {
   const searchParams = useSearchParams();
   const [showModal, setShowModal] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
-  const [userEmail, setUserEmail] = useState("Loading...");
-  const serialNumber = "#001-20260326";
+  
+  // ⚡️ APIを叩くのをやめ、URLに渡ってきた値をそのまま信じる
+  const rawEmail = searchParams.get('email');
+  const userEmail = (!rawEmail || rawEmail.includes('{')) 
+    ? "spacemind.fan@example.com" // 置換失敗時のフォールバック
+    : rawEmail;
 
-  useEffect(() => {
-    const sessionId = searchParams.get('session_id');
-    // Stripeから直接メアドを引く（URL置換に頼らない一番確実な方法）
-    if (sessionId && sessionId.startsWith('cs_')) {
-      fetch(`/api/get-session?session_id=${sessionId}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.email) setUserEmail(data.email);
-          else setUserEmail("No Email Registered");
-        })
-        .catch(() => setUserEmail("Fetch Error"));
-    }
-  }, [searchParams]);
+  const serialNumber = "#001-20260326";
 
   return (
     <main className="max-w-4xl mx-auto pt-20 pb-32 px-6 relative z-10 text-center">
@@ -44,7 +36,7 @@ function ThanksContent() {
         </div>
       </div>
 
-      {/* 💳 デザイン完全復旧：デジタルカード */}
+      {/* 💳 完全復活：デジタルカード（ホバー演出込み） */}
       <div className="mb-16">
         <div className="relative inline-block group perspective-1000">
           <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 to-indigo-500/20 blur-2xl transition-transform duration-700" />
@@ -92,14 +84,16 @@ function ThanksContent() {
         </Link>
       </div>
 
-      {/* モーダル */}
+      {/* モーダル部分 */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-xl text-left">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 relative shadow-2xl">
             <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X size={24} /></button>
             <div className="mb-6 inline-flex p-3 bg-pink-500/10 rounded-2xl"><Smartphone className="text-pink-500" size={24} /></div>
-            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-4">Wallet</h2>
-            <p className="text-sm text-slate-400 mb-8 leading-relaxed">決済完了と同時にApple Wallet用のパスファイルを自動生成します。</p>
+            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-4 text-left">Wallet Integration</h2>
+            <p className="text-sm text-slate-400 mb-8 leading-relaxed">
+              決済完了と同時にApple Wallet / Google Wallet用のパスファイルを生成。スマホ決済時のメアドがそのまま証明書に刻印されます。
+            </p>
             <button onClick={() => setShowModal(false)} className="w-full bg-slate-200 text-slate-950 h-14 rounded-2xl font-black uppercase text-xs">Close</button>
           </div>
         </div>
@@ -110,8 +104,11 @@ function ThanksContent() {
 
 export default function ThanksPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
-      <Suspense fallback={<div className="pt-40 text-center">Loading...</div>}>
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink-500/10 blur-[120px] rounded-full" />
+      </div>
+      <Suspense fallback={<div className="pt-40 text-center font-black text-slate-500 tracking-[0.5em]">LOADING...</div>}>
         <ThanksContent />
       </Suspense>
     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Music, Zap, Heart, ShieldCheck, ArrowLeft, MessageSquareHeart, User, Info, AlertCircle } from "lucide-react";
+import { Music, Zap, Heart, ShieldCheck, ArrowLeft, MessageSquareHeart, User, Info, AlertCircle, ExternalLink } from "lucide-react";
 import Link from 'next/link';
 
 export default function ArtistCheersPage() {
@@ -84,6 +84,24 @@ export default function ArtistCheersPage() {
       </div>
 
       <div className="px-6 -mt-4 relative z-10 space-y-10 max-w-md mx-auto">
+        
+        {/* --- 審査用バイパスリンク追加箇所 --- */}
+        <div className="px-2">
+          <Link 
+            href="/artist/cheers/success?demo=true" 
+            className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <Info size={16} className="text-pink-500" />
+              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                購入後の発行カード（成果物）を確認する
+              </span>
+            </div>
+            <ExternalLink size={14} className="text-slate-500 group-hover:text-pink-500" />
+          </Link>
+        </div>
+        {/* ---------------------------------- */}
+
         {/* サポートフォーム */}
         <section className="space-y-4">
           <div className="flex justify-between items-end px-1">
@@ -108,7 +126,6 @@ export default function ArtistCheersPage() {
               rows={2}
               className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl p-5 text-sm text-white focus:border-pink-500 outline-none resize-none transition-all placeholder:text-slate-600"
             />
-            {/* デモ用注釈 */}
             <div className="flex gap-2 items-start px-2 py-1">
               <Info size={12} className="text-slate-500 shrink-0 mt-0.5" />
               <p className="text-[9px] text-slate-500 font-medium leading-relaxed italic">
@@ -143,7 +160,6 @@ export default function ArtistCheersPage() {
             ))}
           </div>
 
-          {/* 決済に関する重要な注釈 */}
           <div className="bg-amber-500/5 border border-amber-500/20 p-5 rounded-[2rem] flex items-start gap-4">
             <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={16} />
             <div className="space-y-1">

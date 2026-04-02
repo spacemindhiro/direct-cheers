@@ -10,7 +10,6 @@ export async function updateSession(request: NextRequest) {
 
   // 1. 【デモ用・最強ホワイトリスト】
   // ここに含まれるパスは、ログインの有無を「確認すらしない」で即座に通します。
-  // これにより Safari の Cookie 判定に左右されず /demo ページと決済APIが動きます。
   const isPublicPath = 
     path === "/" ||
     path === "/law" ||
@@ -18,11 +17,11 @@ export async function updateSession(request: NextRequest) {
     path === "/privacy" ||
     path === "/about" ||
     path.startsWith("/demo") ||     // ページ遷移用
-    path.startsWith("/api/pay") || // 決済API用
+    path.startsWith("/api/pay") ||  // 決済開始API用
+    path.startsWith("/api/get-session") || // ✨ 追加：決済完了後のメアド取得APIを許可
     path.startsWith("/concept") ||
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
-    // ✨ ここを追加：PDFファイルと画像ファイルへの直接アクセスを許可
     path.endsWith(".pdf") ||
     path.endsWith(".png") ||
     path.endsWith(".jpg") ||

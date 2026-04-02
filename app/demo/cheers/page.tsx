@@ -27,6 +27,8 @@ export default function ArtistCheersPage() {
         body: JSON.stringify({ 
           amount: amount, 
           artistId: artist.id,
+          // 💡 ここでバックエンドに対し、成功時のURLにメアドを含めるよう指示するイメージ
+          success_url_suffix: `?email={CHECKOUT_SESSION_CUSTOMER_EMAIL}`, 
           metadata: {
             nickName: nickName,
             comment: comment,
@@ -85,26 +87,28 @@ export default function ArtistCheersPage() {
 
       <div className="px-6 -mt-4 relative z-10 space-y-10 max-w-md mx-auto">
         
-{/* --- 審査用バイパスリンク修正箇所 --- */}
-<div className="px-2">
-  <Link 
-    href="/demo/thanks" 
-    className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all group"
-  >
-    <div className="flex items-center gap-3">
-      <Info size={16} className="text-pink-500" />
-      <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-        決済完了後の発行カード（提供商品）を確認する
-      </span>
-    </div>
-    <div className="flex items-center gap-2">
-      <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter italic">DEMO BYPASS</span>
-      <ExternalLink size={14} className="text-slate-500 group-hover:text-pink-500" />
-    </div>
-  </Link>
-</div>
-{/* ---------------------------------- */}
-        {/* サポートフォーム */}
+        {/* --- 審査用バイパスリンク修正箇所 --- */}
+        <div className="px-2">
+          <Link 
+            // 💡 クエリパラメータを追加して、挙動を確認しやすくしました
+            href="/demo/thanks?email=bypass-test@spacemind.jp" 
+            className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <Info size={16} className="text-pink-500" />
+              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                決済完了後の発行カード（提供商品）を確認する
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter italic">DEMO BYPASS</span>
+              <ExternalLink size={14} className="text-slate-500 group-hover:text-pink-500" />
+            </div>
+          </Link>
+        </div>
+        {/* ---------------------------------- */}
+
+        {/* サポートフォーム (変更なし) */}
         <section className="space-y-4">
           <div className="flex justify-between items-end px-1">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
@@ -137,7 +141,7 @@ export default function ArtistCheersPage() {
           </div>
         </section>
 
-        {/* 決済セクション */}
+        {/* 決済セクション (変更なし) */}
         <section className="space-y-4">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2 ml-1">
             <Zap size={14} className="text-pink-500" /> Choose Cheers

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react'; // Suspenseを追加
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, Wallet, ArrowRight, Sparkles, X, Smartphone, Info, Fingerprint } from "lucide-react";
@@ -11,11 +11,38 @@ function ThanksContent() {
   const [showModal, setShowModal] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   
-  const userEmail = searchParams.get('email') || "spacemind.fan@example.com";
+  // ⚡️ メアドの状態管理（最初はURLのパラメータを試み、なければLoading表示）
+  const [userEmail, setUserEmail] = useState(searchParams.get('email') || "Loading...");
   const serialNumber = "#001-20260326";
+
+  // ⚡️ セッションIDを使ってサーバーサイドからメアドを逆引きする
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    const emailParam = searchParams.get('email');
+
+    // emailパラメータがプレースホルダー（{CHECKOUT...}）のまま、もしくは空の場合に実行
+    if (sessionId && (!emailParam || emailParam.includes('{'))) {
+      const fetchRealEmail = async () => {
+        try {
+          const res = await fetch(`/api/get-session?session_id=${sessionId}`);
+          const data = await res.json();
+          if (data.email) {
+            setUserEmail(data.email);
+          }
+        } catch (err) {
+          console.error("Failed to fetch real email:", err);
+        }
+      };
+      fetchRealEmail();
+    } else if (emailParam) {
+      // 正常にメアドが渡ってきている場合はそのままセット
+      setUserEmail(emailParam);
+    }
+  }, [searchParams]);
 
   const handlePasskeyRegister = async () => {
     console.log("Registering Passkey for:", userEmail);
+    // ここで生体認証の登録（WebAuthn）を呼ぶ想定
     setTimeout(() => {
       setIsRegistered(true);
     }, 800);
@@ -23,7 +50,6 @@ function ThanksContent() {
 
   return (
     <main className="max-w-4xl mx-auto pt-20 pb-32 px-6 relative z-10 text-center">
-      {/* ... ここにさっきのメインコンテンツ（mainタグの中身すべて）を貼り付け ... */}
       <div className="mb-12 flex flex-col items-center">
         <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center border border-green-500/50 mb-6 animate-pulse">
           <CheckCircle2 className="text-green-400" size={40} />
@@ -34,9 +60,16 @@ function ThanksContent() {
           <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">Access Granted.</span>
         </h1>
 
+        {/* ⚡️ 取得したメアドの表示エリア */}
         <div className="mt-6 px-4 py-2 bg-white/5 border border-white/10 rounded-full inline-flex items-center gap-2 backdrop-blur-md">
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Registered ID:</span>
-          <span className="text-sm font-mono text-pink-400">{userEmail}</span>
+          <span className="text-sm font-mono text-pink-400">
+            {userEmail === "Loading..." ? (
+              <span className="animate-pulse opacity-50 italic">Fetching Email...</span>
+            ) : (
+              userEmail
+            )}
+          </span>
         </div>
       </div>
 
@@ -125,17 +158,15 @@ function ThanksContent() {
   );
 }
 
-// --- ページ全体の構造（ここが修正のキモ） ---
+// --- ページ全体の構造 ---
 export default function ThanksPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 overflow-x-hidden">
-      {/* 背景などはSuspenseの外でもOK */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink-500/10 blur-[120px] rounded-full" />
       </div>
 
-      {/* ⚡️ searchParamsを使うコンポーネントをSuspenseで囲む！ ⚡️ */}
-      <Suspense fallback={<div className="pt-40 text-center text-slate-500">Loading...</div>}>
+      <Suspense fallback={<div className="pt-40 text-center text-slate-500 animate-pulse font-black uppercase tracking-[0.4em]">Checking Payment...</div>}>
         <ThanksContent />
       </Suspense>
     </div>

@@ -5,16 +5,12 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const sessionId = searchParams.get('session_id');
 
-  // IDが不正なら即座に 400 を返す
   if (!sessionId || sessionId === '{CHECKOUT_SESSION_ID}' || !sessionId.startsWith('cs_')) {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
   }
 
-  // APIキーのチェック
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) {
-    return NextResponse.json({ error: "Secret Key Missing" }, { status: 500 });
-  }
+  if (!key) return NextResponse.json({ error: "Key Missing" }, { status: 500 });
 
   const stripe = new Stripe(key, {
     // @ts-ignore
@@ -22,14 +18,19 @@ export async function GET(req: Request) {
   });
 
   try {
+    // line_itemsやcustomerを含めて取得
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['customer'],
+      expand: ['customer', 'customer_details'],
     });
 
+    // 💡 あらゆる階層からメアドを探す（優先順位順）
     const email = 
-      session.customer_details?.email || 
-      (session.customer as any)?.email || 
-      session.customer_email;
+      session.customer_details?.email ||         // 1. 直接の入力値
+      (session.customer as any)?.email ||        // 2. 紐付いた顧客データ
+      session.customer_email ||                  // 3. セッション作成時の指定
+      (session as any).receipt_email;            // 4. レシート用
+
+    console.log("Stripe Session Email Found:", email); // Vercelのログで確認用
 
     return NextResponse.json({ email: email || null });
   } catch (err: any) {

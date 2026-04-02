@@ -3,62 +3,35 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle2, Wallet, ArrowRight, Sparkles, X, Smartphone, Info, Fingerprint, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Wallet, ArrowRight, Sparkles, X, Smartphone, Info, Fingerprint } from "lucide-react";
 
 function ThanksContent() {
   const searchParams = useSearchParams();
   const [showModal, setShowModal] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
   
-  // 状態管理
-  const [userEmail, setUserEmail] = useState("Checking...");
-  const [debugLog, setDebugLog] = useState("Initializing...");
+  // ⚡️ 状態管理：初期値はURLのemail、なければLoading
+  const [userEmail, setUserEmail] = useState(searchParams.get('email') || "Loading...");
+  const serialNumber = "#001-20260326";
 
   useEffect(() => {
-    // 1. URLからセッションIDを取得
     const sessionId = searchParams.get('session_id');
-    const rawEmail = searchParams.get('email');
+    const emailParam = searchParams.get('email');
 
-    if (!sessionId || sessionId === '{CHECKOUT_SESSION_ID}') {
-      setDebugLog("Error: session_id is missing or not replaced by Stripe.");
-      setUserEmail("No Session Found");
-      return;
+    // ⚡️ session_idが正しい形式（cs_から始まる）かチェックしてFetch
+    if (sessionId && sessionId.startsWith('cs_')) {
+      fetch(`/api/get-session?session_id=${sessionId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.email) setUserEmail(data.email);
+        })
+        .catch(err => console.error("Session fetch failed:", err));
+    } else if (emailParam && !emailParam.includes('{')) {
+      setUserEmail(emailParam);
     }
-
-    setDebugLog(`Fetching data for session: ${sessionId.substring(0, 12)}...`);
-
-    // 2. 自作APIに問い合わせて「本物のメアド」を取得
-    const getRealData = async () => {
-      try {
-        const response = await fetch(`/api/get-session?session_id=${sessionId}`);
-        
-        if (!response.ok) {
-          const errText = await response.text();
-          setDebugLog(`API Error (${response.status}): ${errText}`);
-          setUserEmail("Fetch Failed");
-          return;
-        }
-
-        const data = await response.json();
-        
-        if (data.email) {
-          setUserEmail(data.email);
-          setDebugLog("Successfully retrieved from Stripe!");
-        } else {
-          setUserEmail("Email Not Linked");
-          setDebugLog("Session found, but customer_details.email is empty.");
-        }
-      } catch (err: any) {
-        setDebugLog(`Network/Runtime Error: ${err.message}`);
-        setUserEmail("Connection Error");
-      }
-    };
-
-    getRealData();
   }, [searchParams]);
 
   const handlePasskeyRegister = async () => {
-    console.log("Registering Passkey for:", userEmail);
     setTimeout(() => setIsRegistered(true), 800);
   };
 
@@ -74,31 +47,36 @@ function ThanksContent() {
           <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">Access Granted.</span>
         </h1>
 
-        {/* 📧 メアド表示 & デバッグログ */}
-        <div className="mt-8 p-1 bg-gradient-to-b from-white/10 to-transparent rounded-[2rem] w-full max-w-sm">
-          <div className="bg-slate-900/90 backdrop-blur-xl rounded-[1.9rem] p-6 border border-white/5 shadow-2xl">
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Registered ID</span>
-              <span className="text-xl font-mono text-pink-400 break-all select-all">
-                {userEmail === "Checking..." ? (
-                  <span className="animate-pulse italic opacity-50">Checking Stripe...</span>
-                ) : userEmail}
-              </span>
-            </div>
-            
-            {/* ⚡️ デバッグログ表示エリア */}
-            <div className="mt-4 pt-4 border-t border-white/5 flex items-start gap-2 text-left">
-              <AlertTriangle size={12} className="text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-[9px] font-mono text-slate-400 leading-tight italic">
-                <span className="text-amber-500 font-bold uppercase mr-1">System Log:</span>
-                {debugLog}
-              </p>
-            </div>
-          </div>
+        <div className="mt-6 px-4 py-2 bg-white/5 border border-white/10 rounded-full inline-flex items-center gap-2 backdrop-blur-md">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Registered ID:</span>
+          <span className="text-sm font-mono text-pink-400">
+            {userEmail === "Loading..." ? "Checking Identity..." : userEmail}
+          </span>
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* 💳 復活したデジタルカード部分 */}
+      <div className="mb-16">
+        <div className="relative inline-block group perspective-1000">
+          <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/20 to-indigo-500/20 blur-2xl transition-transform duration-700" />
+          <div className="relative bg-slate-900 border border-slate-700 w-72 md:w-80 aspect-[2/3] rounded-[2rem] overflow-hidden shadow-2xl transition-transform duration-500 group-hover:rotate-1 group-hover:scale-[1.02]">
+            <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-60 grayscale group-hover:grayscale-0 transition-all duration-700" />
+            <div className="absolute top-6 right-8 text-right">
+              <p className="text-[10px] font-mono font-bold text-white/50 tracking-widest">{serialNumber}</p>
+            </div>
+            <div className="absolute bottom-8 left-8 right-8 text-left">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-pink-500 font-black text-[10px] tracking-widest uppercase block">Exclusive Asset</span>
+              </div>
+              <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none mb-1">Night Streamer</h3>
+              <p className="text-slate-400 text-[10px] font-medium uppercase tracking-[0.2em]">SpaceMind | 2026.03.26</p>
+            </div>
+          </div>
+          <Sparkles className="absolute -top-4 -right-4 text-yellow-400 animate-pulse" size={32} />
+        </div>
+      </div>
+
+      {/* ボタンエリア */}
       <div className="grid gap-4 max-w-sm mx-auto">
         {!isRegistered ? (
           <button 
@@ -122,21 +100,33 @@ function ThanksContent() {
           <Wallet size={20} fill="currentColor" /> Add to Wallet
         </button>
 
-        <Link href="/demo" className="text-slate-500 hover:text-pink-500 transition-colors text-[10px] font-bold uppercase tracking-widest mt-8 flex items-center justify-center gap-2">
-          <ArrowRight size={12} className="rotate-180" /> Back to Artist Page
+        <p className="text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em] mt-4 leading-relaxed">
+          ※決済時に取得したメアドで仮登録されています。<br />
+          生体認証を有効化すると次回からパスワード不要でログイン可能です。
+        </p>
+
+        <Link href="/demo" className="text-slate-500 hover:text-pink-500 transition-colors text-xs font-bold uppercase tracking-widest mt-8">
+          Back to Demo Top
         </Link>
       </div>
 
-      {/* Modal はそのまま維持 */}
+      {/* モーダル部分 */}
       {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 relative shadow-2xl">
-            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X size={24} /></button>
-            <h2 className="text-xl font-black text-white italic uppercase mb-4">Apple Wallet</h2>
-            <p className="text-sm text-slate-400 leading-relaxed mb-8">
-              本番では、決済完了と同時にパスファイル(.pkpass)を生成。Apple Payのメアドがこのカードの所有者として刻印されます。
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-xl">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-[2.5rem] p-8 relative shadow-2xl text-left">
+            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors">
+              <X size={24} />
+            </button>
+            <div className="mb-6 inline-flex p-3 bg-pink-500/10 rounded-2xl tracking-tighter">
+              <Smartphone className="text-pink-500" size={24} />
+            </div>
+            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mb-4">Wallet Integration</h2>
+            <p className="text-sm text-slate-400 leading-relaxed mb-8 font-medium">
+              本番環境では、決済完了と同時にApple Wallet / Google Wallet用のパスファイルを自動生成。
             </p>
-            <button onClick={() => setShowModal(false)} className="w-full bg-slate-200 text-slate-950 h-14 rounded-2xl font-black uppercase text-xs">Close</button>
+            <button onClick={() => setShowModal(false)} className="w-full bg-slate-200 text-slate-950 h-14 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-pink-500 hover:text-white transition-all">
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -150,7 +140,7 @@ export default function ThanksPage() {
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-pink-500/10 blur-[120px] rounded-full" />
       </div>
-      <Suspense fallback={<div className="pt-40 text-center font-black text-slate-500 tracking-[0.5em]">LOADING...</div>}>
+      <Suspense fallback={<div className="pt-40 text-center text-slate-500 uppercase tracking-widest">Loading...</div>}>
         <ThanksContent />
       </Suspense>
     </div>

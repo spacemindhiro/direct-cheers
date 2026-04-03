@@ -20,15 +20,14 @@ export default function ArtistCheersPage() {
     image: "https://images.unsplash.com/photo-1516873240891-4bf014598ab4?q=80&w=2070&auto=format&fit=crop"
   };
 
-  // 💡 提示いただいた価値基準を完全に定義
   const cheersPlans = [
-    { amount: 1000, label: "DIGITAL CARD", detail: "デジタル証明書のみ（基本プラン）", icon: <ShieldCheck size={20} /> },
-    { amount: 2000, label: "MESSAGE SEND", detail: "アーティストへのメッセージ送信権", icon: <MessageSquareHeart size={20} /> },
-    { amount: 3000, label: "FLOOR GIMMICK", detail: "会場内IoT連携・ギミック起動", icon: <Zap size={20} /> },
-    { amount: 5000, label: "PUBLIC VISION", detail: "大型ビジョン等へのメッセージ表示", icon: <Tv size={20} /> },
-    { amount: 10000, label: "VIP ACCESS", detail: "制限エリア（VIP/楽屋等）アクセス権", icon: <Crown size={20} /> },
-    { amount: 20000, label: "MEET & GREET", detail: "アーティストとの直接交流・撮影", icon: <Star size={20} /> },
-    { amount: 30000, label: "ULTIMATE PASS", detail: "次回ペア招待 ＋ 限定コンテンツ付与", icon: <TicketPlus size={20} /> },
+    { amount: 1000, label: "DIGITAL CARD", detail: "デジタル証明書のみ", featureIcon: <ShieldCheck size={20} /> },
+    { amount: 2000, label: "MESSAGE SEND", detail: "アーティストへメッセージ送信", featureIcon: <MessageSquareHeart size={20} /> },
+    { amount: 3000, label: "FLOOR GIMMICK", detail: "会場内IoTギミック起動", featureIcon: <Zap size={20} /> },
+    { amount: 5000, label: "PUBLIC VISION", detail: "大型ビジョンへのメッセージ表示", featureIcon: <Tv size={20} /> },
+    { amount: 10000, label: "VIP ACCESS", detail: "制限エリアへのアクセス権", featureIcon: <Crown size={20} /> },
+    { amount: 20000, label: "MEET & GREET", detail: "アーティストとの直接交流", featureIcon: <Star size={20} /> },
+    { amount: 30000, label: "ULTIMATE PASS", detail: "次回招待＋限定コンテンツ", featureIcon: <TicketPlus size={20} /> },
   ];
 
   const handleStripeCheckout = async (amount: number, label: string) => {
@@ -73,97 +72,58 @@ export default function ArtistCheersPage() {
       <div className="relative h-[45vh] w-full overflow-hidden">
         <img src={artist.image} className="w-full h-full object-cover opacity-60 grayscale" alt={artist.name} />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-        
         <div className="absolute top-6 left-6">
           <Link href="/demo" className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center border border-white/10 text-white hover:bg-pink-500 transition-all shadow-lg">
             <ArrowLeft size={20} />
           </Link>
         </div>
-
         <div className="absolute bottom-10 left-6 right-6 space-y-4">
           <div className="space-y-1">
             <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em] flex items-center gap-1.5 ml-1">
               <User size={12} /> Artist Profile
             </p>
-            <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-2xl">
-              {artist.name}
-            </h2>
+            <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-2xl">{artist.name}</h2>
           </div>
-
           <div className="space-y-1 border-l-2 border-pink-500/30 pl-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-1.5">
-              <Music size={12} /> Playing At
-            </p>
-            <p className="text-slate-200 text-sm font-bold tracking-tight uppercase">
-              {artist.event}
-            </p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-1.5"><Music size={12} /> Playing At</p>
+            <p className="text-slate-200 text-sm font-bold tracking-tight uppercase">{artist.event}</p>
           </div>
         </div>
       </div>
 
       <div className="px-6 -mt-4 relative z-10 space-y-10 max-w-md mx-auto">
         
-        {/* --- 審査用バイパスリンク (最優先配置) --- */}
+        {/* 審査用バイパスリンク */}
         <section className="px-2">
-          <Link 
-            href="/demo/thanks?email=bypass-test@spacemind.jp" 
-            className="flex items-center justify-between p-5 bg-slate-900 border border-pink-500/40 rounded-[2.5rem] hover:bg-slate-800 transition-all group shadow-[0_0_25px_rgba(236,72,153,0.15)]"
-          >
+          <Link href="/demo/thanks?email=bypass-test@spacemind.jp" className="flex items-center justify-between p-5 bg-slate-900 border border-pink-500/40 rounded-[2.5rem] hover:bg-slate-800 transition-all group shadow-[0_0_25px_rgba(236,72,153,0.15)]">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-pink-500/10 rounded-full flex items-center justify-center text-pink-500 border border-pink-500/20">
                 <ShieldCheck size={20} />
               </div>
               <div className="space-y-0.5">
-                <span className="text-[10px] font-black text-white uppercase tracking-widest block">
-                  Deliverable Preview
-                </span>
-                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter italic leading-none">
-                  審査員用：決済後の提供商品（デジタル資産）を確認
-                </span>
+                <span className="text-[10px] font-black text-white uppercase tracking-widest block">Deliverable Preview</span>
+                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter italic leading-none text-wrap">審査用：提供商品を確認</span>
               </div>
             </div>
-            <ExternalLink size={14} className="text-slate-500 group-hover:text-pink-500 group-hover:translate-x-0.5 transition-all" />
+            <ExternalLink size={14} className="text-slate-500 group-hover:text-pink-500 transition-all" />
           </Link>
         </section>
 
         {/* サポートフォーム */}
         <section className="space-y-4">
           <div className="flex justify-between items-end px-1">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-              <MessageSquareHeart size={14} className="text-pink-500" /> Support Form
-            </h3>
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2"><MessageSquareHeart size={14} className="text-pink-500" /> Support Form</h3>
             <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest italic font-mono">Optional</span>
           </div>
-          
           <div className="space-y-4 bg-slate-900/80 backdrop-blur-lg p-6 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-            <input 
-              type="text" 
-              value={nickName}
-              onChange={(e) => setNickName(e.target.value)}
-              placeholder="Nickname (Displayed on Floor)" 
-              className="w-full h-14 bg-slate-950/50 border border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 outline-none transition-all placeholder:text-slate-700 font-bold"
-            />
-            <textarea 
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Message to Artist..." 
-              rows={2}
-              className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl p-5 text-sm text-white focus:border-pink-500 outline-none resize-none transition-all placeholder:text-slate-700 font-bold"
-            />
-            <div className="flex gap-2 items-start px-2 py-1">
-              <Info size={12} className="text-slate-500 shrink-0 mt-0.5" />
-              <p className="text-[9px] text-slate-600 font-bold leading-relaxed italic uppercase tracking-tighter">
-                ※メッセージは決済完了後、会場演出およびアーティストへ共有されます。
-              </p>
-            </div>
+            <input type="text" value={nickName} onChange={(e) => setNickName(e.target.value)} placeholder="Nickname" className="w-full h-14 bg-slate-950/50 border border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 outline-none transition-all placeholder:text-slate-700 font-bold" />
+            <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Message to Artist..." rows={2} className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl p-5 text-sm text-white focus:border-pink-500 outline-none resize-none transition-all placeholder:text-slate-700 font-bold" />
           </div>
         </section>
 
-        {/* 決済セクション (全プラン適合) */}
+        {/* 決済セクション (右側にハート配置) */}
         <section className="space-y-6">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2 ml-1">
-            <Zap size={14} className="text-pink-500" /> Choose Your Impact
-          </h3>
+          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2 ml-1"><Zap size={14} className="text-pink-500" /> Choose Your Impact</h3>
           
           <div className="grid gap-3">
             {cheersPlans.map((plan) => (
@@ -171,57 +131,44 @@ export default function ArtistCheersPage() {
                 key={plan.amount}
                 disabled={loading}
                 onClick={() => handleStripeCheckout(plan.amount, plan.label)}
-                className="w-full p-5 bg-slate-900 border border-slate-800 rounded-[2rem] hover:border-pink-500/50 hover:bg-slate-800/80 transition-all text-left flex items-center group active:scale-[0.97] disabled:opacity-50 relative overflow-hidden shadow-xl"
+                className="w-full p-5 bg-slate-900 border border-slate-800 rounded-[2.2rem] hover:border-pink-500/50 hover:bg-slate-800 transition-all text-left flex items-center group active:scale-[0.97] relative overflow-hidden shadow-xl"
               >
-                {/* プラン別アイコン */}
-                <div className="bg-slate-950 w-12 h-12 rounded-2xl flex items-center justify-center text-slate-600 group-hover:text-pink-500 border border-white/5 transition-colors shadow-inner group-hover:shadow-pink-500/10">
-                  {plan.icon}
+                {/* 左側：機能アイコン */}
+                <div className="bg-slate-950 w-12 h-12 rounded-2xl flex items-center justify-center text-slate-500 group-hover:text-pink-400 border border-white/5 transition-colors">
+                  {plan.featureIcon}
                 </div>
 
+                {/* 中央：プラン情報 */}
                 <div className="ml-4 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black text-pink-500 uppercase tracking-[0.15em]">{plan.label}</span>
-                    <div className="text-2xl font-black text-white italic tracking-tighter uppercase flex items-baseline gap-0.5">
-                      <span className="text-[10px] font-bold not-italic text-slate-500">¥</span>
-                      {plan.amount.toLocaleString()}
-                    </div>
+                  <span className="text-[10px] font-black text-pink-500 uppercase tracking-[0.15em] block">{plan.label}</span>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-[10px] font-bold text-slate-500 italic uppercase tracking-tighter leading-none">{plan.detail}</span>
                   </div>
-                  <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-tight leading-none italic">
-                    {plan.detail}
-                  </p>
+                  <div className="text-2xl font-black text-white italic tracking-tighter uppercase mt-1 flex items-baseline gap-0.5">
+                    <span className="text-[10px] font-bold not-italic text-slate-500">¥</span>
+                    {plan.amount.toLocaleString()}
+                  </div>
                 </div>
 
-                {/* 装飾用アクセント */}
-                <div className="absolute right-0 top-0 h-full w-1 bg-gradient-to-b from-transparent via-slate-700/20 to-transparent" />
+                {/* 🔥 右側：愛（ハート）を配置 */}
+                <div className="ml-2 w-14 h-14 bg-slate-950/50 group-hover:bg-pink-500 rounded-[1.5rem] flex items-center justify-center text-slate-700 group-hover:text-white border border-white/5 transition-all shadow-inner group-hover:shadow-[0_0_20px_rgba(236,72,153,0.4)]">
+                  <Heart size={24} className="group-hover:fill-current group-active:scale-125 transition-transform" />
+                </div>
               </button>
             ))}
           </div>
 
-          {/* デモ環境注意喚起 */}
           <div className="bg-amber-500/5 border border-amber-500/20 p-5 rounded-[2rem] flex items-start gap-4">
             <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={16} />
-            <div className="space-y-1">
-              <p className="text-[10px] text-amber-500 font-black uppercase tracking-widest italic">Sandbox Mode Active</p>
-              <p className="text-[10px] text-slate-400 leading-relaxed font-bold tracking-tight uppercase">
-                現在はテスト環境です。実際の課金は発生しません。
-              </p>
-            </div>
+            <p className="text-[10px] text-slate-400 leading-relaxed font-bold tracking-tight uppercase italic">Sandbox Mode Active. No real charges.</p>
           </div>
         </section>
 
-        {/* セキュリティバッジ */}
-        <div className="p-6 bg-slate-900/40 border border-slate-800 rounded-[2.5rem] flex flex-col items-center gap-4 shadow-inner">
+        {/* セキュリティ表示 */}
+        <div className="flex flex-col items-center gap-4 py-4 opacity-50">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="text-emerald-500/50" size={16} />
-            <span className="text-[10px] text-slate-500 leading-relaxed font-black uppercase tracking-[0.3em]">
-              Secure Checkout by Stripe
-            </span>
-          </div>
-          <div className="flex gap-4 opacity-30 grayscale hover:grayscale-0 transition-all duration-700">
-            {/* 決済アイコンを模したプレースホルダー */}
-            <div className="w-8 h-5 bg-slate-700 rounded-sm" />
-            <div className="w-8 h-5 bg-slate-700 rounded-sm" />
-            <div className="w-8 h-5 bg-slate-700 rounded-sm" />
+            <ShieldCheck size={14} className="text-emerald-500" />
+            <span className="text-[9px] font-black uppercase tracking-[0.3em]">Secure Checkout by Stripe</span>
           </div>
         </div>
       </div>

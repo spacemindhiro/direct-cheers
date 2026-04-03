@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Music, Zap, Heart, ShieldCheck, ArrowLeft, MessageSquareHeart, User, Info, AlertCircle, ExternalLink } from "lucide-react";
+import { Music, Zap, Heart, ShieldCheck, ArrowLeft, MessageSquareHeart, User, Info, AlertCircle, ExternalLink, Sparkles, Radio, Tv, Crown, Star, TicketPlus } from "lucide-react";
 import Link from 'next/link';
 
 export default function ArtistCheersPage() {
@@ -16,7 +16,18 @@ export default function ArtistCheersPage() {
     image: "https://images.unsplash.com/photo-1516873240891-4bf014598ab4?q=80&w=2070&auto=format&fit=crop"
   };
 
-  const handleStripeCheckout = async (amount: number) => {
+  // 💡 価値基準に基づいたプラン定義
+  const cheersPlans = [
+    { amount: 1000, label: "DIGITAL CARD", detail: "デジタル証明書のみ（基本）", icon: <ShieldCheck size={18} /> },
+    { amount: 2000, label: "MESSAGE SEND", detail: "アーティストへメッセージ送信権", icon: <MessageSquareHeart size={18} /> },
+    { amount: 3000, label: "FLOOR GIMMICK", detail: "会場内のIoT演出をリアルタイム起動", icon: <Zap size={18} /> },
+    { amount: 5000, label: "PUBLIC VISION", detail: "大型ビジョンへのメッセージ表示", icon: <Tv size={18} /> },
+    { amount: 10000, label: "VIP ACCESS", detail: "制限エリア（VIP/楽屋等）への入室権", icon: <Crown size={18} /> },
+    { amount: 20000, label: "MEET & GREET", detail: "アーティストとの直接交流・記念撮影", icon: <Star size={18} /> },
+    { amount: 30000, label: "ULTIMATE PASS", detail: "次回ペア招待 ＋ 限定アセット付与", icon: <TicketPlus size={18} /> },
+  ];
+
+  const handleStripeCheckout = async (amount: number, label: string) => {
     if (loading) return;
     setLoading(true);
 
@@ -27,11 +38,11 @@ export default function ArtistCheersPage() {
         body: JSON.stringify({ 
           amount: amount, 
           artistId: artist.id,
-          // 💡 ここでバックエンドに対し、成功時のURLにメアドを含めるよう指示するイメージ
           success_url_suffix: `?email={CHECKOUT_SESSION_CUSTOMER_EMAIL}`, 
           metadata: {
             nickName: nickName,
             comment: comment,
+            planLabel: label, // 💡 どのプランを選んだかをStripeに送る
             artistName: artist.name,
             eventName: artist.event
           }
@@ -53,135 +64,95 @@ export default function ArtistCheersPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-20 font-sans selection:bg-pink-500/30 overflow-x-hidden">
-      {/* ヒーローエリア */}
-      <div className="relative h-[45vh] w-full overflow-hidden">
-        <img src={artist.image} className="w-full h-full object-cover opacity-60 grayscale" alt={artist.name} />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-        
+      {/* ヒーローエリア (変更なし) */}
+      <div className="relative h-[40vh] w-full overflow-hidden">
+        <img src={artist.image} className="w-full h-full object-cover opacity-50 grayscale" alt={artist.name} />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
         <div className="absolute top-6 left-6">
           <Link href="/demo" className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center border border-white/10 text-white hover:bg-pink-500 transition-all">
             <ArrowLeft size={20} />
           </Link>
         </div>
-
-        <div className="absolute bottom-10 left-6 right-6 space-y-4">
-          <div className="space-y-1">
-            <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em] flex items-center gap-1.5 ml-1">
-              <User size={12} /> Artist
-            </p>
-            <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-2xl">
-              {artist.name}
-            </h2>
-          </div>
-
-          <div className="space-y-1 border-l-2 border-pink-500/30 pl-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-1.5">
-              <Music size={12} /> Playing At
-            </p>
-            <p className="text-slate-200 text-sm font-bold tracking-tight uppercase">
-              {artist.event}
-            </p>
-          </div>
+        <div className="absolute bottom-8 left-6 right-6">
+          <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em] mb-1">Artist</p>
+          <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">{artist.name}</h2>
+          <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-2">{artist.event}</p>
         </div>
       </div>
 
-      <div className="px-6 -mt-4 relative z-10 space-y-10 max-w-md mx-auto">
+      <div className="px-6 -mt-6 relative z-10 space-y-8 max-w-md mx-auto">
         
-        {/* --- 審査用バイパスリンク修正箇所 --- */}
-        <div className="px-2">
-          <Link 
-            // 💡 クエリパラメータを追加して、挙動を確認しやすくしました
-            href="/demo/thanks?email=bypass-test@spacemind.jp" 
-            className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all group"
-          >
-            <div className="flex items-center gap-3">
-              <Info size={16} className="text-pink-500" />
-              <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                決済完了後の発行カード（提供商品）を確認する
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter italic">DEMO BYPASS</span>
-              <ExternalLink size={14} className="text-slate-500 group-hover:text-pink-500" />
-            </div>
-          </Link>
-        </div>
-        {/* ---------------------------------- */}
-
-        {/* サポートフォーム (変更なし) */}
+        {/* サポートフォーム */}
         <section className="space-y-4">
-          <div className="flex justify-between items-end px-1">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-              <MessageSquareHeart size={14} className="text-pink-500" /> Support Form
-            </h3>
-            <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest italic">Optional / 任意</span>
-          </div>
-          
-          <div className="space-y-4 bg-slate-900/80 backdrop-blur-lg p-6 rounded-[2.5rem] border border-slate-800 shadow-2xl">
+          <div className="bg-slate-900/80 backdrop-blur-lg p-5 rounded-[2rem] border border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <MessageSquareHeart size={14} className="text-pink-500" />
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Support Information</h3>
+            </div>
             <input 
               type="text" 
               value={nickName}
               onChange={(e) => setNickName(e.target.value)}
-              placeholder="Your Nickname" 
-              className="w-full h-14 bg-slate-950/50 border border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 outline-none transition-all placeholder:text-slate-600"
+              placeholder="Nickname (Displayed on Screen)" 
+              className="w-full h-12 bg-slate-950/50 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 outline-none transition-all placeholder:text-slate-700"
             />
             <textarea 
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Message to Artist..." 
+              placeholder="Message to Floor / Artist..." 
               rows={2}
-              className="w-full bg-slate-950/50 border border-slate-700 rounded-2xl p-5 text-sm text-white focus:border-pink-500 outline-none resize-none transition-all placeholder:text-slate-600"
+              className="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-4 text-sm text-white focus:border-pink-500 outline-none resize-none transition-all placeholder:text-slate-700"
             />
-            <div className="flex gap-2 items-start px-2 py-1">
-              <Info size={12} className="text-slate-500 shrink-0 mt-0.5" />
-              <p className="text-[9px] text-slate-500 font-medium leading-relaxed italic">
-                ※デモ環境ではメッセージは保存されませんが、本番環境では運営事務局よりアーティストへ届けられます。
-              </p>
-            </div>
           </div>
         </section>
 
-        {/* 決済セクション (変更なし) */}
+        {/* 決済セクション（価値適合ボタン） */}
         <section className="space-y-4">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2 ml-1">
-            <Zap size={14} className="text-pink-500" /> Choose Cheers
-          </h3>
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              <Zap size={14} className="text-pink-500" /> Choose Your Impact
+            </h3>
+          </div>
           
-          <div className="grid gap-4">
-            {[1000, 3000, 5000].map((val) => (
+          <div className="grid gap-3">
+            {cheersPlans.map((plan) => (
               <button 
-                key={val}
+                key={plan.amount}
                 disabled={loading}
-                onClick={() => handleStripeCheckout(val)}
-                className="w-full p-7 bg-slate-900 border border-slate-800 rounded-[2.5rem] hover:border-pink-500/50 hover:bg-slate-800/50 transition-all text-left flex justify-between items-center group active:scale-95 disabled:opacity-50 relative overflow-hidden"
+                onClick={() => handleStripeCheckout(plan.amount, plan.label)}
+                className="w-full p-5 bg-slate-900 border border-slate-800 rounded-2xl hover:border-pink-500/50 hover:bg-slate-800 transition-all text-left flex items-center group active:scale-[0.98] disabled:opacity-50"
               >
-                <div className="text-3xl font-black text-white italic tracking-tighter uppercase flex items-baseline gap-1">
-                  <span className="text-sm font-bold not-italic text-slate-500">¥</span>
-                  {val.toLocaleString()}
+                <div className="bg-slate-950 w-12 h-12 rounded-xl flex items-center justify-center text-slate-500 group-hover:text-pink-500 border border-white/5 transition-colors shadow-inner">
+                  {plan.icon}
                 </div>
-                <div className="bg-slate-950 p-4 rounded-full group-hover:bg-pink-500 group-hover:text-white transition-all shadow-xl border border-white/5">
-                  <Heart size={20} className="group-hover:fill-current" />
+                <div className="ml-4 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[10px] font-black text-pink-500 uppercase tracking-widest">{plan.label}</span>
+                    <div className="h-px flex-1 bg-slate-800" />
+                    <span className="text-lg font-black text-white italic tracking-tighter">
+                      <span className="text-[10px] not-italic text-slate-500 mr-0.5">¥</span>
+                      {plan.amount.toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 font-bold mt-0.5 uppercase tracking-tight">{plan.detail}</p>
                 </div>
               </button>
             ))}
           </div>
-
-          <div className="bg-amber-500/5 border border-amber-500/20 p-5 rounded-[2rem] flex items-start gap-4">
-            <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={16} />
-            <div className="space-y-1">
-              <p className="text-[10px] text-amber-500 font-black uppercase tracking-widest italic">Demo Environment</p>
-              <p className="text-[10px] text-slate-400 leading-relaxed font-bold tracking-tight uppercase">
-                現在はテストモードです。決済ボタンを押しても、Stripeのテスト環境（実課金なし）へ遷移します。
-              </p>
-            </div>
-          </div>
         </section>
 
-        <div className="p-6 bg-slate-900/40 border border-slate-800 rounded-[2.5rem] flex items-start gap-4 shadow-inner">
-          <ShieldCheck className="text-emerald-500 shrink-0 mt-1" size={18} />
-          <p className="text-[10px] text-slate-500 leading-relaxed font-bold tracking-tight uppercase">
-            SECURE CHECKOUT BY STRIPE.
-          </p>
+        {/* 安全・デモ表示 */}
+        <div className="space-y-4">
+          <div className="p-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-4">
+            <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={14} />
+            <p className="text-[9px] text-slate-500 leading-relaxed font-bold uppercase tracking-tight italic">
+              Currently in Sandbox mode. No real charges will be made.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-2 py-4">
+            <ShieldCheck className="text-emerald-500/50" size={14} />
+            <span className="text-[9px] text-slate-600 font-black uppercase tracking-[0.2em]">Secure Checkout by Stripe</span>
+          </div>
         </div>
       </div>
     </div>

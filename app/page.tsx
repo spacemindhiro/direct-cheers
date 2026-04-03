@@ -217,10 +217,12 @@ export default function LandingPage() {
                 <li><Link href="/terms" className="hover:text-white transition-colors">利用規約</Link></li>
                 <li><Link href="/privacy" className="hover:text-white transition-colors">プライバシーポリシー</Link></li>
                 <li><Link href="/law" className="hover:text-white transition-colors">特定商取引法</Link></li>
+                {/* 🛡️ 新設：審査官向け信頼性アピールリンク */}
+                <li><Link href="/safety" className="text-indigo-400 hover:text-white transition-colors font-bold border-b border-indigo-500/30 pb-0.5">安心・安全への取り組み</Link></li>
               </ul>
             </div>
 
-            {/* Column 3: Contact (復旧) */}
+            {/* Column 3: Contact */}
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Contact</h6>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium tracking-widest uppercase">

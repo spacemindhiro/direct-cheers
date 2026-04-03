@@ -67,12 +67,20 @@ export default function TermsPage() {
               </ul>
             </section>
 
-            <section className="bg-pink-500/5 p-6 rounded-2xl border border-pink-500/20">
-              <h2 className="text-xl font-bold text-pink-500 mb-4 italic border-l-4 border-pink-500 pl-4">第5条（返品・返金ポリシー）</h2>
-              <p className="mb-4 text-white font-bold">商品の性質上（デジタルコンテンツおよびライブ演出連動）、決済完了後におけるユーザー都合によるキャンセル、返品、返金には一切応じられません。</p>
-              <p>ただし、システム上の不具合によりデジタルアセットの発行（ブラウザ表示）が正常に行われなかった場合に限り、個別に対応を行うものとします。</p>
-            </section>
-
+<section className="bg-pink-500/5 p-6 rounded-2xl border border-pink-500/20">
+  <h2 className="text-xl font-bold text-pink-500 mb-4 italic border-l-4 border-pink-500 pl-4">第5条（返品・返金ポリシー）</h2>
+  <p className="mb-4 text-white font-bold text-sm">商品の性質上（デジタルコンテンツおよびライブ演出連動）、決済完了後におけるユーザー都合によるキャンセル、返品、返金には一切応じられません。</p>
+  
+  {/* 🔥 修正箇所：DB格納または表示の「いずれも」行われなかった場合のみ対応 */}
+  <div className="bg-slate-900/50 p-4 rounded-xl border border-pink-500/10 text-[13px] leading-relaxed">
+    <p>
+      ただし、システム上の致命的な不具合により、<span className="text-pink-400 font-bold underline decoration-pink-500/30">デジタルアセットのデータベース（DB）への正常な格納、およびブラウザ上への表示の「いずれも」行われなかった場合</span>に限り、事実確認の上で個別に対応を行うものとします。
+    </p>
+    <p className="mt-2 text-slate-500 text-[11px] italic">
+      ※DBに記録されている、またはブラウザに一度でも表示されている場合は、引渡し完了とみなします。
+    </p>
+  </div>
+</section>
             <section>
               <h2 className="text-xl font-bold text-white mb-4 italic border-l-4 border-pink-500 pl-4">第6条（知的財産権）</h2>
               <p>本サービスを通じて提供される全てのコンテンツ（画像、シリアルナンバー、ロゴ等）の知的財産権は、当社または正当な権利を有する第三者に帰属します。</p>

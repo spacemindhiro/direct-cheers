@@ -59,15 +59,21 @@ export default function TermsPage() {
             </section>
 
             <section className="bg-slate-900 p-6 rounded-xl border border-slate-800">
-              <div className="flex items-center gap-2 mb-4 text-pink-500">
-                <AlertTriangle size={18} />
-                <h2 className="text-base font-bold italic uppercase">第7条（免責事項）</h2>
-              </div>
-              <ul className="list-disc ml-5 space-y-3">
-                <li>ユーザーが決済時に使用した情報の誤り（古いメアド等）に起因する受領不能について、当社は再発行や返金の義務を負いません。</li>
-                <li>第4条（演出）および第5条（ノーショー）に起因する、入場不可や演出未実行に伴ういかなる損害（交通費・宿泊費等を含む）についても、当社およびサービス提供者は賠償責任を負わないものとします。</li>
-              </ul>
-            </section>
+  <div className="flex items-center gap-2 mb-4 text-pink-500">
+    <AlertTriangle size={18} />
+    <h2 className="text-base font-bold italic uppercase tracking-tight">第7条（免責事項）</h2>
+  </div>
+  <ul className="list-disc ml-5 space-y-4 text-slate-400">
+    <li>
+      <span className="text-white font-bold">【決済登録情報の優先と代替手段】</span><br />
+      ユーザーが決済時に使用した情報の誤り（入力ミス、またはApple Pay等に登録済みの古いメールアドレス等）に起因する受領不能について、当社は<span className="text-slate-200">OS標準ウォレットへの格納やログイン後のコレクションページ表示等の代替手段を提供していることから</span>、デジタルアセットの再発行、調査、および返金の義務を一切負わないものとします。
+    </li>
+    <li>
+      <span className="text-white font-bold">【不参加および演出リスク】</span><br />
+      第4条（演出）および第5条（ノーショー）に起因する、入場不可や演出未実行に伴ういかなる損害（交通費・宿泊費等を含む）についても、当社およびサービス提供者は賠償責任を負わないものとします。
+    </li>
+  </ul>
+</section>
 
             <section>
               <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-slate-500 pl-3">第8条（禁止事項）</h2>

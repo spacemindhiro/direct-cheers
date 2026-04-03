@@ -3,7 +3,6 @@ import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
 
-// VercelのプレビューURLまたは本番URLを取得
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://direct-cheers.com";
 
 export const metadata: Metadata = {
@@ -24,14 +23,8 @@ export const metadata: Metadata = {
     siteName: "Direct Cheers",
     locale: "ja_JP",
     type: "website",
-    images: [
-      {
-        url: "/ogp-main.png", // public/ogp-main.png を参照
-        width: 1200,
-        height: 630,
-        alt: "Direct Cheers Service Preview",
-      },
-    ],
+    // 💡 imagesプロパティをあえて削除。
+    // app/opengraph-image.png がある場合、Next.jsが自動で最適なタグを生成します。
   },
   
   twitter: {
@@ -41,7 +34,7 @@ export const metadata: Metadata = {
       template: "%s | Direct Cheers",
     },
     description: "ライブ演出をハックして、デジタルアセットを手に入れろ。",
-    images: ["/ogp-main.png"], 
+    // 💡 twitter用もファイルベース（app/twitter-image.png）に任せるため削除。
   },
 };
 

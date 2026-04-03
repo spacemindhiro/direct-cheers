@@ -17,7 +17,7 @@ export default function TermsPage() {
           <div className="flex items-center gap-4 mb-12 border-b border-slate-800 pb-8">
             <ShieldCheck className="text-pink-500" size={28} />
             <h1 className="text-2xl md:text-3xl font-black italic text-white uppercase tracking-tight">利用規約</h1>
-            <span className="ml-auto text-[10px] text-slate-500 font-mono italic text-right">Last Updated: 2026.03.28</span>
+            <span className="ml-auto text-[10px] text-slate-500 font-mono italic text-right">Last Updated: 2026.04.03</span>
           </div>
           
           <div className="space-y-10 text-[13px] md:text-sm leading-relaxed">

@@ -16,9 +16,10 @@ export async function updateSession(request: NextRequest) {
     path === "/terms" ||
     path === "/privacy" ||
     path === "/about" ||
+    path === "/safety" ||          // ✨ 追加：Stripe審査用の安心・安全ページ
     path.startsWith("/demo") ||     // ページ遷移用
     path.startsWith("/api/pay") ||  // 決済開始API用
-    path.startsWith("/api/get-session") || // ✨ 追加：決済完了後のメアド取得APIを許可
+    path.startsWith("/api/get-session") || // 決済完了後のメアド取得APIを許可
     path.startsWith("/concept") ||
     path.startsWith("/login") ||
     path.startsWith("/auth") ||

@@ -67,7 +67,7 @@ export default function StandardPlanPage() {
             <div className="text-pink-500 mb-6"><Database size={32} /></div>
             <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">コレクション化</h3>
             <p className="text-slate-400 text-sm leading-relaxed font-medium mb-6">
-              発行された証明書は、決済完了後のブラウザ表示とともに、入力したメールアドレスと紐づけてシステムDBへ厳重に格納されます。メアドでログインすれば、過去の応援履歴をいつでもマイページから閲覧・管理可能です。
+              発行された証明書は、決済完了後のブラウザ表示とともに、決済で使用したメールアドレスと紐づけてシステムDBへ厳重に格納されます。メアドでログインすれば、過去の応援履歴をいつでもマイページから閲覧・管理可能です。
             </p>
             <div className="flex items-center gap-3 text-xs font-bold text-pink-400 uppercase tracking-widest">
               <LayoutDashboard size={16} />

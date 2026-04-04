@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   Ticket, CheckCircle2, QrCode, ArrowLeft, ShieldCheck, 
   ArrowRight, AlertTriangle, UserCheck, Smartphone, 
-  Award, MessageSquare, Construction, ChevronRight 
+  Award, MessageSquare, Construction, ChevronRight, Scale
 } from "lucide-react";
 
 export default function EntrancePlanPage() {
@@ -44,7 +44,7 @@ export default function EntrancePlanPage() {
               特定の会場やイベントへの入場権利をデジタル化。Apple/Google Walletへの格納に対応し、QRコードによる認証、またはスタッフによる目視確認でスマートな受付を実現します。
             </p>
             <p className="text-indigo-400 font-bold text-sm tracking-widest uppercase">
-              [ 料金体系：¥5,000〜¥10,000 (税込) ]
+              [ 料金体系：¥50〜¥30,000 (税込) ]
             </p>
           </div>
           
@@ -54,8 +54,8 @@ export default function EntrancePlanPage() {
             <div className="w-64 h-96 bg-gradient-to-br from-slate-900 to-indigo-950 rounded-[2rem] shadow-2xl rotate-3 flex flex-col p-6 relative overflow-hidden border border-indigo-500/30 transition-transform group-hover:rotate-0 group-hover:scale-105 duration-500 font-sans">
               <div className="relative z-10 flex flex-col h-full items-center text-center">
                 <div className="text-[10px] font-black tracking-[0.2em] text-indigo-400 mb-6 uppercase">Event Pass</div>
-                <div className="w-40 h-40 bg-white p-3 rounded-2xl mb-6 shadow-xl">
-                   <QrCode className="w-full h-full text-slate-900" />
+                <div className="w-40 h-40 bg-white p-3 rounded-2xl mb-6 shadow-xl flex items-center justify-center">
+                   <QrCode className="w-full h-full text-slate-900 p-2" />
                 </div>
                 <div className="text-xl font-black italic text-white tracking-tighter leading-tight uppercase mb-2">ACCESS<br />GRANTED</div>
                 <div className="mt-auto w-full border-t border-white/10 pt-4">
@@ -63,6 +63,22 @@ export default function EntrancePlanPage() {
                    <div className="text-lg font-mono font-black text-white tracking-tighter text-left uppercase">ENT-8829-X</div>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* --- Pricing Control & Safety --- */}
+        <section className="mb-24 p-10 rounded-[3rem] bg-indigo-500/5 border border-indigo-500/20 relative overflow-hidden">
+          <div className="flex flex-col md:flex-row gap-10 items-start md:items-center">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+              <Scale size={32} />
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">価格妥当性の厳格な審査</h3>
+              <p className="text-slate-400 leading-relaxed font-medium">
+                当プラットフォームでは、アーティストが設定する入場価格がイベントの実態（会場規模、内容、提供価値）に対して適正であるか、**運営エージェントが事前に全件審査**を行っています。
+                社会通念上、不当に高額な価格設定や、実体の伴わない決済を未然に防ぎ、健全な取引を担保しています。
+              </p>
             </div>
           </div>
         </section>
@@ -94,7 +110,7 @@ export default function EntrancePlanPage() {
           </div>
         </section>
 
-        {/* --- Compliance & Service Policy (Ticket Specific) --- */}
+        {/* --- Compliance & Service Policy --- */}
         <section className="mb-32 p-8 md:p-12 bg-slate-900/30 border border-slate-800 rounded-[3rem] relative overflow-hidden text-left text-pretty">
           <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
           <h2 className="text-xl font-black text-white italic uppercase tracking-tighter mb-8 flex items-center gap-2">
@@ -116,7 +132,7 @@ export default function EntrancePlanPage() {
           </div>
         </section>
 
-        {/* --- 他のプラン (他ページと統一) --- */}
+        {/* --- 他のプラン (Messageプランの最新価格 ¥2,000 / ¥5,000 を反映) --- */}
         <div className="pt-24 border-t border-slate-900 text-center">
           <h3 className="text-white font-black italic tracking-tighter text-2xl mb-12 uppercase leading-none">Explore Other Plans</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-sans">
@@ -129,12 +145,15 @@ export default function EntrancePlanPage() {
                 <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Standard</h4>
               </div>
               <div className="mb-8 leading-none">
-                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1 text-left">想定ボリューム</p>
                 <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥1,000</p>
-                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥3,000</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest text-left">上限：¥3,000</p>
               </div>
-              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-pink-500" /> デジタル応援証明書の発行</li><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-pink-500" /> Wallet / コレクション管理</li></ul>
-              <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-pink-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium font-sans">
+                <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-pink-500 shrink-0" /> デジタル応援証明書の発行</li>
+                <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-pink-500 shrink-0" /> Wallet / コレクション管理</li>
+              </ul>
+              <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-pink-400 transition-colors font-bold"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
             </Link>
 
             {/* Message */}
@@ -145,12 +164,15 @@ export default function EntrancePlanPage() {
                 <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Message</h4>
               </div>
               <div className="mb-8 leading-none">
-                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1 text-pretty text-left">想定ボリューム</p>
-                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥50〜¥3,000</p>
-                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest text-left">上限：¥3,000</p>
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1 text-left">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥2,000</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest text-left">上限：¥5,000</p>
               </div>
-              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-violet-400" /> アーティスト閲覧用メッセージ</li><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-violet-400" /> 内容記録型デジタル証明書</li></ul>
-              <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-violet-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium font-sans">
+                <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-violet-400 shrink-0" /> アーティスト閲覧用メッセージ</li>
+                <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-violet-400 shrink-0" /> 内容記録型デジタル証明書</li>
+              </ul>
+              <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-violet-400 transition-colors font-bold"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
             </Link>
 
             {/* Custom */}
@@ -161,12 +183,15 @@ export default function EntrancePlanPage() {
                 <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Custom</h4>
               </div>
               <div className="mb-8 leading-none text-left">
-                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1 text-pretty">想定ボリューム</p>
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
                 <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥10,000</p>
-                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥100,000</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest text-left">上限：¥100,000</p>
               </div>
-              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><ShieldCheck size={16} className="text-amber-500" /> 内容に応じた個別役務</li><li className="flex items-center gap-2.5"><ShieldCheck size={16} className="text-amber-500" /> 完了エビデンスの事前定義</li></ul>
-              <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-amber-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium font-sans">
+                <li className="flex items-center gap-2.5 font-bold"><ShieldCheck size={16} className="text-amber-500 shrink-0" /> 内容に応じた個別役務</li>
+                <li className="flex items-center gap-2.5 font-bold"><ShieldCheck size={16} className="text-amber-500 shrink-0" /> 完了エビデンスの事前定義</li>
+              </ul>
+              <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-amber-400 transition-colors font-bold"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
             </Link>
           </div>
         </div>

@@ -44,7 +44,7 @@ export default function MessagePlanPage() {
               アーティストに直接届くメッセージ権に加え、Standardプラン同様の「デジタル応援証明書」を発行。あなたの言葉は証明書と紐づけられ、消えない熱量としてコレクションされます。
             </p>
             <p className="text-violet-500 font-bold text-sm tracking-widest uppercase">
-              [ 料金体系：¥50〜¥3,000 (税込) ]
+              [ 料金体系：¥50〜¥5,000 (税込) ]
             </p>
           </div>
           

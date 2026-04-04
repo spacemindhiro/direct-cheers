@@ -159,7 +159,7 @@ export default function CustomPlanPage() {
 
             {/* Message */}
             <Link href="/concept/message" className="relative p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-violet-500/50 transition-all text-left overflow-hidden">
-              <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-violet-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
+              <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-violet-400 border border-slate-700 group-hover:bg-violet-500/10 transition-colors"><MessageSquare size={24} /></div>
                 <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Message</h4>
@@ -179,7 +179,7 @@ export default function CustomPlanPage() {
             {/* Entrance (Review Process) */}
             <Link href="/concept/entrance" className="relative p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-indigo-500/50 transition-all text-left overflow-hidden">
               <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-indigo-600/80 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg flex items-center gap-1">
-                <Eye size={10} strokeWidth={3} /> Review Process
+                <Eye size={10} strokeWidth={3} /> Review Required
               </div>
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-indigo-400 border border-slate-700 group-hover:bg-indigo-500/10 transition-colors"><Ticket size={24} /></div>

@@ -41,9 +41,8 @@ export default function StandardPlanPage() {
             <p className="text-lg text-slate-400 leading-relaxed font-medium">
               それは、あなたがアーティストを支えた「動かぬ証拠」。シリアルナンバー入りのデジタル応援証明書が、あなたのスマホのウォレットへ。メールアドレスに紐づけてコレクションに保管されます。
             </p>
-            {/* 追加：上限の明記 */}
             <p className="text-pink-500 font-bold text-sm tracking-widest uppercase">
-              [ 料金体系：¥1〜¥3,000 (税込) 決済上限あり ]
+              [ 料金体系：¥50〜¥3,000 (税込) ]
             </p>
           </div>
           
@@ -140,7 +139,8 @@ export default function StandardPlanPage() {
               </div>
               <div className="mb-8 leading-none">
                 <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
-                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥2,000<span className="text-lg ml-1">〜¥3,000</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥2,000</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥3,000</p>
               </div>
               <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-violet-500" /> 公式ログへの永続保存</li><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-violet-500" /> アーティスト閲覧権の付与</li></ul>
               <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-violet-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
@@ -155,7 +155,8 @@ export default function StandardPlanPage() {
               </div>
               <div className="mb-8 leading-none">
                 <p className="text-indigo-300 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
-                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥5,000<span className="text-lg ml-1">〜¥10,000</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥5,000</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥10,000</p>
               </div>
               <ul className="text-sm text-slate-300 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> イベント入場権利の付与</li><li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> ノーショー時の免責条項</li></ul>
               <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-indigo-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
@@ -170,7 +171,8 @@ export default function StandardPlanPage() {
               </div>
               <div className="mb-8 leading-none">
                 <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
-                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥10,000<span className="text-lg ml-1">〜¥100,000</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥10,000</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥100,000</p>
               </div>
               <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><ShieldCheck size={16} className="text-amber-500" /> 内容に応じた個別役務</li><li className="flex items-center gap-2.5"><ShieldCheck size={16} className="text-amber-500" /> 完了エビデンスの事前定義</li></ul>
               <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-amber-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
@@ -179,7 +181,7 @@ export default function StandardPlanPage() {
         </div>
       </main>
 
-      <footer className="py-12 border-t border-slate-800 bg-slate-950 text-center">
+      <footer className="py-12 border-t border-slate-800 bg-slate-950 text-center font-sans">
         <p className="text-slate-600 text-[10px] font-mono italic">© 2026 Direct Cheers Platform.</p>
       </footer>
     </div>

@@ -82,7 +82,21 @@ export default function EntrancePlanPage() {
             </div>
           </div>
         </section>
-
+{/* --- Event Verification & Refund Policy --- */}
+<section className="mb-24 p-10 rounded-[3rem] bg-rose-500/5 border border-rose-500/20 relative overflow-hidden">
+  <div className="flex flex-col md:flex-row gap-10 items-start md:items-center">
+    <div className="w-16 h-16 rounded-2xl bg-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+      <CheckCircle2 size={32} />
+    </div>
+    <div className="space-y-4 text-left">
+      <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter text-rose-400">イベント開催実態の確認</h3>
+      <p className="text-slate-400 leading-relaxed font-medium">
+        エージェントは、チケット販売対象となるイベントの開催実態（会場予約、告知内容、アーティストの活動履歴）を厳格に確認します。
+        <span className="text-rose-400 font-bold ml-1">実体のない「空イベント」による販売は固く禁じられており、万が一イベント自体が中止、または実体がないと判断された場合、支払われた金額は全額払い戻し処理が行われます。</span>
+      </p>
+    </div>
+  </div>
+</section>
         {/* --- Core Features --- */}
         <section className="grid md:grid-cols-3 gap-8 mb-24 text-left">
           <div className="p-10 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 hover:border-indigo-500/30 transition-colors">

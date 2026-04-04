@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Play, Wallet, ShieldCheck, Zap, ArrowRight, Award, Database, Music, Mail, Smartphone, CheckCircle2, Construction } from "lucide-react";
+import { Play, Wallet, ShieldCheck, Zap, ArrowRight, Award, Database, Music, Mail, Smartphone, CheckCircle2, Construction, BellDot, Ticket } from "lucide-react";
 
 export default function LandingPage() {
   const contactEmail = "support@direct-cheers.com";
@@ -27,7 +27,7 @@ export default function LandingPage() {
             <Link href="/about" className="text-pink-500 hover:text-white transition-colors border border-pink-500/30 px-3 py-1 rounded-md bg-pink-500/5">About Us</Link>
             <Link href="#concept" className="text-slate-400 hover:text-pink-500 transition-colors">コンセプト</Link>
             <Link href="#demo" className="text-slate-400 hover:text-pink-500 transition-colors italic">DEMO</Link>
-            <Link href="#features" className="text-slate-400 hover:text-pink-500 transition-colors">機能・体験</Link>
+            <Link href="#plans" className="text-slate-400 hover:text-pink-500 transition-colors">プラン</Link>
             <Link href="/law" className="text-slate-500 hover:text-white underline decoration-pink-500/50 transition-colors">特定商取引法</Link>
           </div>
 
@@ -71,7 +71,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Demo Section (4-Step Flow) --- */}
+      {/* --- Demo Section --- */}
       <section id="demo" className="py-24 px-6 relative border-b border-slate-900">
         <div className="max-w-6xl mx-auto">
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 p-8 md:p-16 rounded-[3rem] relative overflow-hidden flex flex-col md:flex-row items-center gap-12 group">
@@ -128,8 +128,8 @@ export default function LandingPage() {
 
       {/* --- Features --- */}
       <section id="features" className="py-24 bg-slate-950 px-6 border-b border-slate-900">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-20 text-pretty">
+        <div className="max-w-6xl mx-auto text-center">
+          <div className="mb-20 text-pretty">
             <h3 className="text-4xl font-black text-white mb-4 italic tracking-tighter uppercase">The Digital Experience</h3>
             <p className="text-slate-500">透明な決済と、消えない感動を両立するテクノロジー</p>
           </div>
@@ -153,101 +153,108 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-{/* --- Service Plans / Pricing Section --- */}
-<section id="plans" className="py-24 px-6 bg-slate-950 border-b border-slate-900">
-  <div className="max-w-6xl mx-auto">
-    <div className="text-center mb-16">
-      <span className="text-pink-500 font-black italic tracking-[0.3em] text-[10px] uppercase block mb-4">Service Lineup</span>
-      <h3 className="text-4xl md:text-5xl font-black text-white mb-4 italic tracking-tighter uppercase">提供サービスと価格体系</h3>
-      <p className="text-slate-500 max-w-2xl mx-auto font-medium">
-        すべての決済は、デジタル資産の譲渡またはイベント参加権利の付与という「明確な役務」に基づいています。
-      </p>
-    </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {/* 1. スタンダード */}
-      <div className="p-8 rounded-[2rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-pink-500/50 transition-all">
-        <div className="flex justify-between items-start mb-6">
-          <h4 className="text-xl font-bold text-white italic uppercase tracking-tighter">スタンダード</h4>
-          <span className="text-[9px] font-bold px-2 py-1 bg-green-500/10 text-green-500 rounded border border-green-500/20 uppercase">Auto</span>
-        </div>
-        <div className="mb-6">
-          <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
-          <p className="text-2xl font-black text-white italic">¥1,000</p>
-          <p className="text-slate-600 text-[10px]">上限: ¥3,000</p>
-        </div>
-        <ul className="text-xs text-slate-400 space-y-3 mb-8 flex-1">
-          <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-pink-500" /> デジタルカード即時発行</li>
-          <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-pink-500" /> シリアルNo.刻印</li>
-        </ul>
-        <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-500 font-medium leading-relaxed">
-          役務：デジタルコレクタブルの提供
-        </div>
-      </div>
+      {/* --- Service Plans --- */}
+      <section id="plans" className="py-24 px-6 bg-slate-950 border-b border-slate-900 relative">
+        <div className="absolute inset-0 opacity-[0.01] bg-[repeating-linear-gradient(90deg,transparent,transparent_50px,#fff_50px,#fff_51px)] pointer-events-none" />
+        <div className="max-w-6xl mx-auto relative z-10 text-center">
+          <div className="mb-20 text-pretty">
+            <span className="text-pink-500 font-black italic tracking-[0.3em] text-[10px] uppercase block mb-4">Service Lineup</span>
+            <h3 className="text-4xl md:text-5xl font-black text-white mb-4 italic tracking-tighter uppercase leading-tight">提供サービスと価格体系</h3>
+            <p className="text-slate-500 max-w-2xl mx-auto font-medium">
+              すべての決済は、デジタル資産の譲渡、演出参加、またはイベント入場権利の付与という「明確な役務」に基づいています。
+            </p>
+          </div>
 
-      {/* 2. メッセージ */}
-      <div className="p-8 rounded-[2rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-indigo-500/50 transition-all">
-        <div className="flex justify-between items-start mb-6">
-          <h4 className="text-xl font-bold text-white italic uppercase tracking-tighter">メッセージ</h4>
-          <span className="text-[9px] font-bold px-2 py-1 bg-green-500/10 text-green-500 rounded border border-green-500/20 uppercase">Auto</span>
-        </div>
-        <div className="mb-6">
-          <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
-          <p className="text-2xl font-black text-white italic">¥2,000</p>
-          <p className="text-slate-600 text-[10px]">上限: ¥5,000</p>
-        </div>
-        <ul className="text-xs text-slate-400 space-y-3 mb-8 flex-1">
-          <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-indigo-500" /> 優先メッセージ送信権</li>
-          <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-indigo-500" /> 演出へのリアルタイム反映</li>
-        </ul>
-        <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-500 font-medium leading-relaxed">
-          役務：イベント演出への参加権利
-        </div>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* 1. スタンダード */}
+            <div className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-pink-500/50 transition-all relative overflow-hidden text-left">
+              <div className="absolute top-0 right-0 px-5 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-pink-500 border border-slate-700"><Award size={24} /></div>
+                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Standard</h4>
+              </div>
+              <div className="mb-8">
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">¥1,000</p>
+                <p className="text-slate-600 text-[10px] font-mono mt-1">上限: ¥3,000</p>
+              </div>
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium">
+                <li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-pink-500" /> デジタルカード即時発行</li>
+                <li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-pink-500" /> シリアル刻印・Wallet格納</li>
+              </ul>
+              <div className="pt-5 border-t border-slate-800 text-[10px] text-slate-500 font-medium leading-relaxed bg-slate-900/50 -mx-8 -mb-8 px-8 py-5">
+                役務：デジタルコレクタブルの提供
+              </div>
+            </div>
 
-      {/* 3. エントランス */}
-      <div className="p-8 rounded-[2rem] bg-slate-950 border-2 border-indigo-500/30 shadow-[0_0_30px_rgba(79,70,229,0.1)] flex flex-col group relative overflow-hidden">
-        <div className="absolute top-0 right-0 px-4 py-1 bg-indigo-500 text-white text-[9px] font-black uppercase tracking-[0.2em] italic">Review Required</div>
-        <div className="flex justify-between items-start mb-6">
-          <h4 className="text-xl font-bold text-white italic uppercase tracking-tighter">エントランス</h4>
-        </div>
-        <div className="mb-6">
-          <p className="text-indigo-400 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
-          <p className="text-2xl font-black text-white italic">¥5,000</p>
-          <p className="text-slate-600 text-[10px]">上限: ¥30,000</p>
-        </div>
-        <ul className="text-xs text-slate-400 space-y-3 mb-8 flex-1">
-          <li className="flex items-center gap-2"><ShieldCheck size={14} className="text-amber-500" /> イベント入場権利の付与</li>
-          <li className="flex items-center gap-2"><ShieldCheck size={14} className="text-amber-500" /> 運営による事前内容審査</li>
-        </ul>
-        <div className="pt-4 border-t border-slate-800 text-[10px] text-indigo-400 font-bold leading-relaxed">
-          役務：興行への入場権・予約権
-        </div>
-      </div>
+            {/* 2. メッセージ */}
+            <div className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-violet-500/50 transition-all relative overflow-hidden text-left">
+              <div className="absolute top-0 right-0 px-5 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-violet-500 border border-slate-700"><BellDot size={24} /></div>
+                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Message</h4>
+              </div>
+              <div className="mb-8">
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">¥2,000</p>
+                <p className="text-slate-600 text-[10px] font-mono mt-1">上限: ¥5,000</p>
+              </div>
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium">
+                <li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-violet-500" /> 優先メッセージ送信権</li>
+                <li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-violet-500" /> 演出へのリアルタイム反映</li>
+              </ul>
+              <div className="pt-5 border-t border-slate-800 text-[10px] text-slate-500 font-medium leading-relaxed bg-slate-900/50 -mx-8 -mb-8 px-8 py-5">
+                役務：イベント演出への参加権利
+              </div>
+            </div>
 
-      {/* 4. カスタム */}
-      <div className="p-8 rounded-[2rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-pink-500/50 transition-all">
-        <div className="flex justify-between items-start mb-6">
-          <h4 className="text-xl font-bold text-white italic uppercase tracking-tighter">カスタム</h4>
-          <span className="text-[9px] font-bold px-2 py-1 bg-amber-500/10 text-amber-500 rounded border border-amber-500/20 uppercase">Manual</span>
+            {/* 3. エントランス */}
+            <div className="p-8 rounded-[2.5rem] bg-slate-950 border-2 border-indigo-500/30 shadow-[0_0_40px_rgba(79,70,229,0.15)] flex flex-col group relative overflow-hidden text-left text-pretty">
+              <div className="absolute top-0 right-0 px-5 py-1.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Review Required</div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20"><Ticket size={24} /></div>
+                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Entrance</h4>
+              </div>
+              <div className="mb-8">
+                <p className="text-indigo-300 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">¥5,000</p>
+                <p className="text-slate-600 text-[10px] font-mono mt-1">上限: ¥30,000</p>
+              </div>
+              <ul className="text-sm text-slate-300 space-y-3.5 mb-10 flex-1 font-semibold">
+                <li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> イベント入場権利の付与</li>
+                <li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> 運営による内容事前審査</li>
+              </ul>
+              <div className="pt-5 border-t border-slate-800 text-[10px] text-indigo-400 font-bold leading-relaxed bg-indigo-500/5 -mx-8 -mb-8 px-8 py-5">
+                役務：興行への入場・予約権利
+              </div>
+            </div>
+
+            {/* 4. カスタム */}
+            <div className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-amber-500/50 transition-all relative overflow-hidden text-left">
+              <div className="absolute top-0 right-0 px-5 py-1.5 bg-amber-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Manual Process</div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-amber-500 border border-slate-700"><Construction size={24} /></div>
+                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Custom</h4>
+              </div>
+              <div className="mb-8">
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">¥10,000<span className="text-2xl">〜</span></p>
+                <p className="text-slate-600 text-[10px] font-mono mt-1">上限: ¥100,000</p>
+              </div>
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium">
+                <li className="flex items-center gap-2.5"><ShieldCheck size={16} className="text-amber-500" /> 内容に応じた個別役務</li>
+                <li className="flex items-center gap-2.5"><ShieldCheck size={16} className="text-amber-500" /> 事前審査 ＋ 証跡管理</li>
+              </ul>
+              <div className="pt-5 border-t border-slate-800 text-[10px] text-slate-500 font-medium leading-relaxed bg-slate-900/50 -mx-8 -mb-8 px-8 py-5">
+                役務：特別役務・限定資産提供
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="mb-6">
-          <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
-          <p className="text-2xl font-black text-white italic">¥10,000〜</p>
-          <p className="text-slate-600 text-[10px]">上限: ¥100,000</p>
-        </div>
-        <ul className="text-xs text-slate-400 space-y-3 mb-8 flex-1">
-          <li className="flex items-center gap-2"><ShieldCheck size={14} className="text-pink-500" /> 内容に応じた個別役務</li>
-          <li className="flex items-center gap-2"><ShieldCheck size={14} className="text-pink-500" /> 事前審査 ＋ 証跡管理</li>
-        </ul>
-        <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-500 font-medium leading-relaxed">
-          役務：特別役務および限定資産提供
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-      {/* --- Platform Identity (4-Box Grid) --- */}
+      </section>
+
+      {/* --- Platform Identity --- */}
       <section className="py-32 px-6 bg-slate-950 relative overflow-hidden">
         <div className="max-w-5xl mx-auto">
           <div className="grid md:grid-cols-2 gap-16 items-center bg-slate-900/40 border border-slate-800 rounded-[3.5rem] p-8 md:p-16 relative group hover:border-slate-700 transition-colors">
@@ -284,7 +291,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Footer (3-Column Layout & Full Content) --- */}
+      {/* --- Footer --- */}
       <footer className="py-24 px-6 border-t border-slate-800 bg-slate-950">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-16 text-pretty">
           <div className="space-y-6 text-left">
@@ -293,7 +300,6 @@ export default function LandingPage() {
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-16 text-left">
-            {/* Column 1: Navigation */}
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Navigation</h6>
               <ul className="text-slate-500 text-[11px] space-y-4 font-bold tracking-widest uppercase">
@@ -303,19 +309,16 @@ export default function LandingPage() {
               </ul>
             </div>
             
-            {/* Column 2: Legal */}
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Legal</h6>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium tracking-widest uppercase">
                 <li><Link href="/terms" className="hover:text-white transition-colors">利用規約</Link></li>
                 <li><Link href="/privacy" className="hover:text-white transition-colors">プライバシーポリシー</Link></li>
                 <li><Link href="/law" className="hover:text-white transition-colors">特定商取引法</Link></li>
-                {/* 🛡️ 新設：審査官向け信頼性アピールリンク */}
                 <li><Link href="/safety" className="text-indigo-400 hover:text-white transition-colors font-bold border-b border-indigo-500/30 pb-0.5">安心・安全への取り組み</Link></li>
               </ul>
             </div>
 
-            {/* Column 3: Contact */}
             <div>
               <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Contact</h6>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium tracking-widest uppercase">

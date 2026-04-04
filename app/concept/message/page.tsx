@@ -44,7 +44,7 @@ export default function MessagePlanPage() {
               アーティストに直接届くメッセージ権に加え、Standardプラン同様の「デジタル応援証明書」を発行。あなたの言葉は証明書と紐づけられ、消えない熱量としてコレクションされます。
             </p>
             <p className="text-violet-500 font-bold text-sm tracking-widest uppercase">
-              [ 料金体系：¥2,000〜¥3,000 (税込) ]
+              [ 料金体系：¥50〜¥3,000 (税込) ]
             </p>
           </div>
           
@@ -131,7 +131,7 @@ export default function MessagePlanPage() {
               </div>
               <div className="mb-8 leading-none">
                 <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
-                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥50</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥1,000</p>
                 <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥3,000</p>
               </div>
               <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-pink-500" /> デジタル応援証明書の発行</li><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-pink-500" /> Wallet / コレクション管理</li></ul>

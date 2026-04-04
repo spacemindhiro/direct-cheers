@@ -76,7 +76,7 @@ export default function EntrancePlanPage() {
             <div className="space-y-4">
               <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">価格妥当性の厳格な審査</h3>
               <p className="text-slate-400 leading-relaxed font-medium">
-                当プラットフォームでは、アーティストが設定する入場価格がイベントの実態（会場規模、内容、提供価値）に対して適正であるか、**運営エージェントが事前に全件審査**を行っています。
+                当プラットフォームでは、イベントオーガナイザーが設定する入場価格がイベントの実態（会場規模、内容、提供価値）に対して適正であるか、運営エージェントが事前に全件審査を行っています。
                 社会通念上、不当に高額な価格設定や、実体の伴わない決済を未然に防ぎ、健全な取引を担保しています。
               </p>
             </div>
@@ -91,7 +91,7 @@ export default function EntrancePlanPage() {
     <div className="space-y-4 text-left">
       <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter text-rose-400">イベント開催実態の確認</h3>
       <p className="text-slate-400 leading-relaxed font-medium">
-        エージェントは、チケット販売対象となるイベントの開催実態（会場予約、告知内容、アーティストの活動履歴）を厳格に確認します。
+        当サービスではイベントの開催実態の報告をイベントオーガナイザーに義務付けています。エージェントは、チケット販売対象となるイベントの開催実態を厳格に確認します。
         <span className="text-rose-400 font-bold ml-1">実体のない「空イベント」による販売は固く禁じられており、万が一イベント自体が中止、または実体がないと判断された場合、支払われた金額は全額払い戻し処理が行われます。</span>
       </p>
     </div>
@@ -103,7 +103,7 @@ export default function EntrancePlanPage() {
             <div className="text-indigo-400 mb-6"><QrCode size={32} /></div>
             <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight">ユニークQR発行</h3>
             <p className="text-slate-400 text-sm leading-relaxed font-medium">
-              決済完了後、即座に入場用のユニークコードを生成。この「権利のデジタル化」をもって役務提供は完了します。
+              発行パスのQRコード読取りを行う場合、時限性のあるQRコード生成により、セキュリティを強化することが可能。会場での不正コピーや転売を防止します。
             </p>
           </div>
 
@@ -119,7 +119,7 @@ export default function EntrancePlanPage() {
             <div className="text-amber-500 mb-6"><UserCheck size={32} /></div>
             <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight">柔軟な認証方式</h3>
             <p className="text-slate-400 text-sm leading-relaxed font-medium">
-              専用端末によるスキャンに加え、スタッフによる画面目視確認にも対応。あらゆる現場環境にフィットします。
+              専用アプリによるQRコードスキャンのみではなく、スタッフによる画面目視確認運用も可能。あらゆる現場環境にフィットします。
             </p>
           </div>
         </section>
@@ -134,7 +134,7 @@ export default function EntrancePlanPage() {
             <div className="space-y-4">
               <h4 className="text-white font-bold uppercase tracking-widest text-[10px]">役務提供の定義</h4>
               <p className="leading-relaxed font-medium">
-                ユーザーが決済を完了し、ブラウザ上でのデジタルパス表示、またはデータベースへの入場権利の格納が完了した時点で、本サービスの役務提供は100%完了したものとみなされます。
+                ユーザーが決済を完了し、ブラウザ上でのデジタルパス表示、または決済に使用したメールアドレスに紐付けたデータベースへの入場権利の格納が完了した時点で、本サービスの役務提供は100%完了したものとみなされます。
               </p>
             </div>
             <div className="space-y-4">

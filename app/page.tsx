@@ -2,7 +2,27 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Play, Wallet, ShieldCheck, Zap, ArrowRight, Award, Database, Music, Mail, Smartphone, CheckCircle2, Construction, BellDot, Ticket, ChevronRight } from "lucide-react";
+import { 
+  Play, 
+  Wallet, 
+  ShieldCheck, 
+  Zap, 
+  ArrowRight, 
+  Award, 
+  Database, 
+  Music, 
+  Mail, 
+  Smartphone, 
+  CheckCircle2, 
+  Construction, 
+  BellDot, 
+  Ticket, 
+  ChevronRight,
+  // Safetyセクション用のアイコンを追加
+  UserCheck,
+  FileSearch,
+  Lock as LockIcon 
+} from "lucide-react";
 
 export default function LandingPage() {
   const contactEmail = "support@direct-cheers.com";
@@ -28,6 +48,7 @@ export default function LandingPage() {
             <Link href="#concept" className="text-slate-400 hover:text-pink-500 transition-colors">コンセプト</Link>
             <Link href="#demo" className="text-slate-400 hover:text-pink-500 transition-colors italic">DEMO</Link>
             <Link href="#plans" className="text-slate-400 hover:text-pink-500 transition-colors">プラン</Link>
+            <Link href="#safety" className="text-slate-400 hover:text-indigo-400 transition-colors">Safety</Link>
             <Link href="/law" className="text-slate-500 hover:text-white underline decoration-pink-500/50 transition-colors">特定商取引法</Link>
           </div>
 
@@ -126,7 +147,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Features (修正箇所: concept配下へのリンク追加) --- */}
+      {/* --- Features --- */}
       <section id="features" className="py-24 bg-slate-950 px-6 border-b border-slate-900">
         <div className="max-w-6xl mx-auto text-center">
           <div className="mb-20 text-pretty">
@@ -134,7 +155,6 @@ export default function LandingPage() {
             <p className="text-slate-500">透明な決済と、消えない感動を両立するテクノロジー</p>
           </div>
           <div className="grid md:grid-cols-3 gap-10 text-pretty">
-            {/* Real-time連動 */}
             <Link href="/concept/realtime" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all group text-left hover:bg-slate-900/40 relative overflow-hidden block">
               <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity"><Zap size={40} /></div>
               <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Real-time連動</h4>
@@ -144,7 +164,6 @@ export default function LandingPage() {
               </div>
             </Link>
 
-            {/* Wallet保存 */}
             <Link href="/concept/wallet" className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group text-left hover:border-violet-500/50 transition-all block">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 blur-3xl group-hover:bg-violet-500/20 transition-all" />
               <div className="text-violet-500 font-black text-5xl italic mb-6 group-hover:scale-110 transition-transform origin-left"><Wallet size={40} /></div>
@@ -155,7 +174,6 @@ export default function LandingPage() {
               </div>
             </Link>
 
-            {/* デジタル証跡 */}
             <Link href="/concept/proof" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all text-left hover:bg-slate-900/40 group relative overflow-hidden text-pretty block">
               <div className="text-indigo-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity"><ShieldCheck size={40} /></div>
               <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">デジタル証跡</h4>
@@ -170,7 +188,6 @@ export default function LandingPage() {
 
       {/* --- Service Plans --- */}
       <section id="plans" className="py-24 px-6 bg-slate-950 border-b border-slate-900 relative">
-        {/* ... (plans section content remains the same) ... */}
         <div className="absolute inset-0 opacity-[0.01] bg-[repeating-linear-gradient(90deg,transparent,transparent_50px,#fff_50px,#fff_51px)] pointer-events-none" />
         <div className="max-w-6xl mx-auto relative z-10 text-center">
           <div className="mb-20 text-pretty">
@@ -182,7 +199,6 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* 1. スタンダード */}
             <Link href="/concept/standard" className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-pink-500/50 transition-all relative overflow-hidden text-left hover:bg-slate-900/60">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
               <div className="flex items-center gap-3 mb-8">
@@ -204,7 +220,6 @@ export default function LandingPage() {
               </div>
             </Link>
 
-            {/* 2. メッセージ */}
             <Link href="/concept/message" className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-violet-500/50 transition-all relative overflow-hidden text-left hover:bg-slate-900/60">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
               <div className="flex items-center gap-3 mb-8">
@@ -226,7 +241,6 @@ export default function LandingPage() {
               </div>
             </Link>
 
-            {/* 3. エントランス */}
             <Link href="/concept/entrance" className="p-8 rounded-[2.5rem] bg-slate-950 border-2 border-indigo-500/30 shadow-[0_0_40px_rgba(79,70,229,0.15)] flex flex-col group relative overflow-hidden text-left text-pretty hover:bg-indigo-500/5 transition-all">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Review Required</div>
               <div className="flex items-center gap-3 mb-8">
@@ -248,7 +262,6 @@ export default function LandingPage() {
               </div>
             </Link>
 
-            {/* 4. カスタム */}
             <Link href="/concept/custom" className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-amber-500/50 transition-all relative overflow-hidden text-left hover:bg-slate-900/60">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-amber-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Manual Process</div>
               <div className="flex items-center gap-3 mb-8">
@@ -268,6 +281,54 @@ export default function LandingPage() {
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span>
                 <ChevronRight size={16} />
               </div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* --- Safety & Trust Section --- */}
+      <section id="safety" className="py-24 px-6 relative bg-slate-950 overflow-hidden border-b border-slate-900">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/5 blur-[120px] rounded-full -z-10" />
+        
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <span className="text-indigo-400 font-black italic tracking-[0.3em] text-[10px] uppercase block mb-4">
+              Trust & Governance
+            </span>
+            <h3 className="text-4xl md:text-5xl font-black text-white mb-6 italic tracking-tighter uppercase">
+              安心・安全への<span className="text-indigo-500 underline decoration-indigo-500/30">徹底した誓約</span>
+            </h3>
+            <p className="text-slate-400 max-w-2xl mx-auto font-medium leading-relaxed">
+              25年の金融システム開発の知見を活かし、日本の法令を遵守。<br className="hidden md:block" />
+              アーティストとファンの信頼を守るための厳格なガバナンス体制を構築しています。
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            <div className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all group">
+              <UserCheck className="text-indigo-500 mb-6 group-hover:scale-110 transition-transform" size={32} />
+              <h4 className="text-lg font-bold text-white mb-3 italic uppercase tracking-tighter">加盟店審査</h4>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">全オーガナイザーへのKYC（本人確認）を実施。プラットフォームによる事前承認を必須としています。</p>
+            </div>
+            <div className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all group">
+              <FileSearch className="text-indigo-500 mb-6 group-hover:scale-110 transition-transform" size={32} />
+              <h4 className="text-lg font-bold text-white mb-3 italic uppercase tracking-tighter">対価の正当性</h4>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">アイテムの価値と決済額が妥当かを個別に審査。不適切な取引はシステムで自動遮断されます。</p>
+            </div>
+            <div className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all group">
+              <LockIcon className="text-indigo-500 mb-6 group-hover:scale-110 transition-transform" size={32} />
+              <h4 className="text-lg font-bold text-white mb-3 italic uppercase tracking-tighter">資金移動の透明性</h4>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">イベント開催のエビデンス照合まで売上をロック。1円単位のログ照合で不正を許しません。</p>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <Link 
+              href="/safety" 
+              className="inline-flex items-center gap-3 bg-indigo-600/10 text-indigo-400 border border-indigo-500/30 px-8 py-4 rounded-full font-black text-xs hover:bg-indigo-600 hover:text-white transition-all uppercase tracking-widest group"
+            >
+              安全性に関する詳細ポリシーを見る 
+              <ShieldCheck size={14} className="group-hover:rotate-12 transition-transform" />
             </Link>
           </div>
         </div>

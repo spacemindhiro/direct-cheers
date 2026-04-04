@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   Construction, CheckCircle2, ShieldCheck, ArrowLeft, 
   Camera, FileSearch, MessageSquare, Award, Sparkles, 
-  Zap, Scale, ChevronRight, Ticket, Video, Mic2, Star
+  Zap, Scale, ChevronRight, Ticket, Video, Mic2, Star, Eye
 } from "lucide-react";
 
 export default function CustomPlanPage() {
@@ -27,12 +27,12 @@ export default function CustomPlanPage() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto pt-24 pb-20 px-6 relative">
+      <main className="max-w-6xl mx-auto pt-24 pb-20 px-6 relative text-left">
         <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-amber-500/5 blur-[120px] rounded-full -z-10" />
 
-        {/* --- Hero Section (Card image added) --- */}
-        <section className="grid md:grid-cols-2 gap-16 items-center mb-28 text-pretty">
-          <div className="space-y-8 text-left">
+        {/* --- Hero Section --- */}
+        <section className="grid md:grid-cols-2 gap-16 items-center mb-28">
+          <div className="space-y-8">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20">
                 <Sparkles size={24} />
@@ -53,14 +53,14 @@ export default function CustomPlanPage() {
           {/* Card Visual with Plus Value context */}
           <div className="flex justify-center relative group">
             <div className="absolute inset-0 bg-amber-500/10 blur-3xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
-            <div className="w-64 h-96 bg-gradient-to-tr from-slate-900 via-amber-950 to-orange-950 rounded-3xl shadow-2xl rotate-2 flex flex-col p-7 relative overflow-hidden border-2 border-amber-500/40 transition-transform group-hover:rotate-0 group-hover:scale-105 duration-500 text-left font-sans">
+            <div className="w-64 h-96 bg-gradient-to-tr from-slate-900 via-amber-950 to-orange-950 rounded-3xl shadow-2xl rotate-2 flex flex-col p-7 relative overflow-hidden border-2 border-amber-500/40 transition-transform group-hover:rotate-0 group-hover:scale-105 duration-500 text-left">
               <div className="absolute inset-0 opacity-15 bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
-              <div className="relative z-10 flex flex-col h-full">
+              <div className="relative z-10 flex flex-col h-full font-sans">
                 <div className="flex justify-between items-center mb-2">
                   <div className="text-[10px] font-black tracking-widest text-amber-300 uppercase italic">Special Bundle</div>
                   <Star className="text-amber-400 fill-amber-400" size={14}/>
                 </div>
-                <div className="text-2xl font-black italic text-white mb-6 tracking-tighter leading-none uppercase text-pretty">PREMIUM<br />ASSET</div>
+                <div className="text-2xl font-black italic text-white mb-6 tracking-tighter leading-none uppercase">PREMIUM<br />ASSET</div>
                 
                 <div className="flex-1 bg-black/30 rounded-xl p-3 border border-amber-500/20 space-y-2 overflow-hidden">
                   <div className="text-[8px] text-amber-300 uppercase font-bold tracking-tighter">Included Value</div>
@@ -83,27 +83,27 @@ export default function CustomPlanPage() {
           </div>
         </section>
 
-        {/* --- Work Examples (具体的な提供例) --- */}
-        <section className="mb-24 text-left">
-          <h2 className="text-xs font-black text-amber-500 uppercase tracking-[0.3em] mb-12 text-center text-pretty">Value Creation Examples</h2>
+        {/* --- Value Examples --- */}
+        <section className="mb-24">
+          <h2 className="text-xs font-black text-amber-500 uppercase tracking-[0.3em] mb-12 text-center">Value Creation Examples</h2>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="p-10 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 hover:border-amber-500/30 transition-colors">
               <div className="text-amber-500 mb-6"><Video size={32} /></div>
-              <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight text-pretty">パーソナルビデオ提供</h3>
+              <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight">パーソナルビデオ提供</h3>
               <p className="text-slate-400 text-sm leading-relaxed font-medium">
                 支援者の名前を含めた個別のメッセージ動画を撮影。その動画データそのもの、あるいは閲覧権利を紐付けた限定カードを発行します。
               </p>
             </div>
             <div className="p-10 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 hover:border-amber-500/30 transition-colors">
               <div className="text-amber-500 mb-6"><Mic2 size={32} /></div>
-              <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight text-pretty">一点物の音声・音源</h3>
+              <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight">一点物の音声・音源</h3>
               <p className="text-slate-400 text-sm leading-relaxed font-medium">
                 特定のシチュエーションのために録り下ろした未発表音源やボイスメッセージ。発行時点で唯一無二の価値を封入します。
               </p>
             </div>
             <div className="p-10 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 hover:border-amber-500/30 transition-colors">
               <div className="text-amber-500 mb-6"><Camera size={32} /></div>
-              <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight text-pretty">現場エビデンス保持</h3>
+              <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight">現場エビデンス保持</h3>
               <p className="text-slate-400 text-sm leading-relaxed font-medium">
                 応援広告や楽屋花の設置記録をシリアルナンバーと共にカード化。役務が確実に実行された証拠を資産として提供します。
               </p>
@@ -112,7 +112,7 @@ export default function CustomPlanPage() {
         </section>
 
         {/* --- Governance Section --- */}
-        <section className="mb-32 p-8 md:p-12 bg-slate-900/30 border border-slate-800 rounded-[3rem] relative overflow-hidden text-left">
+        <section className="mb-32 p-8 md:p-12 bg-slate-900/30 border border-slate-800 rounded-[3rem] relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
           <h2 className="text-xl font-black text-white italic uppercase tracking-tighter mb-8 flex items-center gap-2">
             <Scale className="text-amber-500" size={24} /> 透明性の確保
@@ -133,7 +133,7 @@ export default function CustomPlanPage() {
           </div>
         </section>
 
-        {/* --- Explore Other Plans (Correct order and design) --- */}
+        {/* --- Explore Other Plans --- */}
         <div className="pt-24 border-t border-slate-900 text-center">
           <h3 className="text-white font-black italic tracking-tighter text-2xl mb-12 uppercase leading-none">Explore Other Plans</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-sans">
@@ -146,11 +146,11 @@ export default function CustomPlanPage() {
                 <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Standard</h4>
               </div>
               <div className="mb-8 leading-none">
-                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1 text-left">想定ボリューム</p>
-                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight text-left">¥1,000</p>
-                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widesttext-left">上限：¥3,000</p>
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥1,000</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥3,000</p>
               </div>
-              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium font-sans">
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium">
                 <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-pink-500 shrink-0" /> デジタル応援証明書の発行</li>
                 <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-pink-500 shrink-0" /> Wallet / コレクション管理</li>
               </ul>
@@ -165,30 +165,32 @@ export default function CustomPlanPage() {
                 <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Message</h4>
               </div>
               <div className="mb-8 leading-none">
-                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1 text-left">想定ボリューム</p>
-                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight text-left">¥2,000</p>
-                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widesttext-left text-pretty">上限：¥5,000</p>
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥2,000</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥5,000</p>
               </div>
-              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium font-sans">
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium">
                 <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-violet-400 shrink-0" /> アーティスト閲覧用メッセージ</li>
                 <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-violet-400 shrink-0" /> 内容記録型デジタル証明書</li>
               </ul>
               <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-violet-400 transition-colors font-bold"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
             </Link>
 
-            {/* Entrance */}
+            {/* Entrance (Review Process) */}
             <Link href="/concept/entrance" className="relative p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-indigo-500/50 transition-all text-left overflow-hidden">
-              <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
+              <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-indigo-600/80 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg flex items-center gap-1">
+                <Eye size={10} strokeWidth={3} /> Review Process
+              </div>
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-indigo-400 border border-slate-700 group-hover:bg-indigo-500/10 transition-colors"><Ticket size={24} /></div>
                 <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Entrance</h4>
               </div>
               <div className="mb-8 leading-none">
-                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1 text-left">想定ボリューム</p>
-                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight text-left">¥3,000</p>
-                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest text-left">上限：¥30,000</p>
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥3,000</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥30,000</p>
               </div>
-              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium font-sans border-t border-slate-800 pt-4 mt-4">
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium">
                 <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-indigo-400 shrink-0" /> デジタル入場権利の発行</li>
                 <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-indigo-400 shrink-0" /> エージェントによる価格適正審査</li>
               </ul>

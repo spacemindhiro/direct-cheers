@@ -12,7 +12,7 @@ export default function StandardPlanPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30 overflow-x-hidden">
       
-      {/* --- Header (Top共通) --- */}
+      {/* --- Header --- */}
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 group">
@@ -29,8 +29,8 @@ export default function StandardPlanPage() {
         <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-pink-500/10 blur-[120px] rounded-full -z-10" />
 
         {/* --- Hero Section --- */}
-        <section className="grid md:grid-cols-2 gap-16 items-center mb-24 text-pretty">
-          <div className="space-y-8 text-left">
+        <section className="grid md:grid-cols-2 gap-16 items-center mb-24 text-pretty text-left">
+          <div className="space-y-8">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-pink-500/10 flex items-center justify-center text-pink-500 border border-pink-500/20"><Award size={24} /></div>
               <span className="text-sm font-black italic uppercase tracking-tighter text-pink-400">Standard Plan Details</span>
@@ -41,13 +41,17 @@ export default function StandardPlanPage() {
             <p className="text-lg text-slate-400 leading-relaxed font-medium">
               それは、あなたがアーティストを支えた「動かぬ証拠」。シリアルナンバー入りのデジタル応援証明書が、あなたのスマホのウォレットへ。メールアドレスに紐づけてコレクションに保管されます。
             </p>
+            {/* 追加：上限の明記 */}
+            <p className="text-pink-500 font-bold text-sm tracking-widest uppercase">
+              [ 料金体系：¥1〜¥3,000 (税込) 決済上限あり ]
+            </p>
           </div>
           
           <div className="flex justify-center relative group">
             <div className="absolute inset-0 bg-pink-500/20 blur-3xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
-            <div className="w-64 h-96 bg-gradient-to-tr from-pink-600 to-violet-700 rounded-3xl shadow-2xl rotate-6 flex flex-col p-7 relative overflow-hidden border border-white/20 transition-transform group-hover:rotate-0 group-hover:scale-105 duration-500">
+            <div className="w-64 h-96 bg-gradient-to-tr from-pink-600 to-violet-700 rounded-3xl shadow-2xl rotate-6 flex flex-col p-7 relative overflow-hidden border border-white/20 transition-transform group-hover:rotate-0 group-hover:scale-105 duration-500 text-left font-sans">
               <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/fabric-of-the-nation.png')]" />
-              <div className="relative z-10 flex flex-col h-full text-left font-sans">
+              <div className="relative z-10 flex flex-col h-full">
                 <div className="text-[10px] font-black tracking-widest text-white/70 mb-2 uppercase italic">Official Cheers!</div>
                 <div className="text-2xl font-black italic text-white mb-8 tracking-tighter leading-none uppercase">Standard<br />Issue</div>
                 <div className="flex-1" />
@@ -60,9 +64,8 @@ export default function StandardPlanPage() {
           </div>
         </section>
 
-        {/* --- メイン商品価値 (ユーザーメリット) --- */}
+        {/* --- メイン商品価値 --- */}
         <section className="grid md:grid-cols-2 gap-8 mb-16">
-          {/* コレクション化 */}
           <div className="p-10 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 text-left hover:border-pink-500/30 transition-colors">
             <div className="text-pink-500 mb-6"><Database size={32} /></div>
             <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">コレクション化</h3>
@@ -75,7 +78,6 @@ export default function StandardPlanPage() {
             </div>
           </div>
 
-          {/* Wallet連携 */}
           <div className="p-10 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 text-left hover:border-indigo-500/30 transition-colors">
             <div className="text-indigo-400 mb-6"><Wallet size={32} /></div>
             <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Wallet 連携</h3>
@@ -89,9 +91,9 @@ export default function StandardPlanPage() {
           </div>
         </section>
 
-        {/* --- 役務定義セクション (補足・免責トーン) --- */}
+        {/* --- 役務定義セクション --- */}
         <section className="grid md:grid-cols-3 gap-8 mb-32 border-t border-slate-900 pt-16">
-          <div className="md:col-span-2 space-y-8">
+          <div className="md:col-span-2 space-y-8 text-left">
             <div className="flex items-center gap-3 text-slate-500">
               <Zap size={20} />
               <h3 className="text-sm font-bold uppercase tracking-[0.2em]">Service Definition / 役務の完了</h3>
@@ -100,12 +102,12 @@ export default function StandardPlanPage() {
               <p className="text-slate-500 text-xs leading-relaxed italic">
                 本プランはデジタル資産の発行を目的としたサービスです。決済完了後、以下のいずれかの時点で役務提供完了と定義されます。
               </p>
-              <div className="space-y-4 text-sm">
-                <div className="flex gap-3 items-center text-slate-400">
+              <div className="space-y-4 text-sm font-medium text-slate-400">
+                <div className="flex gap-3 items-center">
                   <CheckCircle2 size={16} className="text-slate-600 shrink-0" />
-                  <span>ブラウザ上にデジタル証明書が表示された時点</span>
+                  <span>ブラウザ上にデジタル証明書が表示された時点（上限¥3,000の範囲内）</span>
                 </div>
-                <div className="flex gap-3 items-center text-slate-400">
+                <div className="flex gap-3 items-center">
                   <CheckCircle2 size={16} className="text-slate-600 shrink-0" />
                   <span>または、DBへ利用者の識別情報と共に保有データが登録された時点</span>
                 </div>
@@ -113,42 +115,64 @@ export default function StandardPlanPage() {
             </div>
           </div>
 
-          <div className="p-8 rounded-2xl bg-slate-950 border border-slate-900 flex flex-col justify-center">
+          <div className="p-8 rounded-2xl bg-slate-950 border border-slate-900 flex flex-col justify-center text-left">
             <div className="flex items-center gap-2 text-amber-600 mb-3">
               <AlertTriangle size={18} />
               <span className="text-[10px] font-black uppercase tracking-widest">Attention</span>
             </div>
-            <p className="text-[11px] text-slate-600 leading-relaxed">
+            <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
               デザインは各興行の仕様に準じます。アーティスト固有の限定デザインを常に保証するものではありません。あらかじめご了承ください。
             </p>
           </div>
         </section>
 
-        {/* --- フッター：他のプラン (TopのBox構成を完全維持) --- */}
+        {/* --- 他のプラン --- */}
         <div className="pt-24 border-t border-slate-900 text-center">
           <h3 className="text-white font-black italic tracking-tighter text-2xl mb-12 uppercase">Explore More Plans</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-sans">
-            <Link href="/concept/message" className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-violet-500/50 transition-all text-left relative overflow-hidden">
-              <div className="absolute top-0 right-0 px-5 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
-              <div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-violet-500 border border-slate-700 group-hover:bg-violet-500/10 transition-colors"><BellDot size={24} /></div><h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Message</h4></div>
-              <div className="mb-8"><p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p><p className="text-4xl font-black text-white italic tracking-tighter">¥2,000</p></div>
-              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1"><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-violet-500" /> 公式ログへの永続保存</li><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-violet-500" /> アーティスト閲覧権の付与</li></ul>
+            
+            {/* Message */}
+            <Link href="/concept/message" className="relative p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-violet-500/50 transition-all text-left overflow-hidden">
+              <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-violet-500 border border-slate-700 group-hover:bg-violet-500/10 transition-colors"><BellDot size={24} /></div>
+                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Message</h4>
+              </div>
+              <div className="mb-8 leading-none">
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥2,000<span className="text-lg ml-1">〜¥3,000</span></p>
+              </div>
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-violet-500" /> 公式ログへの永続保存</li><li className="flex items-center gap-2.5"><CheckCircle2 size={16} className="text-violet-500" /> アーティスト閲覧権の付与</li></ul>
               <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-violet-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
             </Link>
 
-            <Link href="/concept/entrance" className="p-8 rounded-[2.5rem] bg-slate-950 border-2 border-indigo-500/30 flex flex-col group text-left hover:bg-indigo-500/5 transition-all relative overflow-hidden">
-              <div className="absolute top-0 right-0 px-5 py-1.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Review Required</div>
-              <div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors"><Ticket size={24} /></div><h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Entrance</h4></div>
-              <div className="mb-8"><p className="text-indigo-300 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p><p className="text-4xl font-black text-white italic tracking-tighter">¥5,000</p></div>
-              <ul className="text-sm text-slate-300 space-y-3.5 mb-10 flex-1"><li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> イベント入場権利の付与</li><li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> ノーショー時の免責条項</li></ul>
+            {/* Entrance */}
+            <Link href="/concept/entrance" className="relative p-8 rounded-[2.5rem] bg-slate-950 border-2 border-indigo-500/30 flex flex-col group text-left hover:bg-indigo-500/5 transition-all overflow-hidden">
+              <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Review Required</div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors"><Ticket size={24} /></div>
+                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Entrance</h4>
+              </div>
+              <div className="mb-8 leading-none">
+                <p className="text-indigo-300 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥5,000<span className="text-lg ml-1">〜¥10,000</span></p>
+              </div>
+              <ul className="text-sm text-slate-300 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> イベント入場権利の付与</li><li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> ノーショー時の免責条項</li></ul>
               <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-indigo-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
             </Link>
 
-            <Link href="/concept/custom" className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-amber-500/50 transition-all text-left relative overflow-hidden">
-              <div className="absolute top-0 right-0 px-5 py-1.5 bg-amber-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Manual Process</div>
-              <div className="flex items-center gap-3 mb-8"><div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-amber-500 border border-slate-700 group-hover:bg-amber-500/10 transition-colors"><Construction size={24} /></div><h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Custom</h4></div>
-              <div className="mb-8"><p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p><p className="text-4xl font-black text-white italic tracking-tighter">¥10,000<span className="text-2xl">〜</span></p></div>
-              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1"><li className="flex items-center gap-2.5"><ShieldCheck size={16} className="text-amber-500" /> 内容に応じた個別役務</li><li className="flex items-center gap-2.5"><ShieldCheck size={16} className="text-amber-500" /> 完了エビデンスの事前定義</li></ul>
+            {/* Custom */}
+            <Link href="/concept/custom" className="relative p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-amber-500/50 transition-all text-left overflow-hidden">
+              <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-amber-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Manual Process</div>
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-amber-500 border border-slate-700 group-hover:bg-amber-500/10 transition-colors"><Construction size={24} /></div>
+                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Custom</h4>
+              </div>
+              <div className="mb-8 leading-none">
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥10,000<span className="text-lg ml-1">〜¥100,000</span></p>
+              </div>
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><ShieldCheck size={16} className="text-amber-500" /> 内容に応じた個別役務</li><li className="flex items-center gap-2.5"><ShieldCheck size={16} className="text-amber-500" /> 完了エビデンスの事前定義</li></ul>
               <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-amber-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
             </Link>
           </div>

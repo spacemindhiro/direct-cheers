@@ -126,7 +126,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- Features --- */}
+      {/* --- Features (修正箇所: concept配下へのリンク追加) --- */}
       <section id="features" className="py-24 bg-slate-950 px-6 border-b border-slate-900">
         <div className="max-w-6xl mx-auto text-center">
           <div className="mb-20 text-pretty">
@@ -134,28 +134,43 @@ export default function LandingPage() {
             <p className="text-slate-500">透明な決済と、消えない感動を両立するテクノロジー</p>
           </div>
           <div className="grid md:grid-cols-3 gap-10 text-pretty">
-            <div className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all group text-left hover:bg-slate-900/40 relative overflow-hidden">
+            {/* Real-time連動 */}
+            <Link href="/concept/realtime" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all group text-left hover:bg-slate-900/40 relative overflow-hidden block">
               <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity"><Zap size={40} /></div>
               <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Real-time連動</h4>
               <p className="text-sm text-slate-400 leading-relaxed font-medium">応援をトリガーに会場のVJや照明が変化。あなたの熱量が現場の景色を塗り替える体験を提供します。</p>
-            </div>
-            <div className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group text-left hover:border-violet-500/50 transition-all">
+              <div className="mt-6 flex items-center gap-2 text-pink-500 text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                Learn More <ArrowRight size={12} />
+              </div>
+            </Link>
+
+            {/* Wallet保存 */}
+            <Link href="/concept/wallet" className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group text-left hover:border-violet-500/50 transition-all block">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 blur-3xl group-hover:bg-violet-500/20 transition-all" />
               <div className="text-violet-500 font-black text-5xl italic mb-6 group-hover:scale-110 transition-transform origin-left"><Wallet size={40} /></div>
               <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Wallet保存</h4>
               <p className="text-sm text-slate-400 leading-relaxed font-medium">発行されたデジタルカードは Apple Wallet / Google Wallet に追加可能。記念証を、アプリ不要でいつでもスマホから呼び出せます。</p>
-            </div>
-            <div className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all text-left hover:bg-slate-900/40 group relative overflow-hidden text-pretty">
+              <div className="mt-6 flex items-center gap-2 text-violet-500 text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                Learn More <ArrowRight size={12} />
+              </div>
+            </Link>
+
+            {/* デジタル証跡 */}
+            <Link href="/concept/proof" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all text-left hover:bg-slate-900/40 group relative overflow-hidden text-pretty block">
               <div className="text-indigo-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity"><ShieldCheck size={40} /></div>
               <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">デジタル証跡</h4>
               <p className="text-sm text-slate-400 leading-relaxed font-medium">すべての資産には独自のシリアルナンバーを付与。改ざん不能な証跡管理により、正当な支援の記録をプラットフォームが保証します。</p>
-            </div>
+              <div className="mt-6 flex items-center gap-2 text-indigo-500 text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                Learn More <ArrowRight size={12} />
+              </div>
+            </Link>
           </div>
         </div>
       </section>
 
       {/* --- Service Plans --- */}
       <section id="plans" className="py-24 px-6 bg-slate-950 border-b border-slate-900 relative">
+        {/* ... (plans section content remains the same) ... */}
         <div className="absolute inset-0 opacity-[0.01] bg-[repeating-linear-gradient(90deg,transparent,transparent_50px,#fff_50px,#fff_51px)] pointer-events-none" />
         <div className="max-w-6xl mx-auto relative z-10 text-center">
           <div className="mb-20 text-pretty">

@@ -39,7 +39,7 @@ export default function StandardPlanPage() {
               ライブの熱狂を、<br /><span className="bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent">永遠のコレクション</span>に。
             </h2>
             <p className="text-lg text-slate-400 leading-relaxed font-medium">
-              それは、あなたがアーティストを支えた「動かぬ証拠」。シリアルナンバー入りのデジタル応援証明書が、あなたのメールアドレスに紐づきDBへ刻まれます。
+              それは、あなたがアーティストを支えた「動かぬ証拠」。シリアルナンバー入りのデジタル応援証明書が、あなたのスマホのウォレットへ。メールアドレスに紐づけてコレクションに保管されます。
             </p>
           </div>
           

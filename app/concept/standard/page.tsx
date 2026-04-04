@@ -2,7 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Award, CheckCircle2, Zap, ShieldCheck, Ticket, Construction, ChevronRight, BellDot, Wallet, Smartphone, Download } from "lucide-react";
+// 修正後：AlertTriangle を追加しました
+import { Award, CheckCircle2, Zap, ShieldCheck, Ticket, Construction, ChevronRight, BellDot, Wallet, Smartphone, Download, AlertTriangle } from "lucide-react";
 
 export default function StandardPlanPage() {
   return (

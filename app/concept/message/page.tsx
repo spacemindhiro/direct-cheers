@@ -138,21 +138,27 @@ export default function MessagePlanPage() {
               <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-pink-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
             </Link>
 
-            {/* Entrance */}
-            <Link href="/concept/entrance" className="relative p-8 rounded-[2.5rem] bg-slate-950 border-2 border-indigo-500/30 flex flex-col group text-left hover:bg-indigo-500/5 transition-all overflow-hidden">
-              <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Review Required</div>
+           {/* Entrance (Review Process) */}
+            <Link href="/concept/entrance" className="relative p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-indigo-500/50 transition-all text-left overflow-hidden">
+              <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-indigo-600/80 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg flex items-center gap-1">
+                 Review Required
+              </div>
               <div className="flex items-center gap-3 mb-8">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors"><Ticket size={24} /></div>
+                <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-indigo-400 border border-slate-700 group-hover:bg-indigo-500/10 transition-colors"><Ticket size={24} /></div>
                 <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Entrance</h4>
               </div>
               <div className="mb-8 leading-none">
-                <p className="text-indigo-300 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
                 <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥5,000</p>
-                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥10,000</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥30,000</p>
               </div>
-              <ul className="text-sm text-slate-300 space-y-3.5 mb-10 flex-1 font-medium"><li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> イベント入場権利の付与</li><li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> ノーショー時の免責条項</li></ul>
-              <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-indigo-400 transition-colors"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
+              <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium">
+                <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-indigo-400 shrink-0" /> デジタル入場権利の発行</li>
+                <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-indigo-400 shrink-0" /> エージェントによる価格適正審査</li>
+              </ul>
+              <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-indigo-400 transition-colors font-bold"><span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span><ChevronRight size={16} /></div>
             </Link>
+
 
             {/* Custom */}
             <Link href="/concept/custom" className="relative p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-amber-500/50 transition-all text-left overflow-hidden">

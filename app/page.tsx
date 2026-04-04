@@ -224,8 +224,8 @@ export default function LandingPage() {
                 <p className="text-slate-600 text-[10px] font-mono mt-1">上限: ¥30,000</p>
               </div>
               <ul className="text-sm text-slate-300 space-y-3.5 mb-10 flex-1 font-semibold">
-                <li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> イベント入場権利の付与</li>
-                <li className="flex items-center gap-2.5"><ShieldCheck size={18} className="text-amber-400" /> ノーショー時の免責条項</li>
+               <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-indigo-400 shrink-0" /> デジタル入場権利の発行</li>
+                <li className="flex items-center gap-2.5 font-bold"><CheckCircle2 size={16} className="text-indigo-400 shrink-0" /> エージェントによる価格適正審査</li>
               </ul>
               <div className="pt-5 border-t border-slate-800 flex items-center justify-between group-hover:text-indigo-400 transition-colors">
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">詳細を確認する</span>

@@ -20,14 +20,9 @@ export default function ArtistCheersPage() {
     image: "https://images.unsplash.com/photo-1516873240891-4bf014598ab4?q=80&w=2070&auto=format&fit=crop"
   };
 
+  // 2000円のプランのみに限定
   const cheersPlans = [
-    { amount: 1000, label: "DIGITAL CARD", detail: "デジタル証明書のみ", featureIcon: <ShieldCheck size={20} /> },
     { amount: 2000, label: "MESSAGE SEND", detail: "アーティストへメッセージ送信", featureIcon: <MessageSquareHeart size={20} /> },
-    { amount: 3000, label: "FLOOR GIMMICK", detail: "会場内IoTギミック起動", featureIcon: <Zap size={20} /> },
-    { amount: 5000, label: "PUBLIC VISION", detail: "大型ビジョンへのメッセージ表示", featureIcon: <Tv size={20} /> },
-    { amount: 10000, label: "VIP ACCESS", detail: "制限エリアへのアクセス権", featureIcon: <Crown size={20} /> },
-    { amount: 20000, label: "MEET & GREET", detail: "アーティストとの直接交流", featureIcon: <Star size={20} /> },
-    { amount: 30000, label: "ULTIMATE PASS", detail: "次回招待＋限定コンテンツ", featureIcon: <TicketPlus size={20} /> },
   ];
 
   const handleStripeCheckout = async (amount: number, label: string) => {
@@ -121,7 +116,7 @@ export default function ArtistCheersPage() {
           </div>
         </section>
 
-        {/* 決済セクション (右側にハート配置) */}
+        {/* 決済セクション */}
         <section className="space-y-6">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2 ml-1"><Zap size={14} className="text-pink-500" /> Choose Your Impact</h3>
           
@@ -150,7 +145,7 @@ export default function ArtistCheersPage() {
                   </div>
                 </div>
 
-                {/* 🔥 右側：愛（ハート）を配置 */}
+                {/* 右側：ハート配置 */}
                 <div className="ml-2 w-14 h-14 bg-slate-950/50 group-hover:bg-pink-500 rounded-[1.5rem] flex items-center justify-center text-slate-700 group-hover:text-white border border-white/5 transition-all shadow-inner group-hover:shadow-[0_0_20px_rgba(236,72,153,0.4)]">
                   <Heart size={24} className="group-hover:fill-current group-active:scale-125 transition-transform" />
                 </div>

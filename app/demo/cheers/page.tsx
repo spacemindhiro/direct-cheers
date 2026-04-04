@@ -118,7 +118,7 @@ export default function ArtistCheersPage() {
 
         {/* 決済セクション */}
         <section className="space-y-6">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2 ml-1"><Zap size={14} className="text-pink-500" /> Choose Your Impact</h3>
+          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2 ml-1"><Zap size={14} className="text-pink-500" /> Send Cheers </h3>
           
           <div className="grid gap-3">
             {cheersPlans.map((plan) => (

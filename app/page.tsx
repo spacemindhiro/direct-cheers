@@ -153,7 +153,100 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+{/* --- Service Plans / Pricing Section --- */}
+<section id="plans" className="py-24 px-6 bg-slate-950 border-b border-slate-900">
+  <div className="max-w-6xl mx-auto">
+    <div className="text-center mb-16">
+      <span className="text-pink-500 font-black italic tracking-[0.3em] text-[10px] uppercase block mb-4">Service Lineup</span>
+      <h3 className="text-4xl md:text-5xl font-black text-white mb-4 italic tracking-tighter uppercase">提供サービスと価格体系</h3>
+      <p className="text-slate-500 max-w-2xl mx-auto font-medium">
+        すべての決済は、デジタル資産の譲渡またはイベント参加権利の付与という「明確な役務」に基づいています。
+      </p>
+    </div>
 
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* 1. スタンダード */}
+      <div className="p-8 rounded-[2rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-pink-500/50 transition-all">
+        <div className="flex justify-between items-start mb-6">
+          <h4 className="text-xl font-bold text-white italic uppercase tracking-tighter">スタンダード</h4>
+          <span className="text-[9px] font-bold px-2 py-1 bg-green-500/10 text-green-500 rounded border border-green-500/20 uppercase">Auto</span>
+        </div>
+        <div className="mb-6">
+          <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+          <p className="text-2xl font-black text-white italic">¥1,000</p>
+          <p className="text-slate-600 text-[10px]">上限: ¥3,000</p>
+        </div>
+        <ul className="text-xs text-slate-400 space-y-3 mb-8 flex-1">
+          <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-pink-500" /> デジタルカード即時発行</li>
+          <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-pink-500" /> シリアルNo.刻印</li>
+        </ul>
+        <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-500 font-medium leading-relaxed">
+          役務：デジタルコレクタブルの提供
+        </div>
+      </div>
+
+      {/* 2. メッセージ */}
+      <div className="p-8 rounded-[2rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-indigo-500/50 transition-all">
+        <div className="flex justify-between items-start mb-6">
+          <h4 className="text-xl font-bold text-white italic uppercase tracking-tighter">メッセージ</h4>
+          <span className="text-[9px] font-bold px-2 py-1 bg-green-500/10 text-green-500 rounded border border-green-500/20 uppercase">Auto</span>
+        </div>
+        <div className="mb-6">
+          <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+          <p className="text-2xl font-black text-white italic">¥2,000</p>
+          <p className="text-slate-600 text-[10px]">上限: ¥5,000</p>
+        </div>
+        <ul className="text-xs text-slate-400 space-y-3 mb-8 flex-1">
+          <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-indigo-500" /> 優先メッセージ送信権</li>
+          <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-indigo-500" /> 演出へのリアルタイム反映</li>
+        </ul>
+        <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-500 font-medium leading-relaxed">
+          役務：イベント演出への参加権利
+        </div>
+      </div>
+
+      {/* 3. エントランス */}
+      <div className="p-8 rounded-[2rem] bg-slate-950 border-2 border-indigo-500/30 shadow-[0_0_30px_rgba(79,70,229,0.1)] flex flex-col group relative overflow-hidden">
+        <div className="absolute top-0 right-0 px-4 py-1 bg-indigo-500 text-white text-[9px] font-black uppercase tracking-[0.2em] italic">Review Required</div>
+        <div className="flex justify-between items-start mb-6">
+          <h4 className="text-xl font-bold text-white italic uppercase tracking-tighter">エントランス</h4>
+        </div>
+        <div className="mb-6">
+          <p className="text-indigo-400 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+          <p className="text-2xl font-black text-white italic">¥5,000</p>
+          <p className="text-slate-600 text-[10px]">上限: ¥30,000</p>
+        </div>
+        <ul className="text-xs text-slate-400 space-y-3 mb-8 flex-1">
+          <li className="flex items-center gap-2"><ShieldCheck size={14} className="text-amber-500" /> イベント入場権利の付与</li>
+          <li className="flex items-center gap-2"><ShieldCheck size={14} className="text-amber-500" /> 運営による事前内容審査</li>
+        </ul>
+        <div className="pt-4 border-t border-slate-800 text-[10px] text-indigo-400 font-bold leading-relaxed">
+          役務：興行への入場権・予約権
+        </div>
+      </div>
+
+      {/* 4. カスタム */}
+      <div className="p-8 rounded-[2rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-pink-500/50 transition-all">
+        <div className="flex justify-between items-start mb-6">
+          <h4 className="text-xl font-bold text-white italic uppercase tracking-tighter">カスタム</h4>
+          <span className="text-[9px] font-bold px-2 py-1 bg-amber-500/10 text-amber-500 rounded border border-amber-500/20 uppercase">Manual</span>
+        </div>
+        <div className="mb-6">
+          <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
+          <p className="text-2xl font-black text-white italic">¥10,000〜</p>
+          <p className="text-slate-600 text-[10px]">上限: ¥100,000</p>
+        </div>
+        <ul className="text-xs text-slate-400 space-y-3 mb-8 flex-1">
+          <li className="flex items-center gap-2"><ShieldCheck size={14} className="text-pink-500" /> 内容に応じた個別役務</li>
+          <li className="flex items-center gap-2"><ShieldCheck size={14} className="text-pink-500" /> 事前審査 ＋ 証跡管理</li>
+        </ul>
+        <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-500 font-medium leading-relaxed">
+          役務：特別役務および限定資産提供
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
       {/* --- Platform Identity (4-Box Grid) --- */}
       <section className="py-32 px-6 bg-slate-950 relative overflow-hidden">
         <div className="max-w-5xl mx-auto">

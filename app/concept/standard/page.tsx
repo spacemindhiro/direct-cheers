@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-// 修正後：AlertTriangle を追加しました
+// 修正済み：AlertTriangle を追加し、すべてのアイコンをインポート
 import { Award, CheckCircle2, Zap, ShieldCheck, Ticket, Construction, ChevronRight, BellDot, Wallet, Smartphone, Download, AlertTriangle } from "lucide-react";
 
 export default function StandardPlanPage() {
@@ -67,12 +67,12 @@ export default function StandardPlanPage() {
         {/* --- 論理構成セクション (Stripe/安全対策) --- */}
         <section className="grid md:grid-cols-3 gap-8 mb-32">
           
-          {/* 役務と定義 */}
+          {/* 役務と定義：DB格納の情報を強化 */}
           <div className="md:col-span-2 p-10 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 text-left text-pretty">
             <div className="text-pink-500 mb-6"><Zap size={32} /></div>
             <h3 className="text-2xl font-bold text-white mb-6 italic uppercase tracking-tighter">役務の提供と完了の定義</h3>
             <div className="space-y-4 text-slate-400 text-sm leading-relaxed font-medium mb-8">
-              <p>決済完了後、即座に応援の証跡となる「デジタル応援証明書」を発行します。本役務は、以下のいずれかの時点で提供完了とみなされます。</p>
+              <p>決済完了後、即座に応援の証跡となる「デジタル応援証明書」を発行し、そのデータを永続的に保持します。本役務は、以下のいずれかの時点で提供完了とみなされます。</p>
             </div>
             <div className="space-y-4 text-sm bg-slate-950/50 p-6 rounded-2xl border border-slate-800">
               <div className="flex gap-3 items-center">
@@ -81,7 +81,7 @@ export default function StandardPlanPage() {
               </div>
               <div className="flex gap-3 items-center">
                 <CheckCircle2 size={18} className="text-pink-500 shrink-0" />
-                <span className="text-slate-300">または、識別情報と共にDBへ登録が完了した時点</span>
+                <span className="text-slate-300">または、利用者の識別情報と共にデータベース(DB)へ登録・格納が完了した時点</span>
               </div>
             </div>
           </div>
@@ -106,7 +106,7 @@ export default function StandardPlanPage() {
           <h3 className="text-white font-black italic tracking-tighter text-2xl mb-12 uppercase">Other Service Plans</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-sans">
             
-            {/* Message (Topと同じ構成) */}
+            {/* Message */}
             <Link href="/concept/message" className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-violet-500/50 transition-all text-left relative overflow-hidden">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
               <div className="flex items-center gap-3 mb-8">
@@ -127,7 +127,7 @@ export default function StandardPlanPage() {
               </div>
             </Link>
 
-            {/* Entrance (Topと同じ構成) */}
+            {/* Entrance */}
             <Link href="/concept/entrance" className="p-8 rounded-[2.5rem] bg-slate-950 border-2 border-indigo-500/30 flex flex-col group text-left hover:bg-indigo-500/5 transition-all relative overflow-hidden">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Review Required</div>
               <div className="flex items-center gap-3 mb-8">
@@ -148,7 +148,7 @@ export default function StandardPlanPage() {
               </div>
             </Link>
 
-            {/* Custom (Topと同じ構成) */}
+            {/* Custom */}
             <Link href="/concept/custom" className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-amber-500/50 transition-all text-left relative overflow-hidden">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-amber-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Manual Process</div>
               <div className="flex items-center gap-3 mb-8">

@@ -43,10 +43,10 @@ export default function CustomPlanPage() {
               アイデアを、<br /><span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">価値ある資産へ。</span>
             </h1>
             <p className="text-lg text-slate-400 leading-relaxed font-medium">
-              固定概念に縛られない、アーティスト独自の「体験」をデジタルカードと共にパッケージ化。運営エージェントが企画段階から介入し、客観的な証拠（エビデンス）を伴う透明性の高い高付加価値取引を実現します。
+              固定概念に縛られない、アーティスト独自の「体験」をデジタルカードと共にパッケージ化。担当エージェントが企画段階から介入し、客観的な証拠（エビデンス）を伴う透明性の高い高付加価値取引を実現します。
             </p>
             <p className="text-amber-500 font-bold text-sm tracking-widest uppercase">
-              [ 推奨単価：¥10,000〜¥100,000+ (税込) ]
+              [ 推奨単価：¥10,000〜¥100,000 (税込) ]
             </p>
           </div>
 
@@ -179,7 +179,7 @@ export default function CustomPlanPage() {
             {/* Entrance (Review Process) */}
             <Link href="/concept/entrance" className="relative p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-indigo-500/50 transition-all text-left overflow-hidden">
               <div className="absolute top-0 right-0 z-10 px-5 py-1.5 bg-indigo-600/80 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg flex items-center gap-1">
-                <Eye size={10} strokeWidth={3} /> Review Required
+                 Review Required
               </div>
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-indigo-400 border border-slate-700 group-hover:bg-indigo-500/10 transition-colors"><Ticket size={24} /></div>
@@ -187,7 +187,7 @@ export default function CustomPlanPage() {
               </div>
               <div className="mb-8 leading-none">
                 <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
-                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥3,000</p>
+                <p className="text-4xl font-black text-white italic tracking-tighter leading-tight">¥5,000</p>
                 <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">上限：¥30,000</p>
               </div>
               <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium">

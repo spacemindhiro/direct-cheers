@@ -242,7 +242,7 @@ export default function LandingPage() {
               </div>
               <div className="mb-8">
                 <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
-                <p className="text-4xl font-black text-white italic tracking-tighter">¥10,000<span className="text-2xl">〜</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">¥10,000</p>
                 <p className="text-slate-600 text-[10px] font-mono mt-1">上限: ¥100,000</p>
               </div>
               <ul className="text-sm text-slate-400 space-y-3.5 mb-10 flex-1 font-medium">

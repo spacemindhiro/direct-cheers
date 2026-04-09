@@ -21,7 +21,7 @@ export default function LawPage() {
     },
     { 
       label: "電話番号", 
-      value: "090-4736-1464" 
+      value: "050-6864-9257" 
     },
     { 
       label: "メールアドレス", 

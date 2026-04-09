@@ -128,7 +128,7 @@ export default function ArtistCheersPage() {
                 onClick={() => handleStripeCheckout(plan.amount, plan.label)}
                 className="w-full p-5 bg-slate-900 border border-slate-800 rounded-[2.2rem] hover:border-pink-500/50 hover:bg-slate-800 transition-all text-left flex items-center group active:scale-[0.97] relative overflow-hidden shadow-xl"
               >
-                {/* 左側：機能アイコン */}
+                {/* 左側：機能アイコン  */}
                 <div className="bg-slate-950 w-12 h-12 rounded-2xl flex items-center justify-center text-slate-500 group-hover:text-pink-400 border border-white/5 transition-colors">
                   {plan.featureIcon}
                 </div>

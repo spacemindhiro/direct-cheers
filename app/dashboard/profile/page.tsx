@@ -139,7 +139,11 @@ export default function ProfileEditPage() {
         {profile?.verification_status === 'pending' && (
           <div className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 border border-amber-500/30 rounded-full">
             <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-[11px] font-black text-amber-400 uppercase tracking-wider">審査中</span>
+            <span className="text-[11px] font-black text-amber-400 uppercase tracking-wider">
+              {profile.pending_role === 'artist' && 'DJ / アーティスト申請中'}
+              {profile.pending_role === 'organizer' && 'オーガナイザー申請中'}
+              {!profile.pending_role && '審査中'}
+            </span>
           </div>
         )}
         {profile?.verification_status === 'verified' && (

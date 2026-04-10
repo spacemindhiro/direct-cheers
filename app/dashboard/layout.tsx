@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { LogoutButton } from '@/components/logout-button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, UserCircle } from 'lucide-react';
 
 async function DashboardNav() {
   const supabase = await createClient();
@@ -32,12 +32,17 @@ async function DashboardNav() {
             Direct Cheers
           </span>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Link
             href="/dashboard/profile"
-            className="text-[10px] font-bold text-slate-500 hover:text-pink-500 uppercase tracking-widest hidden sm:block transition-colors"
+            className="flex items-center gap-2 group"
           >
-            {profile.display_name}
+            <div className="w-9 h-9 bg-slate-800 border border-slate-700 group-hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all">
+              <UserCircle size={18} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 group-hover:text-pink-500 uppercase tracking-widest hidden sm:block transition-colors">
+              {profile.display_name}
+            </span>
           </Link>
           <LogoutButton />
         </div>

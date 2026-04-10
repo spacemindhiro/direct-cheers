@@ -11,8 +11,7 @@ import {
   Award, 
   Database, 
   Music, 
-  Mail, 
-  Smartphone, 
+  Smartphone,
   CheckCircle2, 
   Construction, 
   BellDot, 
@@ -53,13 +52,12 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <a 
-              href={mailUrl}
-              className="bg-white text-slate-950 px-5 py-2 rounded-full text-xs font-black hover:bg-pink-500 hover:text-white transition-all shadow-xl shadow-white/5 uppercase tracking-tighter flex items-center gap-2 group"
+            <Link
+              href="/auth/login"
+              className="bg-white text-slate-950 px-5 py-2 rounded-full text-xs font-black hover:bg-pink-500 hover:text-white transition-all shadow-xl shadow-white/5 uppercase tracking-tighter flex items-center gap-2"
             >
-              <Mail size={14} className="group-hover:animate-pulse" />
               JOIN NOW
-            </a>
+            </Link>
           </div>
         </div>
       </nav>

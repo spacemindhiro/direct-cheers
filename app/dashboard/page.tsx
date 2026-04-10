@@ -1,6 +1,8 @@
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { Zap, Heart, Wallet, ChevronRight, UserCheck, Loader2 } from 'lucide-react';
+import { Zap, Heart, Wallet, Loader2 } from 'lucide-react';
+import { AddToHomeScreen } from '@/components/add-to-homescreen';
+import { RoleUpgradeBanner } from '@/components/role-upgrade-drawer';
 
 async function DashboardContent() {
   const supabase = await createClient();
@@ -24,6 +26,9 @@ async function DashboardContent() {
 
   return (
     <div className="space-y-10">
+
+      {/* ホーム画面追加バナー */}
+      <AddToHomeScreen />
 
       {/* ウェルカム */}
       <div className="space-y-1">
@@ -83,24 +88,7 @@ async function DashboardContent() {
       </div>
 
       {/* ロールアップグレード誘導 */}
-      {profile?.role === 'user' && (
-        <div className="space-y-4">
-          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-            <UserCheck size={14} className="text-pink-500" /> アーティスト・オーガナイザー申請
-          </h2>
-          <div className="bg-slate-900 border border-pink-500/20 rounded-[2rem] p-6 flex items-center justify-between group hover:border-pink-500/50 transition-all cursor-pointer">
-            <div className="space-y-1">
-              <p className="text-sm font-black text-white uppercase tracking-tight">
-                クリエイターとして参加する
-              </p>
-              <p className="text-xs text-slate-500 font-medium">
-                アーティストまたはオーガナイザーへのロールアップグレードを申請できます
-              </p>
-            </div>
-            <ChevronRight size={20} className="text-slate-600 group-hover:text-pink-500 transition-colors shrink-0 ml-4" />
-          </div>
-        </div>
-      )}
+      {profile?.role === 'user' && <RoleUpgradeBanner />}
 
     </div>
   );

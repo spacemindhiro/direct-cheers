@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://direct-cheers.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Direct Cheers",
+  },
   title: {
     default: "Direct Cheers | ライブの感動を、スマホのウォレットへ",
     template: "%s | Direct Cheers",
@@ -59,6 +66,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <Toaster position="bottom-center" richColors />
         </ThemeProvider>
       </body>
     </html>

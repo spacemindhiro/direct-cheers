@@ -33,9 +33,12 @@ async function DashboardNav() {
           </span>
         </Link>
         <div className="flex items-center gap-4">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden sm:block">
+          <Link
+            href="/dashboard/profile"
+            className="text-[10px] font-bold text-slate-500 hover:text-pink-500 uppercase tracking-widest hidden sm:block transition-colors"
+          >
             {profile.display_name}
-          </span>
+          </Link>
           <LogoutButton />
         </div>
       </div>

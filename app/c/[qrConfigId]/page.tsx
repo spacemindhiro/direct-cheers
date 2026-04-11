@@ -1,19 +1,12 @@
-import { unstable_noStore as noStore } from "next/cache";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersPaymentForm } from "@/components/cheers-payment-form";
-import { MapPin, Calendar } from "lucide-react";
+import { MapPin, Calendar, Loader2 } from "lucide-react";
 
-export default async function CheersPage({
-  params,
-}: {
-  params: Promise<{ qrConfigId: string }>;
-}) {
-  noStore();
-  const { qrConfigId } = await params;
+async function CheersContent({ qrConfigId }: { qrConfigId: string }) {
   const admin = createAdminClient();
 
-  // QR config + product + event + artist を取得
   const { data: qr } = await admin
     .from("qr_configs")
     .select(`
@@ -38,7 +31,6 @@ export default async function CheersPage({
     notFound();
   }
 
-  // このQRに紐づく products を取得
   const { data: products } = await admin
     .from("products")
     .select(`
@@ -119,5 +111,25 @@ export default async function CheersPage({
         </div>
       </div>
     </div>
+  );
+}
+
+export default async function CheersPage({
+  params,
+}: {
+  params: Promise<{ qrConfigId: string }>;
+}) {
+  const { qrConfigId } = await params;
+
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+          <Loader2 size={28} className="text-pink-500 animate-spin" />
+        </div>
+      }
+    >
+      <CheersContent qrConfigId={qrConfigId} />
+    </Suspense>
   );
 }

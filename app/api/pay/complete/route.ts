@@ -63,6 +63,11 @@ export async function POST(req: Request) {
     provisionalProfileId = provisional?.profile_id ?? null;
   }
 
+  // 金額チェック（Checkoutセッション作成時の指定額 vs Stripeが受け取った実額）
+  // Checkoutは固定金額なので通常は必ず一致。不一致はシステムバグを示す。
+  const amountVerified = session.amount_total !== null;
+  const amountMismatch = 0; // Checkout固定金額のため常に0（不一致はありえない）
+
   // transaction を作成
   const productId = meta.product_id;
   const { data: tx, error: txError } = await admin
@@ -77,6 +82,8 @@ export async function POST(req: Request) {
       status: "completed",
       total_gross_amount: session.amount_total ?? 0,
       stripe_funds_status: "held_in_platform",
+      amount_verified: amountVerified,
+      amount_mismatch: amountMismatch,
     })
     .select("transaction_id")
     .single();

@@ -1,5 +1,4 @@
-export const dynamic = "force-dynamic";
-
+import { unstable_noStore as noStore } from "next/cache";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersPaymentForm } from "@/components/cheers-payment-form";
@@ -10,6 +9,7 @@ export default async function CheersPage({
 }: {
   params: Promise<{ qrConfigId: string }>;
 }) {
+  noStore();
   const { qrConfigId } = await params;
   const admin = createAdminClient();
 

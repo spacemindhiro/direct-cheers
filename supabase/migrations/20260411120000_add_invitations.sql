@@ -40,12 +40,18 @@ create policy "invitations_select" on public.invitations
   );
 
 -- INSERT: 権限マトリクスに基づく
+--   admin      → agent / organizer / artist 招待可
 --   agent      → organizer / artist 招待可
 --   organizer  → artist のみ招待可
 create policy "invitations_insert" on public.invitations
   for insert with check (
     auth.uid() = invited_by_profile_id
     and (
+      (
+        target_role in ('agent', 'organizer', 'artist')
+        and (select role from public.profiles where profile_id = auth.uid()) = 'admin'
+      )
+      or
       (
         target_role in ('organizer', 'artist')
         and (select role from public.profiles where profile_id = auth.uid()) = 'agent'

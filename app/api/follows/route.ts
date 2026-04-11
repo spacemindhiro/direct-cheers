@@ -71,10 +71,28 @@ export async function POST(req: Request) {
   if (existing) {
     // アンフォロー
     await admin.from("follows").delete().eq("follow_id", existing.follow_id);
+    await admin.rpc("decrement_follower_count", { p_profile_id: followee_id });
     return NextResponse.json({ followed: false, display_name: followee.display_name });
   } else {
     // フォロー
     await admin.from("follows").insert({ follower_id: user.id, followee_id });
-    return NextResponse.json({ followed: true, display_name: followee.display_name });
+    const { data: newCount } = await admin.rpc("increment_follower_count", { p_profile_id: followee_id });
+
+    // マイルストーン達成チェック（お祝い演出用）
+    const { data: updatedProfile } = await admin
+      .from("profiles")
+      .select("follower_count, follower_milestone")
+      .eq("profile_id", followee_id)
+      .single();
+
+    const milestones = [10, 50, 100, 500, 1000, 5000, 10000];
+    const justHit = milestones.find((m) => updatedProfile?.follower_count === m) ?? null;
+
+    return NextResponse.json({
+      followed: true,
+      display_name: followee.display_name,
+      new_follower_count: newCount ?? updatedProfile?.follower_count,
+      milestone_hit: justHit,
+    });
   }
 }

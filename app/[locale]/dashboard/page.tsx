@@ -1,12 +1,13 @@
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake } from 'lucide-react';
+import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { RoleUpgradeBanner } from '@/components/role-upgrade-drawer';
 import { ArtistSalesDashboard } from '@/components/artist-sales-dashboard';
 import { FollowButton } from '@/components/follow-button';
+import { FollowerHero } from '@/components/follower-hero';
 
 async function DashboardContent() {
   const supabase = await createClient();
@@ -149,6 +150,15 @@ async function DashboardContent() {
         </div>
       )}
 
+      {/* フォロワー数ヒーロー（artist / organizer のみ） */}
+      {(profile?.role === 'artist' || profile?.role === 'organizer') && (
+        <FollowerHero
+          profileId={user!.id}
+          displayName={profile.display_name ?? ''}
+          role={profile.role as 'artist' | 'organizer'}
+        />
+      )}
+
       {/* アーティスト売上ダッシュボード */}
       {profile?.role === 'artist' && (
         <Suspense fallback={<div className="h-40 bg-slate-900 border border-slate-800 rounded-[2rem] animate-pulse" />}>
@@ -170,6 +180,26 @@ async function DashboardContent() {
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Events</p>
               <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
                 イベント管理
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Admin/Agent: フォロワーインサイト */}
+      {['admin', 'agent'].includes(profile?.role ?? '') && (
+        <Link
+          href="/admin/insights"
+          className="block bg-slate-900 border border-slate-800 hover:border-violet-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center border border-violet-500/20 group-hover:bg-violet-500/20 transition-all">
+              <TrendingUp size={22} className="text-violet-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Insights</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-violet-400 transition-colors">
+                フォロワー分析
               </p>
             </div>
           </div>

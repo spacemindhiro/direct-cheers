@@ -65,7 +65,11 @@ export function FollowButton({
 
       const nowFollowing: boolean = data.followed;
       setIsFollowing(nowFollowing);
-      setFollowerCount((prev) => prev + (nowFollowing ? 1 : -1));
+      if (data.new_follower_count !== undefined) {
+        setFollowerCount(data.new_follower_count);
+      } else {
+        setFollowerCount((prev) => prev + (nowFollowing ? 1 : -1));
+      }
       onFollowChange?.(nowFollowing);
 
       if (nowFollowing) {

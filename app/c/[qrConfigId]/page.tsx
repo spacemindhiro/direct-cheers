@@ -4,7 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersPaymentForm } from "@/components/cheers-payment-form";
 import { MapPin, Calendar, Loader2 } from "lucide-react";
 
-async function CheersContent({ qrConfigId }: { qrConfigId: string }) {
+async function CheersContent({ params }: { params: Promise<{ qrConfigId: string }> }) {
+  const { qrConfigId } = await params;
   const admin = createAdminClient();
 
   const { data: qr } = await admin
@@ -114,13 +115,11 @@ async function CheersContent({ qrConfigId }: { qrConfigId: string }) {
   );
 }
 
-export default async function CheersPage({
+export default function CheersPage({
   params,
 }: {
   params: Promise<{ qrConfigId: string }>;
 }) {
-  const { qrConfigId } = await params;
-
   return (
     <Suspense
       fallback={
@@ -129,7 +128,7 @@ export default async function CheersPage({
         </div>
       }
     >
-      <CheersContent qrConfigId={qrConfigId} />
+      <CheersContent params={params} />
     </Suspense>
   );
 }

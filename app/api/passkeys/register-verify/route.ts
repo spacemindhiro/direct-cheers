@@ -8,9 +8,10 @@ const ORIGIN =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 
 export async function POST(req: Request) {
-  const { email, credential } = await req.json() as {
+  const { email, credential, device_name } = await req.json() as {
     email: string;
     credential: RegistrationResponseJSON;
+    device_name?: string;
   };
 
   if (!email || !credential) {
@@ -124,6 +125,7 @@ export async function POST(req: Request) {
     device_type: verification.registrationInfo.credentialDeviceType,
     backed_up: verification.registrationInfo.credentialBackedUp,
     transports: credential.response.transports ?? [],
+    device_name: device_name?.trim() || null,
   });
 
   if (credErr) {

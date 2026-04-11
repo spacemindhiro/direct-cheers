@@ -4,8 +4,11 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useParams } from "next/navigation";
 import { CheersCard } from "@/components/cheers-card";
 import { PasskeySetup } from "@/components/passkey-setup";
-import { Loader2, ArrowLeft, Wallet } from "lucide-react";
+import { Loader2, ArrowLeft, Wallet, PlusCircle } from "lucide-react";
 import Link from "next/link";
+
+const DEVICE_TOKEN_KEY = "dc_dt";
+const CUSTOMER_EMAIL_COOKIE = "dc_ce";
 
 type PaymentResult = {
   transaction_id: string;
@@ -17,8 +20,6 @@ type PaymentResult = {
   product_name: string | null;
   stripe_customer_id: string | null;
 };
-
-const CUSTOMER_EMAIL_COOKIE = "dc_ce";
 
 function emailFromCookie(): string {
   if (typeof document === "undefined") return "";
@@ -35,6 +36,8 @@ function ThanksContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [passkeyDone, setPasskeyDone] = useState(false);
+  // 既存アカウントの場合は「追加登録」モード
+  const [hasExistingPasskey, setHasExistingPasskey] = useState(false);
 
   useEffect(() => {
     if (!sessionId) {
@@ -49,11 +52,47 @@ function ThanksContent() {
       body: JSON.stringify({ session_id: sessionId }),
     })
       .then((r) => r.json())
-      .then((data) => {
+      .then(async (data) => {
         if (data.error) {
           setError(data.error);
-        } else {
-          setResult(data);
+          return;
+        }
+        setResult(data);
+
+        const email = data.email ?? emailFromCookie();
+        if (!email) return;
+
+        // LocalStorage デバイストークンを発行・保存
+        try {
+          const tokenRes = await fetch("/api/account/device-token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          if (tokenRes.ok) {
+            const { token } = await tokenRes.json();
+            if (token) localStorage.setItem(DEVICE_TOKEN_KEY, token);
+          }
+        } catch {
+          // トークン発行失敗は無視
+        }
+
+        // 既存パスキーの有無を確認（既存アカウントの場合は「このデバイスを追加」モード）
+        try {
+          const optRes = await fetch("/api/passkeys/register-options", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          if (optRes.ok) {
+            const optData = await optRes.json();
+            // excludeCredentials が1件以上 = 既存アカウント
+            if (optData.options?.excludeCredentials?.length > 0) {
+              setHasExistingPasskey(true);
+            }
+          }
+        } catch {
+          // パスキー確認失敗は無視
         }
       })
       .catch(() => setError("通信エラーが発生しました"))
@@ -122,29 +161,56 @@ function ThanksContent() {
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-slate-800" />
               <div className="flex items-center gap-2">
-                <Wallet size={14} className="text-slate-600" />
+                {hasExistingPasskey
+                  ? <PlusCircle size={14} className="text-slate-600" />
+                  : <Wallet size={14} className="text-slate-600" />
+                }
                 <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
-                  Wallet
+                  {hasExistingPasskey ? "このデバイスを追加" : "Wallet"}
                 </p>
               </div>
               <div className="h-px flex-1 bg-slate-800" />
             </div>
 
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-              <div>
-                <p className="text-sm font-black text-white">
-                  ウォレットに保存する
-                </p>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  パスキー（顔認証・指紋認証）でアカウントを作成し、
-                  応援履歴をウォレットに保存できます。
-                </p>
-              </div>
-              <PasskeySetup
-                email={email}
-                mode="register"
-                onSuccess={() => setPasskeyDone(true)}
-              />
+              {hasExistingPasskey ? (
+                <>
+                  <div>
+                    <p className="text-sm font-black text-white">
+                      このデバイスでも顔パスを有効にする
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      既にパスキーが登録されています。
+                      このデバイスにも追加登録すると、いつでもここからアクセスできます。
+                    </p>
+                  </div>
+                  <PasskeySetup
+                    email={email}
+                    mode="register"
+                    deviceName={getDeviceLabel()}
+                    onSuccess={() => setPasskeyDone(true)}
+                    buttonLabel="このデバイスを追加登録"
+                  />
+                </>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-sm font-black text-white">
+                      ウォレットに保存する
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      パスキー（顔認証・指紋認証）でアカウントを作成し、
+                      応援履歴をウォレットに保存できます。
+                    </p>
+                  </div>
+                  <PasskeySetup
+                    email={email}
+                    mode="register"
+                    deviceName={getDeviceLabel()}
+                    onSuccess={() => setPasskeyDone(true)}
+                  />
+                </>
+              )}
             </div>
           </div>
         )}
@@ -168,6 +234,19 @@ function ThanksContent() {
       </div>
     </div>
   );
+}
+
+// ブラウザ UA からデバイスラベルを推定
+function getDeviceLabel(): string {
+  if (typeof navigator === "undefined") return "";
+  const ua = navigator.userAgent;
+  if (/iPhone/.test(ua)) return "iPhone";
+  if (/iPad/.test(ua)) return "iPad";
+  if (/Android/.test(ua) && /Mobile/.test(ua)) return "Android";
+  if (/Android/.test(ua)) return "Androidタブレット";
+  if (/Mac/.test(ua)) return "Mac";
+  if (/Windows/.test(ua)) return "Windows PC";
+  return "";
 }
 
 export default function ThanksPage() {

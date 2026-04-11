@@ -6,7 +6,7 @@ const RP_NAME = "Direct Cheers";
 const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID ?? "localhost";
 
 export async function POST(req: Request) {
-  const { email } = await req.json() as { email: string };
+  const { email, device_name } = await req.json() as { email: string; device_name?: string };
 
   if (!email) {
     return NextResponse.json({ error: "Missing email" }, { status: 400 });
@@ -66,5 +66,5 @@ export async function POST(req: Request) {
   // シンプルに: email を暗号化してオプションに含める代わりに
   // challenge_id ベースで検索可能にする（challenge は unique）
 
-  return NextResponse.json({ options, email });
+  return NextResponse.json({ options, email, device_name: device_name ?? null });
 }

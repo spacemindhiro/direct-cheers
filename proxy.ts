@@ -43,7 +43,8 @@ export async function proxy(request: NextRequest) {
     normalizedPath.startsWith("/auth") ||
     normalizedPath.startsWith("/invite") ||
     normalizedPath.startsWith("/onboarding") ||
-    normalizedPath.startsWith("/c/"); // QR決済フロー（ロケールなし短縮URL）
+    normalizedPath.startsWith("/c/") || // QR決済フロー（ロケールなし短縮URL）
+    path.startsWith("/account/"); // アカウント復旧・統合確認（ロケールなし）
 
   if (isPublicPath) {
     return intlMiddleware(request);

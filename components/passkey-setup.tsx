@@ -8,10 +8,12 @@ import { Fingerprint, Loader2, CheckCircle2, ChevronRight } from "lucide-react";
 type Props = {
   email: string;
   mode: "register" | "authenticate";
+  deviceName?: string;
+  buttonLabel?: string;
   onSuccess?: () => void;
 };
 
-export function PasskeySetup({ email, mode, onSuccess }: Props) {
+export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -28,7 +30,7 @@ export function PasskeySetup({ email, mode, onSuccess }: Props) {
       const optRes = await fetch("/api/passkeys/register-options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, device_name: deviceName }),
       });
       const { options, error: optErr } = await optRes.json();
       if (optErr) throw new Error(optErr);
@@ -40,7 +42,7 @@ export function PasskeySetup({ email, mode, onSuccess }: Props) {
       const verRes = await fetch("/api/passkeys/register-verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, credential }),
+        body: JSON.stringify({ email, credential, device_name: deviceName }),
       });
       const { success, session_token, error: verErr } = await verRes.json();
       if (verErr) throw new Error(verErr);
@@ -136,7 +138,7 @@ export function PasskeySetup({ email, mode, onSuccess }: Props) {
           )}
           <div className="text-left">
             <p className="text-sm font-black text-white">
-              {mode === "register" ? "パスキーで登録" : "パスキーでログイン"}
+              {buttonLabel ?? (mode === "register" ? "パスキーで登録" : "パスキーでログイン")}
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">
               {mode === "register"

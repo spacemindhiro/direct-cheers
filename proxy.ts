@@ -40,7 +40,8 @@ export async function proxy(request: NextRequest) {
     normalizedPath === "/safety" ||
     normalizedPath.startsWith("/demo") ||
     normalizedPath.startsWith("/concept") ||
-    normalizedPath.startsWith("/auth");
+    normalizedPath.startsWith("/auth") ||
+    normalizedPath.startsWith("/invite");
 
   if (isPublicPath) {
     return intlMiddleware(request);

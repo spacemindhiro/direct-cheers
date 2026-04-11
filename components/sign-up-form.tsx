@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Loader2, ArrowRight, Mail, Lock } from "lucide-react";
 
@@ -15,6 +15,8 @@ export function SignUpForm({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
 
   const handleSignUp = (formData: FormData) => {
     const email = formData.get("email") as string;
@@ -33,17 +35,21 @@ export function SignUpForm({
     startTransition(async () => {
       setError(null);
       const supabase = createClient();
+      // メール認証後の callback に redirect 先を渡す
+      const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+      if (redirectTo) callbackUrl.searchParams.set("redirect", redirectTo);
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: callbackUrl.toString(),
         },
       });
       if (error) {
         setError(error.message);
       } else {
-        router.push(`/auth/sign-up-success?email=${encodeURIComponent(email)}`);
+        const successUrl = `/auth/sign-up-success?email=${encodeURIComponent(email)}`;
+        router.push(redirectTo ? `${successUrl}&redirect=${encodeURIComponent(redirectTo)}` : successUrl);
       }
     });
   };

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { SignUpForm } from "@/components/sign-up-form";
 import Link from "next/link";
 
@@ -21,7 +22,9 @@ export default function Page() {
       {/* フォーム中央配置 */}
       <div className="flex-1 flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-md">
-          <SignUpForm />
+          <Suspense>
+            <SignUpForm />
+          </Suspense>
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Loader2, ArrowRight, Mail, Lock } from "lucide-react";
 
@@ -15,6 +15,8 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
 
   const handleLogin = (formData: FormData) => {
     const email = formData.get("email") as string;
@@ -27,7 +29,7 @@ export function LoginForm({
       if (error) {
         setError("メールアドレスまたはパスワードが正しくありません");
       } else {
-        router.push("/dashboard");
+        router.push(redirectTo ?? "/dashboard");
       }
     });
   };

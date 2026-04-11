@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  const redirect = searchParams.get('redirect'); // 招待リンクからの引き継ぎ
 
   if (code) {
     const supabase = await createClient();
@@ -20,9 +21,14 @@ export async function GET(request: Request) {
           .maybeSingle();
 
         if (profile) {
-          return NextResponse.redirect(`${origin}/dashboard`);
+          // プロフィール設定済み: redirect 先があればそこへ、なければダッシュボード
+          return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
         } else {
-          return NextResponse.redirect(`${origin}/onboarding/profile`);
+          // 未設定: オンボーディングへ（redirect はクエリで引き継ぐ）
+          const dest = redirect
+            ? `/onboarding/profile?redirect=${encodeURIComponent(redirect)}`
+            : '/onboarding/profile';
+          return NextResponse.redirect(`${origin}${dest}`);
         }
       }
     }

@@ -1,14 +1,24 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useTransition } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { User, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function ProfileSetupPage() {
+  return (
+    <Suspense>
+      <ProfileSetupForm />
+    </Suspense>
+  );
+}
+
+function ProfileSetupForm() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect');
 
   const handleSubmit = (formData: FormData) => {
     const displayName = (formData.get('display_name') as string).trim();
@@ -43,7 +53,7 @@ export default function ProfileSetupPage() {
       if (insertError) {
         setError(insertError.message);
       } else {
-        router.push('/dashboard');
+        router.push(redirectTo ?? '/dashboard');
       }
     });
   };

@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { Zap, Heart, Wallet, Loader2 } from 'lucide-react';
+import { Zap, Heart, Wallet, Loader2, UserPlus } from 'lucide-react';
+import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { RoleUpgradeBanner } from '@/components/role-upgrade-drawer';
 
@@ -86,6 +87,26 @@ async function DashboardContent() {
           <p className="text-slate-700 text-xs">イベントでQRをスキャンして最初の応援を送ろう</p>
         </div>
       </div>
+
+      {/* 招待リンク発行 */}
+      {['admin', 'agent', 'organizer'].includes(profile?.role ?? '') && (
+        <Link
+          href="/dashboard/invitations"
+          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
+              <UserPlus size={22} className="text-pink-500" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Invitations</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
+                招待を送る
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* ロールアップグレード誘導 */}
       {profile?.role === 'user' && <RoleUpgradeBanner />}

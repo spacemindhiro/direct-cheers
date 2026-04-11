@@ -1,10 +1,12 @@
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck } from 'lucide-react';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { RoleUpgradeBanner } from '@/components/role-upgrade-drawer';
 import { ArtistSalesDashboard } from '@/components/artist-sales-dashboard';
+import { FollowButton } from '@/components/follow-button';
 
 async function DashboardContent() {
   const supabase = await createClient();
@@ -15,6 +17,21 @@ async function DashboardContent() {
     .select('display_name, role, status, verification_status, created_at')
     .eq('profile_id', user!.id)
     .single();
+
+  // フォロー中一覧
+  const admin = createAdminClient();
+  const { data: followsData } = await admin
+    .from('follows')
+    .select(`
+      follow_id,
+      followee_id,
+      followee:profiles!followee_id(profile_id, display_name, avatar_url, role)
+    `)
+    .eq('follower_id', user!.id)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  const follows = (followsData ?? []).map((f: any) => f.followee).filter(Boolean);
 
   const roleLabelMap: Record<string, string> = {
     user: 'ファン',
@@ -88,6 +105,49 @@ async function DashboardContent() {
           <p className="text-slate-700 text-xs">イベントでQRをスキャンして最初の応援を送ろう</p>
         </div>
       </div>
+
+      {/* フォロー中 */}
+      {follows.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+            <HeartHandshake size={14} className="text-pink-500" /> Following
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {follows.map((f: any) => (
+              <div
+                key={f.profile_id}
+                className="bg-slate-900 border border-slate-800 rounded-[1.5rem] p-4 flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  {f.avatar_url ? (
+                    <img
+                      src={f.avatar_url}
+                      alt={f.display_name}
+                      className="w-10 h-10 rounded-2xl object-cover ring-2 ring-pink-500/20 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-600/30 to-pink-800/30 flex items-center justify-center ring-2 ring-pink-500/10 shrink-0">
+                      <Mic2 size={16} className="text-pink-400" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white truncate">{f.display_name}</p>
+                    <p className="text-[10px] text-slate-500 capitalize">
+                      {f.role === 'artist' ? 'アーティスト' : 'オーガナイザー'}
+                    </p>
+                  </div>
+                </div>
+                <FollowButton
+                  followeeId={f.profile_id}
+                  followeeName={f.display_name}
+                  followeeRole={f.role}
+                  size="sm"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* アーティスト売上ダッシュボード */}
       {profile?.role === 'artist' && (

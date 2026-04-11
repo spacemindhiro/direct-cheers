@@ -174,13 +174,14 @@ async function getProductInfo(
   admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
   productId: string | null
 ) {
-  if (!productId) return { artist_name: null, event_title: null, artist_avatar: null, product_name: null };
+  if (!productId) return { artist_id: null, artist_name: null, event_title: null, artist_avatar: null, product_name: null };
   const { data } = await admin
     .from("products")
-    .select("name, artist:profiles!artist_id(display_name, avatar_url), event:events!event_id(title)")
+    .select("name, artist_id, artist:profiles!artist_id(display_name, avatar_url), event:events!event_id(title)")
     .eq("product_id", productId)
     .single();
   return {
+    artist_id: (data as any)?.artist_id ?? null,
     artist_name: (data?.artist as any)?.display_name ?? null,
     event_title: (data?.event as any)?.title ?? null,
     artist_avatar: (data?.artist as any)?.avatar_url ?? null,

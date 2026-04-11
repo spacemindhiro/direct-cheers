@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useParams } from "next/navigation";
 import { CheersCard } from "@/components/cheers-card";
 import { PasskeySetup } from "@/components/passkey-setup";
+import { FollowButton } from "@/components/follow-button";
 import { Loader2, ArrowLeft, Wallet, PlusCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -15,6 +16,7 @@ type PaymentResult = {
   email: string | null;
   amount: number;
   artist_name: string | null;
+  artist_id: string | null;
   event_title: string | null;
   artist_avatar: string | null;
   product_name: string | null;
@@ -241,6 +243,29 @@ function ThanksContent() {
           <p className="text-center text-xs text-slate-500">
             ウォレットでいつでも応援履歴を確認できます
           </p>
+        )}
+
+        {/* アーティストフォロー */}
+        {result.artist_id && result.artist_name && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-slate-800" />
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Follow</p>
+              <div className="h-px flex-1 bg-slate-800" />
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-black text-white">{result.artist_name}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">次のライブ情報をお届けします</p>
+              </div>
+              <FollowButton
+                followeeId={result.artist_id}
+                followeeName={result.artist_name}
+                followeeRole="artist"
+                size="sm"
+              />
+            </div>
+          </div>
         )}
 
         {/* 戻るリンク */}

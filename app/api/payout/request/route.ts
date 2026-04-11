@@ -39,17 +39,47 @@ export async function POST(req: Request) {
 
   const { data: availableDists } = await admin
     .from("transaction_distributions")
-    .select("transaction_distribution_id, actual_amount, transaction:transactions!transaction_id(created_at)")
+    .select(`
+      transaction_distribution_id,
+      actual_amount,
+      transaction:transactions!transaction_id(
+        transaction_id,
+        created_at,
+        reconciled_at,
+        amount_verified,
+        amount_mismatch
+      )
+    `)
     .eq("profile_id", user.id)
     .eq("distribution_status", "accrued")
     .eq("is_frozen", false)
     .is("deleted_at", null);
 
-  // 14日経過分のみ
+  // 14日経過 かつ 照合済み かつ 金額一致 のみ出金可能
   const eligibleDists = (availableDists ?? []).filter((d) => {
-    const txDate = (d.transaction as any)?.created_at;
-    return txDate && txDate < cutoff;
+    const tx = d.transaction as any;
+    if (!tx) return false;
+    // 14日経過チェック
+    if (!tx.created_at || tx.created_at >= cutoff) return false;
+    // 照合未完了はブロック
+    if (!tx.reconciled_at) return false;
+    // 金額不一致はブロック
+    if (tx.amount_verified === false || (tx.amount_mismatch ?? 0) !== 0) return false;
+    return true;
   });
+
+  // 照合未完了の distributions があるか確認（警告用）
+  const unreconciledCount = (availableDists ?? []).filter((d) => {
+    const tx = d.transaction as any;
+    return tx?.created_at && tx.created_at < cutoff && !tx.reconciled_at;
+  }).length;
+
+  if (unreconciledCount > 0) {
+    return NextResponse.json(
+      { error: `照合が完了していないトランザクションが ${unreconciledCount} 件あります。翌日以降に再度お試しください。` },
+      { status: 400 }
+    );
+  }
 
   const availableTotal = eligibleDists.reduce((s, d) => s + (d.actual_amount ?? 0), 0);
 
@@ -126,7 +156,17 @@ export async function GET(_req: Request) {
 
   const { data: dists } = await admin
     .from("transaction_distributions")
-    .select("actual_amount, distribution_status, is_frozen, transaction:transactions!transaction_id(created_at)")
+    .select(`
+      actual_amount,
+      distribution_status,
+      is_frozen,
+      transaction:transactions!transaction_id(
+        created_at,
+        reconciled_at,
+        amount_verified,
+        amount_mismatch
+      )
+    `)
     .eq("profile_id", user.id)
     .eq("distribution_status", "accrued")
     .is("deleted_at", null);
@@ -136,12 +176,19 @@ export async function GET(_req: Request) {
   let frozen = 0;
 
   for (const d of dists ?? []) {
-    const txDate = (d.transaction as any)?.created_at;
+    const tx = d.transaction as any;
     const amt = d.actual_amount ?? 0;
     if (d.is_frozen) {
       frozen += amt;
-    } else if (txDate && txDate < cutoff) {
-      available += amt;
+    } else if (tx?.created_at && tx.created_at < cutoff) {
+      // 14日経過済み → 照合完了かつ金額一致のみ出金可能、それ以外は保留扱い
+      const reconciled = !!tx.reconciled_at;
+      const verified = tx.amount_verified !== false && (tx.amount_mismatch ?? 0) === 0;
+      if (reconciled && verified) {
+        available += amt;
+      } else {
+        pending += amt;
+      }
     } else {
       pending += amt;
     }

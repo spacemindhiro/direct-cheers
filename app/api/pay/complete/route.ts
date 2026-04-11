@@ -37,19 +37,13 @@ export async function POST(req: Request) {
   // 既存 transaction チェック（冪等性）
   const { data: existing } = await admin
     .from("transactions")
-    .select("transaction_id, product_id, total_gross_amount")
+    .select("transaction_id, product_id, total_gross_amount, sequence_number_in_event, qr_config_id")
     .eq("stripe_payment_intent_id", session.payment_intent as string)
     .maybeSingle();
 
   if (existing) {
-    // 既に処理済み → そのまま返す
     const product = await getProductInfo(admin, existing.product_id);
-    return NextResponse.json({
-      transaction_id: existing.transaction_id,
-      email,
-      amount: existing.total_gross_amount,
-      ...product,
-    });
+    return buildResponse(email, existing, product);
   }
 
   // provisional_users に email を upsert
@@ -63,19 +57,19 @@ export async function POST(req: Request) {
     provisionalProfileId = provisional?.profile_id ?? null;
   }
 
-  // 金額チェック（Checkoutセッション作成時の指定額 vs Stripeが受け取った実額）
-  // Checkoutは固定金額なので通常は必ず一致。不一致はシステムバグを示す。
   const amountVerified = session.amount_total !== null;
-  const amountMismatch = 0; // Checkout固定金額のため常に0（不一致はありえない）
+  const amountMismatch = 0;
 
   // transaction を作成
-  const productId = meta.product_id;
+  const productId = meta.product_id || null;
+  const qrConfigId = meta.qr_config_id || null;
+
   const { data: tx, error: txError } = await admin
     .from("transactions")
     .insert({
       stripe_payment_intent_id: session.payment_intent as string,
-      product_id: productId || null,
-      qr_config_id: meta.qr_config_id || null,
+      product_id: productId,
+      qr_config_id: qrConfigId,
       sender_profile_id: provisionalProfileId,
       sender_name: meta.nickname || null,
       sender_comment: meta.comment || null,
@@ -92,30 +86,95 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: txError.message }, { status: 500 });
   }
 
-  // メールを Cookie に保存するよう指示（レスポンスヘッダー）
+  // シリアルナンバー採番
+  let serialNumber: number | null = null;
+  if (qrConfigId) {
+    try {
+      // event_id を取得
+      const { data: qrConfig } = await admin
+        .from("qr_configs")
+        .select("event_id")
+        .eq("qr_config_id", qrConfigId)
+        .single();
+
+      if (qrConfig?.event_id) {
+        // artist_id を取得（products → artist_id）
+        let artistId: string | null = null;
+        if (productId) {
+          const { data: product } = await admin
+            .from("products")
+            .select("artist_id")
+            .eq("product_id", productId)
+            .single();
+          artistId = product?.artist_id ?? null;
+        }
+
+        // RPC で排他制御付き採番
+        const { data: seqData } = await admin.rpc("assign_serial_number", {
+          p_transaction_id: tx.transaction_id,
+          p_event_id: qrConfig.event_id,
+          p_artist_id: artistId,
+        });
+
+        serialNumber = seqData ?? null;
+      }
+    } catch (err) {
+      // 採番失敗はサイレントに（カード発行は継続）
+      console.error("[pay/complete] serial number assignment failed:", err);
+    }
+  }
+
   const product = await getProductInfo(admin, productId);
-  const response = NextResponse.json({
-    transaction_id: tx.transaction_id,
+
+  const response = buildResponse(
     email,
-    amount: session.amount_total ?? 0,
-    stripe_customer_id: stripeCustomerId,
-    ...product,
-  });
+    {
+      transaction_id: tx.transaction_id,
+      product_id: productId,
+      total_gross_amount: session.amount_total ?? 0,
+      sequence_number_in_event: serialNumber,
+      qr_config_id: qrConfigId,
+    },
+    product
+  );
 
   if (email) {
-    response.cookies.set("dc_ce", email, {
+    (response as NextResponse).cookies.set("dc_ce", email, {
       maxAge: 60 * 60 * 24 * 30,
       path: "/",
       sameSite: "lax",
-      httpOnly: false, // JS から読める
+      httpOnly: false,
     });
   }
 
   return response;
 }
 
-async function getProductInfo(admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>, productId: string | null) {
-  if (!productId) return { artist_name: null, event_title: null, artist_avatar: null };
+function buildResponse(
+  email: string | null | undefined,
+  tx: {
+    transaction_id: string;
+    product_id: string | null;
+    total_gross_amount: number;
+    sequence_number_in_event: number | null;
+    qr_config_id?: string | null;
+  },
+  product: Record<string, unknown>
+): NextResponse {
+  return NextResponse.json({
+    transaction_id: tx.transaction_id,
+    email,
+    amount: tx.total_gross_amount,
+    serial_number: tx.sequence_number_in_event,
+    ...product,
+  });
+}
+
+async function getProductInfo(
+  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
+  productId: string | null
+) {
+  if (!productId) return { artist_name: null, event_title: null, artist_avatar: null, product_name: null };
   const { data } = await admin
     .from("products")
     .select("name, artist:profiles!artist_id(display_name, avatar_url), event:events!event_id(title)")

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Loader2, MapPin, Calendar, Music } from "lucide-react";
+import { ArrowRight, Loader2, MapPin, Calendar, Music, Hash } from "lucide-react";
 
 type Artist = { profile_id: string; display_name: string };
 
@@ -12,6 +12,7 @@ export function EventCreateForm({ artists }: { artists: Artist[] }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [selectedArtists, setSelectedArtists] = useState<string[]>([]);
+  const [serialScope, setSerialScope] = useState<"event" | "artist">("event");
 
   const toggleArtist = (id: string) => {
     setSelectedArtists((prev) =>
@@ -32,7 +33,7 @@ export function EventCreateForm({ artists }: { artists: Artist[] }) {
       const res = await fetch("/api/events/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, venue, start_at, end_at, artist_ids: selectedArtists }),
+        body: JSON.stringify({ title, venue, start_at, end_at, artist_ids: selectedArtists, serial_scope: serialScope }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -120,6 +121,36 @@ export function EventCreateForm({ artists }: { artists: Artist[] }) {
               ))}
             </div>
           )}
+        </div>
+
+        {/* シリアル番号スコープ */}
+        <div className="space-y-3">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
+            <Hash size={11} className="text-pink-500" /> シリアル番号の採番単位
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["event", "artist"] as const).map((scope) => (
+              <button
+                key={scope}
+                type="button"
+                onClick={() => setSerialScope(scope)}
+                className={`px-4 py-3 rounded-2xl text-xs font-black transition-all text-left space-y-0.5 border ${
+                  serialScope === scope
+                    ? "bg-pink-500/10 border-pink-500/40 text-pink-400"
+                    : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                }`}
+              >
+                <p className="uppercase tracking-widest">
+                  {scope === "event" ? "イベント通し" : "アーティスト別"}
+                </p>
+                <p className="text-[9px] font-medium text-slate-500 normal-case tracking-normal">
+                  {scope === "event"
+                    ? "全出演者合算で #001, #002..."
+                    : "アーティストごとに #001, #002..."}
+                </p>
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-400 font-bold">{error}</p>}

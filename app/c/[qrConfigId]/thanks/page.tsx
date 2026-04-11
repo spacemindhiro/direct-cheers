@@ -19,6 +19,7 @@ type PaymentResult = {
   artist_avatar: string | null;
   product_name: string | null;
   stripe_customer_id: string | null;
+  serial_number: number | null;
 };
 
 function emailFromCookie(): string {
@@ -146,6 +147,26 @@ function ThanksContent() {
           </p>
         </div>
 
+        {/* シリアルナンバー演出 */}
+        {result.serial_number != null && (
+          <div className="text-center space-y-1 py-2">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
+              You are
+            </p>
+            <p className="text-5xl font-black text-pink-400 italic tracking-tighter tabular-nums leading-none">
+              {"#" + String(result.serial_number).padStart(3, "0")}
+            </p>
+            <p className="text-sm font-bold text-slate-300">
+              番目のサポーター
+            </p>
+            {result.serial_number <= 10 && (
+              <p className="text-xs text-pink-500 font-black mt-1">
+                🎉 Early Supporter！最初の10人に入りました
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Cheers カード */}
         <CheersCard
           artistName={result.artist_name ?? "Artist"}
@@ -153,6 +174,7 @@ function ThanksContent() {
           artistAvatar={result.artist_avatar}
           amount={result.amount}
           transactionId={result.transaction_id}
+          serialNumber={result.serial_number}
         />
 
         {/* ウォレット登録セクション */}

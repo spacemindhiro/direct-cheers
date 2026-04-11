@@ -28,12 +28,13 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { title, venue, start_at, end_at, artist_ids } = body as {
+  const { title, venue, start_at, end_at, artist_ids, serial_scope } = body as {
     title: string;
     venue: string;
     start_at: string;
     end_at: string;
     artist_ids: string[];
+    serial_scope?: "event" | "artist";
   };
 
   if (!title || !venue || !start_at || !end_at) {
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
       start_at,
       end_at,
       lifecycle_status: "draft",
+      serial_scope: serial_scope ?? "event",
     })
     .select("event_id")
     .single();

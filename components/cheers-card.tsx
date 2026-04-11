@@ -11,7 +11,12 @@ type CheersCardProps = {
   comment?: string | null;
   transactionId: string;
   paidAt?: string;
+  serialNumber?: number | null;
 };
+
+function formatSerial(n: number): string {
+  return "#" + String(n).padStart(3, "0");
+}
 
 export function CheersCard({
   artistName,
@@ -22,6 +27,7 @@ export function CheersCard({
   comment,
   transactionId,
   paidAt,
+  serialNumber,
 }: CheersCardProps) {
   const dateStr = paidAt
     ? new Date(paidAt).toLocaleDateString("ja-JP", {
@@ -45,18 +51,33 @@ export function CheersCard({
       <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-pink-500/5 -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-pink-600/5 translate-y-1/2 -translate-x-1/2 blur-3xl pointer-events-none" />
 
+      {/* シリアルナンバー ── カード右上にホイルスタンプ風 */}
+      {serialNumber != null && (
+        <div className="absolute top-4 right-4 flex flex-col items-end">
+          <p className="text-[8px] font-black text-pink-500/60 uppercase tracking-[0.3em] leading-none">
+            Serial No.
+          </p>
+          <p className="text-2xl font-black text-pink-400 italic tracking-tighter leading-none tabular-nums"
+            style={{ fontVariantNumeric: "tabular-nums" }}>
+            {formatSerial(serialNumber)}
+          </p>
+        </div>
+      )}
+
       <div className="relative p-6 space-y-5">
         {/* ヘッダー */}
         <div className="flex items-center justify-between">
           <p className="text-[9px] font-black text-pink-500 uppercase tracking-[0.35em]">
             Direct Cheers
           </p>
-          <div className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-full px-3 py-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-[9px] font-black text-green-400 uppercase tracking-wider">
-              Confirmed
-            </span>
-          </div>
+          {serialNumber == null && (
+            <div className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-full px-3 py-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-[9px] font-black text-green-400 uppercase tracking-wider">
+                Confirmed
+              </span>
+            </div>
+          )}
         </div>
 
         {/* アーティスト */}

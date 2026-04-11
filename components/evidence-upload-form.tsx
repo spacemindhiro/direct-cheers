@@ -1,0 +1,170 @@
+"use client";
+
+import { useState } from "react";
+import { createBrowserClient } from "@supabase/ssr";
+import { Upload, Loader2, CheckCircle2, X, ImageIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+type Props = {
+  eventId: string;
+};
+
+export function EvidenceUploadForm({ eventId }: Props) {
+  const router = useRouter();
+  const [description, setDescription] = useState("");
+  const [attendanceCount, setAttendanceCount] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+  );
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files ?? []);
+    setFiles((prev) => [...prev, ...selected].slice(0, 10));
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUploading(true);
+    setError("");
+
+    try {
+      // Supabase Storage にアップロード
+      // ※ Supabase Dashboard で "event-evidence" バケット（private）を作成してください
+      const photoPaths: string[] = [];
+      for (const file of files) {
+        const path = `${eventId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("event-evidence")
+          .upload(path, file, { upsert: false });
+
+        if (uploadErr) throw new Error(`アップロード失敗: ${uploadErr.message}`);
+        photoPaths.push(path);
+      }
+
+      // evidence API に送信
+      const res = await fetch(`/api/events/${eventId}/evidence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: description || null,
+          photo_paths: photoPaths,
+          attendance_count: attendanceCount ? parseInt(attendanceCount) : null,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setSubmitted(true);
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message ?? "エラーが発生しました");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-2xl p-5">
+        <CheckCircle2 size={22} className="text-green-400 shrink-0" />
+        <div>
+          <p className="font-black text-green-400">エビデンスを提出しました</p>
+          <p className="text-xs text-slate-500 mt-0.5">Adminが確認後、精算処理が実行されます</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {/* 写真アップロード */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">写真（最大10枚）</p>
+        <label className="flex flex-col items-center justify-center h-32 bg-slate-800 border-2 border-dashed border-slate-700 rounded-2xl cursor-pointer hover:border-pink-500/40 transition-colors">
+          <Upload size={20} className="text-slate-600 mb-2" />
+          <p className="text-xs text-slate-500">クリックして写真を選択</p>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </label>
+
+        {files.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {files.map((f, i) => (
+              <div key={i} className="relative group">
+                <div className="w-16 h-16 bg-slate-800 rounded-xl flex items-center justify-center border border-slate-700 overflow-hidden">
+                  <img
+                    src={URL.createObjectURL(f)}
+                    alt={f.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-slate-900 border border-slate-700 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={10} className="text-slate-400" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 動員数 */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">動員数</p>
+        <input
+          type="number"
+          value={attendanceCount}
+          onChange={(e) => setAttendanceCount(e.target.value)}
+          placeholder="例: 150"
+          min={0}
+          className="w-full h-12 bg-slate-800 border border-slate-700 rounded-2xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none"
+        />
+      </div>
+
+      {/* コメント */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">コメント（任意）</p>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="イベントの実施報告、特記事項など"
+          rows={3}
+          className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none resize-none"
+        />
+      </div>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={uploading || files.length === 0}
+        className="w-full h-12 bg-pink-500 hover:brightness-110 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {uploading ? (
+          <><Loader2 size={16} className="animate-spin" />アップロード中...</>
+        ) : (
+          <><ImageIcon size={16} />エビデンスを提出する</>
+        )}
+      </button>
+    </form>
+  );
+}

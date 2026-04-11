@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2 } from 'lucide-react';
+import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { RoleUpgradeBanner } from '@/components/role-upgrade-drawer';
@@ -150,6 +150,46 @@ async function DashboardContent() {
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Invitations</p>
               <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
                 招待を送る
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* 出金管理（artist / organizer / agent） */}
+      {['artist', 'organizer', 'agent'].includes(profile?.role ?? '') && (
+        <Link
+          href="/dashboard/payout"
+          className="block bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all">
+              <ArrowDownToLine size={22} className="text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payout</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-emerald-400 transition-colors">
+                出金管理
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Admin: 精算管理 */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/settlements"
+          className="block bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500/20 transition-all">
+              <ClipboardCheck size={22} className="text-amber-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-amber-400 transition-colors">
+                精算管理
               </p>
             </div>
           </div>

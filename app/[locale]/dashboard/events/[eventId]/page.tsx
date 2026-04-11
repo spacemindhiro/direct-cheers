@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Loader2, MapPin, Calendar, QrCode, CheckCircle } from "lucide-react";
+import { Loader2, MapPin, Calendar, QrCode, CheckCircle, FileImage } from "lucide-react";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
 
@@ -42,8 +42,11 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     .order("created_at", { ascending: false });
 
   const isAgent = profile?.role === "agent" || profile?.role === "admin";
+  const isOrganizer = profile?.role === "organizer" || profile?.role === "admin";
   const canApprove = isAgent && event.lifecycle_status === "draft";
   const canCreateQR = event.lifecycle_status === "published" || event.lifecycle_status === "ongoing";
+  const hasEnded = new Date(event.end_at) < new Date();
+  const canSubmitEvidence = isOrganizer && hasEnded && event.lifecycle_status !== "settled";
 
   const LIFECYCLE_LABELS: Record<string, string> = {
     draft: "承認待ち", published: "公開済み", ongoing: "開催中", ended: "終了", settled: "精算済み",
@@ -82,6 +85,22 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
       {/* エージェント承認ボタン */}
       {canApprove && <EventApproveButton eventId={eventId} />}
+
+      {/* エビデンス提出ボタン */}
+      {canSubmitEvidence && (
+        <Link
+          href={`/dashboard/events/${eventId}/evidence`}
+          className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/40 rounded-[1.5rem] p-5 transition-all group"
+        >
+          <div className="w-10 h-10 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500/20 transition-all shrink-0">
+            <FileImage size={18} className="text-amber-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Evidence</p>
+            <p className="font-black text-amber-400 text-sm">エビデンスを提出する</p>
+          </div>
+        </Link>
+      )}
 
       {/* QR一覧 */}
       <div className="space-y-4">

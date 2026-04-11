@@ -43,6 +43,75 @@ export async function POST(req: Request) {
       break;
     }
 
+    // チャージバック（紛争）通知 → 残高凍結 + debt_claim 作成
+    case "charge.dispute.created": {
+      const dispute = event.data.object as Stripe.Dispute;
+      const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+      if (!chargeId) break;
+
+      // charge → payment_intent を取得
+      const charge = await stripe.charges.retrieve(chargeId);
+      const paymentIntentId =
+        typeof charge.payment_intent === "string"
+          ? charge.payment_intent
+          : (charge.payment_intent as Stripe.PaymentIntent)?.id ?? null;
+
+      if (!paymentIntentId) break;
+
+      // transaction を検索
+      const { data: tx } = await admin
+        .from("transactions")
+        .select("transaction_id, qr_config_id, total_gross_amount")
+        .eq("stripe_payment_intent_id", paymentIntentId)
+        .maybeSingle();
+
+      if (!tx) break;
+
+      // 関連する distributions を取得してプロファイル特定
+      const { data: dists } = await admin
+        .from("transaction_distributions")
+        .select("transaction_distribution_id, profile_id")
+        .eq("transaction_id", tx.transaction_id)
+        .eq("distribution_status", "accrued");
+
+      const affectedProfileIds = [...new Set((dists ?? []).map((d) => d.profile_id))];
+
+      // distributions を凍結
+      if ((dists ?? []).length > 0) {
+        await admin
+          .from("transaction_distributions")
+          .update({ is_frozen: true })
+          .eq("transaction_id", tx.transaction_id);
+      }
+
+      // profiles の balance_frozen + chargeback_count を更新
+      for (const profileId of affectedProfileIds) {
+        await admin
+          .from("profiles")
+          .update({
+            balance_frozen: true,
+            balance_frozen_at: new Date().toISOString(),
+          })
+          .eq("profile_id", profileId);
+
+        await admin.rpc("increment_chargeback_count", { target_profile_id: profileId });
+      }
+
+      // debt_claim を作成（紛争手数料 Stripe は $15 ≒ ¥2000 程度、一旦 1500 固定）
+      await admin.from("debt_claims").insert({
+        profile_id: affectedProfileIds[0] ?? null,
+        original_transaction_id: tx.transaction_id,
+        claim_amount: tx.total_gross_amount ?? 0,
+        stripe_dispute_fee: 1500,
+        recovered_amount: 0,
+        status: "active",
+        description: `Stripe dispute: ${dispute.id}`,
+      });
+
+      console.log(`[webhook] chargeback: dispute=${dispute.id} tx=${tx.transaction_id} profiles=${affectedProfileIds.join(",")}`);
+      break;
+    }
+
     // Cheers 決済完了（冪等処理）
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;

@@ -1,9 +1,10 @@
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { Zap, Heart, Wallet, Loader2, UserPlus } from 'lucide-react';
+import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2 } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { RoleUpgradeBanner } from '@/components/role-upgrade-drawer';
+import { ArtistSalesDashboard } from '@/components/artist-sales-dashboard';
 
 async function DashboardContent() {
   const supabase = await createClient();
@@ -11,7 +12,7 @@ async function DashboardContent() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('display_name, role, verification_status, created_at')
+    .select('display_name, role, status, verification_status, created_at')
     .eq('profile_id', user!.id)
     .single();
 
@@ -87,6 +88,53 @@ async function DashboardContent() {
           <p className="text-slate-700 text-xs">イベントでQRをスキャンして最初の応援を送ろう</p>
         </div>
       </div>
+
+      {/* アーティスト売上ダッシュボード */}
+      {profile?.role === 'artist' && (
+        <Suspense fallback={<div className="h-40 bg-slate-900 border border-slate-800 rounded-[2rem] animate-pulse" />}>
+          <ArtistSalesDashboard profileId={user!.id} />
+        </Suspense>
+      )}
+
+      {/* イベント */}
+      {['organizer', 'agent', 'admin'].includes(profile?.role ?? '') && (
+        <Link
+          href="/dashboard/events"
+          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all">
+              <Calendar size={22} className="text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Events</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
+                イベント管理
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Admin: 売上管理 */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/sales"
+          className="block bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all">
+              <BarChart2 size={22} className="text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-emerald-400 transition-colors">
+                売上管理
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* 招待リンク発行 */}
       {['admin', 'agent', 'organizer'].includes(profile?.role ?? '') && (

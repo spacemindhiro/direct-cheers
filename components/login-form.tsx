@@ -13,6 +13,7 @@ export function LoginForm({
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [error, setError] = useState<string | null>(null);
+  const [showForgot, setShowForgot] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,6 +30,7 @@ export function LoginForm({
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         setError("メールアドレスまたはパスワードが正しくありません");
+        setShowForgot(true);
       } else {
         router.push(redirectTo ?? "/dashboard");
       }
@@ -74,12 +76,14 @@ export function LoginForm({
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
                 <Lock size={11} className="text-pink-500" /> Password
               </label>
-              <Link
-                href="/auth/forgot-password"
-                className="text-[10px] text-slate-500 hover:text-pink-500 transition-colors font-bold uppercase tracking-wider"
-              >
-                パスワードを忘れた方
-              </Link>
+              {showForgot && (
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-xs text-pink-500 hover:text-pink-400 transition-colors font-bold"
+                >
+                  パスワードをお忘れですか？
+                </Link>
+              )}
             </div>
             <Input
               name="password"

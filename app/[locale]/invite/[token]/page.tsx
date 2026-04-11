@@ -36,6 +36,7 @@ async function InviteContent({
       `
       invitation_id,
       target_role,
+      target_email,
       status,
       expires_at,
       invited_by:profiles!invited_by_profile_id ( display_name )
@@ -133,7 +134,7 @@ async function InviteContent({
               <div className="h-16 bg-slate-900 border border-slate-800 rounded-2xl animate-pulse" />
             }
           >
-            <InviteAcceptSection token={token} />
+            <InviteAcceptSection token={token} targetEmail={invitation.target_email ?? undefined} />
           </Suspense>
         </div>
       </div>

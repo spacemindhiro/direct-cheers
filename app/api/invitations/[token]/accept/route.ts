@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(
   _req: Request,
@@ -14,6 +15,18 @@ export async function POST(
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // target_email が設定されている場合、ログイン中ユーザーのメールと一致するか確認
+  const admin = createAdminClient();
+  const { data: invitation } = await admin
+    .from("invitations")
+    .select("target_email")
+    .eq("token", token)
+    .single();
+
+  if (invitation?.target_email && invitation.target_email !== user.email) {
+    return NextResponse.json({ error: "email_mismatch" }, { status: 403 });
   }
 
   // security definer RPC でトランザクション実行（RLS バイパス）

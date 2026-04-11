@@ -17,6 +17,7 @@ export function LoginForm({
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect");
+  const emailHint = searchParams.get("email") ?? "";
 
   const handleLogin = (formData: FormData) => {
     const email = formData.get("email") as string;
@@ -62,6 +63,7 @@ export function LoginForm({
               name="email"
               type="email"
               placeholder="your@email.com"
+              defaultValue={emailHint}
               required
               className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
             />

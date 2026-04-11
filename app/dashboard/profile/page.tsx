@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import {
   User, Music, Globe, Camera,
-  ArrowLeft, Loader2, Save, Mic2, CalendarDays, Shield
+  ArrowLeft, Loader2, Save, Mic2, CalendarDays, Shield, Smartphone, Share, Plus
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -286,6 +286,30 @@ export default function ProfileEditPage() {
           <><Save size={18} /> 保存する</>
         )}
       </button>
+
+      {/* ホーム画面に追加 */}
+      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-4">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2">
+          <Smartphone size={11} className="text-pink-500" /> ホーム画面に追加
+        </p>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          アプリのようにすぐ起動できます。Safariで開いている場合は以下の手順で追加できます。
+        </p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
+              <Share size={14} className="text-slate-400" />
+            </div>
+            <p className="text-xs text-slate-400">1. 画面下の共有ボタン（四角に矢印）をタップ</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
+              <Plus size={14} className="text-slate-400" />
+            </div>
+            <p className="text-xs text-slate-400">2.「ホーム画面に追加」を選択して完了</p>
+          </div>
+        </div>
+      </div>
 
     </div>
   );

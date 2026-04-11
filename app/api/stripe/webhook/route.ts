@@ -43,6 +43,59 @@ export async function POST(req: Request) {
       break;
     }
 
+    // Cheers 決済完了（冪等処理）
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+
+      // すでに /api/pay/complete で処理済みの場合は何もしない
+      const { data: existing } = await admin
+        .from("transactions")
+        .select("transaction_id")
+        .eq("stripe_payment_intent_id", session.payment_intent as string)
+        .maybeSingle();
+
+      if (!existing && session.payment_status === "paid") {
+        const meta = session.metadata ?? {};
+        const email =
+          session.customer_email ??
+          (typeof session.customer === "object" && session.customer !== null
+            ? (session.customer as Stripe.Customer).email
+            : null);
+
+        const stripeCustomerId =
+          typeof session.customer === "string"
+            ? session.customer
+            : (session.customer as Stripe.Customer)?.id ?? null;
+
+        // provisional_user upsert
+        let provisionalProfileId: string | null = null;
+        if (email) {
+          const { data: provisional } = await admin
+            .from("provisional_users")
+            .upsert(
+              { email, stripe_customer_id: stripeCustomerId },
+              { onConflict: "email" }
+            )
+            .select("provisional_id, profile_id")
+            .single();
+          provisionalProfileId = provisional?.profile_id ?? null;
+        }
+
+        await admin.from("transactions").insert({
+          stripe_payment_intent_id: session.payment_intent as string,
+          product_id: meta.product_id || null,
+          qr_config_id: meta.qr_config_id || null,
+          sender_profile_id: provisionalProfileId,
+          sender_name: meta.nickname || null,
+          sender_comment: meta.comment || null,
+          status: "completed",
+          total_gross_amount: session.amount_total ?? 0,
+          stripe_funds_status: "held_in_platform",
+        });
+      }
+      break;
+    }
+
     default:
       // 未処理イベントは無視
       break;

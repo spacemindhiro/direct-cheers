@@ -1,0 +1,216 @@
+"use client";
+
+import { useState, useTransition, useEffect } from "react";
+import { Heart, MessageSquareHeart, Loader2, Smartphone } from "lucide-react";
+
+const CUSTOMER_EMAIL_COOKIE = "dc_ce";
+
+type Product = {
+  product_id: string;
+  name: string;
+  type: string;
+  min_amount: number;
+  max_amount: number;
+};
+
+export function CheersPaymentForm({
+  qrConfigId,
+  products,
+  artistName,
+  eventTitle,
+}: {
+  qrConfigId: string;
+  products: Product[];
+  artistName: string;
+  eventTitle: string;
+}) {
+  const [selectedProduct, setSelectedProduct] = useState<Product>(products[0]);
+  const [amount, setAmount] = useState(products[0]?.min_amount ?? 500);
+  const [nickname, setNickname] = useState("");
+  const [comment, setComment] = useState("");
+  const [email, setEmail] = useState("");
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  // Cookie から返却ユーザーのメールを復元
+  useEffect(() => {
+    const match = document.cookie.match(new RegExp(`${CUSTOMER_EMAIL_COOKIE}=([^;]+)`));
+    if (match) setEmail(decodeURIComponent(match[1]));
+  }, []);
+
+  const handleCheckout = (paymentMethod: "card" | "paypay") => {
+    if (paymentMethod === "paypay" && !email) {
+      setShowEmailInput(true);
+      return;
+    }
+    startTransition(async () => {
+      const res = await fetch("/api/pay/cheers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qr_config_id: qrConfigId,
+          product_id: selectedProduct.product_id,
+          amount,
+          payment_method: paymentMethod,
+          customer_email: email || undefined,
+          metadata: { nickname, comment, artist_name: artistName, event_title: eventTitle },
+        }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    });
+  };
+
+  const handlePayPayWithEmail = () => {
+    if (!email) return;
+    // メールを Cookie に保存（30日）
+    document.cookie = `${CUSTOMER_EMAIL_COOKIE}=${encodeURIComponent(email)};max-age=${60 * 60 * 24 * 30};path=/;SameSite=Lax`;
+    setShowEmailInput(false);
+    handleCheckout("paypay");
+  };
+
+  const PRODUCT_TYPE_ICONS: Record<string, React.ReactNode> = {
+    standard: <Heart size={20} />,
+    message:  <MessageSquareHeart size={20} />,
+    entrance: <Smartphone size={20} />,
+    custom:   <Heart size={20} />,
+  };
+
+  const PRODUCT_TYPE_LABELS: Record<string, string> = {
+    standard: "スタンダード",
+    message:  "メッセージ",
+    entrance: "エントランス",
+    custom:   "カスタム",
+  };
+
+  return (
+    <div className="space-y-6">
+
+      {/* 商品選択 */}
+      {products.length > 1 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">商品タイプ</p>
+          <div className="flex flex-wrap gap-2">
+            {products.map((p) => (
+              <button
+                key={p.product_id}
+                type="button"
+                onClick={() => {
+                  setSelectedProduct(p);
+                  setAmount(p.min_amount);
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  selectedProduct.product_id === p.product_id
+                    ? "bg-pink-500 text-white shadow-[0_0_20px_rgba(236,72,153,0.3)]"
+                    : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"
+                }`}
+              >
+                {PRODUCT_TYPE_LABELS[p.type] ?? p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 金額スライダー */}
+      <div className="space-y-3">
+        <div className="flex justify-between items-baseline">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">金額</p>
+          <p className="text-3xl font-black text-white italic tracking-tighter">
+            ¥{amount.toLocaleString()}
+          </p>
+        </div>
+        <input
+          type="range"
+          min={selectedProduct.min_amount}
+          max={selectedProduct.max_amount}
+          step={100}
+          value={amount}
+          onChange={(e) => setAmount(Number(e.target.value))}
+          className="w-full accent-pink-500"
+        />
+        <div className="flex justify-between text-[10px] text-slate-600 font-bold">
+          <span>¥{selectedProduct.min_amount.toLocaleString()}</span>
+          <span>¥{selectedProduct.max_amount.toLocaleString()}</span>
+        </div>
+      </div>
+
+      {/* メッセージ（message タイプのみ） */}
+      {selectedProduct.type === "message" && (
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            placeholder="ニックネーム（任意）"
+            className="w-full h-12 bg-slate-800 border border-slate-700 rounded-2xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none"
+          />
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder={`${artistName} へのメッセージ（任意）`}
+            rows={2}
+            className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none resize-none"
+          />
+        </div>
+      )}
+
+      {/* PayPay 用メール入力 */}
+      {showEmailInput && (
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">
+          <p className="text-xs font-bold text-white">メールアドレスを入力してください</p>
+          <p className="text-[10px] text-slate-500">領収書・特典の送付に使用します</p>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="your@email.com"
+            autoFocus
+            className="w-full h-12 bg-slate-950 border border-slate-600 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none"
+          />
+          <button
+            type="button"
+            onClick={handlePayPayWithEmail}
+            disabled={!email}
+            className="w-full h-12 bg-[#E52E2E] text-white rounded-xl font-black text-sm disabled:opacity-50"
+          >
+            PayPay で支払う
+          </button>
+        </div>
+      )}
+
+      {/* 決済ボタン */}
+      {!showEmailInput && (
+        <div className="space-y-3">
+          {/* AP/GP ボタン */}
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => handleCheckout("card")}
+            className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.15em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60"
+          >
+            {isPending ? (
+              <Loader2 size={20} className="animate-spin" />
+            ) : (
+              <>
+                <Heart size={20} className="fill-current" />
+                ¥{amount.toLocaleString()} を応援する
+              </>
+            )}
+          </button>
+          <p className="text-center text-[10px] text-slate-600">Apple Pay / Google Pay / クレジットカード 対応</p>
+
+          {/* PayPay ボタン */}
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => handleCheckout("paypay")}
+            className="w-full h-14 bg-[#E52E2E] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:brightness-110 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            {isPending ? <Loader2 size={18} className="animate-spin" /> : "PayPay で支払う"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

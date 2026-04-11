@@ -42,7 +42,8 @@ export async function proxy(request: NextRequest) {
     normalizedPath.startsWith("/concept") ||
     normalizedPath.startsWith("/auth") ||
     normalizedPath.startsWith("/invite") ||
-    normalizedPath.startsWith("/onboarding");
+    normalizedPath.startsWith("/onboarding") ||
+    normalizedPath.startsWith("/c/"); // QR決済フロー（ロケールなし短縮URL）
 
   if (isPublicPath) {
     return intlMiddleware(request);

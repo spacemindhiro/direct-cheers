@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { Heart, Zap, Calendar, MapPin } from "lucide-react";
+import { Heart, Zap, Calendar, MapPin, ChevronRight } from "lucide-react";
+import Link from "next/link";
 
 export async function ArtistSalesDashboard({ profileId }: { profileId: string }) {
   const supabase = await createClient();
@@ -81,19 +82,29 @@ export async function ArtistSalesDashboard({ profileId }: { profileId: string })
           <div className="space-y-3">
             {events.map((ev: any) => {
               const config = LIFECYCLE_CONFIG[ev.lifecycle_status] ?? LIFECYCLE_CONFIG.ended;
+              const isActive = ["published", "ongoing", "ended"].includes(ev.lifecycle_status);
               return (
-                <div key={ev.event_id} className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-6 py-4 flex items-center justify-between gap-4">
+                <Link
+                  key={ev.event_id}
+                  href={`/dashboard/events/${ev.event_id}`}
+                  className={`block bg-slate-900 border border-slate-800 rounded-[1.5rem] px-6 py-4 flex items-center justify-between gap-4 transition-all ${
+                    isActive ? "hover:border-pink-500/40 group" : ""
+                  }`}
+                >
                   <div className="min-w-0 space-y-1">
-                    <p className="font-black text-white text-sm truncate">{ev.title}</p>
+                    <p className="font-black text-white text-sm truncate group-hover:text-pink-400 transition-colors">{ev.title}</p>
                     <div className="flex items-center gap-3 text-xs text-slate-500">
                       <span className="flex items-center gap-1"><MapPin size={11} />{ev.venue ?? "—"}</span>
                       <span>{new Date(ev.start_at).toLocaleDateString("ja-JP")}</span>
                     </div>
                   </div>
-                  <span className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${config.className}`}>
-                    {config.label}
-                  </span>
-                </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${config.className}`}>
+                      {config.label}
+                    </span>
+                    {isActive && <ChevronRight size={14} className="text-slate-600 group-hover:text-pink-400 transition-colors" />}
+                  </div>
+                </Link>
               );
             })}
           </div>

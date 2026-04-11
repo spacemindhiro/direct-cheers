@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Loader2, MapPin, Calendar, QrCode, CheckCircle, FileImage } from "lucide-react";
+import { Loader2, MapPin, Calendar, QrCode, CheckCircle, FileImage, BarChart2 } from "lucide-react";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
+import { LiveSalesBoard } from "@/components/live-sales-board";
 
 async function EventDetailContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -43,6 +44,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
   const isAgent = profile?.role === "agent" || profile?.role === "admin";
   const isOrganizer = profile?.role === "organizer" || profile?.role === "admin";
+  const isArtist = profile?.role === "artist";
   const canApprove = isAgent && event.lifecycle_status === "draft";
   const canCreateQR = event.lifecycle_status === "published" || event.lifecycle_status === "ongoing";
   const hasEnded = new Date(event.end_at) < new Date();
@@ -80,6 +82,18 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
               </span>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* リアルタイム着金予測ボード */}
+      {(isOrganizer || isAgent || isArtist) && (
+        <div className="space-y-3">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+            <BarChart2 size={14} className="text-pink-500" /> 着金予測
+          </p>
+          <Suspense fallback={<div className="h-48 bg-slate-900 border border-slate-800 rounded-[2rem] animate-pulse" />}>
+            <LiveSalesBoard eventId={eventId} />
+          </Suspense>
         </div>
       )}
 

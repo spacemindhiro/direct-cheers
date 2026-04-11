@@ -1,0 +1,166 @@
+{
+  "common": {
+    "appName": "Direct Cheers",
+    "tagline": "ライブの感動を、スマホのウォレットへ",
+    "save": "保存する",
+    "cancel": "キャンセル",
+    "back": "戻る",
+    "loading": "読み込み中...",
+    "error": "エラーが発生しました"
+  },
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "profile": "プロファイル",
+    "logout": "ログアウト"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "メールアドレスとパスワードでログイン",
+      "email": "Email",
+      "password": "Password",
+      "forgotPassword": "パスワードを忘れた方",
+      "submit": "ログイン",
+      "submitting": "ログイン中...",
+      "noAccount": "アカウントをお持ちでない方は",
+      "signUp": "新規登録",
+      "error": "メールアドレスまたはパスワードが正しくありません"
+    },
+    "signUp": {
+      "title": "Join Us",
+      "subtitle": "メールアドレスで無料登録",
+      "email": "Email",
+      "password": "Password",
+      "passwordPlaceholder": "8文字以上",
+      "confirmPassword": "Confirm Password",
+      "confirmPlaceholder": "パスワードを再入力",
+      "submit": "登録する",
+      "submitting": "登録中...",
+      "hasAccount": "すでにアカウントをお持ちの方は",
+      "login": "ログイン",
+      "terms": "利用規約",
+      "privacy": "プライバシーポリシー",
+      "agreement": "登録することで{terms}および{privacy}に同意したものとみなします",
+      "errorPasswordMismatch": "パスワードが一致しません",
+      "errorPasswordLength": "パスワードは8文字以上で設定してください"
+    },
+    "signUpSuccess": {
+      "title": "メールを送信しました",
+      "subtitle": "以下のアドレスに確認メールを送りました。",
+      "instruction": "メール内のリンクをクリックしてアカウントを有効化してください。",
+      "spam": "メールが届かない場合は迷惑メールフォルダをご確認ください。",
+      "resend": "確認メールを再送する",
+      "resending": "送信中...",
+      "resent": "再送しました",
+      "changeEmail": "メールアドレスを変更する",
+      "toLogin": "ログインページへ",
+      "resendError": "再送に失敗しました。しばらく待ってから再度お試しください。"
+    },
+    "forgotPassword": {
+      "title": "パスワードをお忘れですか？",
+      "subtitle": "登録済みのメールアドレスを入力してください",
+      "email": "Email",
+      "submit": "リセットメールを送る",
+      "submitting": "送信中...",
+      "successTitle": "メールを送信しました",
+      "successMessage": "以下のアドレスにパスワードリセットのメールを送りました。",
+      "spam": "メールが届かない場合は迷惑メールフォルダをご確認ください。",
+      "toLogin": "ログインページへ",
+      "rememberPassword": "パスワードを思い出した方は",
+      "error": "メールの送信に失敗しました。アドレスをご確認ください。"
+    },
+    "updatePassword": {
+      "title": "パスワードを再設定",
+      "subtitle": "新しいパスワードを入力してください",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "パスワードを更新する",
+      "submitting": "更新中...",
+      "errorMismatch": "パスワードが一致しません",
+      "errorLength": "パスワードは8文字以上で設定してください",
+      "error": "パスワードの更新に失敗しました。もう一度お試しください。"
+    }
+  },
+  "onboarding": {
+    "profile": {
+      "step": "Step 1 / 1",
+      "title": "Profile Setup",
+      "subtitle": "あなたの表示名を設定してください",
+      "displayName": "Display Name",
+      "displayNamePlaceholder": "あなたの名前またはニックネーム",
+      "socialLinks": "Social Links",
+      "socialLinksOptional": "（任意）",
+      "instagramPlaceholder": "Instagram URL",
+      "soundcloudPlaceholder": "SoundCloud URL",
+      "websitePlaceholder": "Website URL",
+      "submit": "ダッシュボードへ進む",
+      "errorRequired": "表示名を入力してください"
+    }
+  },
+  "dashboard": {
+    "greeting": "Hey, {name}",
+    "role": "ロール：",
+    "totalCheers": "Total Cheers",
+    "totalAmount": "Total Amount",
+    "walletCards": "Wallet Cards",
+    "cheersHistory": "Cheers History",
+    "noCheers": "No cheers yet.",
+    "noCheersDescription": "イベントでQRをスキャンして最初の応援を送ろう",
+    "roles": {
+      "user": "ファン",
+      "artist": "アーティスト",
+      "organizer": "オーガナイザー",
+      "agent": "エージェント",
+      "admin": "管理者"
+    },
+    "roleUpgrade": {
+      "title": "クリエイターとして参加する",
+      "description": "アーティスト・オーガナイザーへの申請"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "section": "Settings",
+    "basicInfo": "基本情報",
+    "displayName": "表示名",
+    "displayNamePlaceholder": "名前またはニックネーム",
+    "avatarUrl": "アバター URL",
+    "socialLinks": "SNS / リンク",
+    "stripeConnect": "売上受取口座",
+    "stripeConnected": "Stripe Connect 連携済み",
+    "stripeNotConnected": "未連携",
+    "stripeDescription": "売上を受け取るにはStripe Connectへの登録が必要です。登録はエージェントが対面で案内します。",
+    "homescreen": "ホーム画面に追加",
+    "homescreenDescription": "アプリのようにすぐ起動できます。Safariで開いている場合は以下の手順で追加できます。",
+    "homescreenStep1": "1. 画面下の共有ボタン（四角に矢印）をタップ",
+    "homescreenStep2": "2.「ホーム画面に追加」を選択して完了",
+    "saveSuccess": "プロファイルを更新しました",
+    "saveError": "保存に失敗しました",
+    "errorRequired": "表示名を入力してください",
+    "status": {
+      "pending": "{role}申請中",
+      "pendingDefault": "審査中",
+      "verified": "認証済み",
+      "pendingRoles": {
+        "artist": "DJ / アーティスト",
+        "organizer": "オーガナイザー"
+      }
+    }
+  },
+  "roleUpgrade": {
+    "title": "クリエイター申請",
+    "description": "ロールを選択して申請してください。審査後にエージェントからご連絡します。",
+    "selectRole": "申請するロール",
+    "artist": "アーティスト / DJ",
+    "artistDescription": "イベントに出演して応援を受け取る",
+    "organizer": "オーガナイザー",
+    "organizerDescription": "イベントを主催してQRを発行する",
+    "message": "活動内容・メッセージ",
+    "messageOptional": "（任意）",
+    "messagePlaceholder": "活動内容やSNSのURLなどを書いてください",
+    "submit": "申請する",
+    "submitting": "申請中...",
+    "success": "申請を受け付けました。審査完了後にご連絡します。",
+    "error": "申請に失敗しました。もう一度お試しください。"
+  }
+}

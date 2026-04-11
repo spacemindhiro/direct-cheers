@@ -41,7 +41,8 @@ export async function proxy(request: NextRequest) {
     normalizedPath.startsWith("/demo") ||
     normalizedPath.startsWith("/concept") ||
     normalizedPath.startsWith("/auth") ||
-    normalizedPath.startsWith("/invite");
+    normalizedPath.startsWith("/invite") ||
+    normalizedPath.startsWith("/onboarding");
 
   if (isPublicPath) {
     return intlMiddleware(request);

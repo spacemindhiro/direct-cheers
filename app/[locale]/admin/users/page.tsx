@@ -17,6 +17,10 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
     label: "Stripe未完了",
     className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
   },
+  pending_terms: {
+    label: "規約未同意",
+    className: "text-orange-400 bg-orange-500/10 border-orange-500/20",
+  },
   pending_interview: {
     label: "面談待ち",
     className: "text-violet-400 bg-violet-500/10 border-violet-500/20",
@@ -64,6 +68,12 @@ async function AdminUsersContent() {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // 規約同意済みユーザーのIDセット
+  const { data: agreements } = await admin
+    .from("terms_agreements")
+    .select("profile_id, agreed_at");
+  const agreedProfileIds = new Set((agreements ?? []).map((a) => a.profile_id));
+
   const pendingUsers = users ?? [];
   const approvedUsers = activeUsers ?? [];
 
@@ -94,16 +104,20 @@ async function AdminUsersContent() {
           <div className="space-y-3">
             {pendingUsers.map((u) => {
               const statusConfig = STATUS_CONFIG[u.status] ?? STATUS_CONFIG.pending_onboarding;
+              const hasAgreed = agreedProfileIds.has(u.profile_id);
               return (
                 <div
                   key={u.profile_id}
                   className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-6 py-5 flex items-center justify-between gap-4"
                 >
-                  <div className="min-w-0 space-y-1">
+                  <div className="min-w-0 space-y-1.5">
                     <p className="text-sm font-bold text-white">{u.display_name}</p>
                     <p className="text-xs text-slate-500">
                       {ROLE_LABELS[u.role] ?? u.role} ·{" "}
                       {new Date(u.created_at).toLocaleDateString("ja-JP")}
+                    </p>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${hasAgreed ? "text-emerald-400" : "text-slate-600"}`}>
+                      {hasAgreed ? "✓ 規約同意済み" : "規約未同意"}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">

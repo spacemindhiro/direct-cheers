@@ -27,11 +27,11 @@ export async function POST(req: Request) {
     case "account.updated": {
       const account = event.data.object as Stripe.Account;
 
-      // charges_enabled になったタイミングで pending_interview へ
+      // charges_enabled になったタイミングで pending_terms へ
       if (account.charges_enabled) {
         const { error } = await admin
           .from("profiles")
-          .update({ status: "pending_interview" })
+          .update({ status: "pending_terms" })
           .eq("stripe_connect_id", account.id)
           .eq("status", "pending_onboarding"); // 二重遷移防止
 

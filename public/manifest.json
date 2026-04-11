@@ -2,7 +2,7 @@
   "name": "Direct Cheers",
   "short_name": "Direct Cheers",
   "description": "ライブの感動を、スマホのウォレットへ",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#020617",

@@ -6,7 +6,8 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import {
   User, Music, Globe, Camera,
-  ArrowLeft, Loader2, Save, Mic2, CalendarDays, Shield, Smartphone, Share, Plus
+  ArrowLeft, Loader2, Save, Mic2, CalendarDays, Shield, Smartphone, Share, Plus,
+  ExternalLink, CheckCircle, Clock, AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -41,6 +42,7 @@ export default function ProfileEditPage() {
   const [website, setWebsite] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
+  const [isConnecting, setIsConnecting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -252,20 +254,86 @@ export default function ProfileEditPage() {
         {isCreator && (
           <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-4">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">売上受取口座</p>
-            {profile?.stripe_connect_id ? (
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                <p className="text-sm text-emerald-400 font-black">Stripe Connect 連携済み</p>
+
+            {/* 連携済み + プラットフォーム審査通過 */}
+            {profile?.stripe_connect_id && profile.verification_status === 'verified' && (
+              <div className="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                <CheckCircle size={16} className="text-emerald-400 shrink-0" />
+                <div>
+                  <p className="text-sm text-emerald-400 font-black">審査完了 — 受取可能</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Stripe Connect 連携済み</p>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-3">
+            )}
+
+            {/* Stripe審査通過 → プラットフォーム審査待ち */}
+            {profile?.stripe_connect_id && profile.verification_status === 'pending' && (
+              <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
+                <Clock size={16} className="text-amber-400 shrink-0" />
+                <div>
+                  <p className="text-sm text-amber-400 font-black">プラットフォーム審査中</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Stripe審査完了 — エージェントによる確認待ち</p>
+                </div>
+              </div>
+            )}
+
+            {/* Stripe Connect未連携 or 審査前 */}
+            {(!profile?.stripe_connect_id || profile.verification_status === 'unverified') && (
+              <div className="space-y-4">
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  売上を受け取るにはStripe Connectへの登録が必要です。
-                  登録はエージェントが対面で案内します。
+                  売上を受け取るには本人確認と口座登録が必要です。Stripeの審査を通過後、プラットフォームの審査に進みます。
                 </p>
-                <div className="flex items-center gap-2 px-4 py-3 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                  <p className="text-[11px] text-amber-400 font-bold">未連携</p>
+                <div className="space-y-2 text-xs text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[9px] font-black text-indigo-400">1</div>
+                    <span>Stripe本人確認・口座登録（このボタンから）</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-[9px] font-black text-slate-400">2</div>
+                    <span>Stripe審査（数分〜数日）</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-[9px] font-black text-slate-400">3</div>
+                    <span>エージェントによるプラットフォーム審査</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={isConnecting}
+                  onClick={async () => {
+                    setIsConnecting(true);
+                    try {
+                      const res = await fetch('/api/stripe/connect/onboarding', { method: 'POST' });
+                      const data = await res.json();
+                      if (data.url) {
+                        window.location.href = data.url;
+                      } else {
+                        toast.error(data.error ?? 'エラーが発生しました');
+                        setIsConnecting(false);
+                      }
+                    } catch {
+                      toast.error('通信エラーが発生しました');
+                      setIsConnecting(false);
+                    }
+                  }}
+                  className="w-full h-12 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:brightness-110 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isConnecting ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <><ExternalLink size={14} /> 口座登録・本人確認を始める</>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* 審査却下 */}
+            {profile?.verification_status === 'rejected' && (
+              <div className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                <AlertCircle size={16} className="text-red-400 shrink-0" />
+                <div>
+                  <p className="text-sm text-red-400 font-black">審査却下</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">エージェントにお問い合わせください</p>
                 </div>
               </div>
             )}

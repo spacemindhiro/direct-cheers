@@ -48,7 +48,8 @@ AS $$
                        AND now() + interval '11 days';
 $$;
 
--- get_pending_charge_reservations を更新: event_title / product_name を追加
+-- get_pending_charge_reservations を更新: event_title / product_name を追加（戻り値型変更のため DROP して再作成）
+DROP FUNCTION IF EXISTS public.get_pending_charge_reservations(integer);
 CREATE OR REPLACE FUNCTION public.get_pending_charge_reservations(p_days_before integer)
 RETURNS TABLE (
   reservation_id            uuid,

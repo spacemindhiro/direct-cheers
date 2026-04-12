@@ -172,13 +172,13 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         ) : (
           <div className="space-y-3">
             {qrConfigs.map((qr) => (
-              <div key={qr.qr_config_id} className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-6 py-4 flex items-center justify-between">
+              <Link key={qr.qr_config_id} href={`/dashboard/events/${eventId}/qr/${qr.qr_config_id}`} className="bg-slate-900 border border-slate-800 hover:border-slate-600 rounded-[1.5rem] px-6 py-4 flex items-center justify-between transition-colors">
                 <div>
                   <p className="font-bold text-white text-sm">{qr.label ?? "QRコード"}</p>
                   <p className="text-xs text-slate-500">{new Date(qr.created_at).toLocaleDateString("ja-JP")}</p>
                 </div>
                 <QrCode size={20} className="text-slate-500" />
-              </div>
+              </Link>
             ))}
           </div>
         )}

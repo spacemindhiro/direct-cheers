@@ -7,8 +7,6 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-// html5-qrcode はブラウザ専用 → 型だけ参照
-type Html5QrcodeScannerType = import("html5-qrcode").Html5QrcodeScanner;
 
 type CheckinResult = {
   ok?: boolean;
@@ -32,7 +30,8 @@ export default function CheckinPage() {
   const [processing, setProcessing] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [manualCode, setManualCode] = useState("");
-  const scannerRef = useRef<Html5QrcodeScannerType | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scannerRef = useRef<any>(null);
   const scannerDivId = "qr-scanner-container";
   const lastScannedRef = useRef<string>("");
   const scanCooldownRef = useRef(false);

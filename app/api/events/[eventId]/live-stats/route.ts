@@ -78,6 +78,10 @@ export async function GET(
       lifecycle_status: event.lifecycle_status,
       is_live: event.lifecycle_status === "ongoing",
       show_gross: isAdmin || isOrganizer || isAgent,
+      distributions: [],
+      stripe_rate: STRIPE_RATE,
+      platform_rate: PLATFORM_RATE,
+      net_rate: NET_RATE,
     });
   }
 

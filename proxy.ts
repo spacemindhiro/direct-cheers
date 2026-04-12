@@ -43,8 +43,12 @@ export async function proxy(request: NextRequest) {
     normalizedPath.startsWith("/auth") ||
     normalizedPath.startsWith("/invite") ||
     normalizedPath.startsWith("/onboarding") ||
-    normalizedPath.startsWith("/c/") || // QR決済フロー（ロケールなし短縮URL）
     path.startsWith("/account/"); // アカウント復旧・統合確認（ロケールなし）
+
+  // /c/ と /entrance/ は [locale] の外にあるルート — intl middleware を通さない
+  if (path.startsWith("/c/") || path.startsWith("/entrance/")) {
+    return NextResponse.next({ request });
+  }
 
   if (isPublicPath) {
     return intlMiddleware(request);

@@ -35,18 +35,44 @@ async function DashboardContent() {
 
   const follows = (followsData ?? []).map((f: any) => f.followee).filter(Boolean);
 
-  // Cheers履歴（userロール向け）
-  const { data: cheersHistory } = await admin
+  // Cheers履歴: sender_profile_id または sender_email でマッチ
+  const userEmail = user!.email!;
+
+  const { data: byProfile } = await admin
     .from('transactions')
     .select(`
-      transaction_id, total_gross_amount, created_at, sender_comment, sender_name,
+      transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
       product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
       qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
     `)
     .eq('sender_profile_id', user!.id)
     .eq('status', 'completed')
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(50);
+
+  const { data: byEmail } = await admin
+    .from('transactions')
+    .select(`
+      transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
+      product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+      qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
+    `)
+    .eq('sender_email', userEmail)
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  // 重複排除してマージ
+  const seen = new Set<string>();
+  let cheersHistory: any[] = [];
+  for (const tx of [...(byProfile ?? []), ...(byEmail ?? [])]) {
+    if (!seen.has(tx.transaction_id)) {
+      seen.add(tx.transaction_id);
+      cheersHistory.push(tx);
+    }
+  }
+  cheersHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  cheersHistory = cheersHistory.slice(0, 20);
 
   const totalCheersAmount = (cheersHistory ?? []).reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
 

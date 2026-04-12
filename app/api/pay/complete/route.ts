@@ -80,6 +80,7 @@ export async function POST(req: Request) {
       sender_name: meta.nickname || null,
       sender_comment: meta.comment || null,
       status: "completed",
+      sender_email: email ?? null,
       total_gross_amount: session.amount_total ?? 0,
       stripe_funds_status: "held_in_platform",
       amount_verified: amountVerified,

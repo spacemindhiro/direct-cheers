@@ -59,8 +59,8 @@ export async function POST() {
         await admin.from("notifications").insert({
           profile_id: notifyProfileId,
           type: "connect_review_request",
-          title: "Stripe審査完了 — プラットフォーム審査待ち",
-          body: `${fullProfile?.display_name ?? roleLabel} がStripe審査を通過しました。プラットフォーム審査を行ってください。`,
+          title: "Stripe審査完了 — 口座開設審査待ち",
+          body: `${fullProfile?.display_name ?? roleLabel} がStripe審査を通過しました。口座開設審査を行ってください。`,
           metadata: { subject_profile_id: user.id, subject_role: fullProfile?.role },
         });
       } catch { /* notifications テーブルがなければスキップ */ }

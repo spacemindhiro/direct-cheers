@@ -100,7 +100,7 @@ async function AdminUsersContent() {
       {/* Stripe Connect プラットフォーム審査 */}
       <div className="space-y-4">
         <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-          <CreditCard size={14} className="text-indigo-400" /> 口座審査待ち ({connectPending?.length ?? 0})
+          <CreditCard size={14} className="text-indigo-400" /> 口座開設審査待ち ({connectPending?.length ?? 0})
         </h2>
         <AdminConnectReview users={connectPending ?? []} />
       </div>

@@ -271,8 +271,8 @@ export default function ProfileEditPage() {
               <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
                 <Clock size={16} className="text-amber-400 shrink-0" />
                 <div>
-                  <p className="text-sm text-amber-400 font-black">プラットフォーム審査中</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Stripe審査完了 — エージェントによる確認待ち</p>
+                  <p className="text-sm text-amber-400 font-black">口座開設審査中</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Stripe審査完了 — プラットフォームオーナーによる口座開設審査待ち</p>
                 </div>
               </div>
             )}
@@ -294,7 +294,7 @@ export default function ProfileEditPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-[9px] font-black text-slate-400">3</div>
-                    <span>エージェントによるプラットフォーム審査</span>
+                    <span>プラットフォームオーナーによる口座開設審査</span>
                   </div>
                 </div>
                 <button

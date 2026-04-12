@@ -51,8 +51,8 @@ export async function POST(
       type: action === "approve" ? "connect_approved" : "connect_rejected",
       title: action === "approve" ? "口座審査が完了しました" : "口座審査が却下されました",
       body: action === "approve"
-        ? "プラットフォーム審査が完了しました。売上の受取が可能です。"
-        : "プラットフォーム審査が却下されました。詳細はエージェントにお問い合わせください。",
+        ? "口座開設審査が完了しました。売上の受取が可能です。"
+        : "口座開設審査が却下されました。詳細はプラットフォームオーナーにお問い合わせください。",
       metadata: { reviewer_id: user.id },
     });
   } catch { /* notifications テーブルがなければスキップ */ }

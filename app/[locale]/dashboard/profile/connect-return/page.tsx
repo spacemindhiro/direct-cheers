@@ -27,7 +27,7 @@ function ConnectReturnContent() {
       .then((data) => {
         if (data.stripe_status === "approved") {
           setStatus("approved");
-          setMessage("Stripe審査が完了しました。プラットフォーム審査をお待ちください。");
+          setMessage("Stripe審査が完了しました。プラットフォームオーナーによる口座開設審査をお待ちください。");
         } else {
           setStatus("pending");
           setMessage("Stripeへの情報送信が完了しました。審査完了までしばらくお待ちください。");

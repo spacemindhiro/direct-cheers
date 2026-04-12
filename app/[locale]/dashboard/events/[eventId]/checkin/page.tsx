@@ -1,11 +1,11 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { CheckCircle, XCircle, AlertCircle, QrCode, Loader2, ArrowLeft, Users } from "lucide-react";
 import Link from "next/link";
+
+export const dynamic = "force-dynamic";
 
 // html5-qrcode はブラウザ専用 → 型だけ参照
 type Html5QrcodeScannerType = import("html5-qrcode").Html5QrcodeScanner;

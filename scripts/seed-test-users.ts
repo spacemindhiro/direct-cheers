@@ -86,6 +86,24 @@ async function main() {
   for (const user of TEST_USERS) {
     await seedUser(user);
   }
+
+  // テストエージェントをテストオーガナイザーの responsible_agent_id にセット
+  const { data: allUsers } = await admin.auth.admin.listUsers();
+  const agentUser = allUsers?.users.find((u) => u.email === "spacemind.hiro+agent@gmail.com");
+  const organizerUser = allUsers?.users.find((u) => u.email === "spacemind.hiro+organizer@gmail.com");
+
+  if (agentUser && organizerUser) {
+    const { error } = await admin
+      .from("profiles")
+      .update({ responsible_agent_id: agentUser.id })
+      .eq("profile_id", organizerUser.id);
+    if (error) {
+      console.error("  ❌ responsible_agent_id のセット失敗:", error.message);
+    } else {
+      console.log(`\n  🔗 organizer の responsible_agent_id → agent (${agentUser.id.slice(0, 8)}...)`);
+    }
+  }
+
   console.log("\n✨ 完了");
   console.log("\n--- ログイン情報 ---");
   for (const u of TEST_USERS) {

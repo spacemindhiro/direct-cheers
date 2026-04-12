@@ -42,21 +42,15 @@ export async function POST() {
       .eq("profile_id", user.id)
       .single();
 
-    // 通知先の決定:
-    // - artist → 担当エージェント (responsible_agent_id)
-    // - organizer / agent → admin (オーナー)
-    let notifyProfileId: string | null = null;
-    if (fullProfile?.role === "artist" && fullProfile.responsible_agent_id) {
-      notifyProfileId = fullProfile.responsible_agent_id;
-    } else if (["organizer", "agent"].includes(fullProfile?.role ?? "")) {
-      const { data: admins } = await admin
-        .from("profiles")
-        .select("profile_id")
-        .eq("role", "admin")
-        .eq("status", "active")
-        .limit(1);
-      notifyProfileId = admins?.[0]?.profile_id ?? null;
-    }
+    // 通知先: ロールにかかわらず常に admin（オーナー）のみ
+    // 口座付与の最終権限はオーナーが持つ
+    const { data: admins } = await admin
+      .from("profiles")
+      .select("profile_id")
+      .eq("role", "admin")
+      .eq("status", "active")
+      .limit(1);
+    const notifyProfileId: string | null = admins?.[0]?.profile_id ?? null;
 
     if (notifyProfileId) {
       const roleLabel = fullProfile?.role === "agent" ? "エージェント" :

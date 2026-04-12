@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { Calendar, MapPin, CheckCircle, XCircle, Clock } from "lucide-react";
-import QRCode from "qrcode";
 
 type DigitalTicketProps = {
   ticketId: string;
@@ -35,14 +34,17 @@ export function DigitalTicket({
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    QRCode.toCanvas(canvasRef.current, ticketCode, {
-      width: 180,
-      margin: 1,
-      color: {
-        dark: "#ffffff",
-        light: "#0f172a",
-      },
-    }).catch(console.error);
+    // ブラウザ専用ライブラリを動的ロード
+    import("qrcode").then(({ default: QRCode }) => {
+      QRCode.toCanvas(canvasRef.current!, ticketCode, {
+        width: 180,
+        margin: 1,
+        color: {
+          dark: "#ffffff",
+          light: "#0f172a",
+        },
+      }).catch(console.error);
+    });
   }, [ticketCode]);
 
   const statusConfig = {

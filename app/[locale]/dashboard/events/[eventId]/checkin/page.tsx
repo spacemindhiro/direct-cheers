@@ -3,10 +3,12 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Html5QrcodeScanner, Html5QrcodeScanType } from "html5-qrcode";
+import { useParams } from "next/navigation";
 import { CheckCircle, XCircle, AlertCircle, QrCode, Loader2, ArrowLeft, Users } from "lucide-react";
 import Link from "next/link";
+
+// html5-qrcode はブラウザ専用 → 型だけ参照
+type Html5QrcodeScannerType = import("html5-qrcode").Html5QrcodeScanner;
 
 type CheckinResult = {
   ok?: boolean;
@@ -30,7 +32,7 @@ export default function CheckinPage() {
   const [processing, setProcessing] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [manualCode, setManualCode] = useState("");
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<Html5QrcodeScannerType | null>(null);
   const scannerDivId = "qr-scanner-container";
   const lastScannedRef = useRef<string>("");
   const scanCooldownRef = useRef(false);
@@ -72,9 +74,11 @@ export default function CheckinPage() {
     }
   }, [processing]);
 
-  const startScanner = useCallback(() => {
+  const startScanner = useCallback(async () => {
     if (scannerRef.current) return;
     setScanning(true);
+    // ブラウザ専用ライブラリを動的ロード
+    const { Html5QrcodeScanner, Html5QrcodeScanType } = await import("html5-qrcode");
     const scanner = new Html5QrcodeScanner(
       scannerDivId,
       {

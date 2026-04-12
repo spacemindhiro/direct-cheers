@@ -26,7 +26,6 @@ export async function POST(req: Request) {
     product_type,
     min_amount,
     max_amount,
-    artist_id,
     targets, // [{ profile_id, distribution_ratio }]
     is_personal = false,
     payment_type = "A",
@@ -38,7 +37,6 @@ export async function POST(req: Request) {
     product_type: string;
     min_amount: number;
     max_amount: number;
-    artist_id: string;
     targets: { profile_id: string; distribution_ratio: number }[];
     is_personal?: boolean;
     payment_type?: "A" | "B" | "C";
@@ -81,10 +79,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Distribution ratios must sum to 1.0" }, { status: 400 });
   }
 
-  // product 作成
+  // product 作成（artist_id は配分先が複数の場合もあるため null 許容）
   const productInsert: Record<string, unknown> = {
     event_id,
-    artist_id,
+    artist_id: targets.length === 1 ? targets[0].profile_id : null,
     name: label ?? `${range.label} チア`,
     type: product_type,
     min_amount,

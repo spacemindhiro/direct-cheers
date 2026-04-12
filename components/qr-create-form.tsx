@@ -21,27 +21,26 @@ const PRODUCT_TYPE_RANGES = {
 const PLATFORM_FEE = 0.136; // stripe 3.6% + platform 10%
 const DISTRIBUTABLE = 1 - PLATFORM_FEE; // 0.864
 
-type Artist = { profile_id: string; display_name: string };
-type Target = { profile_id: string; ratio: string };
+type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist" };
+type DistTarget = { profile_id: string; ratio: string };
 
 export function QRCreateForm({
   eventId,
-  artists,
+  targets: targetCandidates,
 }: {
   eventId: string;
-  artists: Artist[];
+  targets: TargetCandidate[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const [productType, setProductType] = useState<keyof typeof PRODUCT_TYPE_RANGES>("standard");
-  const [artistId, setArtistId] = useState(artists[0]?.profile_id ?? "");
   const [minAmount, setMinAmount] = useState(PRODUCT_TYPE_RANGES.standard.min);
   const [maxAmount, setMaxAmount] = useState(PRODUCT_TYPE_RANGES.standard.max);
   const [label, setLabel] = useState("");
-  const [targets, setTargets] = useState<Target[]>(
-    artists[0] ? [{ profile_id: artists[0].profile_id, ratio: "100" }] : [],
+  const [targets, setTargets] = useState<DistTarget[]>(
+    targetCandidates[0] ? [{ profile_id: targetCandidates[0].profile_id, ratio: "100" }] : [],
   );
   // entrance タイプ用
   const [paymentType, setPaymentType] = useState<"A" | "B" | "C">("A");
@@ -60,10 +59,10 @@ export function QRCreateForm({
   const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
 
   const addTarget = () =>
-    setTargets((prev) => [...prev, { profile_id: artists[0]?.profile_id ?? "", ratio: "0" }]);
+    setTargets((prev) => [...prev, { profile_id: targetCandidates[0]?.profile_id ?? "", ratio: "0" }]);
   const removeTarget = (i: number) =>
     setTargets((prev) => prev.filter((_, idx) => idx !== i));
-  const updateTarget = (i: number, field: keyof Target, value: string) =>
+  const updateTarget = (i: number, field: keyof DistTarget, value: string) =>
     setTargets((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -83,7 +82,6 @@ export function QRCreateForm({
           product_type: productType,
           min_amount: minAmount,
           max_amount: maxAmount,
-          artist_id: artistId,
           targets: targets.map((t) => ({
             profile_id: t.profile_id,
             distribution_ratio: (parseFloat(t.ratio) || 0) / 100,
@@ -245,31 +243,6 @@ export function QRCreateForm({
           </div>
         </div>
 
-        {/* 対象アーティスト */}
-        {artists.length > 1 && (
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-              対象アーティスト
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {artists.map((a) => (
-                <button
-                  key={a.profile_id}
-                  type="button"
-                  onClick={() => setArtistId(a.profile_id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                    artistId === a.profile_id
-                      ? "bg-pink-500 text-white"
-                      : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700"
-                  }`}
-                >
-                  {a.display_name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* 配分設定 */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -293,9 +266,9 @@ export function QRCreateForm({
                   onChange={(e) => updateTarget(i, "profile_id", e.target.value)}
                   className="flex-1 h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
                 >
-                  {artists.map((a) => (
-                    <option key={a.profile_id} value={a.profile_id}>
-                      {a.display_name}
+                  {targetCandidates.map((c) => (
+                    <option key={c.profile_id} value={c.profile_id}>
+                      {c.display_name}{c.role === "organizer" ? "（主催者）" : ""}
                     </option>
                   ))}
                 </select>

@@ -15,7 +15,12 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
 
   const { data: event } = await supabase
     .from("events")
-    .select("event_id, title, lifecycle_status, event_artists(artist_profile_id, artist:profiles!artist_profile_id(display_name))")
+    .select(`
+      event_id, title, lifecycle_status,
+      organizer_profile_id,
+      organizer:profiles!organizer_profile_id(display_name),
+      event_artists(artist_profile_id, artist:profiles!artist_profile_id(display_name))
+    `)
     .eq("event_id", eventId)
     .single();
 
@@ -24,10 +29,19 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
     redirect(`/dashboard/events/${eventId}`);
   }
 
-  const artists = (event.event_artists ?? []).map((ea: any) => ({
-    profile_id: ea.artist_profile_id,
-    display_name: ea.artist?.display_name ?? "Unknown",
-  }));
+  // 配分対象候補: オーガナイザー自身 + 出演アーティスト
+  const targets = [
+    {
+      profile_id: event.organizer_profile_id,
+      display_name: (event.organizer as any)?.display_name ?? "オーガナイザー",
+      role: "organizer" as const,
+    },
+    ...(event.event_artists ?? []).map((ea: any) => ({
+      profile_id: ea.artist_profile_id,
+      display_name: ea.artist?.display_name ?? "Unknown",
+      role: "artist" as const,
+    })),
+  ];
 
   return (
     <div className="space-y-8">
@@ -36,7 +50,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">QR を作成</h1>
         <p className="text-slate-500 text-sm">{event.title}</p>
       </div>
-      <QRCreateForm eventId={eventId} artists={artists} />
+      <QRCreateForm eventId={eventId} targets={targets} />
     </div>
   );
 }

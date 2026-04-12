@@ -19,8 +19,9 @@ async function DashboardContent() {
     .eq('profile_id', user!.id)
     .single();
 
-  // フォロー中一覧
   const admin = createAdminClient();
+
+  // フォロー中一覧
   const { data: followsData } = await admin
     .from('follows')
     .select(`
@@ -33,6 +34,48 @@ async function DashboardContent() {
     .limit(20);
 
   const follows = (followsData ?? []).map((f: any) => f.followee).filter(Boolean);
+
+  // Cheers履歴（userロール向け）
+  const { data: cheersHistory } = await admin
+    .from('transactions')
+    .select(`
+      transaction_id, total_gross_amount, created_at, sender_comment, sender_name,
+      product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+      qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
+    `)
+    .eq('sender_profile_id', user!.id)
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  const totalCheersAmount = (cheersHistory ?? []).reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+
+  // オーガナイザー / アーティスト向け: 自分が関わるイベントの累計着金予測
+  let projectedNet = 0;
+  if (['organizer', 'artist', 'agent'].includes(profile?.role ?? '')) {
+    const NET_RATE = 0.864;
+    const { data: myDists } = await admin
+      .from('qr_config_targets')
+      .select('distribution_ratio, qr_config_id')
+      .eq('profile_id', user!.id)
+      .is('deleted_at', null);
+
+    if (myDists && myDists.length > 0) {
+      const qrIds = myDists.map((d) => d.qr_config_id);
+      const { data: txs } = await admin
+        .from('transactions')
+        .select('total_gross_amount, qr_config_id')
+        .in('qr_config_id', qrIds)
+        .eq('status', 'completed');
+
+      for (const tx of txs ?? []) {
+        const ratio = myDists
+          .filter((d) => d.qr_config_id === tx.qr_config_id)
+          .reduce((s, d) => s + Number(d.distribution_ratio ?? 0), 0);
+        projectedNet += Math.floor((tx.total_gross_amount ?? 0) * NET_RATE * ratio);
+      }
+    }
+  }
 
   const roleLabelMap: Record<string, string> = {
     user: 'ファン',
@@ -71,7 +114,7 @@ async function DashboardContent() {
           </div>
           <div>
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Cheers</p>
-            <p className="text-3xl font-black text-white italic tracking-tighter">0</p>
+            <p className="text-3xl font-black text-white italic tracking-tighter">{cheersHistory?.length ?? 0}</p>
           </div>
         </div>
 
@@ -80,8 +123,14 @@ async function DashboardContent() {
             <Zap size={20} className="text-indigo-400" />
           </div>
           <div>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Amount</p>
-            <p className="text-3xl font-black text-white italic tracking-tighter">¥0</p>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
+              {['organizer', 'artist', 'agent'].includes(profile?.role ?? '') ? 'Projected Net' : 'Total Amount'}
+            </p>
+            <p className="text-3xl font-black text-white italic tracking-tighter">
+              {['organizer', 'artist', 'agent'].includes(profile?.role ?? '')
+                ? `¥${projectedNet.toLocaleString('ja-JP')}`
+                : `¥${totalCheersAmount.toLocaleString('ja-JP')}`}
+            </p>
           </div>
         </div>
 
@@ -91,20 +140,44 @@ async function DashboardContent() {
           </div>
           <div>
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Wallet Cards</p>
-            <p className="text-3xl font-black text-white italic tracking-tighter">0</p>
+            <p className="text-3xl font-black text-white italic tracking-tighter">{cheersHistory?.length ?? 0}</p>
           </div>
         </div>
       </div>
 
-      {/* 応援履歴（空） */}
+      {/* Cheers履歴 */}
       <div className="space-y-4">
         <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
           <Heart size={14} className="text-pink-500" /> Cheers History
         </h2>
-        <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 text-center space-y-3">
-          <p className="text-slate-600 text-sm font-bold italic uppercase tracking-wider">No cheers yet.</p>
-          <p className="text-slate-700 text-xs">イベントでQRをスキャンして最初の応援を送ろう</p>
-        </div>
+        {!cheersHistory || cheersHistory.length === 0 ? (
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 text-center space-y-3">
+            <p className="text-slate-600 text-sm font-bold italic uppercase tracking-wider">No cheers yet.</p>
+            <p className="text-slate-700 text-xs">イベントでQRをスキャンして最初の応援を送ろう</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {cheersHistory.map((tx: any) => (
+              <div key={tx.transaction_id} className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white truncate">
+                    {tx.qr_config?.event?.title ?? tx.product?.name ?? '—'}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {tx.product?.artist?.display_name && <span className="mr-2">{tx.product.artist.display_name}</span>}
+                    {new Date(tx.created_at).toLocaleDateString('ja-JP')}
+                  </p>
+                  {tx.sender_comment && (
+                    <p className="text-xs text-slate-400 mt-1 italic">"{tx.sender_comment}"</p>
+                  )}
+                </div>
+                <p className="text-lg font-black text-pink-400 shrink-0 tabular-nums">
+                  ¥{(tx.total_gross_amount ?? 0).toLocaleString('ja-JP')}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* フォロー中 */}

@@ -36,21 +36,38 @@ export async function POST() {
       .update({ verification_status: "pending" })
       .eq("profile_id", user.id);
 
-    // 担当エージェントに通知（responsible_agent_id がある場合）
     const { data: fullProfile } = await admin
       .from("profiles")
-      .select("responsible_agent_id, display_name")
+      .select("role, responsible_agent_id, display_name")
       .eq("profile_id", user.id)
       .single();
 
-    if (fullProfile?.responsible_agent_id) {
+    // 通知先の決定:
+    // - artist → 担当エージェント (responsible_agent_id)
+    // - organizer / agent → admin (オーナー)
+    let notifyProfileId: string | null = null;
+    if (fullProfile?.role === "artist" && fullProfile.responsible_agent_id) {
+      notifyProfileId = fullProfile.responsible_agent_id;
+    } else if (["organizer", "agent"].includes(fullProfile?.role ?? "")) {
+      const { data: admins } = await admin
+        .from("profiles")
+        .select("profile_id")
+        .eq("role", "admin")
+        .eq("status", "active")
+        .limit(1);
+      notifyProfileId = admins?.[0]?.profile_id ?? null;
+    }
+
+    if (notifyProfileId) {
+      const roleLabel = fullProfile?.role === "agent" ? "エージェント" :
+                        fullProfile?.role === "organizer" ? "オーガナイザー" : "アーティスト";
       try {
         await admin.from("notifications").insert({
-          profile_id: fullProfile.responsible_agent_id,
+          profile_id: notifyProfileId,
           type: "connect_review_request",
           title: "Stripe審査完了 — プラットフォーム審査待ち",
-          body: `${fullProfile.display_name ?? "アーティスト"} がStripe審査を通過しました。プラットフォーム審査を行ってください。`,
-          metadata: { subject_profile_id: user.id },
+          body: `${fullProfile?.display_name ?? roleLabel} がStripe審査を通過しました。プラットフォーム審査を行ってください。`,
+          metadata: { subject_profile_id: user.id, subject_role: fullProfile?.role },
         });
       } catch { /* notifications テーブルがなければスキップ */ }
     }

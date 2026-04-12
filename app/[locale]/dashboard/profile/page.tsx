@@ -111,7 +111,7 @@ export default function ProfileEditPage() {
   }
 
   const role = profile?.role ?? 'user';
-  const isCreator = role === 'artist' || role === 'organizer';
+  const isCreator = role === 'artist' || role === 'organizer' || role === 'agent';
 
   return (
     <div className="max-w-lg mx-auto space-y-8 pb-20">

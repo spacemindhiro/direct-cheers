@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminApproveButton } from "@/components/admin-approve-button";
-import { Loader2, Users } from "lucide-react";
+import { AdminConnectReview } from "@/components/admin-connect-review";
+import { Loader2, Users, CreditCard } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   agent: "エージェント",
@@ -74,6 +75,14 @@ async function AdminUsersContent() {
     .select("profile_id, agreed_at");
   const agreedProfileIds = new Set((agreements ?? []).map((a) => a.profile_id));
 
+  // Stripe Connect審査待ち（verification_status=pending）
+  const { data: connectPending } = await admin
+    .from("profiles")
+    .select("profile_id, display_name, role, stripe_connect_id, created_at")
+    .in("role", ["artist", "organizer", "agent"])
+    .eq("verification_status", "pending")
+    .order("created_at", { ascending: false });
+
   const pendingUsers = users ?? [];
   const approvedUsers = activeUsers ?? [];
 
@@ -86,6 +95,14 @@ async function AdminUsersContent() {
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
           User Management
         </h1>
+      </div>
+
+      {/* Stripe Connect プラットフォーム審査 */}
+      <div className="space-y-4">
+        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+          <CreditCard size={14} className="text-indigo-400" /> 口座審査待ち ({connectPending?.length ?? 0})
+        </h2>
+        <AdminConnectReview users={connectPending ?? []} />
       </div>
 
       {/* 審査待ちユーザー */}

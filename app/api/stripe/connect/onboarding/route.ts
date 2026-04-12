@@ -17,8 +17,8 @@ export async function POST() {
     .eq("profile_id", user.id)
     .single();
 
-  if (!profile || !["artist", "organizer"].includes(profile.role)) {
-    return NextResponse.json({ error: "Artist or organizer only" }, { status: 403 });
+  if (!profile || !["artist", "organizer", "agent"].includes(profile.role)) {
+    return NextResponse.json({ error: "Artist, organizer or agent only" }, { status: 403 });
   }
 
   const admin = createAdminClient();

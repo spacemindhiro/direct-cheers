@@ -43,7 +43,13 @@ export async function POST(req: Request) {
 
   if (existing) {
     const product = await getProductInfo(admin, existing.product_id);
-    return buildResponse(email, existing, product);
+    // event_id を qr_config から取得
+    let existingEventId: string | null = null;
+    if (existing.qr_config_id) {
+      const { data: qrc } = await admin.from("qr_configs").select("event_id").eq("qr_config_id", existing.qr_config_id).single();
+      existingEventId = qrc?.event_id ?? null;
+    }
+    return buildResponse(email, existing, product, existingEventId);
   }
 
   // provisional_users に email を upsert
@@ -126,6 +132,13 @@ export async function POST(req: Request) {
 
   const product = await getProductInfo(admin, productId);
 
+  // event_id を取得（シリアル採番で既に取得済みなので再利用）
+  let newEventId: string | null = null;
+  if (qrConfigId) {
+    const { data: qrc } = await admin.from("qr_configs").select("event_id").eq("qr_config_id", qrConfigId).single();
+    newEventId = qrc?.event_id ?? null;
+  }
+
   const response = buildResponse(
     email,
     {
@@ -135,7 +148,8 @@ export async function POST(req: Request) {
       sequence_number_in_event: serialNumber,
       qr_config_id: qrConfigId,
     },
-    product
+    product,
+    newEventId
   );
 
   if (email) {
@@ -159,13 +173,15 @@ function buildResponse(
     sequence_number_in_event: number | null;
     qr_config_id?: string | null;
   },
-  product: Record<string, unknown>
+  product: Record<string, unknown>,
+  eventId: string | null = null
 ): NextResponse {
   return NextResponse.json({
     transaction_id: tx.transaction_id,
     email,
     amount: tx.total_gross_amount,
     serial_number: tx.sequence_number_in_event,
+    event_id: eventId,
     ...product,
   });
 }

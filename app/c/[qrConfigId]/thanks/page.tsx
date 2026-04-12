@@ -17,11 +17,18 @@ type PaymentResult = {
   amount: number;
   artist_name: string | null;
   artist_id: string | null;
+  event_id: string | null;
   event_title: string | null;
   artist_avatar: string | null;
   product_name: string | null;
   stripe_customer_id: string | null;
   serial_number: number | null;
+};
+
+type ThanksData = {
+  thanks_message: string | null;
+  thanks_link_url: string | null;
+  thanks_media_url: string | null;
 };
 
 function emailFromCookie(): string {
@@ -39,8 +46,8 @@ function ThanksContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [passkeyDone, setPasskeyDone] = useState(false);
-  // 既存アカウントの場合は「追加登録」モード
   const [hasExistingPasskey, setHasExistingPasskey] = useState(false);
+  const [thanks, setThanks] = useState<ThanksData | null>(null);
 
   useEffect(() => {
     if (!sessionId) {
@@ -61,6 +68,23 @@ function ThanksContent() {
           return;
         }
         setResult(data);
+
+        // サンクス特典を取得（event_id が取れた場合）
+        if (data.event_id && data.transaction_id) {
+          try {
+            const thanksRes = await fetch(
+              `/api/events/${data.event_id}/thanks?transaction_id=${data.transaction_id}`
+            );
+            if (thanksRes.ok) {
+              const thanksData = await thanksRes.json();
+              if (thanksData.unlocked && thanksData.thanks) {
+                setThanks(thanksData.thanks);
+              }
+            }
+          } catch {
+            // サンクス取得失敗は無視
+          }
+        }
 
         const email = data.email ?? emailFromCookie();
         if (!email) return;
@@ -177,6 +201,7 @@ function ThanksContent() {
           amount={result.amount}
           transactionId={result.transaction_id}
           serialNumber={result.serial_number}
+          thanks={thanks}
         />
 
         {/* ウォレット登録セクション */}

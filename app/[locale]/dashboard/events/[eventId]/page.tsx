@@ -5,6 +5,7 @@ import { Loader2, MapPin, Calendar, QrCode, CheckCircle, FileImage, BarChart2 } 
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
 import { LiveSalesBoard } from "@/components/live-sales-board";
+import { EventThanksEditor } from "@/components/event-thanks-editor";
 
 async function EventDetailContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -45,6 +46,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const isAgent = profile?.role === "agent" || profile?.role === "admin";
   const isOrganizer = profile?.role === "organizer" || profile?.role === "admin";
   const isArtist = profile?.role === "artist";
+  const canManageThanks = isOrganizer || isArtist;
   const canApprove = isAgent && event.lifecycle_status === "draft";
   const canCreateQR = event.lifecycle_status === "published" || event.lifecycle_status === "ongoing";
   const hasEnded = new Date(event.end_at) < new Date();
@@ -114,6 +116,16 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             <p className="font-black text-amber-400 text-sm">エビデンスを提出する</p>
           </div>
         </Link>
+      )}
+
+      {/* サンクス特典エディタ */}
+      {canManageThanks && (
+        <div className="space-y-3">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+            <span className="text-pink-500">✦</span> Thanks Gift
+          </p>
+          <EventThanksEditor eventId={eventId} />
+        </div>
       )}
 
       {/* QR一覧 */}

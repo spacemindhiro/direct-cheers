@@ -3,7 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Loader2, Plus, Trash2, Info } from "lucide-react";
+
+const PAYMENT_TYPE_INFO = {
+  A: { label: "Aタイプ：5日前確定", desc: "予約→カード保存、5日前に自動決済" },
+  B: { label: "Bタイプ：即時確定",  desc: "予約時に即時決済" },
+  C: { label: "Cタイプ：当日決済",  desc: "予約→カード保存、チェックイン時に決済" },
+};
 
 const PRODUCT_TYPE_RANGES = {
   standard: { min: 500,  max: 5_000,   label: "スタンダード",   desc: "¥500〜¥5,000" },
@@ -37,6 +43,10 @@ export function QRCreateForm({
   const [targets, setTargets] = useState<Target[]>(
     artists[0] ? [{ profile_id: artists[0].profile_id, ratio: "100" }] : [],
   );
+  // entrance タイプ用
+  const [paymentType, setPaymentType] = useState<"A" | "B" | "C">("A");
+  const [stockLimit, setStockLimit] = useState<string>("");
+  const [trackInventoryC, setTrackInventoryC] = useState(false);
 
   const range = PRODUCT_TYPE_RANGES[productType];
 
@@ -78,6 +88,12 @@ export function QRCreateForm({
             profile_id: t.profile_id,
             distribution_ratio: (parseFloat(t.ratio) || 0) / 100,
           })),
+          // entrance タイプ追加フィールド
+          ...(productType === "entrance" && {
+            payment_type: paymentType,
+            stock_limit: stockLimit ? Number(stockLimit) : null,
+            track_inventory: paymentType === "C" ? trackInventoryC : true,
+          }),
         }),
       });
       const data = await res.json();
@@ -129,6 +145,75 @@ export function QRCreateForm({
             ))}
           </div>
         </div>
+
+        {/* entrance タイプ：決済タイプ・在庫 */}
+        {productType === "entrance" && (
+          <div className="space-y-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4">
+            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+              <Info size={10} /> 入場チケット設定
+            </p>
+
+            {/* 決済タイプ */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                決済タイプ
+              </label>
+              <div className="space-y-2">
+                {(Object.entries(PAYMENT_TYPE_INFO) as [keyof typeof PAYMENT_TYPE_INFO, typeof PAYMENT_TYPE_INFO[keyof typeof PAYMENT_TYPE_INFO]][]).map(([type, info]) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setPaymentType(type)}
+                    className={`w-full p-3 rounded-xl text-left transition-all border ${
+                      paymentType === type
+                        ? "bg-indigo-500/20 border-indigo-500/50 text-white"
+                        : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                    }`}
+                  >
+                    <p className="text-xs font-black">{info.label}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{info.desc}</p>
+                  </button>
+                ))}
+              </div>
+              {paymentType === "B" && (
+                <p className="text-[10px] text-amber-400 font-bold flex items-start gap-1.5">
+                  <Info size={10} className="shrink-0 mt-0.5" />
+                  中止時の返金手数料リスクをオーガナイザーが負担します
+                </p>
+              )}
+            </div>
+
+            {/* 販売上限数 */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                販売上限数（空欄 = 無制限）
+              </label>
+              <Input
+                type="number"
+                value={stockLimit}
+                onChange={(e) => setStockLimit(e.target.value)}
+                placeholder="例: 100"
+                min={1}
+                className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+
+            {/* Cタイプのみ: 在庫管理するか */}
+            {paymentType === "C" && (
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={trackInventoryC}
+                  onChange={(e) => setTrackInventoryC(e.target.checked)}
+                  className="w-4 h-4 rounded accent-indigo-500"
+                />
+                <span className="text-xs text-slate-300 font-bold">
+                  Cタイプでも在庫管理する
+                </span>
+              </label>
+            )}
+          </div>
+        )}
 
         {/* 金額範囲 */}
         <div className="grid grid-cols-2 gap-4">

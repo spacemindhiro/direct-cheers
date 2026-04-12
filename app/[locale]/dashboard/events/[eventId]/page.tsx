@@ -6,6 +6,7 @@ import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
 import { LiveSalesBoard } from "@/components/live-sales-board";
 import { EventThanksEditor } from "@/components/event-thanks-editor";
+import { ScanLine } from "lucide-react";
 
 async function EventDetailContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -97,6 +98,22 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             <LiveSalesBoard eventId={eventId} />
           </Suspense>
         </div>
+      )}
+
+      {/* 入場チェックインスキャナ */}
+      {isOrganizer && (event.lifecycle_status === "ongoing" || event.lifecycle_status === "published") && (
+        <Link
+          href={`/dashboard/events/${eventId}/checkin`}
+          className="flex items-center gap-4 bg-indigo-500/10 border border-indigo-500/20 hover:border-indigo-500/40 rounded-[1.5rem] p-5 transition-all group"
+        >
+          <div className="w-10 h-10 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all shrink-0">
+            <ScanLine size={18} className="text-indigo-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Check-in</p>
+            <p className="font-black text-indigo-400 text-sm">入場スキャナを起動</p>
+          </div>
+        </Link>
       )}
 
       {/* エージェント承認ボタン */}

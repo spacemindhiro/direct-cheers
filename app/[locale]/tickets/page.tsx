@@ -1,0 +1,81 @@
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { Loader2, Ticket } from "lucide-react";
+import { DigitalTicket } from "@/components/digital-ticket";
+
+async function TicketsContent() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
+
+  const admin = createAdminClient();
+  const { data: tickets } = await admin
+    .from("tickets")
+    .select(`
+      ticket_id, ticket_code, status, checked_in_at, email, created_at,
+      product:products(name, payment_type, min_amount),
+      event:events(event_id, title, venue, start_at)
+    `)
+    .eq("holder_profile_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  const list = tickets ?? [];
+
+  return (
+    <div className="space-y-8 pb-20">
+      <div className="space-y-1">
+        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.4em]">Wallet</p>
+        <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
+          My Tickets
+        </h1>
+        <p className="text-sm text-slate-500">購入済みチケット一覧</p>
+      </div>
+
+      {list.length === 0 ? (
+        <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-12 text-center space-y-3">
+          <div className="w-12 h-12 mx-auto bg-slate-800 rounded-2xl flex items-center justify-center">
+            <Ticket size={20} className="text-slate-600" />
+          </div>
+          <p className="text-slate-600 text-sm font-bold italic uppercase tracking-wider">
+            No tickets yet.
+          </p>
+          <p className="text-slate-700 text-xs">入場チケットを購入するとここに表示されます</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {list.map((t: any) => (
+            <DigitalTicket
+              key={t.ticket_id}
+              ticketId={t.ticket_id}
+              ticketCode={t.ticket_code}
+              eventTitle={t.event?.title ?? ""}
+              productName={t.product?.name ?? ""}
+              eventVenue={t.event?.venue ?? null}
+              startAt={t.event?.start_at ?? null}
+              holderEmail={t.email}
+              status={t.status}
+              checkedInAt={t.checked_in_at ?? null}
+              paymentType={t.product?.payment_type ?? "B"}
+              amount={t.product?.min_amount ?? 0}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function TicketsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={28} className="text-indigo-400 animate-spin" />
+      </div>
+    }>
+      <TicketsContent />
+    </Suspense>
+  );
+}

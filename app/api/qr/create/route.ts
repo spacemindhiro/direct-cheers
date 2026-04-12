@@ -29,6 +29,9 @@ export async function POST(req: Request) {
     artist_id,
     targets, // [{ profile_id, distribution_ratio }]
     is_personal = false,
+    payment_type = "A",
+    stock_limit = null,
+    track_inventory = true,
   } = body as {
     event_id: string;
     label?: string;
@@ -38,6 +41,9 @@ export async function POST(req: Request) {
     artist_id: string;
     targets: { profile_id: string; distribution_ratio: number }[];
     is_personal?: boolean;
+    payment_type?: "A" | "B" | "C";
+    stock_limit?: number | null;
+    track_inventory?: boolean;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -76,16 +82,23 @@ export async function POST(req: Request) {
   }
 
   // product 作成
+  const productInsert: Record<string, unknown> = {
+    event_id,
+    artist_id,
+    name: label ?? `${range.label} チア`,
+    type: product_type,
+    min_amount,
+    max_amount,
+  };
+  if (product_type === "entrance") {
+    productInsert.payment_type = payment_type;
+    productInsert.stock_limit = stock_limit ?? null;
+    productInsert.track_inventory = track_inventory;
+  }
+
   const { data: product, error: productError } = await supabase
     .from("products")
-    .insert({
-      event_id,
-      artist_id,
-      name: label ?? `${range.label} チア`,
-      type: product_type,
-      min_amount,
-      max_amount,
-    })
+    .insert(productInsert)
     .select("product_id")
     .single();
 

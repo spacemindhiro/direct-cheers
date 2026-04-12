@@ -1,0 +1,167 @@
+/**
+ * POST /api/entrance/reserve
+ *
+ * タイプA/C: Setup Intent を作成し、フロントでカード保存 → complete へ
+ * タイプB:   Checkout Session（即時決済）を作成し、Stripe リダイレクト
+ */
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+
+export async function POST(req: Request) {
+  const body = await req.json() as {
+    product_id: string;
+    customer_email: string;
+    holder_name?: string;
+    // タイプB のみ使用
+    qr_config_id?: string;
+  };
+
+  const { product_id, customer_email, holder_name, qr_config_id } = body;
+
+  if (!product_id || !customer_email) {
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+
+  // 商品情報取得
+  const { data: product } = await admin
+    .from("products")
+    .select("product_id, payment_type, stock_limit, sold_count, charge_amount: min_amount, name, event_id, track_inventory")
+    .eq("product_id", product_id)
+    .eq("deleted_at", null as any)
+    .single();
+
+  if (!product) {
+    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  }
+
+  const paymentType = (product as any).payment_type as "A" | "B" | "C";
+  const trackInventory: boolean = paymentType !== "C" || (product as any).track_inventory === true;
+
+  // 在庫チェック（タイプA/B、またはC且つtrack_inventory=true）
+  if (trackInventory) {
+    const { data: hasStock } = await admin.rpc("reserve_product_stock", {
+      p_product_id: product_id,
+    });
+    if (!hasStock) {
+      return NextResponse.json({ error: "SOLD_OUT" }, { status: 409 });
+    }
+  }
+
+  const eventId = (product as any).event_id as string;
+  const amount = (product as any).charge_amount as number;
+
+  // イベント情報取得
+  const { data: event } = await admin
+    .from("events")
+    .select("title, start_at")
+    .eq("event_id", eventId)
+    .single();
+
+  // ----- タイプB: Checkout Session（即時決済） -----
+  if (paymentType === "B") {
+    const effectiveQrConfigId = qr_config_id ?? "";
+    const successUrl = effectiveQrConfigId
+      ? `${SITE_URL}/c/${effectiveQrConfigId}/ticket?session_id={CHECKOUT_SESSION_ID}&product_id=${product_id}`
+      : `${SITE_URL}/ticket/complete?session_id={CHECKOUT_SESSION_ID}&product_id=${product_id}`;
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      customer_email,
+      line_items: [{
+        price_data: {
+          currency: "jpy",
+          product_data: {
+            name: `【入場チケット】${(product as any).name} — ${event?.title ?? ""}`,
+          },
+          unit_amount: amount,
+        },
+        quantity: 1,
+      }],
+      success_url: successUrl,
+      cancel_url: `${SITE_URL}/entrance/${product_id}`,
+      metadata: {
+        product_id,
+        event_id: eventId,
+        payment_type: "B",
+        holder_name: holder_name ?? "",
+        qr_config_id: effectiveQrConfigId,
+      },
+    });
+    return NextResponse.json({ type: "B", url: session.url });
+  }
+
+  // ----- タイプA/C: Setup Intent（カード保存） -----
+
+  // Stripe Customer を作成 or 取得
+  let stripeCustomerId: string;
+  const { data: provisional } = await admin
+    .from("provisional_users")
+    .select("stripe_customer_id")
+    .eq("email", customer_email)
+    .maybeSingle();
+
+  if (provisional?.stripe_customer_id) {
+    stripeCustomerId = provisional.stripe_customer_id;
+  } else {
+    const customer = await stripe.customers.create({
+      email: customer_email,
+      name: holder_name ?? undefined,
+      metadata: { event_id: eventId, product_id },
+    });
+    stripeCustomerId = customer.id;
+    // provisional_users に保存
+    await admin
+      .from("provisional_users")
+      .upsert({ email: customer_email, stripe_customer_id: stripeCustomerId }, { onConflict: "email" });
+  }
+
+  const setupIntent = await stripe.setupIntents.create({
+    customer: stripeCustomerId,
+    payment_method_types: ["card"],
+    usage: "off_session",
+    metadata: {
+      product_id,
+      event_id: eventId,
+      payment_type: paymentType,
+      holder_name: holder_name ?? "",
+      charge_amount: String(amount),
+    },
+  });
+
+  // entrance_reservations に仮登録（pending）
+  const { data: reservation, error: resErr } = await admin
+    .from("entrance_reservations")
+    .insert({
+      product_id,
+      event_id: eventId,
+      stripe_setup_intent_id: setupIntent.id,
+      stripe_customer_id: stripeCustomerId,
+      email: customer_email,
+      holder_name: holder_name ?? null,
+      charge_amount: amount,
+      status: "pending",
+    })
+    .select("reservation_id")
+    .single();
+
+  if (resErr) {
+    return NextResponse.json({ error: resErr.message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    type: paymentType,
+    client_secret: setupIntent.client_secret,
+    reservation_id: reservation!.reservation_id,
+    amount,
+    event_title: event?.title ?? "",
+    product_name: (product as any).name,
+    start_at: event?.start_at ?? null,
+  });
+}

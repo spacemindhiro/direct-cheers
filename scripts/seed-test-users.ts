@@ -29,11 +29,11 @@ const TEST_USERS: {
   role: Role;
   display_name: string;
 }[] = [
-  { email: "test-admin@direct-cheers.com",     password: "TestAdmin1234!",     role: "admin",     display_name: "テスト管理者" },
-  { email: "test-agent@direct-cheers.com",     password: "TestAgent1234!",     role: "agent",     display_name: "テストエージェント" },
-  { email: "test-organizer@direct-cheers.com", password: "TestOrganizer1234!", role: "organizer", display_name: "テスト主催者" },
-  { email: "test-artist@direct-cheers.com",    password: "TestArtist1234!",    role: "artist",    display_name: "テストアーティスト" },
-  { email: "test-fan@direct-cheers.com",       password: "TestFan1234!",       role: "user",      display_name: "テストファン" },
+  { email: "spacemind.hiro+admin@gmail.com",     password: "TestAdmin1234!",     role: "admin",     display_name: "テスト管理者" },
+  { email: "spacemind.hiro+agent@gmail.com",     password: "TestAgent1234!",     role: "agent",     display_name: "テストエージェント" },
+  { email: "spacemind.hiro+organizer@gmail.com", password: "TestOrganizer1234!", role: "organizer", display_name: "テスト主催者" },
+  { email: "spacemind.hiro+artist@gmail.com",    password: "TestArtist1234!",    role: "artist",    display_name: "テストアーティスト" },
+  { email: "spacemind.hiro+fan@gmail.com",       password: "TestFan1234!",       role: "user",      display_name: "テストファン" },
 ];
 
 async function seedUser(user: (typeof TEST_USERS)[number]) {

@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EventCreateForm } from "@/components/event-create-form";
 import { Loader2 } from "lucide-react";
-import Link from "next/link";
 
 async function EventCreateContent() {
   const supabase = await createClient();
@@ -30,7 +29,7 @@ async function EventCreateContent() {
     .eq("status", "active")
     .is("deleted_at", null);
 
-  const artists = (connections ?? []).map((c) => ({
+  const connectedArtists = (connections ?? []).map((c) => ({
     profile_id: c.artist_profile_id,
     display_name: (c.artist as any)?.display_name ?? "Unknown",
   }));
@@ -46,7 +45,7 @@ async function EventCreateContent() {
           作成後、担当エージェントの承認が必要です
         </p>
       </div>
-      <EventCreateForm artists={artists} />
+      <EventCreateForm connectedArtists={connectedArtists} />
     </div>
   );
 }

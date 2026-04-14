@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { RoleUpgradeBanner } from '@/components/role-upgrade-drawer';
 import { ArtistSalesDashboard } from '@/components/artist-sales-dashboard';
+import { LineupInvitations } from '@/components/lineup-invitations';
 import { FollowButton } from '@/components/follow-button';
 import { FollowerHero } from '@/components/follower-hero';
 
@@ -101,6 +102,24 @@ async function DashboardContent() {
         projectedNet += Math.floor((tx.total_gross_amount ?? 0) * NET_RATE * ratio);
       }
     }
+  }
+
+  // アーティスト向け: 出演依頼（pending）取得
+  let lineupInvites: { event_artist_id: string; event_id: string; event: { title: string; venue: string; start_at: string } | null }[] = [];
+  if (profile?.role === 'artist') {
+    const { data: inviteRows } = await admin
+      .from('event_artists')
+      .select('event_artist_id, event_id, event:events!event_id(title, venue, start_at)')
+      .eq('artist_profile_id', user!.id)
+      .eq('status', 'pending')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    lineupInvites = (inviteRows ?? []).map((r: any) => ({
+      event_artist_id: r.event_artist_id,
+      event_id: r.event_id,
+      event: r.event ?? null,
+    }));
   }
 
   const roleLabelMap: Record<string, string> = {
@@ -256,6 +275,11 @@ async function DashboardContent() {
           displayName={profile.display_name ?? ''}
           role={profile.role as 'artist' | 'organizer'}
         />
+      )}
+
+      {/* アーティスト向け: 出演依頼 */}
+      {profile?.role === 'artist' && lineupInvites.length > 0 && (
+        <LineupInvitations invites={lineupInvites} artistId={user!.id} />
       )}
 
       {/* アーティスト売上ダッシュボード */}

@@ -62,12 +62,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: eventError.message }, { status: 500 });
   }
 
-  // アーティスト登録
+  // アーティスト登録（全員 pending — アーティスト側の承認で confirmed に変わる）
   if (artist_ids && artist_ids.length > 0) {
     const artistRows = artist_ids.map((artist_profile_id, i) => ({
       event_id: event.event_id,
       artist_profile_id,
       performance_order: i + 1,
+      status: "pending",
     }));
     const { error: artistError } = await supabase
       .from("event_artists")
@@ -75,6 +76,25 @@ export async function POST(req: Request) {
     if (artistError) {
       return NextResponse.json({ error: artistError.message }, { status: 500 });
     }
+
+    // 各アーティストへ出演依頼通知
+    try {
+      const admin = createAdminClient();
+      const { data: organizer } = await admin
+        .from("profiles")
+        .select("display_name")
+        .eq("profile_id", user.id)
+        .single();
+
+      const notifs = artist_ids.map((artistId) => ({
+        profile_id: artistId,
+        type: "lineup_invite",
+        title: "出演依頼が届いています",
+        body: `${organizer?.display_name ?? "オーガナイザー"} から「${title}」への出演依頼が届いています。`,
+        metadata: { event_id: event.event_id, organizer_id: user.id },
+      }));
+      await admin.from("notifications").insert(notifs);
+    } catch { /* notifications テーブルがなければスキップ */ }
   }
 
   // ===== 通知基盤：フォロワーへの通知キューを積む =====

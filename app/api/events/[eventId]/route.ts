@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function PATCH(
   req: Request,
@@ -21,7 +22,7 @@ export async function PATCH(
 
   const { data: event } = await supabase
     .from("events")
-    .select("event_id, lifecycle_status, organizer_profile_id, agent_id")
+    .select("event_id, lifecycle_status, organizer_profile_id, agent_id, venue, start_at, end_at")
     .eq("event_id", eventId)
     .single();
 
@@ -35,36 +36,100 @@ export async function PATCH(
   if (!isOrganizer && !isAgent) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-
-  // settled のみ編集不可
   if (event.lifecycle_status === "settled") {
     return NextResponse.json({ error: "精算済みのイベントは編集できません" }, { status: 400 });
   }
 
   const body = await req.json();
-  const { title, venue, start_at, end_at } = body as {
+  const { title, venue, start_at, end_at, artist_ids } = body as {
     title?: string;
     venue?: string;
     start_at?: string;
     end_at?: string;
+    artist_ids?: string[];
   };
+
+  // 日程・場所が変わったら draft に戻す（再承認が必要）
+  const scheduleOrVenueChanged =
+    (venue !== undefined && venue !== event.venue) ||
+    (start_at !== undefined && start_at !== event.start_at) ||
+    (end_at !== undefined && end_at !== event.end_at);
 
   const updates: Record<string, unknown> = {};
   if (title !== undefined) updates.title = title;
   if (venue !== undefined) updates.venue = venue;
   if (start_at !== undefined) updates.start_at = start_at;
   if (end_at !== undefined) updates.end_at = end_at;
-
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+  if (scheduleOrVenueChanged && event.lifecycle_status !== "draft") {
+    updates.lifecycle_status = "draft";
   }
 
-  const { error } = await supabase
-    .from("events")
-    .update(updates)
-    .eq("event_id", eventId);
+  if (Object.keys(updates).length > 0) {
+    const { error } = await supabase
+      .from("events")
+      .update(updates)
+      .eq("event_id", eventId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // アーティスト変更
+  if (artist_ids !== undefined) {
+    // 現在の非削除アーティストを取得
+    const { data: currentArtists } = await supabase
+      .from("event_artists")
+      .select("event_artist_id, artist_profile_id, status")
+      .eq("event_id", eventId)
+      .is("deleted_at", null);
 
-  return NextResponse.json({ ok: true });
+    const currentIds = new Set((currentArtists ?? []).map((a) => a.artist_profile_id));
+    const newIds = new Set(artist_ids);
+
+    // 削除: 現在いるが新リストにいない → 論理削除
+    const toRemove = (currentArtists ?? []).filter((a) => !newIds.has(a.artist_profile_id));
+    if (toRemove.length > 0) {
+      await supabase
+        .from("event_artists")
+        .update({ deleted_at: new Date().toISOString() })
+        .in("event_artist_id", toRemove.map((a) => a.event_artist_id));
+    }
+
+    // 追加: 新リストにいるが現在いない → pending で insert
+    const toAdd = artist_ids.filter((id) => !currentIds.has(id));
+    if (toAdd.length > 0) {
+      const rows = toAdd.map((artist_profile_id, i) => ({
+        event_id: eventId,
+        artist_profile_id,
+        performance_order: (currentArtists?.length ?? 0) + i + 1,
+        status: "pending",
+      }));
+      await supabase.from("event_artists").insert(rows);
+
+      // 新規アーティストへ通知
+      try {
+        const admin = createAdminClient();
+        const { data: eventData } = await admin
+          .from("events")
+          .select("title")
+          .eq("event_id", eventId)
+          .single();
+        const { data: organizer } = await admin
+          .from("profiles")
+          .select("display_name")
+          .eq("profile_id", event.organizer_profile_id)
+          .single();
+
+        const notifs = toAdd.map((artistId) => ({
+          profile_id: artistId,
+          type: "lineup_invite",
+          title: "出演依頼が届いています",
+          body: `${organizer?.display_name ?? "オーガナイザー"} から「${eventData?.title}」への出演依頼が届いています。`,
+          metadata: { event_id: eventId, organizer_id: event.organizer_profile_id },
+        }));
+        await admin.from("notifications").insert(notifs);
+      } catch { /* notifications テーブルがなければスキップ */ }
+    }
+  }
+
+  const reApprovalRequired = scheduleOrVenueChanged && event.lifecycle_status !== "draft";
+  return NextResponse.json({ ok: true, re_approval_required: reApprovalRequired });
 }

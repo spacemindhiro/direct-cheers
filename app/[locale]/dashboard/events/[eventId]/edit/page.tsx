@@ -36,7 +36,32 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
   if (!isOrganizer && !isAgent) redirect("/dashboard");
   if (event.lifecycle_status === "settled") redirect(`/dashboard/events/${eventId}`);
 
-  // datetime-local が受け取れる形式に変換（YYYY-MM-DDTHH:mm）
+  // 現在の出演アーティスト（削除・辞退済みを除く）
+  const { data: eventArtists } = await supabase
+    .from("event_artists")
+    .select("artist_profile_id, artist:profiles!artist_profile_id(display_name)")
+    .eq("event_id", eventId)
+    .is("deleted_at", null)
+    .neq("status", "rejected");
+
+  const currentArtists = (eventArtists ?? []).map((ea: any) => ({
+    profile_id: ea.artist_profile_id,
+    display_name: ea.artist?.display_name ?? "Unknown",
+  }));
+
+  // コネクション済みアーティスト
+  const { data: connections } = await supabase
+    .from("connections")
+    .select("artist_profile_id, artist:profiles!artist_profile_id(display_name)")
+    .eq("organizer_profile_id", event.organizer_profile_id)
+    .eq("status", "active")
+    .is("deleted_at", null);
+
+  const connectedArtists = (connections ?? []).map((c: any) => ({
+    profile_id: c.artist_profile_id,
+    display_name: c.artist?.display_name ?? "Unknown",
+  }));
+
   const toLocalDatetime = (iso: string) => iso.slice(0, 16);
 
   return (
@@ -63,6 +88,9 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
           start_at: toLocalDatetime(event.start_at),
           end_at: toLocalDatetime(event.end_at),
         }}
+        currentArtists={currentArtists}
+        connectedArtists={connectedArtists}
+        lifecycleStatus={event.lifecycle_status}
       />
     </div>
   );

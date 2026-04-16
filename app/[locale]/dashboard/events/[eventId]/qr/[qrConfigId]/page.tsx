@@ -27,7 +27,7 @@ async function QRDetailContent({
 
   const { data: qr } = await supabase
     .from("qr_configs")
-    .select("qr_config_id, label, created_at, event_id")
+    .select("qr_config_id, label, recipient_profile_id, created_at, event_id")
     .eq("qr_config_id", qrConfigId)
     .eq("event_id", eventId)
     .is("deleted_at", null)
@@ -37,15 +37,49 @@ async function QRDetailContent({
 
   const { data: event } = await supabase
     .from("events")
-    .select("title, organizer_profile_id, agent_id")
+    .select(`
+      title, organizer_profile_id, agent_id,
+      organizer:profiles!organizer_profile_id(display_name),
+      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name))
+    `)
     .eq("event_id", eventId)
     .single();
 
-  const isOrganizer = event?.organizer_profile_id === user.id;
+  if (!event) notFound();
+
+  const isOrganizer = event.organizer_profile_id === user.id;
   const isAgent =
     (profile?.role === "agent" || profile?.role === "admin") &&
-    event?.agent_id === user.id;
+    event.agent_id === user.id;
   const canEdit = isOrganizer || isAgent;
+
+  // 配分対象候補: オーガナイザー + 出演確定アーティスト
+  const candidates = [
+    {
+      profile_id: event.organizer_profile_id,
+      display_name: (event.organizer as any)?.display_name ?? "オーガナイザー",
+      role: "organizer" as const,
+    },
+    ...(event.event_artists ?? [])
+      .filter((ea: any) => ea.status === "confirmed" && ea.deleted_at === null)
+      .map((ea: any) => ({
+        profile_id: ea.artist_profile_id,
+        display_name: ea.artist?.display_name ?? "Unknown",
+        role: "artist" as const,
+      })),
+  ];
+
+  // 現在の配分設定
+  const { data: configTargets } = await supabase
+    .from("qr_config_targets")
+    .select("profile_id, distribution_ratio")
+    .eq("qr_config_id", qrConfigId)
+    .is("deleted_at", null);
+
+  const currentTargets = (configTargets ?? []).map((t: any) => ({
+    profile_id: t.profile_id,
+    distribution_ratio: t.distribution_ratio as number,
+  }));
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com";
   const qrUrl = `${siteUrl}/c/${qrConfigId}`;
@@ -63,7 +97,7 @@ async function QRDetailContent({
         <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
           {qr.label ?? "QRコード"}
         </h1>
-        <p className="text-slate-500 text-sm">{event?.title}</p>
+        <p className="text-slate-500 text-sm">{event.title}</p>
       </div>
 
       <QRDisplay qrConfigId={qrConfigId} qrUrl={qrUrl} label={qr.label ?? "QRコード"} />
@@ -73,6 +107,9 @@ async function QRDetailContent({
           qrConfigId={qrConfigId}
           eventId={eventId}
           currentLabel={qr.label ?? ""}
+          currentRecipientId={qr.recipient_profile_id ?? ""}
+          currentTargets={currentTargets}
+          candidates={candidates}
         />
       )}
     </div>

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { QRDisplay } from "@/components/qr-display";
+import { QREditDelete } from "@/components/qr-edit-delete";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -18,6 +19,12 @@ async function QRDetailContent({
 
   if (!user) redirect("/auth/login");
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("profile_id", user.id)
+    .single();
+
   const { data: qr } = await supabase
     .from("qr_configs")
     .select("qr_config_id, label, created_at, event_id")
@@ -30,9 +37,15 @@ async function QRDetailContent({
 
   const { data: event } = await supabase
     .from("events")
-    .select("title")
+    .select("title, organizer_profile_id, agent_id")
     .eq("event_id", eventId)
     .single();
+
+  const isOrganizer = event?.organizer_profile_id === user.id;
+  const isAgent =
+    (profile?.role === "agent" || profile?.role === "admin") &&
+    event?.agent_id === user.id;
+  const canEdit = isOrganizer || isAgent;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com";
   const qrUrl = `${siteUrl}/c/${qrConfigId}`;
@@ -54,6 +67,14 @@ async function QRDetailContent({
       </div>
 
       <QRDisplay qrConfigId={qrConfigId} qrUrl={qrUrl} label={qr.label ?? "QRコード"} />
+
+      {canEdit && (
+        <QREditDelete
+          qrConfigId={qrConfigId}
+          eventId={eventId}
+          currentLabel={qr.label ?? ""}
+        />
+      )}
     </div>
   );
 }

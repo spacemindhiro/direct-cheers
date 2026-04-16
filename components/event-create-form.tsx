@@ -118,22 +118,22 @@ export function EventCreateForm({
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
               <Calendar size={11} className="text-pink-500" /> 開始
             </label>
-            <Input
+            <input
               name="start_at"
               type="datetime-local"
               required
-              className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
             />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
               終了
             </label>
-            <Input
+            <input
               name="end_at"
               type="datetime-local"
               required
-              className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
             />
           </div>
         </div>

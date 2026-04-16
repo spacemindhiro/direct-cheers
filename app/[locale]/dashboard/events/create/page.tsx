@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { EventCreateForm } from "@/components/event-create-form";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 async function EventCreateContent() {
   const supabase = await createClient();
@@ -37,6 +38,12 @@ async function EventCreateContent() {
   return (
     <div className="space-y-8">
       <div className="space-y-1">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
+        >
+          <ArrowLeft size={12} /> ダッシュボードに戻る
+        </Link>
         <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Events</p>
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
           新規イベント作成

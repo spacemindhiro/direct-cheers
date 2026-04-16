@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Loader2, Plus, Calendar, MapPin } from "lucide-react";
+import { Loader2, Plus, Calendar, MapPin, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 const LIFECYCLE_CONFIG: Record<string, { label: string; className: string }> = {
@@ -43,6 +43,12 @@ async function EventsContent() {
     <div className="space-y-8">
       <div className="flex items-end justify-between">
         <div className="space-y-1">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
+          >
+            <ArrowLeft size={12} /> ダッシュボードに戻る
+          </Link>
           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Events</p>
           <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">イベント</h1>
         </div>

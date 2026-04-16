@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { InviteCreateForm } from "@/components/invite-create-form";
-import { Loader2, Users, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Users, Clock, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 const ROLE_LABELS: Record<string, string> = {
   agent: "エージェント",
@@ -58,6 +59,12 @@ async function InvitationsContent() {
   return (
     <div className="space-y-10">
       <div className="space-y-1">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
+        >
+          <ArrowLeft size={12} /> ダッシュボードに戻る
+        </Link>
         <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">
           Invitations
         </p>

@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { QRCreateForm } from "@/components/qr-create-form";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 async function QRCreateContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -46,6 +47,12 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
   return (
     <div className="space-y-8">
       <div className="space-y-1">
+        <Link
+          href={`/dashboard/events/${eventId}`}
+          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
+        >
+          <ArrowLeft size={12} /> イベントに戻る
+        </Link>
         <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">QR Code</p>
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">QR を作成</h1>
         <p className="text-slate-500 text-sm">{event.title}</p>

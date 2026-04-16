@@ -18,9 +18,6 @@ const PRODUCT_TYPE_RANGES = {
   custom:   { min: 500,  max: 100_000, label: "カスタム",       desc: "¥500〜¥100,000" },
 };
 
-const PLATFORM_FEE = 0.136; // stripe 3.6% + platform 10%
-const DISTRIBUTABLE = 1 - PLATFORM_FEE; // 0.864
-
 type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist" };
 type DistTarget = { profile_id: string; ratio: string };
 
@@ -39,6 +36,7 @@ export function QRCreateForm({
   const [minAmount, setMinAmount] = useState(PRODUCT_TYPE_RANGES.standard.min);
   const [maxAmount, setMaxAmount] = useState(PRODUCT_TYPE_RANGES.standard.max);
   const [label, setLabel] = useState("");
+  const [recipientId, setRecipientId] = useState(targetCandidates[0]?.profile_id ?? "");
   const [targets, setTargets] = useState<DistTarget[]>(
     targetCandidates[0] ? [{ profile_id: targetCandidates[0].profile_id, ratio: "100" }] : [],
   );
@@ -48,6 +46,7 @@ export function QRCreateForm({
   const [trackInventoryC, setTrackInventoryC] = useState(false);
 
   const range = PRODUCT_TYPE_RANGES[productType];
+  const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
 
   const handleTypeChange = (type: keyof typeof PRODUCT_TYPE_RANGES) => {
     const r = PRODUCT_TYPE_RANGES[type];
@@ -56,8 +55,6 @@ export function QRCreateForm({
     setMaxAmount(r.max);
   };
 
-  const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
-
   const addTarget = () =>
     setTargets((prev) => [...prev, { profile_id: targetCandidates[0]?.profile_id ?? "", ratio: "0" }]);
   const removeTarget = (i: number) =>
@@ -65,8 +62,16 @@ export function QRCreateForm({
   const updateTarget = (i: number, field: keyof DistTarget, value: string) =>
     setTargets((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!recipientId) {
+      setError("宛先を選択してください");
+      return;
+    }
+    if (targets.length === 0) {
+      setError("配分先を1人以上設定してください");
+      return;
+    }
     if (Math.abs(totalRatio - 100) > 0.1) {
       setError("配分比率の合計を100%にしてください");
       return;
@@ -82,6 +87,7 @@ export function QRCreateForm({
           product_type: productType,
           min_amount: minAmount,
           max_amount: maxAmount,
+          recipient_profile_id: recipientId,
           targets: targets.map((t) => ({
             profile_id: t.profile_id,
             distribution_ratio: (parseFloat(t.ratio) || 0) / 100,
@@ -243,6 +249,30 @@ export function QRCreateForm({
           </div>
         </div>
 
+        {/* 宛先 */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+            宛先 <span className="text-pink-500">*</span>
+          </label>
+          <p className="text-[10px] text-slate-600">決済記録上で「誰への支払いか」を示す名義人</p>
+          {targetCandidates.length === 0 ? (
+            <p className="text-sm text-amber-400 font-bold">出演者が登録されていません</p>
+          ) : (
+            <select
+              value={recipientId}
+              onChange={(e) => setRecipientId(e.target.value)}
+              className="w-full h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
+            >
+              <option value="" disabled>選択してください</option>
+              {targetCandidates.map((c) => (
+                <option key={c.profile_id} value={c.profile_id}>
+                  {c.display_name}{c.role === "organizer" ? "（主催者）" : ""}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
         {/* 配分設定 */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -319,7 +349,7 @@ export function QRCreateForm({
 
       <button
         type="submit"
-        disabled={isPending || Math.abs(totalRatio - 100) > 0.1}
+        disabled={isPending || !recipientId || Math.abs(totalRatio - 100) > 0.1}
         className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>QRを作成 <ArrowRight size={18} /></>}

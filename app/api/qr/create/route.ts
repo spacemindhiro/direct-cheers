@@ -26,6 +26,7 @@ export async function POST(req: Request) {
     product_type,
     min_amount,
     max_amount,
+    recipient_profile_id,
     targets, // [{ profile_id, distribution_ratio }]
     is_personal = false,
     payment_type = "A",
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
     product_type: string;
     min_amount: number;
     max_amount: number;
+    recipient_profile_id: string;
     targets: { profile_id: string; distribution_ratio: number }[];
     is_personal?: boolean;
     payment_type?: "A" | "B" | "C";
@@ -73,10 +75,18 @@ export async function POST(req: Request) {
     );
   }
 
-  // 配分比率の合計チェック（86.4% = 0.864 の範囲内）
+  // 宛先必須チェック
+  if (!recipient_profile_id) {
+    return NextResponse.json({ error: "宛先を選択してください" }, { status: 400 });
+  }
+
+  // 配分先必須チェック・比率合計チェック
+  if (!targets || targets.length === 0) {
+    return NextResponse.json({ error: "配分先を1人以上指定してください" }, { status: 400 });
+  }
   const totalRatio = targets.reduce((sum, t) => sum + t.distribution_ratio, 0);
   if (Math.abs(totalRatio - 1.0) > 0.001) {
-    return NextResponse.json({ error: "Distribution ratios must sum to 1.0" }, { status: 400 });
+    return NextResponse.json({ error: "配分比率の合計を100%にしてください" }, { status: 400 });
   }
 
   // product 作成（artist_id は配分先が複数の場合もあるため null 許容）
@@ -110,6 +120,7 @@ export async function POST(req: Request) {
     .insert({
       event_id,
       creator_profile_id: user.id,
+      recipient_profile_id,
       label: label ?? null,
       is_personal,
     })

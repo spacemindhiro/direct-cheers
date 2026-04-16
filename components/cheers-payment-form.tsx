@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { Heart, MessageSquareHeart, Loader2, Smartphone, Mail } from "lucide-react";
+import { Heart, Loader2, Mail } from "lucide-react";
 
 const CUSTOMER_EMAIL_COOKIE = "dc_ce";
 
@@ -20,12 +20,12 @@ function saveEmailCookie(email: string) {
 export function CheersPaymentForm({
   qrConfigId,
   products,
-  artistName,
+  recipientName,
   eventTitle,
 }: {
   qrConfigId: string;
   products: Product[];
-  artistName: string;
+  recipientName: string;
   eventTitle: string;
 }) {
   const [selectedProduct, setSelectedProduct] = useState<Product>(products[0]);
@@ -54,7 +54,7 @@ export function CheersPaymentForm({
           amount,
           payment_method: paymentMethod,
           customer_email: confirmedEmail,
-          metadata: { nickname, comment, artist_name: artistName, event_title: eventTitle },
+          metadata: { nickname, comment, artist_name: recipientName, event_title: eventTitle },
         }),
       });
       const data = await res.json();
@@ -207,7 +207,7 @@ export function CheersPaymentForm({
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder={`${artistName} へのメッセージ（任意）`}
+            placeholder={`${recipientName} へのメッセージ（任意）`}
             rows={2}
             className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none resize-none"
           />

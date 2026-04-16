@@ -19,6 +19,10 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
         venue,
         start_at,
         lifecycle_status
+      ),
+      recipient:profiles!recipient_profile_id (
+        display_name,
+        avatar_url
       )
     `)
     .eq("qr_config_id", qrConfigId)
@@ -32,6 +36,10 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
     notFound();
   }
 
+  const recipient = qr.recipient as any;
+  const recipientName = recipient?.display_name ?? "Artist";
+  const recipientAvatar = recipient?.avatar_url ?? null;
+
   const { data: products } = await admin
     .from("products")
     .select(`
@@ -39,16 +47,12 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
       name,
       type,
       min_amount,
-      max_amount,
-      artist:profiles!artist_id (display_name, avatar_url)
+      max_amount
     `)
     .eq("event_id", event.event_id)
     .is("deleted_at", null);
 
   if (!products || products.length === 0) notFound();
-
-  const artistName = (products[0].artist as any)?.display_name ?? "Artist";
-  const artistAvatar = (products[0].artist as any)?.avatar_url ?? null;
 
   const formProducts = products.map((p) => ({
     product_id: p.product_id,
@@ -63,8 +67,8 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
 
       {/* ヒーロー */}
       <div className="relative h-[40vh] overflow-hidden">
-        {artistAvatar ? (
-          <img src={artistAvatar} className="w-full h-full object-cover opacity-60 grayscale" alt={artistName} />
+        {recipientAvatar ? (
+          <img src={recipientAvatar} className="w-full h-full object-cover opacity-60 grayscale" alt={recipientName} />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />
         )}
@@ -72,7 +76,7 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
         <div className="absolute bottom-8 left-6 right-6 space-y-3">
           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Direct Cheers</p>
           <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none">
-            {artistName}
+            {recipientName}
           </h1>
           <div className="space-y-1 border-l-2 border-pink-500/30 pl-4">
             <p className="text-sm font-bold text-slate-200 uppercase tracking-tight">{event.title}</p>
@@ -103,7 +107,7 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
         <CheersPaymentForm
           qrConfigId={qrConfigId}
           products={formProducts}
-          artistName={artistName}
+          recipientName={recipientName}
           eventTitle={event.title}
         />
 

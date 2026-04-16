@@ -61,10 +61,10 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     <div className="space-y-8">
       <div className="space-y-1">
         <Link
-          href="/dashboard"
+          href="/dashboard/events"
           className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
         >
-          <ArrowLeft size={12} /> ダッシュボードに戻る
+          <ArrowLeft size={12} /> イベント一覧に戻る
         </Link>
         <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Event</p>
         <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">{event.title}</h1>

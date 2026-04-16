@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Loader2, Ticket } from "lucide-react";
+import { Loader2, Ticket, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { DigitalTicket } from "@/components/digital-ticket";
 
 async function TicketsContent() {
@@ -27,6 +28,12 @@ async function TicketsContent() {
   return (
     <div className="space-y-8 pb-20">
       <div className="space-y-1">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
+        >
+          <ArrowLeft size={12} /> ダッシュボードに戻る
+        </Link>
         <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.4em]">Wallet</p>
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
           My Tickets

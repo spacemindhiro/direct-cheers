@@ -50,10 +50,12 @@ export async function PATCH(
   };
 
   // 日程・場所が変わったら draft に戻す（再承認が必要）
+  // タイムゾーン付き ISO 文字列と datetime-local 値を正規化して比較
+  const normDt = (dt: string) => dt?.slice(0, 16) ?? "";
   const scheduleOrVenueChanged =
     (venue !== undefined && venue !== event.venue) ||
-    (start_at !== undefined && start_at !== event.start_at) ||
-    (end_at !== undefined && end_at !== event.end_at);
+    (start_at !== undefined && normDt(start_at) !== normDt(event.start_at)) ||
+    (end_at !== undefined && normDt(end_at) !== normDt(event.end_at));
 
   const updates: Record<string, unknown> = {};
   if (title !== undefined) updates.title = title;

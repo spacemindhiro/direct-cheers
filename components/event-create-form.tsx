@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Loader2, MapPin, Calendar, Music, Hash, Search, X, Plus } from "lucide-react";
+import { ArrowRight, Loader2, MapPin, Music, Hash, Search, X, Plus } from "lucide-react";
 
 type Artist = { profile_id: string; display_name: string };
 
@@ -115,8 +115,8 @@ export function EventCreateForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
-              <Calendar size={11} className="text-pink-500" /> 開始
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+              開始
             </label>
             <input
               name="start_at"

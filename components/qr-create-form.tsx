@@ -25,9 +25,11 @@ type DistTarget = { profile_id: string; ratio: string };
 export function QRCreateForm({
   eventId,
   targets: targetCandidates,
+  feeConfig = { stripe_rate: 0.036, platform_rate: 0.10, net_rate: 0.864 },
 }: {
   eventId: string;
   targets: TargetCandidate[];
+  feeConfig?: { stripe_rate: number; platform_rate: number; net_rate: number };
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -283,7 +285,7 @@ export function QRCreateForm({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-              配分設定（手数料 13.6% 控除後 86.4% を配分）
+              配分設定（手数料 {((feeConfig.stripe_rate + feeConfig.platform_rate) * 100).toFixed(1)}% 控除後 {(feeConfig.net_rate * 100).toFixed(1)}% を配分）
             </label>
             <button
               type="button"
@@ -339,13 +341,13 @@ export function QRCreateForm({
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 space-y-1">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">手数料内訳</p>
             <div className="flex justify-between text-xs text-slate-400">
-              <span>Stripe 決済手数料</span><span>3.6%</span>
+              <span>Stripe 決済手数料</span><span>{(feeConfig.stripe_rate * 100).toFixed(1)}%</span>
             </div>
             <div className="flex justify-between text-xs text-slate-400">
-              <span>プラットフォーム利用料</span><span>10.0%</span>
+              <span>プラットフォーム利用料</span><span>{(feeConfig.platform_rate * 100).toFixed(1)}%</span>
             </div>
             <div className="flex justify-between text-xs font-black text-white border-t border-slate-700 pt-1 mt-1">
-              <span>アーティスト配分</span><span>86.4%</span>
+              <span>アーティスト配分</span><span>{(feeConfig.net_rate * 100).toFixed(1)}%</span>
             </div>
           </div>
         </div>

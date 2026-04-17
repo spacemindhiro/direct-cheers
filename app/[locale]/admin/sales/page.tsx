@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getFeeConfig } from "@/lib/fee-config";
 import { Loader2, TrendingUp, Zap, Users, Calendar } from "lucide-react";
 
 async function AdminSalesContent() {
@@ -28,10 +29,11 @@ async function AdminSalesContent() {
     .select("total_gross_amount, status, created_at")
     .order("created_at", { ascending: false });
 
+  const { stripe_rate, platform_rate } = await getFeeConfig();
   const completed = (transactions ?? []).filter((t) => t.status === "completed");
   const totalGross = completed.reduce((sum, t) => sum + (t.total_gross_amount ?? 0), 0);
-  const platformRevenue = Math.floor(totalGross * 0.10);
-  const stripeRevenue = Math.floor(totalGross * 0.036);
+  const platformRevenue = Math.floor(totalGross * platform_rate);
+  const stripeRevenue = Math.floor(totalGross * stripe_rate);
 
   // 月別集計（直近6ヶ月）
   const now = new Date();

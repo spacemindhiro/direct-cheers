@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-// プラットフォーム手数料 10% + Stripe 3.6%
-const STRIPE_RATE = 0.036;
-const PLATFORM_RATE = 0.10;
-const NET_RATE = 1 - STRIPE_RATE - PLATFORM_RATE; // 0.864
+import { getFeeConfig } from "@/lib/fee-config";
 
 export async function GET(
   _req: Request,
@@ -55,6 +51,9 @@ export async function GET(
   if (!isAdmin && !isOrganizer && !isAgent && !isArtist) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  // 手数料設定をDBから取得
+  const { stripe_rate: STRIPE_RATE, platform_rate: PLATFORM_RATE, net_rate: NET_RATE } = await getFeeConfig();
 
   // このイベントの qr_config_ids を取得
   const { data: qrConfigs } = await admin

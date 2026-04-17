@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { QRCreateForm } from "@/components/qr-create-form";
+import { getFeeConfig } from "@/lib/fee-config";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -46,6 +47,8 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
       })),
   ];
 
+  const feeConfig = await getFeeConfig();
+
   return (
     <div className="space-y-8">
       <div className="space-y-1">
@@ -59,7 +62,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">QR を作成</h1>
         <p className="text-slate-500 text-sm">{event.title}</p>
       </div>
-      <QRCreateForm eventId={eventId} targets={targets} />
+      <QRCreateForm eventId={eventId} targets={targets} feeConfig={feeConfig} />
     </div>
   );
 }

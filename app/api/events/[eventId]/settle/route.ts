@@ -3,10 +3,9 @@ import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+import { getFeeConfig } from "@/lib/fee-config";
 
-// プラットフォーム手数料 10% + Stripe 3.6% = 分配可能 86.4%
-const NET_RATE = 0.864;
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(
   _req: Request,
@@ -15,6 +14,7 @@ export async function POST(
   const { eventId } = await params;
   const supabase = await createClient();
   const admin = createAdminClient();
+  const { net_rate: NET_RATE } = await getFeeConfig();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

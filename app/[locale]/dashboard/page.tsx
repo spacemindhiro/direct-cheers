@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket } from 'lucide-react';
+import { getFeeConfig } from '@/lib/fee-config';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { RoleUpgradeBanner } from '@/components/role-upgrade-drawer';
@@ -80,7 +81,7 @@ async function DashboardContent() {
   // オーガナイザー / アーティスト向け: 自分が関わるイベントの累計着金予測
   let projectedNet = 0;
   if (['organizer', 'artist', 'agent'].includes(profile?.role ?? '')) {
-    const NET_RATE = 0.864;
+    const { net_rate: NET_RATE } = await getFeeConfig();
     const { data: myDists } = await admin
       .from('qr_config_targets')
       .select('distribution_ratio, qr_config_id')

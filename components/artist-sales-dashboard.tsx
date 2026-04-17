@@ -1,9 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import { getFeeConfig } from "@/lib/fee-config";
 import { Heart, Zap, Calendar, MapPin, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 export async function ArtistSalesDashboard({ profileId }: { profileId: string }) {
   const supabase = await createClient();
+  const { net_rate } = await getFeeConfig();
 
   // 自分が出演するイベント一覧
   const { data: eventArtists } = await supabase
@@ -28,7 +30,7 @@ export async function ArtistSalesDashboard({ profileId }: { profileId: string })
     (sum: number, tx: any) => sum + (tx.total_gross_amount ?? 0),
     0,
   );
-  const totalNet = Math.floor(totalGross * 0.864);
+  const totalNet = Math.floor(totalGross * net_rate);
 
   const LIFECYCLE_CONFIG: Record<string, { label: string; className: string }> = {
     draft:     { label: "承認待ち", className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
@@ -63,7 +65,7 @@ export async function ArtistSalesDashboard({ profileId }: { profileId: string })
               ¥{totalNet.toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-600 mt-1">
-              総流通額 ¥{totalGross.toLocaleString()} × 86.4%
+              総流通額 ¥{totalGross.toLocaleString()} × {(net_rate * 100).toFixed(1)}%
             </p>
           </div>
         </div>

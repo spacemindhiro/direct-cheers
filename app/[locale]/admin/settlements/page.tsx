@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getFeeConfig } from "@/lib/fee-config";
 import { SettleButton } from "@/components/settle-button";
 import { Loader2, Calendar, MapPin, ImageIcon, CheckCircle2, Clock, AlertTriangle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +21,8 @@ async function SettlementsContent() {
     .single();
 
   if (me?.role !== "admin") redirect("/dashboard");
+
+  const { net_rate } = await getFeeConfig();
 
   // 終了済みイベントを取得（end_at < now）
   const { data: events } = await admin
@@ -114,7 +117,7 @@ async function SettlementsContent() {
             const evidences = evidenceByEvent.get(event.event_id) ?? [];
             const summary = summaryByEvent.get(event.event_id);
             const gross = grossByEvent.get(event.event_id) ?? 0;
-            const net = Math.floor(gross * 0.864);
+            const net = Math.floor(gross * net_rate);
             const settled = event.lifecycle_status === "settled";
             const hasEvidence = evidences.length > 0;
 
@@ -169,7 +172,7 @@ async function SettlementsContent() {
                     <p className="text-lg font-black text-white italic">¥{gross.toLocaleString()}</p>
                   </div>
                   <div className="bg-slate-800/60 rounded-xl px-4 py-2">
-                    <p className="text-[9px] text-slate-500 uppercase tracking-widest">配分額 (86.4%)</p>
+                    <p className="text-[9px] text-slate-500 uppercase tracking-widest">配分額 ({(net_rate * 100).toFixed(1)}%)</p>
                     <p className="text-lg font-black text-emerald-400 italic">¥{net.toLocaleString()}</p>
                   </div>
                 </div>

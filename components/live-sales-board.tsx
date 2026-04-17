@@ -194,15 +194,15 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
             </div>
             <div className="border-t border-slate-700 pt-3 space-y-2">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Stripe手数料（3.6%）</span>
+                <span className="text-slate-500">Stripe手数料（{(stats.stripe_rate * 100).toFixed(1)}%）</span>
                 <span className="text-slate-400 tabular-nums">−{formatJPY(stats.total_stripe_fee)}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500">プラットフォーム手数料（10%）</span>
+                <span className="text-slate-500">プラットフォーム手数料（{(stats.platform_rate * 100).toFixed(1)}%）</span>
                 <span className="text-slate-400 tabular-nums">−{formatJPY(stats.total_platform_fee)}</span>
               </div>
               <div className="flex justify-between text-sm border-t border-slate-700 pt-2">
-                <span className="font-black text-slate-300">配分可能 Net（86.4%）</span>
+                <span className="font-black text-slate-300">配分可能 Net（{(stats.net_rate * 100).toFixed(1)}%）</span>
                 <span className="font-black text-emerald-400 tabular-nums">{formatJPY(stats.total_net)}</span>
               </div>
             </div>

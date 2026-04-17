@@ -1,10 +1,10 @@
-'use client';
-
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { ShieldCheck, UserCheck, FileSearch, CheckCircle2, Lock, ArrowLeft, Mail, ShieldAlert } from "lucide-react";
+import { getFeeConfig } from "@/lib/fee-config";
 
-export default function SafetyPage() {
+async function SafetyContent() {
+  const { stripe_rate, platform_rate, net_rate } = await getFeeConfig();
   const contactEmail = "support@direct-cheers.com";
   const contactSubject = encodeURIComponent("【Direct Cheers】安全性に関するお問い合わせ");
   const mailUrl = `mailto:${contactEmail}?subject=${contactSubject}`;
@@ -119,15 +119,15 @@ export default function SafetyPage() {
                 <ul className="space-y-4 text-sm font-bold italic tracking-tighter uppercase">
                   <li className="flex justify-between border-b border-slate-800 pb-2">
                     <span className="text-slate-400">Merchant Payout</span>
-                    <span className="text-white">86.4%</span>
+                    <span className="text-white">{(net_rate * 100).toFixed(1)}%</span>
                   </li>
                   <li className="flex justify-between border-b border-slate-800 pb-2">
                     <span className="text-slate-500 font-medium">Platform Fee</span>
-                    <span className="text-slate-400">10.0%</span>
+                    <span className="text-slate-400">{(platform_rate * 100).toFixed(1)}%</span>
                   </li>
                   <li className="flex justify-between border-b border-slate-800 pb-2">
                     <span className="text-slate-500 font-medium">Stripe Processing</span>
-                    <span className="text-slate-400">3.6%</span>
+                    <span className="text-slate-400">{(stripe_rate * 100).toFixed(1)}%</span>
                   </li>
                 </ul>
                 <div className="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/20">
@@ -152,5 +152,13 @@ export default function SafetyPage() {
         </a>
       </footer>
     </div>
+  );
+}
+
+export default function SafetyPage() {
+  return (
+    <Suspense fallback={null}>
+      <SafetyContent />
+    </Suspense>
   );
 }

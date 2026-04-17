@@ -25,7 +25,8 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const { data: event } = await supabase
     .from("events")
     .select(`
-      event_id, title, venue, start_at, end_at, lifecycle_status,
+      event_id, title, venue, start_at, end_at, lifecycle_status, agent_id,
+      agent:profiles!agent_id(display_name),
       event_artists(
         artist_profile_id,
         artist:profiles!artist_profile_id(display_name)
@@ -88,6 +89,11 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             {LIFECYCLE_LABELS[event.lifecycle_status] ?? event.lifecycle_status}
           </span>
         </div>
+        {event.lifecycle_status === "draft" && (event.agent as any)?.display_name && (
+          <p className="text-[11px] text-slate-500 font-bold">
+            担当エージェント: <span className="text-slate-300">{(event.agent as any).display_name}</span>
+          </p>
+        )}
       </div>
 
       {/* 出演アーティスト */}
@@ -168,7 +174,11 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         </div>
 
         {!canCreateQR && event.lifecycle_status === "draft" && (
-          <p className="text-xs text-slate-600">エージェントが承認するとQRを作成できます</p>
+          <p className="text-xs text-slate-600">
+            {(event.agent as any)?.display_name
+              ? `担当エージェント「${(event.agent as any).display_name}」の承認後にQRを作成できます`
+              : "エージェントが承認するとQRを作成できます"}
+          </p>
         )}
 
         {!qrConfigs || qrConfigs.length === 0 ? (

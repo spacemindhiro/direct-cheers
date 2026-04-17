@@ -73,7 +73,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">QR を作成</h1>
         <p className="text-slate-500 text-sm">{event.title}</p>
       </div>
-      <QRCreateForm eventId={eventId} targets={targets} feeConfig={feeConfig} />
+      <QRCreateForm eventId={eventId} eventTitle={event.title} targets={targets} feeConfig={feeConfig} />
     </div>
   );
 }

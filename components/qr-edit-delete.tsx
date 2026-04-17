@@ -12,6 +12,7 @@ type DistTarget = { profile_id: string; ratio: string };
 export function QREditDelete({
   qrConfigId,
   eventId,
+  eventTitle = "",
   currentLabel,
   currentImageUrl,
   currentRecipientId,
@@ -20,6 +21,7 @@ export function QREditDelete({
 }: {
   qrConfigId: string;
   eventId: string;
+  eventTitle?: string;
   currentLabel: string;
   currentImageUrl?: string | null;
   currentRecipientId: string;
@@ -152,6 +154,8 @@ export function QREditDelete({
           <QRImageUpload
             currentUrl={imageUrl}
             pathPrefix={qrConfigId}
+            eventTitle={eventTitle}
+            artistName={candidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
             onUploadComplete={setImageUrl}
           />
 

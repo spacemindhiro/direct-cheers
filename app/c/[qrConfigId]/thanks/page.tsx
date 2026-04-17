@@ -23,6 +23,7 @@ type PaymentResult = {
   product_name: string | null;
   stripe_customer_id: string | null;
   serial_number: number | null;
+  qr_image_url: string | null;
 };
 
 type ThanksData = {
@@ -202,6 +203,7 @@ function ThanksContent() {
           transactionId={result.transaction_id}
           serialNumber={result.serial_number}
           thanks={thanks}
+          imageUrl={result.qr_image_url}
         />
 
         {/* ウォレット登録セクション */}

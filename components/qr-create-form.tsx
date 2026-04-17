@@ -24,10 +24,12 @@ type DistTarget = { profile_id: string; ratio: string };
 
 export function QRCreateForm({
   eventId,
+  eventTitle = "",
   targets: targetCandidates,
   feeConfig = { stripe_rate: 0.036, platform_rate: 0.10, net_rate: 0.864 },
 }: {
   eventId: string;
+  eventTitle?: string;
   targets: TargetCandidate[];
   feeConfig?: { stripe_rate: number; platform_rate: number; net_rate: number };
 }) {
@@ -146,7 +148,11 @@ export function QRCreateForm({
         </div>
 
         {/* QR画像 */}
-        <QRImageUpload onUploadComplete={setImageUrl} />
+        <QRImageUpload
+          eventTitle={eventTitle}
+          artistName={targetCandidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
+          onUploadComplete={setImageUrl}
+        />
 
         {/* 商品タイプ */}
         <div className="space-y-3">

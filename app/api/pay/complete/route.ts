@@ -49,7 +49,12 @@ export async function POST(req: Request) {
       const { data: qrc } = await admin.from("qr_configs").select("event_id").eq("qr_config_id", existing.qr_config_id).single();
       existingEventId = qrc?.event_id ?? null;
     }
-    return buildResponse(email, existing, product, existingEventId);
+    let existingQrImageUrl: string | null = null;
+    if (existing.qr_config_id) {
+      const { data: qrcImg } = await admin.from("qr_configs").select("image_url").eq("qr_config_id", existing.qr_config_id).single();
+      existingQrImageUrl = qrcImg?.image_url ?? null;
+    }
+    return buildResponse(email, existing, product, existingEventId, existingQrImageUrl);
   }
 
   // provisional_users に email を upsert
@@ -93,39 +98,43 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: txError.message }, { status: 500 });
   }
 
+  // qr_config を取得（event_id / image_url）
+  let newEventId: string | null = null;
+  let newQrImageUrl: string | null = null;
+  if (qrConfigId) {
+    const { data: qrc } = await admin
+      .from("qr_configs")
+      .select("event_id, image_url")
+      .eq("qr_config_id", qrConfigId)
+      .single();
+    newEventId = qrc?.event_id ?? null;
+    newQrImageUrl = qrc?.image_url ?? null;
+  }
+
   // シリアルナンバー採番
   let serialNumber: number | null = null;
-  if (qrConfigId) {
+  if (qrConfigId && newEventId) {
     try {
-      // event_id を取得
-      const { data: qrConfig } = await admin
-        .from("qr_configs")
-        .select("event_id")
-        .eq("qr_config_id", qrConfigId)
-        .single();
-
-      if (qrConfig?.event_id) {
-        // artist_id を取得（products → artist_id）
-        let artistId: string | null = null;
-        if (productId) {
-          const { data: product } = await admin
-            .from("products")
-            .select("artist_id")
-            .eq("product_id", productId)
-            .single();
-          artistId = product?.artist_id ?? null;
-        }
-
-        // RPC で排他制御付き採番
-        const { data: seqData } = await admin.rpc("assign_serial_number", {
-          p_transaction_id: tx.transaction_id,
-          p_event_id: qrConfig.event_id,
-          p_artist_id: artistId,
-          p_qr_config_id: qrConfigId,
-        });
-
-        serialNumber = seqData ?? null;
+      // artist_id を取得（products → artist_id）
+      let artistId: string | null = null;
+      if (productId) {
+        const { data: product } = await admin
+          .from("products")
+          .select("artist_id")
+          .eq("product_id", productId)
+          .single();
+        artistId = product?.artist_id ?? null;
       }
+
+      // RPC で排他制御付き採番
+      const { data: seqData } = await admin.rpc("assign_serial_number", {
+        p_transaction_id: tx.transaction_id,
+        p_event_id: newEventId,
+        p_artist_id: artistId,
+        p_qr_config_id: qrConfigId,
+      });
+
+      serialNumber = seqData ?? null;
     } catch (err) {
       // 採番失敗はサイレントに（カード発行は継続）
       console.error("[pay/complete] serial number assignment failed:", err);
@@ -133,13 +142,6 @@ export async function POST(req: Request) {
   }
 
   const product = await getProductInfo(admin, productId);
-
-  // event_id を取得（シリアル採番で既に取得済みなので再利用）
-  let newEventId: string | null = null;
-  if (qrConfigId) {
-    const { data: qrc } = await admin.from("qr_configs").select("event_id").eq("qr_config_id", qrConfigId).single();
-    newEventId = qrc?.event_id ?? null;
-  }
 
   const response = buildResponse(
     email,
@@ -151,7 +153,8 @@ export async function POST(req: Request) {
       qr_config_id: qrConfigId,
     },
     product,
-    newEventId
+    newEventId,
+    newQrImageUrl
   );
 
   if (email) {
@@ -176,7 +179,8 @@ function buildResponse(
     qr_config_id?: string | null;
   },
   product: Record<string, unknown>,
-  eventId: string | null = null
+  eventId: string | null = null,
+  qrImageUrl: string | null = null
 ): NextResponse {
   return NextResponse.json({
     transaction_id: tx.transaction_id,
@@ -184,6 +188,7 @@ function buildResponse(
     amount: tx.total_gross_amount,
     serial_number: tx.sequence_number_in_event,
     event_id: eventId,
+    qr_image_url: qrImageUrl,
     ...product,
   });
 }

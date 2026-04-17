@@ -107,6 +107,7 @@ async function QRDetailContent({
         <QREditDelete
           qrConfigId={qrConfigId}
           eventId={eventId}
+          eventTitle={event.title}
           currentLabel={qr.label ?? ""}
           currentImageUrl={(qr as any).image_url ?? null}
           currentRecipientId={qr.recipient_profile_id ?? ""}

@@ -13,6 +13,7 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
     .select(`
       qr_config_id,
       label,
+      image_url,
       event:events!event_id (
         event_id,
         title,
@@ -39,6 +40,7 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
   const recipient = qr.recipient as any;
   const recipientName = recipient?.display_name ?? "Artist";
   const recipientAvatar = recipient?.avatar_url ?? null;
+  const qrImageUrl = (qr as any).image_url as string | null;
 
   const { data: products } = await admin
     .from("products")
@@ -67,7 +69,9 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
 
       {/* ヒーロー */}
       <div className="relative h-[40vh] overflow-hidden">
-        {recipientAvatar ? (
+        {qrImageUrl ? (
+          <img src={qrImageUrl} className="w-full h-full object-cover opacity-70" alt={qr.label ?? recipientName} />
+        ) : recipientAvatar ? (
           <img src={recipientAvatar} className="w-full h-full object-cover opacity-60 grayscale" alt={recipientName} />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900" />

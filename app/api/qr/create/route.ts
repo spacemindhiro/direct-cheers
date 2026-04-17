@@ -32,6 +32,7 @@ export async function POST(req: Request) {
     payment_type = "A",
     stock_limit = null,
     track_inventory = true,
+    image_url = null,
   } = body as {
     event_id: string;
     label?: string;
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
     payment_type?: "A" | "B" | "C";
     stock_limit?: number | null;
     track_inventory?: boolean;
+    image_url?: string | null;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -123,6 +125,7 @@ export async function POST(req: Request) {
       recipient_profile_id,
       label: label ?? null,
       is_personal,
+      image_url: image_url ?? null,
     })
     .select("qr_config_id")
     .single();

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Pencil, Trash2, Loader2, Check, X, Plus } from "lucide-react";
+import { QRImageUpload } from "@/components/qr-image-upload";
 
 type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist" };
 type DistTarget = { profile_id: string; ratio: string };
@@ -12,6 +13,7 @@ export function QREditDelete({
   qrConfigId,
   eventId,
   currentLabel,
+  currentImageUrl,
   currentRecipientId,
   currentTargets,
   candidates,
@@ -19,6 +21,7 @@ export function QREditDelete({
   qrConfigId: string;
   eventId: string;
   currentLabel: string;
+  currentImageUrl?: string | null;
   currentRecipientId: string;
   currentTargets: { profile_id: string; distribution_ratio: number }[];
   candidates: TargetCandidate[];
@@ -29,6 +32,7 @@ export function QREditDelete({
   const [error, setError] = useState<string | null>(null);
 
   const [label, setLabel] = useState(currentLabel);
+  const [imageUrl, setImageUrl] = useState<string | null>(currentImageUrl ?? null);
   const [recipientId, setRecipientId] = useState(currentRecipientId);
   const [targets, setTargets] = useState<DistTarget[]>(
     currentTargets.map((t) => ({
@@ -66,6 +70,7 @@ export function QREditDelete({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           label: label.trim() || null,
+          image_url: imageUrl,
           recipient_profile_id: recipientId,
           targets: targets.map((t) => ({
             profile_id: t.profile_id,
@@ -86,6 +91,7 @@ export function QREditDelete({
   const handleCancel = () => {
     setEditing(false);
     setLabel(currentLabel);
+    setImageUrl(currentImageUrl ?? null);
     setRecipientId(currentRecipientId);
     setTargets(
       currentTargets.map((t) => ({
@@ -141,6 +147,13 @@ export function QREditDelete({
               className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
+
+          {/* QR画像 */}
+          <QRImageUpload
+            currentUrl={imageUrl}
+            pathPrefix={qrConfigId}
+            onUploadComplete={setImageUrl}
+          />
 
           {/* 宛先 */}
           <div className="space-y-2">
@@ -245,6 +258,13 @@ export function QREditDelete({
         </div>
       ) : (
         <div className="space-y-2">
+          {currentImageUrl && (
+            <img
+              src={currentImageUrl}
+              alt="QR image"
+              className="w-20 h-20 rounded-xl object-cover border border-slate-700"
+            />
+          )}
           <div className="px-4 py-3 bg-slate-800/50 rounded-xl text-xs">
             <span className="font-black text-slate-400">宛先: </span>
             <span className="text-slate-200">{candidateName(currentRecipientId)}</span>

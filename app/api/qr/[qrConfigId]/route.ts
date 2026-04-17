@@ -48,8 +48,9 @@ export async function PATCH(
   const { qr, supabase: sb, error } = await getQRWithPermission(qrConfigId, user.id);
   if (!qr) return NextResponse.json({ error }, { status: error === "Forbidden" ? 403 : 404 });
 
-  const { label, recipient_profile_id, targets } = await req.json() as {
+  const { label, image_url, recipient_profile_id, targets } = await req.json() as {
     label?: string;
+    image_url?: string | null;
     recipient_profile_id?: string;
     targets?: { profile_id: string; distribution_ratio: number }[];
   };
@@ -57,6 +58,7 @@ export async function PATCH(
   // qr_configs 更新
   const configUpdates: Record<string, unknown> = {};
   if (label !== undefined) configUpdates.label = label || null;
+  if (image_url !== undefined) configUpdates.image_url = image_url;
   if (recipient_profile_id !== undefined) configUpdates.recipient_profile_id = recipient_profile_id;
 
   if (Object.keys(configUpdates).length > 0) {

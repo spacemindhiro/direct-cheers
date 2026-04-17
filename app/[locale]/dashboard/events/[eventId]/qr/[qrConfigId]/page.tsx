@@ -28,7 +28,7 @@ async function QRDetailContent({
 
   const { data: qr } = await supabase
     .from("qr_configs")
-    .select("qr_config_id, label, recipient_profile_id, created_at, event_id")
+    .select("qr_config_id, label, image_url, recipient_profile_id, created_at, event_id")
     .eq("qr_config_id", qrConfigId)
     .eq("event_id", eventId)
     .is("deleted_at", null)
@@ -108,6 +108,7 @@ async function QRDetailContent({
           qrConfigId={qrConfigId}
           eventId={eventId}
           currentLabel={qr.label ?? ""}
+          currentImageUrl={(qr as any).image_url ?? null}
           currentRecipientId={qr.recipient_profile_id ?? ""}
           currentTargets={currentTargets}
           candidates={candidates}

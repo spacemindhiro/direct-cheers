@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Loader2, Plus, Trash2, Info } from "lucide-react";
+import { QRImageUpload } from "@/components/qr-image-upload";
 
 const PAYMENT_TYPE_INFO = {
   A: { label: "Aタイプ：5日前確定", desc: "予約→カード保存、5日前に自動決済" },
@@ -36,6 +37,7 @@ export function QRCreateForm({
   const [minAmount, setMinAmount] = useState(PRODUCT_TYPE_RANGES.standard.min);
   const [maxAmount, setMaxAmount] = useState(PRODUCT_TYPE_RANGES.standard.max);
   const [label, setLabel] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [recipientId, setRecipientId] = useState(targetCandidates[0]?.profile_id ?? "");
   const [targets, setTargets] = useState<DistTarget[]>(
     targetCandidates[0] ? [{ profile_id: targetCandidates[0].profile_id, ratio: "100" }] : [],
@@ -84,6 +86,7 @@ export function QRCreateForm({
         body: JSON.stringify({
           event_id: eventId,
           label: label || undefined,
+          image_url: imageUrl || undefined,
           product_type: productType,
           min_amount: minAmount,
           max_amount: maxAmount,
@@ -125,6 +128,9 @@ export function QRCreateForm({
             className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         </div>
+
+        {/* QR画像 */}
+        <QRImageUpload onUploadComplete={setImageUrl} />
 
         {/* 商品タイプ */}
         <div className="space-y-3">

@@ -15,6 +15,17 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
 
   if (!user) redirect("/auth/login");
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("profile_id", user.id)
+    .single();
+
+  const role = profile?.role ?? "";
+  if (role !== "organizer" && role !== "agent" && role !== "admin") {
+    redirect(`/dashboard/events/${eventId}`);
+  }
+
   const { data: event } = await supabase
     .from("events")
     .select(`

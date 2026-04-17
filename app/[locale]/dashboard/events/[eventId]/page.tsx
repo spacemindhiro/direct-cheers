@@ -50,7 +50,8 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const isOrganizer = profile?.role === "organizer" || profile?.role === "admin";
   const isArtist = profile?.role === "artist";
   const canApprove = isAgent && event.lifecycle_status === "draft";
-  const canCreateQR = event.lifecycle_status === "published" || event.lifecycle_status === "ongoing";
+  const canCreateQR = (isOrganizer || isAgent) &&
+    (event.lifecycle_status === "published" || event.lifecycle_status === "ongoing");
   const hasEnded = new Date(event.end_at) < new Date();
   const canSubmitEvidence = isOrganizer && hasEnded && event.lifecycle_status !== "settled";
 

@@ -28,7 +28,7 @@ export function CheersPaymentForm({
   recipientName: string;
   eventTitle: string;
 }) {
-  const [selectedProduct, setSelectedProduct] = useState<Product>(products[0]);
+  const selectedProduct = products[0];
   const [amount, setAmount] = useState(products[0]?.min_amount ?? 500);
   const [nickname, setNickname] = useState("");
   const [comment, setComment] = useState("");
@@ -77,13 +77,6 @@ export function CheersPaymentForm({
     const method = pendingMethod;
     setPendingMethod(null);
     proceedToCheckout(method, email);
-  };
-
-  const PRODUCT_TYPE_LABELS: Record<string, string> = {
-    standard: "スタンダード",
-    message:  "メッセージ",
-    entrance: "エントランス",
-    custom:   "カスタム",
   };
 
   // メール入力画面
@@ -144,32 +137,6 @@ export function CheersPaymentForm({
 
   return (
     <div className="space-y-6">
-
-      {/* 商品選択 */}
-      {products.length > 1 && (
-        <div className="space-y-2">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">商品タイプ</p>
-          <div className="flex flex-wrap gap-2">
-            {products.map((p) => (
-              <button
-                key={p.product_id}
-                type="button"
-                onClick={() => {
-                  setSelectedProduct(p);
-                  setAmount(p.min_amount);
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                  selectedProduct.product_id === p.product_id
-                    ? "bg-pink-500 text-white shadow-[0_0_20px_rgba(236,72,153,0.3)]"
-                    : "bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700"
-                }`}
-              >
-                {PRODUCT_TYPE_LABELS[p.type] ?? p.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 金額スライダー */}
       <div className="space-y-3">

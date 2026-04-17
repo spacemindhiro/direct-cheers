@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Loader2, Plus, Trash2, Info } from "lucide-react";
@@ -58,6 +58,18 @@ export function QRCreateForm({
     setMinAmount(r.min);
     setMaxAmount(r.max);
   };
+
+  // 配分リストが変わったとき、宛先が配分に含まれなくなったら先頭に戻す
+  useEffect(() => {
+    if (targets.length > 0 && !targets.some((t) => t.profile_id === recipientId)) {
+      setRecipientId(targets[0].profile_id);
+    }
+  }, [targets, recipientId]);
+
+  // 宛先の選択肢は配分に登録されている人のみ
+  const recipientOptions = targetCandidates.filter((c) =>
+    targets.some((t) => t.profile_id === c.profile_id)
+  );
 
   const addTarget = () =>
     setTargets((prev) => [...prev, { profile_id: targetCandidates[0]?.profile_id ?? "", ratio: "0" }]);
@@ -257,30 +269,6 @@ export function QRCreateForm({
           </div>
         </div>
 
-        {/* 宛先 */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-            宛先 <span className="text-pink-500">*</span>
-          </label>
-          <p className="text-[10px] text-slate-600">決済記録上で「誰への支払いか」を示す名義人</p>
-          {targetCandidates.length === 0 ? (
-            <p className="text-sm text-amber-400 font-bold">出演者が登録されていません</p>
-          ) : (
-            <select
-              value={recipientId}
-              onChange={(e) => setRecipientId(e.target.value)}
-              className="w-full h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
-            >
-              <option value="" disabled>選択してください</option>
-              {targetCandidates.map((c) => (
-                <option key={c.profile_id} value={c.profile_id}>
-                  {c.display_name}{c.role === "organizer" ? "（主催者）" : ""}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
         {/* 配分設定 */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -335,6 +323,29 @@ export function QRCreateForm({
             <span className={Math.abs(totalRatio - 100) < 0.1 ? "text-emerald-400" : "text-red-400"}>
               {totalRatio.toFixed(1)}%
             </span>
+          </div>
+
+          {/* 宛先 — 配分に登録された人の中から選ぶ */}
+          <div className="space-y-2 pt-2 border-t border-slate-700">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+              宛先 <span className="text-pink-500">*</span>
+            </label>
+            <p className="text-[10px] text-slate-600">決済記録上の名義人。配分に追加した人の中から選択。</p>
+            {recipientOptions.length === 0 ? (
+              <p className="text-xs text-amber-400 font-bold">配分先を追加してください</p>
+            ) : (
+              <select
+                value={recipientId}
+                onChange={(e) => setRecipientId(e.target.value)}
+                className="w-full h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
+              >
+                {recipientOptions.map((c) => (
+                  <option key={c.profile_id} value={c.profile_id}>
+                    {c.display_name}{c.role === "organizer" ? "（主催者）" : ""}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* 手数料インフォ */}

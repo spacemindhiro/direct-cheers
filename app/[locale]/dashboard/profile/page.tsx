@@ -106,63 +106,68 @@ export default function ProfileEditPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const router = useRouter();
 
+  const applyProfileData = (data: Profile) => {
+    setProfile(data);
+    setDisplayName(data.display_name ?? '');
+    setAvatarUrl(data.avatar_url ?? '');
+    setInstagram(data.social_links?.instagram ?? '');
+    setSoundcloud(data.social_links?.soundcloud ?? '');
+    setWebsite(data.social_links?.website ?? '');
+    setBio(data.bio ?? '');
+    setAffiliation(data.affiliation ?? '');
+    setCreditName(data.credit_name ?? '');
+    setGenre(data.genre ?? '');
+    setOrganizationName(data.organization_name ?? '');
+    setFirstName(data.first_name ?? '');
+    setLastName(data.last_name ?? '');
+    setPhone(data.phone ?? '');
+    setDobYear(data.dob_year ? String(data.dob_year) : '');
+    setDobMonth(data.dob_month ? String(data.dob_month) : '');
+    setDobDay(data.dob_day ? String(data.dob_day) : '');
+    setPostalCode(data.postal_code ?? '');
+    setPrefecture(data.prefecture ?? '');
+    setCity(data.city ?? '');
+    setStreetAddress(data.street_address ?? '');
+    setBusinessType((data.business_type as 'individual' | 'company') ?? 'individual');
+    setBusinessName(data.business_name ?? '');
+  };
+
+  const fetchAndApplyProfile = async (supabase: ReturnType<typeof createClient>, userId: string) => {
+    const { data: coreData } = await supabase
+      .from('profiles')
+      .select('display_name, avatar_url, role, verification_status, pending_role, social_links, stripe_connect_id')
+      .eq('profile_id', userId)
+      .single();
+
+    if (!coreData) return null;
+
+    const { data: extData } = await supabase
+      .from('profiles')
+      .select(`
+        bio, affiliation, credit_name, genre, organization_name,
+        first_name, last_name, phone,
+        dob_year, dob_month, dob_day,
+        postal_code, prefecture, city, street_address,
+        business_type, business_name
+      `)
+      .eq('profile_id', userId)
+      .single();
+
+    const data = { ...coreData, ...(extData ?? {}) } as Profile;
+    applyProfileData(data);
+    return data;
+  };
+
   useEffect(() => {
-    const fetchProfile = async () => {
+    const init = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/auth/login'); return; }
-
-      // コア情報（role 確定に必須）を先に取得
-      const { data: coreData } = await supabase
-        .from('profiles')
-        .select('display_name, avatar_url, role, verification_status, pending_role, social_links, stripe_connect_id')
-        .eq('profile_id', user.id)
-        .single();
-
-      if (!coreData) { setIsLoading(false); return; }
-
-      // 拡張フィールド（No.46 で追加。存在しない環境ではスキップ）
-      const { data: extData } = await supabase
-        .from('profiles')
-        .select(`
-          bio, affiliation, credit_name, genre, organization_name,
-          first_name, last_name, phone,
-          dob_year, dob_month, dob_day,
-          postal_code, prefecture, city, street_address,
-          business_type, business_name
-        `)
-        .eq('profile_id', user.id)
-        .single();
-
-      const data = { ...coreData, ...(extData ?? {}) } as Profile;
-
-      setProfile(data);
-      setDisplayName(data.display_name ?? '');
-      setAvatarUrl(data.avatar_url ?? '');
-      setInstagram(data.social_links?.instagram ?? '');
-      setSoundcloud(data.social_links?.soundcloud ?? '');
-      setWebsite(data.social_links?.website ?? '');
-      setBio(data.bio ?? '');
-      setAffiliation(data.affiliation ?? '');
-      setCreditName(data.credit_name ?? '');
-      setGenre(data.genre ?? '');
-      setOrganizationName(data.organization_name ?? '');
-      setFirstName(data.first_name ?? '');
-      setLastName(data.last_name ?? '');
-      setPhone(data.phone ?? '');
-      setDobYear(data.dob_year ? String(data.dob_year) : '');
-      setDobMonth(data.dob_month ? String(data.dob_month) : '');
-      setDobDay(data.dob_day ? String(data.dob_day) : '');
-      setPostalCode(data.postal_code ?? '');
-      setPrefecture(data.prefecture ?? '');
-      setCity(data.city ?? '');
-      setStreetAddress(data.street_address ?? '');
-      setBusinessType((data.business_type as 'individual' | 'company') ?? 'individual');
-      setBusinessName(data.business_name ?? '');
-
+      await fetchAndApplyProfile(supabase, user.id);
       setIsLoading(false);
     };
-    fetchProfile();
+    init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   const handleSave = () => {
@@ -211,8 +216,13 @@ export default function ProfileEditPage() {
       }
 
       const { error } = await supabase.from('profiles').update(updates).eq('profile_id', user.id);
-      if (error) { toast.error('保存に失敗しました'); }
-      else        { toast.success('プロファイルを更新しました'); }
+      if (error) {
+        toast.error('保存に失敗しました');
+      } else {
+        // DB から再フェッチして profile state を確実に同期（stripeReady 再評価）
+        await fetchAndApplyProfile(supabase, user.id);
+        toast.success('プロファイルを更新しました');
+      }
     });
   };
 
@@ -226,12 +236,13 @@ export default function ProfileEditPage() {
   const isAgent     = role === 'agent';
   const isCreator   = isArtist || isOrganizer || isAgent;
 
-  // Stripe ボタンを有効にするための必須チェック
+  // 保存済みデータで Stripe ボタンを有効化（入力中ではなく保存後に有効）
   const stripeReady = !!(
-    firstName.trim() && lastName.trim() && phone.trim() &&
-    dobYear && dobMonth && dobDay &&
-    postalCode.trim() && prefecture.trim() && city.trim() && streetAddress.trim() &&
-    (businessType === 'individual' || businessName.trim())
+    profile?.first_name?.trim() && profile?.last_name?.trim() && profile?.phone?.trim() &&
+    profile?.dob_year && profile?.dob_month && profile?.dob_day &&
+    profile?.postal_code?.trim() && profile?.prefecture?.trim() &&
+    profile?.city?.trim() && profile?.street_address?.trim() &&
+    (profile?.business_type === 'individual' || profile?.business_name?.trim())
   );
   const stripeConnected = !!profile?.stripe_connect_id;
 
@@ -507,7 +518,7 @@ export default function ProfileEditPage() {
 
                 {!stripeReady && (
                   <p className="text-[10px] text-amber-400 font-bold">
-                    ↑「口座登録に必要な本人情報」をすべて入力してから保存してください
+                    ↑「口座登録に必要な本人情報」をすべて入力し、「保存する」ボタンを押してから進んでください
                   </p>
                 )}
 

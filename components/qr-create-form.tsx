@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Loader2, Plus, Trash2, Info } from "lucide-react";
+import { ArrowRight, Loader2, Plus, Trash2, Info, Hash } from "lucide-react";
 import { QRImageUpload } from "@/components/qr-image-upload";
 
 const PAYMENT_TYPE_INFO = {
@@ -48,6 +48,7 @@ export function QRCreateForm({
   const [paymentType, setPaymentType] = useState<"A" | "B" | "C">("A");
   const [stockLimit, setStockLimit] = useState<string>("");
   const [trackInventoryC, setTrackInventoryC] = useState(false);
+  const [serialScope, setSerialScope] = useState<"event" | "qr" | "artist">("event");
 
   const range = PRODUCT_TYPE_RANGES[productType];
   const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
@@ -109,6 +110,7 @@ export function QRCreateForm({
             profile_id: t.profile_id,
             distribution_ratio: (parseFloat(t.ratio) || 0) / 100,
           })),
+          serial_scope: serialScope,
           // entrance タイプ追加フィールド
           ...(productType === "entrance" && {
             payment_type: paymentType,
@@ -323,6 +325,30 @@ export function QRCreateForm({
             <span className={Math.abs(totalRatio - 100) < 0.1 ? "text-emerald-400" : "text-red-400"}>
               {totalRatio.toFixed(1)}%
             </span>
+          </div>
+
+          {/* シリアル番号採番単位 */}
+          <div className="space-y-2 pt-2 border-t border-slate-700">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
+              <Hash size={11} className="text-pink-500" /> シリアル番号の採番単位
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { value: "event",  label: "イベント通し", desc: "全QR合算で #001, #002..." },
+                { value: "qr",     label: "QRコード別",   desc: "このQR内だけで #001, #002..." },
+                { value: "artist", label: "アーティスト別", desc: "受取人ごとに #001, #002..." },
+              ] as const).map((s) => (
+                <button key={s.value} type="button" onClick={() => setSerialScope(s.value)}
+                  className={`p-3 rounded-2xl text-left transition-all border space-y-0.5 ${
+                    serialScope === s.value
+                      ? "bg-pink-500/10 border-pink-500/40 text-pink-400"
+                      : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                  }`}>
+                  <p className="text-[10px] font-black uppercase tracking-wider">{s.label}</p>
+                  <p className="text-[9px] font-medium text-slate-500 normal-case">{s.desc}</p>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* 宛先 — 配分に登録された人の中から選ぶ */}

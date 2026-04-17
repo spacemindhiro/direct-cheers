@@ -121,6 +121,7 @@ export async function POST(req: Request) {
           p_transaction_id: tx.transaction_id,
           p_event_id: qrConfig.event_id,
           p_artist_id: artistId,
+          p_qr_config_id: qrConfigId,
         });
 
         serialNumber = seqData ?? null;

@@ -33,6 +33,7 @@ export async function POST(req: Request) {
     stock_limit = null,
     track_inventory = true,
     image_url = null,
+    serial_scope = "event",
   } = body as {
     event_id: string;
     label?: string;
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
     stock_limit?: number | null;
     track_inventory?: boolean;
     image_url?: string | null;
+    serial_scope?: "event" | "qr" | "artist";
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -127,6 +129,7 @@ export async function POST(req: Request) {
       is_personal,
       image_url: image_url ?? null,
       product_id: product.product_id,
+      serial_scope,
     })
     .select("qr_config_id")
     .single();

@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Loader2, MapPin, Music, Hash, Search, X, Plus } from "lucide-react";
+import { ArrowRight, Loader2, MapPin, Music, Search, X, Plus } from "lucide-react";
 
 type Artist = { profile_id: string; display_name: string };
 
@@ -17,7 +17,7 @@ export function EventCreateForm({
   const [error, setError] = useState<string | null>(null);
   const [selectedArtists, setSelectedArtists] = useState<Artist[]>([]);
   const [artistMessages, setArtistMessages] = useState<Record<string, string>>({});
-  const [serialScope, setSerialScope] = useState<"event" | "artist">("event");
+
 
   // 新規アーティスト検索
   const [searchMode, setSearchMode] = useState(false);
@@ -77,7 +77,7 @@ export function EventCreateForm({
             profile_id: a.profile_id,
             invite_message: artistMessages[a.profile_id] || null,
           })),
-          serial_scope: serialScope,
+
         }),
       });
       const data = await res.json();
@@ -279,36 +279,6 @@ export function EventCreateForm({
               )}
             </div>
           )}
-        </div>
-
-        {/* シリアル番号スコープ */}
-        <div className="space-y-3">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
-            <Hash size={11} className="text-pink-500" /> シリアル番号の採番単位
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {(["event", "artist"] as const).map((scope) => (
-              <button
-                key={scope}
-                type="button"
-                onClick={() => setSerialScope(scope)}
-                className={`px-4 py-3 rounded-2xl text-xs font-black transition-all text-left space-y-0.5 border ${
-                  serialScope === scope
-                    ? "bg-pink-500/10 border-pink-500/40 text-pink-400"
-                    : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
-                }`}
-              >
-                <p className="uppercase tracking-widest">
-                  {scope === "event" ? "イベント通し" : "アーティスト別"}
-                </p>
-                <p className="text-[9px] font-medium text-slate-500 normal-case tracking-normal">
-                  {scope === "event"
-                    ? "全出演者合算で #001, #002..."
-                    : "アーティストごとに #001, #002..."}
-                </p>
-              </button>
-            ))}
-          </div>
         </div>
 
         {error && <p className="text-sm text-red-400 font-bold">{error}</p>}

@@ -69,11 +69,11 @@ function ThanksContent() {
         }
         setResult(data);
 
-        // サンクス特典を取得（event_id が取れた場合）
-        if (data.event_id && data.transaction_id) {
+        // サンクス特典を取得（QR単位）
+        if (data.transaction_id) {
           try {
             const thanksRes = await fetch(
-              `/api/events/${data.event_id}/thanks?transaction_id=${data.transaction_id}`
+              `/api/qr/${params.qrConfigId}/thanks?transaction_id=${data.transaction_id}`
             );
             if (thanksRes.ok) {
               const thanksData = await thanksRes.json();

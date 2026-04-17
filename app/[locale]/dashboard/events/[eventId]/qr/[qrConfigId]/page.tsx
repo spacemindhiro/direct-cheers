@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { QRDisplay } from "@/components/qr-display";
 import { QREditDelete } from "@/components/qr-edit-delete";
+import { QRThanksEditor } from "@/components/qr-thanks-editor";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -111,6 +112,15 @@ async function QRDetailContent({
           currentTargets={currentTargets}
           candidates={candidates}
         />
+      )}
+
+      {canEdit && (
+        <div className="space-y-3">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+            <span className="text-pink-500">✦</span> Thanks Gift
+          </p>
+          <QRThanksEditor qrConfigId={qrConfigId} />
+        </div>
       )}
     </div>
   );

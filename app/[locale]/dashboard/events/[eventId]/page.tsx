@@ -31,7 +31,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         artist_profile_id,
         status,
         deleted_at,
-        artist:profiles!artist_profile_id(display_name, avatar_url)
+        artist:profiles!artist_profile_id(display_name, credit_name, avatar_url)
       )
     `)
     .eq("event_id", eventId)
@@ -117,18 +117,18 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
                       {ea.artist?.avatar_url ? (
                         <img
                           src={ea.artist.avatar_url}
-                          alt={ea.artist.display_name}
+                          alt={ea.artist.display_name ?? ea.artist.credit_name ?? ""}
                           className="w-8 h-8 rounded-full object-cover border border-slate-700"
                         />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
                           <span className="text-slate-500 text-xs font-black">
-                            {(ea.artist?.display_name ?? "?")[0].toUpperCase()}
+                            {(ea.artist?.display_name ?? ea.artist?.credit_name ?? "?")[0].toUpperCase()}
                           </span>
                         </div>
                       )}
                       <span className="text-sm font-bold text-slate-200">
-                        {ea.artist?.display_name ?? "—"}
+                        {ea.artist?.display_name ?? ea.artist?.credit_name ?? "—"}
                       </span>
                     </div>
                     <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${

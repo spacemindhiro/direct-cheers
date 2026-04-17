@@ -29,7 +29,9 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       agent:profiles!agent_id(display_name),
       event_artists(
         artist_profile_id,
-        artist:profiles!artist_profile_id(display_name)
+        status,
+        deleted_at,
+        artist:profiles!artist_profile_id(display_name, avatar_url)
       )
     `)
     .eq("event_id", eventId)
@@ -97,18 +99,51 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       </div>
 
       {/* 出演アーティスト */}
-      {event.event_artists && event.event_artists.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">出演アーティスト</p>
-          <div className="flex flex-wrap gap-2">
-            {event.event_artists.map((ea: any) => (
-              <span key={ea.artist_profile_id} className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold text-slate-300">
-                {ea.artist?.display_name ?? "—"}
-              </span>
-            ))}
+      {(() => {
+        const visibleArtists = (event.event_artists ?? []).filter(
+          (ea: any) => ea.deleted_at === null && ea.status !== "rejected"
+        );
+        if (visibleArtists.length === 0) return null;
+        return (
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">出演アーティスト</p>
+            <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] divide-y divide-slate-800">
+              {visibleArtists.map((ea: any) => {
+                const isConfirmed = ea.status === "confirmed";
+                return (
+                  <div key={ea.artist_profile_id} className="flex items-center justify-between px-5 py-3.5">
+                    <div className="flex items-center gap-3">
+                      {ea.artist?.avatar_url ? (
+                        <img
+                          src={ea.artist.avatar_url}
+                          alt={ea.artist.display_name}
+                          className="w-8 h-8 rounded-full object-cover border border-slate-700"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
+                          <span className="text-slate-500 text-xs font-black">
+                            {(ea.artist?.display_name ?? "?")[0].toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <span className="text-sm font-bold text-slate-200">
+                        {ea.artist?.display_name ?? "—"}
+                      </span>
+                    </div>
+                    <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                      isConfirmed
+                        ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                        : "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                    }`}>
+                      {isConfirmed ? "出演確定" : "交渉中"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* リアルタイム着金予測ボード */}
       {(isOrganizer || isAgent || isArtist) && (

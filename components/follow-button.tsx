@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Heart, HeartHandshake, Loader2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Heart, HeartHandshake, Loader2, X, LogIn } from "lucide-react";
 
 type Props = {
   followeeId: string;
@@ -18,11 +19,13 @@ export function FollowButton({
   size = "md",
   onFollowChange,
 }: Props) {
+  const router = useRouter();
   const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
   const [followerCount, setFollowerCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; sub: string } | null>(null);
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false);
+  const [loginRequired, setLoginRequired] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -57,7 +60,8 @@ export function FollowButton({
       const data = await res.json();
 
       if (res.status === 401) {
-        // 未ログインの場合は何もしない（将来：ログイン誘導）
+        setLoginRequired(true);
+        setTimeout(() => setLoginRequired(false), 4000);
         return;
       }
 
@@ -71,6 +75,7 @@ export function FollowButton({
         setFollowerCount((prev) => prev + (nowFollowing ? 1 : -1));
       }
       onFollowChange?.(nowFollowing);
+      router.refresh();
 
       if (nowFollowing) {
         // フォロー成功ポップアップ
@@ -100,6 +105,7 @@ export function FollowButton({
         setIsFollowing(false);
         setFollowerCount((prev) => Math.max(0, prev - 1));
         onFollowChange?.(false);
+        router.refresh();
       }
     } finally {
       setLoading(false);
@@ -150,6 +156,18 @@ export function FollowButton({
         <p className="text-center text-[10px] text-slate-600 mt-1.5">
           {followerCount.toLocaleString()} フォロワー
         </p>
+      )}
+
+      {/* ログイン必要メッセージ */}
+      {loginRequired && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-48">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-center shadow-xl">
+            <p className="text-[10px] font-bold text-slate-400 flex items-center justify-center gap-1.5">
+              <LogIn size={10} />
+              ログインするとフォローできます
+            </p>
+          </div>
+        </div>
       )}
 
       {/* アンフォロー確認 */}

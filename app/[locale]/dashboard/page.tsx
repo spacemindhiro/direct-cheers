@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket } from 'lucide-react';
+import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers } from 'lucide-react';
 import { getFeeConfig } from '@/lib/fee-config';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
@@ -212,15 +212,15 @@ async function DashboardContent() {
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 space-y-3">
-          <div className="w-10 h-10 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20">
-            <Wallet size={20} className="text-emerald-400" />
+        <Link href="/dashboard/collection" className="bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 space-y-3 block transition-all group">
+          <div className="w-10 h-10 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
+            <Layers size={20} className="text-pink-400" />
           </div>
           <div>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Wallet Cards</p>
-            <p className="text-3xl font-black text-white italic tracking-tighter">{cheersHistory?.length ?? 0}</p>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">My Cards</p>
+            <p className="text-3xl font-black text-white italic tracking-tighter group-hover:text-pink-400 transition-colors">{cheersHistory?.length ?? 0}</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Cheers履歴 */}
@@ -257,6 +257,27 @@ async function DashboardContent() {
           </div>
         )}
       </div>
+
+      {/* コレクションリンク */}
+      {cheersHistory.length > 0 && (
+        <Link
+          href="/dashboard/collection"
+          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
+              <Layers size={22} className="text-pink-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Collection</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
+                カードコレクション
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">Cheersカードをすべて眺める</p>
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* フォロー中 */}
       {follows.length > 0 && (

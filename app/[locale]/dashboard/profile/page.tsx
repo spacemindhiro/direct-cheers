@@ -112,11 +112,19 @@ export default function ProfileEditPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/auth/login'); return; }
 
-      const { data } = await supabase
+      // コア情報（role 確定に必須）を先に取得
+      const { data: coreData } = await supabase
+        .from('profiles')
+        .select('display_name, avatar_url, role, verification_status, pending_role, social_links, stripe_connect_id')
+        .eq('profile_id', user.id)
+        .single();
+
+      if (!coreData) { setIsLoading(false); return; }
+
+      // 拡張フィールド（No.46 で追加。存在しない環境ではスキップ）
+      const { data: extData } = await supabase
         .from('profiles')
         .select(`
-          display_name, avatar_url, role, verification_status, pending_role,
-          social_links, stripe_connect_id,
           bio, affiliation, credit_name, genre, organization_name,
           first_name, last_name, phone,
           dob_year, dob_month, dob_day,
@@ -126,31 +134,32 @@ export default function ProfileEditPage() {
         .eq('profile_id', user.id)
         .single();
 
-      if (data) {
-        setProfile(data);
-        setDisplayName(data.display_name ?? '');
-        setAvatarUrl(data.avatar_url ?? '');
-        setInstagram(data.social_links?.instagram ?? '');
-        setSoundcloud(data.social_links?.soundcloud ?? '');
-        setWebsite(data.social_links?.website ?? '');
-        setBio(data.bio ?? '');
-        setAffiliation(data.affiliation ?? '');
-        setCreditName(data.credit_name ?? '');
-        setGenre(data.genre ?? '');
-        setOrganizationName(data.organization_name ?? '');
-        setFirstName(data.first_name ?? '');
-        setLastName(data.last_name ?? '');
-        setPhone(data.phone ?? '');
-        setDobYear(data.dob_year ? String(data.dob_year) : '');
-        setDobMonth(data.dob_month ? String(data.dob_month) : '');
-        setDobDay(data.dob_day ? String(data.dob_day) : '');
-        setPostalCode(data.postal_code ?? '');
-        setPrefecture(data.prefecture ?? '');
-        setCity(data.city ?? '');
-        setStreetAddress(data.street_address ?? '');
-        setBusinessType(data.business_type ?? 'individual');
-        setBusinessName(data.business_name ?? '');
-      }
+      const data = { ...coreData, ...(extData ?? {}) } as Profile;
+
+      setProfile(data);
+      setDisplayName(data.display_name ?? '');
+      setAvatarUrl(data.avatar_url ?? '');
+      setInstagram(data.social_links?.instagram ?? '');
+      setSoundcloud(data.social_links?.soundcloud ?? '');
+      setWebsite(data.social_links?.website ?? '');
+      setBio(data.bio ?? '');
+      setAffiliation(data.affiliation ?? '');
+      setCreditName(data.credit_name ?? '');
+      setGenre(data.genre ?? '');
+      setOrganizationName(data.organization_name ?? '');
+      setFirstName(data.first_name ?? '');
+      setLastName(data.last_name ?? '');
+      setPhone(data.phone ?? '');
+      setDobYear(data.dob_year ? String(data.dob_year) : '');
+      setDobMonth(data.dob_month ? String(data.dob_month) : '');
+      setDobDay(data.dob_day ? String(data.dob_day) : '');
+      setPostalCode(data.postal_code ?? '');
+      setPrefecture(data.prefecture ?? '');
+      setCity(data.city ?? '');
+      setStreetAddress(data.street_address ?? '');
+      setBusinessType((data.business_type as 'individual' | 'company') ?? 'individual');
+      setBusinessName(data.business_name ?? '');
+
       setIsLoading(false);
     };
     fetchProfile();

@@ -13,7 +13,13 @@ export async function POST() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, stripe_connect_id, display_name")
+    .select(`
+      role, stripe_connect_id, display_name,
+      first_name, last_name, phone,
+      dob_year, dob_month, dob_day,
+      postal_code, prefecture, city, street_address,
+      business_type, business_name
+    `)
     .eq("profile_id", user.id)
     .single();
 
@@ -24,22 +30,56 @@ export async function POST() {
   const admin = createAdminClient();
   let connectId = profile.stripe_connect_id;
 
-  // Stripe Connect アカウントがなければ作成
   if (!connectId) {
-    const account = await stripe.accounts.create({
+    const isCompany = profile.business_type === "company";
+
+    // 個人情報を事前入力してアカウント作成
+    const accountParams: Stripe.AccountCreateParams = {
       type: "express",
       country: "JP",
       email: user.email,
-      capabilities: {
-        transfers: { requested: true },
-      },
-      business_type: "individual",
-      metadata: {
-        profile_id: user.id,
-        display_name: profile.display_name ?? "",
-      },
-    });
+      capabilities: { transfers: { requested: true } },
+      business_type: isCompany ? "company" : "individual",
+      metadata: { profile_id: user.id, display_name: profile.display_name ?? "" },
+    };
 
+    if (!isCompany) {
+      accountParams.individual = {};
+      if (profile.first_name) accountParams.individual.first_name = profile.first_name;
+      if (profile.last_name)  accountParams.individual.last_name  = profile.last_name;
+      if (profile.phone)      accountParams.individual.phone      = profile.phone;
+      if (profile.dob_year && profile.dob_month && profile.dob_day) {
+        accountParams.individual.dob = {
+          year:  profile.dob_year,
+          month: profile.dob_month,
+          day:   profile.dob_day,
+        };
+      }
+      if (profile.postal_code || profile.city || profile.street_address) {
+        accountParams.individual.address = {
+          country:     "JP",
+          postal_code: profile.postal_code ?? undefined,
+          state:       profile.prefecture ?? undefined,
+          city:        profile.city ?? undefined,
+          line1:       profile.street_address ?? undefined,
+        };
+      }
+    } else {
+      accountParams.company = {};
+      if (profile.business_name) accountParams.company.name = profile.business_name;
+      if (profile.phone)         accountParams.company.phone = profile.phone;
+      if (profile.postal_code || profile.city || profile.street_address) {
+        accountParams.company.address = {
+          country:     "JP",
+          postal_code: profile.postal_code ?? undefined,
+          state:       profile.prefecture ?? undefined,
+          city:        profile.city ?? undefined,
+          line1:       profile.street_address ?? undefined,
+        };
+      }
+    }
+
+    const account = await stripe.accounts.create(accountParams);
     connectId = account.id;
 
     await admin
@@ -48,11 +88,10 @@ export async function POST() {
       .eq("profile_id", user.id);
   }
 
-  // オンボーディングリンクを発行
   const accountLink = await stripe.accountLinks.create({
     account: connectId,
     refresh_url: `${SITE_URL}/dashboard/profile/connect-return?refresh=1`,
-    return_url: `${SITE_URL}/dashboard/profile/connect-return?success=1`,
+    return_url:  `${SITE_URL}/dashboard/profile/connect-return?success=1`,
     type: "account_onboarding",
   });
 

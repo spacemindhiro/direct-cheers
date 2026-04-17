@@ -14,6 +14,7 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
       qr_config_id,
       label,
       image_url,
+      product_id,
       event:events!event_id (
         event_id,
         title,
@@ -42,17 +43,16 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
   const recipientAvatar = recipient?.avatar_url ?? null;
   const qrImageUrl = (qr as any).image_url as string | null;
 
-  const { data: products } = await admin
+  const qrProductId = (qr as any).product_id as string | null;
+
+  const productsQuery = admin
     .from("products")
-    .select(`
-      product_id,
-      name,
-      type,
-      min_amount,
-      max_amount
-    `)
-    .eq("event_id", event.event_id)
+    .select("product_id, name, type, min_amount, max_amount")
     .is("deleted_at", null);
+
+  const { data: products } = qrProductId
+    ? await productsQuery.eq("product_id", qrProductId)
+    : await productsQuery.eq("event_id", event.event_id);
 
   if (!products || products.length === 0) notFound();
 

@@ -126,6 +126,7 @@ export async function POST(req: Request) {
       label: label ?? null,
       is_personal,
       image_url: image_url ?? null,
+      product_id: product.product_id,
     })
     .select("qr_config_id")
     .single();

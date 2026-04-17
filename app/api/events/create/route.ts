@@ -29,14 +29,17 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { title, venue, start_at, end_at, artist_ids, serial_scope } = body as {
+  const { title, venue, start_at, end_at, artists, artist_ids, serial_scope } = body as {
     title: string;
     venue: string;
     start_at: string;
     end_at: string;
-    artist_ids: string[];
+    artists?: { profile_id: string; invite_message?: string | null }[];
+    artist_ids?: string[]; // 旧フォーマット後方互換
     serial_scope?: "event" | "artist";
   };
+  // 新フォーマット（artists[]）と旧フォーマット（artist_ids[]）の両方をサポート
+  const artistList = artists ?? (artist_ids ?? []).map((id) => ({ profile_id: id, invite_message: null }));
 
   if (!title || !venue || !start_at || !end_at) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -63,12 +66,13 @@ export async function POST(req: Request) {
   }
 
   // アーティスト登録（全員 pending — アーティスト側の承認で confirmed に変わる）
-  if (artist_ids && artist_ids.length > 0) {
-    const artistRows = artist_ids.map((artist_profile_id, i) => ({
+  if (artistList.length > 0) {
+    const artistRows = artistList.map((a, i) => ({
       event_id: event.event_id,
-      artist_profile_id,
+      artist_profile_id: a.profile_id,
       performance_order: i + 1,
       status: "pending",
+      invite_message: a.invite_message ?? null,
     }));
     const { error: artistError } = await supabase
       .from("event_artists")
@@ -86,8 +90,8 @@ export async function POST(req: Request) {
         .eq("profile_id", user.id)
         .single();
 
-      const notifs = artist_ids.map((artistId) => ({
-        profile_id: artistId,
+      const notifs = artistList.map((a) => ({
+        profile_id: a.profile_id,
         type: "lineup_invite",
         title: "出演依頼が届いています",
         body: `${organizer?.display_name ?? "オーガナイザー"} から「${title}」への出演依頼が届いています。`,
@@ -123,8 +127,8 @@ export async function POST(req: Request) {
     }
 
     // 2. 出演アーティストのフォロワーに「artist_appearing」通知
-    if (artist_ids && artist_ids.length > 0) {
-      for (const artistId of artist_ids) {
+    if (artistList.length > 0) {
+      for (const { profile_id: artistId } of artistList) {
         const { data: artistFollowers } = await admin
           .from("follows")
           .select("follower_id")

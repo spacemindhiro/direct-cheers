@@ -20,7 +20,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
       event_id, title, lifecycle_status,
       organizer_profile_id,
       organizer:profiles!organizer_profile_id(display_name),
-      event_artists(artist_profile_id, artist:profiles!artist_profile_id(display_name))
+      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name))
     `)
     .eq("event_id", eventId)
     .single();
@@ -30,18 +30,20 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
     redirect(`/dashboard/events/${eventId}`);
   }
 
-  // 配分対象候補: オーガナイザー自身 + 出演アーティスト
+  // 配分対象候補: オーガナイザー自身 + 出演確定アーティストのみ（pendingは除外）
   const targets = [
     {
       profile_id: event.organizer_profile_id,
       display_name: (event.organizer as any)?.display_name ?? "オーガナイザー",
       role: "organizer" as const,
     },
-    ...(event.event_artists ?? []).map((ea: any) => ({
-      profile_id: ea.artist_profile_id,
-      display_name: ea.artist?.display_name ?? "Unknown",
-      role: "artist" as const,
-    })),
+    ...(event.event_artists ?? [])
+      .filter((ea: any) => ea.status === "confirmed" && ea.deleted_at === null)
+      .map((ea: any) => ({
+        profile_id: ea.artist_profile_id,
+        display_name: ea.artist?.display_name ?? "—",
+        role: "artist" as const,
+      })),
   ];
 
   return (

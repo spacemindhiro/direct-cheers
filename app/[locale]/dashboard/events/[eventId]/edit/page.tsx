@@ -36,18 +36,21 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
   if (!isOrganizer && !isAgent) redirect("/dashboard");
   if (event.lifecycle_status === "settled") redirect(`/dashboard/events/${eventId}`);
 
-  // 現在の出演アーティスト（削除・辞退済みを除く）
+  // 現在の出演アーティスト（出演確定のみ）
   const { data: eventArtists } = await supabase
     .from("event_artists")
-    .select("artist_profile_id, artist:profiles!artist_profile_id(display_name)")
+    .select("artist_profile_id, status, artist:profiles!artist_profile_id(display_name)")
     .eq("event_id", eventId)
     .is("deleted_at", null)
     .neq("status", "rejected");
 
-  const currentArtists = (eventArtists ?? []).map((ea: any) => ({
-    profile_id: ea.artist_profile_id,
-    display_name: ea.artist?.display_name ?? "Unknown",
-  }));
+  // 確定済みのみ編集対象に含める（交渉中は別イベントと混同を防ぐためこのイベント単位で管理）
+  const currentArtists = (eventArtists ?? [])
+    .filter((ea: any) => ea.status === "confirmed")
+    .map((ea: any) => ({
+      profile_id: ea.artist_profile_id,
+      display_name: ea.artist?.display_name ?? "—",
+    }));
 
   // コネクション済みアーティスト
   const { data: connections } = await supabase

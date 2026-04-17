@@ -104,22 +104,54 @@ async function DashboardContent() {
     }
   }
 
-  // アーティスト向け: 出演依頼（pending）取得
-  let lineupInvites: { event_artist_id: string; event_id: string; event: { title: string; venue: string; start_at: string } | null }[] = [];
+  // アーティスト向け: 出演依頼（pending）と出演予定（confirmed）を取得
+  let lineupInvites: {
+    event_artist_id: string;
+    event_id: string;
+    status: string;
+    invite_message?: string | null;
+    event: { title: string; venue: string; start_at: string; organizer_profile_id: string; organizer_name: string } | null;
+  }[] = [];
+  let upcomingShows: { event_id: string; event: { title: string; venue: string; start_at: string } | null }[] = [];
   if (profile?.role === 'artist') {
-    const { data: inviteRows } = await admin
+    const { data: allRows } = await admin
       .from('event_artists')
-      .select('event_artist_id, event_id, event:events!event_id(title, venue, start_at)')
+      .select(`
+        event_artist_id, event_id, status, invite_message,
+        event:events!event_id(
+          title, venue, start_at, end_at, organizer_profile_id,
+          organizer:profiles!organizer_profile_id(display_name)
+        )
+      `)
       .eq('artist_profile_id', user!.id)
-      .eq('status', 'pending')
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
-    lineupInvites = (inviteRows ?? []).map((r: any) => ({
-      event_artist_id: r.event_artist_id,
-      event_id: r.event_id,
-      event: r.event ?? null,
-    }));
+    const now = new Date().toISOString();
+    lineupInvites = (allRows ?? [])
+      .filter((r: any) => r.status === 'pending')
+      .map((r: any) => ({
+        event_artist_id: r.event_artist_id,
+        event_id: r.event_id,
+        status: r.status,
+        invite_message: r.invite_message ?? null,
+        event: r.event
+          ? {
+              title: r.event.title,
+              venue: r.event.venue,
+              start_at: r.event.start_at,
+              organizer_profile_id: r.event.organizer_profile_id,
+              organizer_name: r.event.organizer?.display_name ?? 'オーガナイザー',
+            }
+          : null,
+      }));
+
+    upcomingShows = (allRows ?? [])
+      .filter((r: any) => r.status === 'confirmed' && r.event?.end_at > now)
+      .map((r: any) => ({
+        event_id: r.event_id,
+        event: r.event ? { title: r.event.title, venue: r.event.venue, start_at: r.event.start_at } : null,
+      }));
   }
 
   const roleLabelMap: Record<string, string> = {
@@ -277,9 +309,36 @@ async function DashboardContent() {
         />
       )}
 
-      {/* アーティスト向け: 出演依頼 */}
+      {/* アーティスト向け: 出演依頼（pending） */}
       {profile?.role === 'artist' && lineupInvites.length > 0 && (
         <LineupInvitations invites={lineupInvites} artistId={user!.id} />
+      )}
+
+      {/* アーティスト向け: 出演予定（confirmed） */}
+      {profile?.role === 'artist' && upcomingShows.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+            <Mic2 size={14} className="text-emerald-400" /> 出演予定
+          </h2>
+          <div className="space-y-3">
+            {upcomingShows.map((s) => (
+              <Link
+                key={s.event_id}
+                href={`/dashboard/events/${s.event_id}`}
+                className="bg-slate-900 border border-emerald-500/20 hover:border-emerald-500/40 rounded-[1.5rem] px-6 py-4 flex items-center justify-between gap-4 transition-colors"
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-sm font-black text-white truncate">{s.event?.title ?? '—'}</p>
+                  <p className="text-xs text-slate-500">
+                    {s.event?.venue}
+                    {s.event?.start_at && <span> · {new Date(s.event.start_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}</span>}
+                  </p>
+                </div>
+                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest shrink-0">出演確定</span>
+              </Link>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* アーティスト売上ダッシュボード */}

@@ -359,14 +359,14 @@ export default function ProfileEditPage() {
           </div>
         )}
 
-        {/* ── 口座登録に必要な本人情報（アーティスト以上、未連携時のみ） ── */}
-        {isCreator && !stripeConnected && (
+        {/* ── 口座登録に必要な本人情報（アーティスト以上） ── */}
+        {isCreator && (
           <div className="bg-slate-900 border border-indigo-500/20 rounded-[2.5rem] p-6 space-y-5">
             <div className="space-y-1">
               <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] flex items-center gap-2">
                 <CreditCard size={11} /> 口座登録に必要な本人情報
               </p>
-              <p className="text-[10px] text-slate-500">以下を入力してから口座登録へ進んでください。Stripeの入力フォームが自動で埋まります。</p>
+              <p className="text-[10px] text-slate-500">Stripe Connect に必要な本人確認情報です。口座登録前に入力・保存してください。</p>
             </div>
 
             {/* ビジネス種別 */}

@@ -17,6 +17,7 @@ export function EventCreateForm({
   const [error, setError] = useState<string | null>(null);
   const [selectedArtists, setSelectedArtists] = useState<Artist[]>([]);
   const [artistMessages, setArtistMessages] = useState<Record<string, string>>({});
+  const [startAt, setStartAt] = useState("");
 
 
   // 新規アーティスト検索
@@ -126,6 +127,8 @@ export function EventCreateForm({
               name="start_at"
               type="datetime-local"
               required
+              value={startAt}
+              onChange={(e) => setStartAt(e.target.value)}
               className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
             />
           </div>
@@ -137,6 +140,7 @@ export function EventCreateForm({
               name="end_at"
               type="datetime-local"
               required
+              min={startAt || undefined}
               className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
             />
           </div>

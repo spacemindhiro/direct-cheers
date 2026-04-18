@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PayoutForm } from "@/components/payout-form";
+import { getFeeConfig } from "@/lib/fee-config";
 import { Loader2, Wallet, Clock, Lock, AlertTriangle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -28,10 +29,11 @@ async function PayoutContent() {
 
   // 残高集計（14日経過判定）
   const cutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { net_rate: NET_RATE } = await getFeeConfig();
 
   const { data: dists } = await admin
     .from("transaction_distributions")
-    .select("actual_amount, is_frozen, transaction:transactions!transaction_id(created_at)")
+    .select("actual_amount, is_frozen, transaction_id, transaction:transactions!transaction_id(created_at)")
     .eq("profile_id", user.id)
     .eq("distribution_status", "accrued")
     .is("deleted_at", null);
@@ -40,12 +42,39 @@ async function PayoutContent() {
   let pending = 0;
   let frozen = 0;
 
+  const distributedTxIds = new Set<string>();
   for (const d of dists ?? []) {
+    distributedTxIds.add((d as any).transaction_id);
     const txDate = (d.transaction as any)?.created_at;
     const amt = d.actual_amount ?? 0;
     if (d.is_frozen) frozen += amt;
     else if (txDate && txDate < cutoff) available += amt;
     else pending += amt;
+  }
+
+  // 未精算（distributions未作成）の見込み保留額を加算
+  const { data: myTargets } = await admin
+    .from("qr_config_targets")
+    .select("qr_config_id, distribution_ratio")
+    .eq("profile_id", user.id)
+    .is("deleted_at", null);
+
+  if ((myTargets ?? []).length > 0) {
+    const qrConfigIds = myTargets!.map((t) => t.qr_config_id);
+    const ratioByQr = new Map(myTargets!.map((t) => [t.qr_config_id, Number(t.distribution_ratio)]));
+
+    const { data: unsettledTxs } = await admin
+      .from("transactions")
+      .select("transaction_id, qr_config_id, total_gross_amount")
+      .in("qr_config_id", qrConfigIds)
+      .eq("status", "completed");
+
+    for (const tx of unsettledTxs ?? []) {
+      if (distributedTxIds.has(tx.transaction_id)) continue;
+      const ratio = ratioByQr.get(tx.qr_config_id ?? "") ?? 0;
+      if (ratio <= 0) continue;
+      pending += Math.floor((tx.total_gross_amount ?? 0) * NET_RATE * ratio);
+    }
   }
 
   // 出金履歴

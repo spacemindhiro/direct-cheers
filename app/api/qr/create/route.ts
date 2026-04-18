@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// 商品タイプごとの金額範囲
+// 商品タイプごとの金額範囲（カスタムはエージェント承認後のみ解放）
 export const PRODUCT_TYPE_RANGES: Record<string, { min: number; max: number; label: string }> = {
   standard:  { min: 500,  max: 5_000,   label: "スタンダード" },
   message:   { min: 1000, max: 10_000,  label: "メッセージ" },
   entrance:  { min: 300,  max: 3_000,   label: "エントランス" },
-  custom:    { min: 500,  max: 100_000, label: "カスタム" },
 };
 
 export async function POST(req: Request) {
@@ -34,6 +33,8 @@ export async function POST(req: Request) {
     track_inventory = true,
     image_url = null,
     serial_scope = "event",
+    sales_start_at = null,
+    sales_end_at = null,
   } = body as {
     event_id: string;
     label?: string;
@@ -48,6 +49,8 @@ export async function POST(req: Request) {
     track_inventory?: boolean;
     image_url?: string | null;
     serial_scope?: "event" | "qr" | "artist";
+    sales_start_at?: string | null;
+    sales_end_at?: string | null;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -106,6 +109,10 @@ export async function POST(req: Request) {
     productInsert.payment_type = payment_type;
     productInsert.stock_limit = stock_limit ?? null;
     productInsert.track_inventory = track_inventory;
+    if ((payment_type === "A" || payment_type === "B") && sales_start_at && sales_end_at) {
+      productInsert.sales_start_at = sales_start_at;
+      productInsert.sales_end_at = sales_end_at;
+    }
   }
 
   const { data: product, error: productError } = await supabase

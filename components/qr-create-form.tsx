@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Loader2, Plus, Trash2, Info, Hash } from "lucide-react";
+import { ArrowRight, Loader2, Plus, Trash2, Info, Hash, Lock } from "lucide-react";
 import { QRImageUpload } from "@/components/qr-image-upload";
 
 const PAYMENT_TYPE_INFO = {
@@ -12,11 +12,11 @@ const PAYMENT_TYPE_INFO = {
   C: { label: "Cタイプ：当日決済",  desc: "予約→カード保存、チェックイン時に決済" },
 };
 
+// カスタムは選択不可。エージェントとの企画承認後に解放。
 const PRODUCT_TYPE_RANGES = {
   standard: { min: 500,  max: 5_000,   label: "スタンダード",   desc: "¥500〜¥5,000" },
   message:  { min: 1000, max: 10_000,  label: "メッセージ",     desc: "¥1,000〜¥10,000" },
   entrance: { min: 300,  max: 3_000,   label: "エントランス",   desc: "¥300〜¥3,000" },
-  custom:   { min: 500,  max: 100_000, label: "カスタム",       desc: "¥500〜¥100,000" },
 };
 
 type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist" };
@@ -27,11 +27,13 @@ export function QRCreateForm({
   eventTitle = "",
   targets: targetCandidates,
   feeConfig = { stripe_rate: 0.036, platform_rate: 0.10, net_rate: 0.864 },
+  organizerBalance = 0,
 }: {
   eventId: string;
   eventTitle?: string;
   targets: TargetCandidate[];
   feeConfig?: { stripe_rate: number; platform_rate: number; net_rate: number };
+  organizerBalance?: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -51,9 +53,19 @@ export function QRCreateForm({
   const [stockLimit, setStockLimit] = useState<string>("");
   const [trackInventoryC, setTrackInventoryC] = useState(false);
   const [serialScope, setSerialScope] = useState<"event" | "qr" | "artist">("event");
+  // 前売り販売期間（A/B タイプ必須）
+  const [salesStartAt, setSalesStartAt] = useState("");
+  const [salesEndAt, setSalesEndAt] = useState("");
 
   const range = PRODUCT_TYPE_RANGES[productType];
   const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
+
+  // タイプB 残高チェック
+  const needsReserve = productType === "entrance" && paymentType === "B" && !!stockLimit;
+  const typeBReserveRequired = needsReserve
+    ? Math.ceil(maxAmount * Number(stockLimit) * feeConfig.stripe_rate)
+    : 0;
+  const typeBBalanceOk = !needsReserve || organizerBalance >= typeBReserveRequired;
 
   const handleTypeChange = (type: keyof typeof PRODUCT_TYPE_RANGES) => {
     const r = PRODUCT_TYPE_RANGES[type];
@@ -95,6 +107,22 @@ export function QRCreateForm({
       setError("配分比率の合計を100%にしてください");
       return;
     }
+    // 前売りA/B は販売期間必須
+    if (productType === "entrance" && (paymentType === "A" || paymentType === "B")) {
+      if (!salesStartAt || !salesEndAt) {
+        setError("前売り（A/Bタイプ）は販売開始・終了日時を入力してください");
+        return;
+      }
+      if (salesEndAt <= salesStartAt) {
+        setError("販売終了日時は開始日時より後にしてください");
+        return;
+      }
+    }
+    // タイプB 残高不足
+    if (!typeBBalanceOk) {
+      setError(`タイプBを利用するには残高が ¥${typeBReserveRequired.toLocaleString()} 以上必要です（現在: ¥${organizerBalance.toLocaleString()}）`);
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const res = await fetch("/api/qr/create", {
@@ -118,6 +146,10 @@ export function QRCreateForm({
             payment_type: paymentType,
             stock_limit: stockLimit ? Number(stockLimit) : null,
             track_inventory: paymentType === "C" ? trackInventoryC : true,
+            ...((paymentType === "A" || paymentType === "B") && salesStartAt && salesEndAt && {
+              sales_start_at: salesStartAt,
+              sales_end_at: salesEndAt,
+            }),
           }),
         }),
       });
@@ -159,7 +191,7 @@ export function QRCreateForm({
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
             商品タイプ
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {(Object.entries(PRODUCT_TYPE_RANGES) as [keyof typeof PRODUCT_TYPE_RANGES, typeof PRODUCT_TYPE_RANGES[keyof typeof PRODUCT_TYPE_RANGES]][]).map(([type, info]) => (
               <button
                 key={type}
@@ -175,10 +207,18 @@ export function QRCreateForm({
                 <p className="text-[10px] text-slate-500 mt-0.5">{info.desc}</p>
               </button>
             ))}
+            {/* カスタム：ロック済み（No.43） */}
+            <div className="p-3 rounded-2xl border border-slate-700 bg-slate-800/50 opacity-50 cursor-not-allowed">
+              <div className="flex items-center gap-1.5">
+                <Lock size={10} className="text-slate-500" />
+                <p className="text-xs font-black text-slate-500">カスタム</p>
+              </div>
+              <p className="text-[10px] text-slate-600 mt-0.5">エージェントと企画・承認後に解放</p>
+            </div>
           </div>
         </div>
 
-        {/* entrance タイプ：決済タイプ・在庫 */}
+        {/* entrance タイプ：決済タイプ・在庫・販売期間 */}
         {productType === "entrance" && (
           <div className="space-y-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4">
             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -215,10 +255,42 @@ export function QRCreateForm({
               )}
             </div>
 
+            {/* 前売り販売期間（A/B 必須・No.44） */}
+            {(paymentType === "A" || paymentType === "B") && (
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                  前売り販売期間 <span className="text-pink-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">販売開始</p>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={salesStartAt}
+                      onChange={(e) => setSalesStartAt(e.target.value)}
+                      className="block w-full min-h-[3rem] bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:border-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">販売終了</p>
+                    <input
+                      type="datetime-local"
+                      required
+                      value={salesEndAt}
+                      min={salesStartAt || undefined}
+                      onChange={(e) => setSalesEndAt(e.target.value)}
+                      className="block w-full min-h-[3rem] bg-slate-950/50 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:border-indigo-500 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 販売上限数 */}
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                販売上限数（空欄 = 無制限）
+                {paymentType === "B" ? "販売上限数 *" : "販売上限数（空欄 = 無制限）"}
               </label>
               <Input
                 type="number"
@@ -226,9 +298,30 @@ export function QRCreateForm({
                 onChange={(e) => setStockLimit(e.target.value)}
                 placeholder="例: 100"
                 min={1}
+                required={paymentType === "B"}
                 className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
+              {paymentType === "B" && (
+                <p className="text-[10px] text-slate-500">タイプBは手数料リスク算出のため販売上限数が必須です</p>
+              )}
             </div>
+
+            {/* タイプB 残高チェック（No.45） */}
+            {paymentType === "B" && stockLimit && (
+              <div className={`rounded-xl p-3 border ${typeBBalanceOk ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/10 border-red-500/30"}`}>
+                <p className={`text-[10px] font-black uppercase tracking-widest ${typeBBalanceOk ? "text-emerald-400" : "text-red-400"}`}>
+                  中止時手数料準備金
+                </p>
+                <p className="text-xs font-bold text-slate-300 mt-1">
+                  必要額: ¥{typeBReserveRequired.toLocaleString()}　／　現在残高: ¥{organizerBalance.toLocaleString()}
+                </p>
+                {!typeBBalanceOk && (
+                  <p className="text-[10px] text-red-400 mt-1">
+                    残高不足のためタイプBは利用できません。残高を増やしてから再試行してください。
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Cタイプのみ: 在庫管理するか */}
             {paymentType === "C" && (
@@ -400,7 +493,7 @@ export function QRCreateForm({
 
       <button
         type="submit"
-        disabled={isPending || !recipientId || Math.abs(totalRatio - 100) > 0.1}
+        disabled={isPending || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
         className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>QRを作成 <ArrowRight size={18} /></>}

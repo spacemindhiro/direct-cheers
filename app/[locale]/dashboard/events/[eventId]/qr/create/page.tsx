@@ -60,6 +60,20 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
 
   const feeConfig = await getFeeConfig();
 
+  // オーガナイザーの現在残高（タイプB 残高チェック用）
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+  const { data: balanceDists } = await admin
+    .from("transaction_distributions")
+    .select("actual_amount, is_frozen")
+    .eq("profile_id", event.organizer_profile_id)
+    .eq("distribution_status", "accrued")
+    .is("deleted_at", null);
+  const organizerBalance = (balanceDists ?? []).reduce(
+    (sum, d) => (d.is_frozen ? sum : sum + (d.actual_amount ?? 0)),
+    0
+  );
+
   return (
     <div className="space-y-8">
       <div className="space-y-1">
@@ -73,7 +87,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">QR を作成</h1>
         <p className="text-slate-500 text-sm">{event.title}</p>
       </div>
-      <QRCreateForm eventId={eventId} eventTitle={event.title} targets={targets} feeConfig={feeConfig} />
+      <QRCreateForm eventId={eventId} eventTitle={event.title} targets={targets} feeConfig={feeConfig} organizerBalance={organizerBalance} />
     </div>
   );
 }

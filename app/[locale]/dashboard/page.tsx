@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Zap, Heart, Wallet, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers } from 'lucide-react';
+import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers } from 'lucide-react';
 import { getFeeConfig } from '@/lib/fee-config';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
@@ -324,11 +324,7 @@ async function DashboardContent() {
 
       {/* フォロワー数ヒーロー（artist / organizer のみ） */}
       {(profile?.role === 'artist' || profile?.role === 'organizer') && (
-        <FollowerHero
-          profileId={user!.id}
-          displayName={profile.display_name ?? ''}
-          role={profile.role as 'artist' | 'organizer'}
-        />
+        <FollowerHero profileId={user!.id} />
       )}
 
       {/* アーティスト向け: 出演依頼（pending） */}

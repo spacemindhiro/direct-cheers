@@ -33,11 +33,9 @@ function currentTier(count: number) {
 
 type Props = {
   profileId: string;
-  displayName: string;
-  role: "artist" | "organizer";
 };
 
-export function FollowerHero({ profileId, displayName, role }: Props) {
+export function FollowerHero({ profileId }: Props) {
   const [count, setCount] = useState<number | null>(null);
   const [milestone, setMilestone] = useState<number>(0);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -80,7 +78,6 @@ export function FollowerHero({ profileId, displayName, role }: Props) {
   const next = nextMilestone(count);
   const progress = progressToNext(count);
   const tier = currentTier(count);
-  const roleLabel = role === "artist" ? "アーティスト" : "オーガナイザー";
 
   return (
     <div className="relative">
@@ -167,18 +164,12 @@ export function FollowerHero({ profileId, displayName, role }: Props) {
           </div>
         )}
 
-        {/* 区切りと統計 */}
-        <div className="border-t border-slate-800 grid grid-cols-2">
-          <div className="px-8 py-4 border-r border-slate-800">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ロール</p>
-            <p className="text-sm font-black text-white mt-1">{roleLabel}</p>
-          </div>
-          <div className="px-8 py-4">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ランク</p>
-            <p className={`text-sm font-black mt-1 ${tier?.color ?? "text-slate-500"}`}>
-              {tier?.label ?? "—"}
-            </p>
-          </div>
+        {/* ランク（全幅） */}
+        <div className="border-t border-slate-800 px-8 py-4">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">ランク</p>
+          <p className={`text-sm font-black mt-1 ${tier?.color ?? "text-slate-500"}`}>
+            {tier?.label ?? "—"}
+          </p>
         </div>
       </div>
     </div>

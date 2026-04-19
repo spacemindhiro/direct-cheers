@@ -118,6 +118,16 @@ async function DashboardContent() {
     pendingNotifications = notifs ?? [];
   }
 
+  // admin向け: 口座開設審査待ち件数
+  let pendingConnectReviewCount = 0;
+  if (profile?.role === 'admin') {
+    const { count } = await admin
+      .from('profiles')
+      .select('profile_id', { count: 'exact', head: true })
+      .eq('verification_status', 'pending');
+    pendingConnectReviewCount = count ?? 0;
+  }
+
   // エージェント向け: 承認待ちイベント件数
   let pendingApprovalCount = 0;
   let pendingCancellationCount = 0;
@@ -221,6 +231,22 @@ async function DashboardContent() {
             </Link>
           ))}
         </div>
+      )}
+
+      {/* admin向け: 口座開設審査待ちバナー */}
+      {pendingConnectReviewCount > 0 && (
+        <Link
+          href="/dashboard/admin/connect-review"
+          className="block bg-indigo-500/10 border border-indigo-500/30 hover:border-indigo-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">口座開設審査待ち</p>
+              <p className="text-sm font-black text-white">審査待ち {pendingConnectReviewCount}件</p>
+            </div>
+            <span className="text-indigo-400 text-xs font-black uppercase tracking-widest shrink-0">審査する →</span>
+          </div>
+        </Link>
       )}
 
       {/* エージェント向け: 承認待ちバナー */}

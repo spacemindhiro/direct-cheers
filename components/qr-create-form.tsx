@@ -52,6 +52,8 @@ export function QRCreateForm({
   const [productType, setProductType] = useState(defaultType);
   const currentConfig = configs.find((c) => c.type === productType) ?? enabledConfigs[0];
 
+  const [priceMode, setPriceMode] = useState<"fixed" | "range">("fixed");
+  const [fixedAmount, setFixedAmount] = useState(currentConfig?.min_amount ?? 500);
   const [minAmount, setMinAmount] = useState(currentConfig?.min_amount ?? 500);
   const [maxAmount, setMaxAmount] = useState(currentConfig?.max_amount ?? 3000);
   const [label, setLabel] = useState("");
@@ -73,13 +75,15 @@ export function QRCreateForm({
 
   // タイプB 残高チェック
   const needsReserve = productType === "entrance" && paymentType === "B" && !!stockLimit;
+  const effectiveMax = priceMode === "fixed" ? fixedAmount : maxAmount;
   const typeBReserveRequired = needsReserve
-    ? Math.ceil(maxAmount * Number(stockLimit) * feeConfig.stripe_rate)
+    ? Math.ceil(effectiveMax * Number(stockLimit) * feeConfig.stripe_rate)
     : 0;
   const typeBBalanceOk = !needsReserve || organizerBalance >= typeBReserveRequired;
 
   const handleTypeChange = (cfg: ProductTypeConfig) => {
     setProductType(cfg.type);
+    setFixedAmount(cfg.min_amount);
     setMinAmount(cfg.min_amount);
     setMaxAmount(cfg.max_amount);
   };
@@ -132,8 +136,8 @@ export function QRCreateForm({
           label: label || undefined,
           image_url: imageUrl || undefined,
           product_type: productType,
-          min_amount: minAmount,
-          max_amount: maxAmount,
+          min_amount: priceMode === "fixed" ? fixedAmount : minAmount,
+          max_amount: priceMode === "fixed" ? fixedAmount : maxAmount,
           recipient_profile_id: recipientId,
           targets: targets.map((t) => ({
             profile_id: t.profile_id,
@@ -331,30 +335,70 @@ export function QRCreateForm({
           </div>
         )}
 
-        {/* 金額範囲 */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">最低金額</label>
-            <Input
-              type="number"
-              value={minAmount}
-              onChange={(e) => setMinAmount(Number(e.target.value))}
-              min={currentConfig?.min_amount ?? 1}
-              max={maxAmount}
-              className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
+        {/* 価格モード */}
+        <div className="space-y-3">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">価格設定</label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["fixed", "range"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setPriceMode(mode)}
+                className={`p-3 rounded-2xl text-left transition-all border ${
+                  priceMode === mode
+                    ? "bg-pink-500/20 border-pink-500/50 text-white"
+                    : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                }`}
+              >
+                <p className="text-xs font-black">{mode === "fixed" ? "ワンプライス" : "レンジ"}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  {mode === "fixed" ? "金額を1つに固定" : "最低〜最高を指定"}
+                </p>
+              </button>
+            ))}
           </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">最高金額</label>
-            <Input
-              type="number"
-              value={maxAmount}
-              onChange={(e) => setMaxAmount(Number(e.target.value))}
-              min={minAmount}
-              max={currentConfig?.max_amount ?? 100000}
-              className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
-          </div>
+
+          {priceMode === "fixed" ? (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">金額</label>
+              <Input
+                type="number"
+                value={fixedAmount}
+                onChange={(e) => setFixedAmount(Number(e.target.value))}
+                min={currentConfig?.min_amount ?? 1}
+                max={currentConfig?.max_amount ?? 100000}
+                className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+              <p className="text-[10px] text-slate-600">
+                ¥{(currentConfig?.min_amount ?? 1).toLocaleString()} 〜 ¥{(currentConfig?.max_amount ?? 100000).toLocaleString()} の範囲で設定
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">最低金額</label>
+                <Input
+                  type="number"
+                  value={minAmount}
+                  onChange={(e) => setMinAmount(Number(e.target.value))}
+                  min={currentConfig?.min_amount ?? 1}
+                  max={maxAmount}
+                  className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">最高金額</label>
+                <Input
+                  type="number"
+                  value={maxAmount}
+                  onChange={(e) => setMaxAmount(Number(e.target.value))}
+                  min={minAmount}
+                  max={currentConfig?.max_amount ?? 100000}
+                  className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 配分設定 */}

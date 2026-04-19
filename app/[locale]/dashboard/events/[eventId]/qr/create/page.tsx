@@ -60,6 +60,12 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
 
   const feeConfig = await getFeeConfig();
 
+  // 商品タイプ定義をDBから取得（No.6）
+  const { data: productTypeConfigs } = await supabase
+    .from("product_type_configs")
+    .select("type, label, min_amount, max_amount, is_enabled")
+    .order("sort_order");
+
   // オーガナイザーの現在残高（タイプB 残高チェック用）
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const admin = createAdminClient();
@@ -87,7 +93,14 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">QR を作成</h1>
         <p className="text-slate-500 text-sm">{event.title}</p>
       </div>
-      <QRCreateForm eventId={eventId} eventTitle={event.title} targets={targets} feeConfig={feeConfig} organizerBalance={organizerBalance} />
+      <QRCreateForm
+        eventId={eventId}
+        eventTitle={event.title}
+        targets={targets}
+        feeConfig={feeConfig}
+        organizerBalance={organizerBalance}
+        productTypeConfigs={productTypeConfigs ?? []}
+      />
     </div>
   );
 }

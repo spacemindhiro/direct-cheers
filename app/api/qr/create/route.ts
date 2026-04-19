@@ -1,12 +1,25 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// 商品タイプごとの金額範囲（カスタムはエージェント承認後のみ解放）
-export const PRODUCT_TYPE_RANGES: Record<string, { min: number; max: number; label: string }> = {
-  standard:  { min: 500,  max: 5_000,   label: "スタンダード" },
-  message:   { min: 1000, max: 10_000,  label: "メッセージ" },
-  entrance:  { min: 300,  max: 3_000,   label: "エントランス" },
+// フォールバック（product_type_configs が取得できなかった場合）
+const PRODUCT_TYPE_FALLBACK: Record<string, { min: number; max: number; label: string }> = {
+  standard:  { min: 500,  max: 3_000,   label: "スタンダード" },
+  message:   { min: 1000, max: 5_000,   label: "メッセージ" },
+  entrance:  { min: 300,  max: 30_000,  label: "エントランス" },
 };
+
+// DB から有効な商品タイプ定義を取得
+async function getProductTypeRanges(supabase: Awaited<ReturnType<typeof import("@/lib/supabase/server").createClient>>) {
+  const { data } = await supabase
+    .from("product_type_configs")
+    .select("type, label, min_amount, max_amount, is_enabled");
+  if (!data || data.length === 0) return PRODUCT_TYPE_FALLBACK;
+  return Object.fromEntries(
+    data
+      .filter((r) => r.is_enabled)
+      .map((r) => [r.type, { min: r.min_amount, max: r.max_amount, label: r.label }])
+  );
+}
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -70,8 +83,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 金額バリデーション
-  const range = PRODUCT_TYPE_RANGES[product_type];
+  // 金額バリデーション（DB定義を参照）
+  const productTypeRanges = await getProductTypeRanges(supabase);
+  const range = productTypeRanges[product_type];
   if (!range) {
     return NextResponse.json({ error: "Invalid product type" }, { status: 400 });
   }

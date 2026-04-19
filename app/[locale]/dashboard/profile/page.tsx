@@ -236,13 +236,12 @@ export default function ProfileEditPage() {
   const isAgent     = role === 'agent';
   const isCreator   = isArtist || isOrganizer || isAgent;
 
-  // 保存済みデータで Stripe ボタンを有効化（入力中ではなく保存後に有効）
   const stripeReady = !!(
-    profile?.first_name?.trim() && profile?.last_name?.trim() && profile?.phone?.trim() &&
-    profile?.dob_year && profile?.dob_month && profile?.dob_day &&
-    profile?.postal_code?.trim() && profile?.prefecture?.trim() &&
-    profile?.city?.trim() && profile?.street_address?.trim() &&
-    (profile?.business_type === 'individual' || profile?.business_name?.trim())
+    firstName.trim() && lastName.trim() && phone.trim() &&
+    dobYear && dobMonth && dobDay &&
+    postalCode.trim() && prefecture.trim() &&
+    city.trim() && streetAddress.trim() &&
+    (businessType === 'individual' || businessName.trim())
   );
   const stripeConnected = !!profile?.stripe_connect_id;
 

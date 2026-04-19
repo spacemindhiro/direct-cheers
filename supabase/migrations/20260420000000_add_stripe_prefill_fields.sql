@@ -1,0 +1,15 @@
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS first_name_kanji text,
+  ADD COLUMN IF NOT EXISTS last_name_kanji text,
+  ADD COLUMN IF NOT EXISTS first_name_kana text,
+  ADD COLUMN IF NOT EXISTS last_name_kana text,
+  ADD COLUMN IF NOT EXISTS address_town text,
+  ADD COLUMN IF NOT EXISTS address_kana_state text,
+  ADD COLUMN IF NOT EXISTS address_kana_city text,
+  ADD COLUMN IF NOT EXISTS address_kana_town text,
+  ADD COLUMN IF NOT EXISTS address_kana_line1 text,
+  ADD COLUMN IF NOT EXISTS product_description text,
+  ADD COLUMN IF NOT EXISTS company_name_kanji text,
+  ADD COLUMN IF NOT EXISTS company_name_kana text,
+  ADD COLUMN IF NOT EXISTS statement_descriptor_kanji text,
+  ADD COLUMN IF NOT EXISTS statement_descriptor_kana text;

@@ -29,6 +29,10 @@ type Profile = {
   // Stripe 事前入力用
   first_name: string | null;
   last_name: string | null;
+  first_name_kanji: string | null;
+  last_name_kanji: string | null;
+  first_name_kana: string | null;
+  last_name_kana: string | null;
   phone: string | null;
   dob_year: number | null;
   dob_month: number | null;
@@ -36,9 +40,19 @@ type Profile = {
   postal_code: string | null;
   prefecture: string | null;
   city: string | null;
+  address_town: string | null;
   street_address: string | null;
+  address_kana_state: string | null;
+  address_kana_city: string | null;
+  address_kana_town: string | null;
+  address_kana_line1: string | null;
   business_type: 'individual' | 'company';
   business_name: string | null;
+  company_name_kanji: string | null;
+  company_name_kana: string | null;
+  product_description: string | null;
+  statement_descriptor_kanji: string | null;
+  statement_descriptor_kana: string | null;
 };
 
 const roleLabel: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -90,6 +104,10 @@ export default function ProfileEditPage() {
   // Stripe 事前入力
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [firstNameKanji, setFirstNameKanji] = useState('');
+  const [lastNameKanji, setLastNameKanji] = useState('');
+  const [firstNameKana, setFirstNameKana] = useState('');
+  const [lastNameKana, setLastNameKana] = useState('');
   const [phone, setPhone] = useState('');
   const [dobYear, setDobYear] = useState('');
   const [dobMonth, setDobMonth] = useState('');
@@ -97,9 +115,19 @@ export default function ProfileEditPage() {
   const [postalCode, setPostalCode] = useState('');
   const [prefecture, setPrefecture] = useState('');
   const [city, setCity] = useState('');
+  const [addressTown, setAddressTown] = useState('');
   const [streetAddress, setStreetAddress] = useState('');
+  const [addressKanaState, setAddressKanaState] = useState('');
+  const [addressKanaCity, setAddressKanaCity] = useState('');
+  const [addressKanaTown, setAddressKanaTown] = useState('');
+  const [addressKanaLine1, setAddressKanaLine1] = useState('');
   const [businessType, setBusinessType] = useState<'individual' | 'company'>('individual');
   const [businessName, setBusinessName] = useState('');
+  const [companyNameKanji, setCompanyNameKanji] = useState('');
+  const [companyNameKana, setCompanyNameKana] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [statementDescriptorKanji, setStatementDescriptorKanji] = useState('');
+  const [statementDescriptorKana, setStatementDescriptorKana] = useState('');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
@@ -120,6 +148,10 @@ export default function ProfileEditPage() {
     setOrganizationName(data.organization_name ?? '');
     setFirstName(data.first_name ?? '');
     setLastName(data.last_name ?? '');
+    setFirstNameKanji(data.first_name_kanji ?? '');
+    setLastNameKanji(data.last_name_kanji ?? '');
+    setFirstNameKana(data.first_name_kana ?? '');
+    setLastNameKana(data.last_name_kana ?? '');
     setPhone(data.phone ?? '');
     setDobYear(data.dob_year ? String(data.dob_year) : '');
     setDobMonth(data.dob_month ? String(data.dob_month) : '');
@@ -127,9 +159,19 @@ export default function ProfileEditPage() {
     setPostalCode(data.postal_code ?? '');
     setPrefecture(data.prefecture ?? '');
     setCity(data.city ?? '');
+    setAddressTown(data.address_town ?? '');
     setStreetAddress(data.street_address ?? '');
+    setAddressKanaState(data.address_kana_state ?? '');
+    setAddressKanaCity(data.address_kana_city ?? '');
+    setAddressKanaTown(data.address_kana_town ?? '');
+    setAddressKanaLine1(data.address_kana_line1 ?? '');
     setBusinessType((data.business_type as 'individual' | 'company') ?? 'individual');
     setBusinessName(data.business_name ?? '');
+    setCompanyNameKanji(data.company_name_kanji ?? '');
+    setCompanyNameKana(data.company_name_kana ?? '');
+    setProductDescription(data.product_description ?? '');
+    setStatementDescriptorKanji(data.statement_descriptor_kanji ?? '');
+    setStatementDescriptorKana(data.statement_descriptor_kana ?? '');
   };
 
   const fetchAndApplyProfile = async (supabase: ReturnType<typeof createClient>, userId: string) => {
@@ -145,10 +187,14 @@ export default function ProfileEditPage() {
       .from('profiles')
       .select(`
         bio, affiliation, credit_name, genre, organization_name,
-        first_name, last_name, phone,
-        dob_year, dob_month, dob_day,
-        postal_code, prefecture, city, street_address,
-        business_type, business_name
+        first_name, last_name,
+        first_name_kanji, last_name_kanji,
+        first_name_kana, last_name_kana,
+        phone, dob_year, dob_month, dob_day,
+        postal_code, prefecture, city, address_town, street_address,
+        address_kana_state, address_kana_city, address_kana_town, address_kana_line1,
+        business_type, business_name, company_name_kanji, company_name_kana,
+        product_description, statement_descriptor_kanji, statement_descriptor_kana
       `)
       .eq('profile_id', userId)
       .single();
@@ -193,18 +239,32 @@ export default function ProfileEditPage() {
       if (role === 'artist' || role === 'organizer' || role === 'agent') {
         updates.bio = bio.trim() || null;
         // Stripe 事前入力フィールド
-        updates.first_name     = firstName.trim() || null;
-        updates.last_name      = lastName.trim() || null;
-        updates.phone          = phone.trim() || null;
-        updates.dob_year       = dobYear ? Number(dobYear) : null;
-        updates.dob_month      = dobMonth ? Number(dobMonth) : null;
-        updates.dob_day        = dobDay ? Number(dobDay) : null;
-        updates.postal_code    = postalCode.trim() || null;
-        updates.prefecture     = prefecture.trim() || null;
-        updates.city           = city.trim() || null;
-        updates.street_address = streetAddress.trim() || null;
-        updates.business_type  = businessType;
-        updates.business_name  = businessType === 'company' ? (businessName.trim() || null) : null;
+        updates.first_name               = firstName.trim() || null;
+        updates.last_name                = lastName.trim() || null;
+        updates.first_name_kanji         = firstNameKanji.trim() || null;
+        updates.last_name_kanji          = lastNameKanji.trim() || null;
+        updates.first_name_kana          = firstNameKana.trim() || null;
+        updates.last_name_kana           = lastNameKana.trim() || null;
+        updates.phone                    = phone.trim() || null;
+        updates.dob_year                 = dobYear ? Number(dobYear) : null;
+        updates.dob_month                = dobMonth ? Number(dobMonth) : null;
+        updates.dob_day                  = dobDay ? Number(dobDay) : null;
+        updates.postal_code              = postalCode.trim() || null;
+        updates.prefecture               = prefecture.trim() || null;
+        updates.city                     = city.trim() || null;
+        updates.address_town             = addressTown.trim() || null;
+        updates.street_address           = streetAddress.trim() || null;
+        updates.address_kana_state       = addressKanaState.trim() || null;
+        updates.address_kana_city        = addressKanaCity.trim() || null;
+        updates.address_kana_town        = addressKanaTown.trim() || null;
+        updates.address_kana_line1       = addressKanaLine1.trim() || null;
+        updates.business_type            = businessType;
+        updates.business_name            = businessType === 'company' ? (businessName.trim() || null) : null;
+        updates.company_name_kanji       = businessType === 'company' ? (companyNameKanji.trim() || null) : null;
+        updates.company_name_kana        = businessType === 'company' ? (companyNameKana.trim() || null) : null;
+        updates.product_description      = productDescription.trim() || null;
+        updates.statement_descriptor_kanji = statementDescriptorKanji.trim() || null;
+        updates.statement_descriptor_kana  = statementDescriptorKana.trim() || null;
       }
       if (role === 'artist') {
         updates.affiliation  = affiliation.trim() || null;
@@ -237,11 +297,18 @@ export default function ProfileEditPage() {
   const isCreator   = isArtist || isOrganizer || isAgent;
 
   const stripeReady = !!(
-    firstName.trim() && lastName.trim() && phone.trim() &&
+    firstName.trim() && lastName.trim() &&
+    firstNameKanji.trim() && lastNameKanji.trim() &&
+    firstNameKana.trim() && lastNameKana.trim() &&
+    phone.trim() &&
     dobYear && dobMonth && dobDay &&
     postalCode.trim() && prefecture.trim() &&
-    city.trim() && streetAddress.trim() &&
-    (businessType === 'individual' || businessName.trim())
+    city.trim() && addressTown.trim() && streetAddress.trim() &&
+    addressKanaState.trim() && addressKanaCity.trim() &&
+    addressKanaTown.trim() && addressKanaLine1.trim() &&
+    (businessType === 'individual' || (businessName.trim() && companyNameKanji.trim() && companyNameKana.trim())) &&
+    productDescription.trim() &&
+    website.trim()
   );
   const stripeConnected = !!profile?.stripe_connect_id;
 
@@ -322,7 +389,8 @@ export default function ProfileEditPage() {
                 placeholder="https://soundcloud.com/yourname" className={inputClass} />
             </Field>
           )}
-          <Field label="Website" icon={<Globe size={11} className="text-pink-500" />} optional>
+          <Field label="Website" icon={<Globe size={11} className="text-pink-500" />} optional={!isCreator}
+            hint={isCreator ? "口座登録に必要です" : undefined}>
             <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)}
               placeholder="https://yoursite.com" className={inputClass} />
           </Field>
@@ -398,22 +466,73 @@ export default function ProfileEditPage() {
 
             {/* 法人の場合: 屋号/会社名 */}
             {businessType === 'company' && (
-              <Field label="屋号 / 会社名" icon={<Building2 size={11} className="text-indigo-400" />}>
-                <input type="text" value={businessName} onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="例: 株式会社〇〇 / DJ事務所〇〇" className={inputClass} />
-              </Field>
+              <div className="space-y-3">
+                <Field label="屋号 / 会社名（漢字）" icon={<Building2 size={11} className="text-indigo-400" />}>
+                  <input type="text" value={businessName} onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="例: 株式会社〇〇" className={inputClass} />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="会社名（カナ）" icon={<Building2 size={11} className="text-indigo-400" />}>
+                    <input type="text" value={companyNameKana} onChange={(e) => setCompanyNameKana(e.target.value)}
+                      placeholder="カブシキガイシャ〇〇" className={inputClass} />
+                  </Field>
+                  <Field label="会社名（ローマ字）" icon={<Building2 size={11} className="text-indigo-400" />}>
+                    <input type="text" value={companyNameKanji} onChange={(e) => setCompanyNameKanji(e.target.value)}
+                      placeholder="Kabushiki Gaisha XX" className={inputClass} />
+                  </Field>
+                </div>
+              </div>
             )}
 
-            {/* 姓名 */}
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="姓" icon={<User size={11} className="text-indigo-400" />}>
-                <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
-                  placeholder="山田" className={inputClass} />
-              </Field>
-              <Field label="名" icon={<User size={11} className="text-indigo-400" />}>
-                <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="太郎" className={inputClass} />
-              </Field>
+            {/* 姓名（ローマ字） */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">氏名（ローマ字）<span className="text-pink-500">*</span></p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">姓 (Last)</p>
+                  <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Yamada" className={inputClass} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">名 (First)</p>
+                  <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Taro" className={inputClass} />
+                </div>
+              </div>
+            </div>
+
+            {/* 姓名（漢字） */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">氏名（漢字）<span className="text-pink-500">*</span></p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">姓</p>
+                  <input type="text" value={lastNameKanji} onChange={(e) => setLastNameKanji(e.target.value)}
+                    placeholder="山田" className={inputClass} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">名</p>
+                  <input type="text" value={firstNameKanji} onChange={(e) => setFirstNameKanji(e.target.value)}
+                    placeholder="太郎" className={inputClass} />
+                </div>
+              </div>
+            </div>
+
+            {/* 姓名（フリガナ） */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">氏名（フリガナ）<span className="text-pink-500">*</span></p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">セイ</p>
+                  <input type="text" value={lastNameKana} onChange={(e) => setLastNameKana(e.target.value)}
+                    placeholder="ヤマダ" className={inputClass} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">メイ</p>
+                  <input type="text" value={firstNameKana} onChange={(e) => setFirstNameKana(e.target.value)}
+                    placeholder="タロウ" className={inputClass} />
+                </div>
+              </div>
             </div>
 
             {/* 生年月日 */}
@@ -442,10 +561,10 @@ export default function ProfileEditPage() {
                 placeholder="09012345678" className={inputClass} />
             </Field>
 
-            {/* 住所 */}
+            {/* 住所（漢字） */}
             <div className="space-y-3">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
-                <MapPin size={11} className="text-indigo-400" /> 住所 <span className="text-pink-500">*</span>
+                <MapPin size={11} className="text-indigo-400" /> 住所（漢字）<span className="text-pink-500">*</span>
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -460,14 +579,74 @@ export default function ProfileEditPage() {
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] text-slate-600">市区町村</p>
+                <p className="text-[10px] text-slate-600">市区</p>
                 <input type="text" value={city} onChange={(e) => setCity(e.target.value)}
                   placeholder="千代田区" className={inputClass} />
               </div>
               <div className="space-y-1">
+                <p className="text-[10px] text-slate-600">町域・丁目</p>
+                <input type="text" value={addressTown} onChange={(e) => setAddressTown(e.target.value)}
+                  placeholder="千代田1丁目" className={inputClass} />
+              </div>
+              <div className="space-y-1">
                 <p className="text-[10px] text-slate-600">番地・建物名</p>
                 <input type="text" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)}
-                  placeholder="千代田1-1-1 〇〇ビル 101号室" className={inputClass} />
+                  placeholder="1-1 〇〇ビル 101号室" className={inputClass} />
+              </div>
+            </div>
+
+            {/* 住所（カナ） */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
+                <MapPin size={11} className="text-indigo-400" /> 住所（カナ）<span className="text-pink-500">*</span>
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">都道府県</p>
+                  <input type="text" value={addressKanaState} onChange={(e) => setAddressKanaState(e.target.value)}
+                    placeholder="トウキョウト" className={inputClass} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">市区</p>
+                  <input type="text" value={addressKanaCity} onChange={(e) => setAddressKanaCity(e.target.value)}
+                    placeholder="チヨダク" className={inputClass} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-600">町域・丁目</p>
+                <input type="text" value={addressKanaTown} onChange={(e) => setAddressKanaTown(e.target.value)}
+                  placeholder="チヨダ1チョウメ" className={inputClass} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-600">番地・建物名</p>
+                <input type="text" value={addressKanaLine1} onChange={(e) => setAddressKanaLine1(e.target.value)}
+                  placeholder="1-1 〇〇ビル 101" className={inputClass} />
+              </div>
+            </div>
+
+            {/* 事業内容 */}
+            <Field label="事業内容" icon={<FileText size={11} className="text-indigo-400" />}
+              hint="Stripeに登録する事業・活動の説明（例: DJ・音楽パフォーマンスサービス）">
+              <textarea value={productDescription} onChange={(e) => setProductDescription(e.target.value)} rows={3}
+                placeholder="例: DJ・音楽パフォーマンスサービス / ライブイベント主催・企画" className={textareaClass} />
+            </Field>
+
+            {/* カード明細表示名 */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                カード明細表示名 <span className="text-slate-600 normal-case font-normal">（任意）</span>
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">漢字（最大22文字）</p>
+                  <input type="text" value={statementDescriptorKanji} onChange={(e) => setStatementDescriptorKanji(e.target.value)}
+                    placeholder="例: ダイレクトチアーズ" maxLength={22} className={inputClass} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">カナ（最大22文字）</p>
+                  <input type="text" value={statementDescriptorKana} onChange={(e) => setStatementDescriptorKana(e.target.value)}
+                    placeholder="例: ダイレクトチアーズ" maxLength={22} className={inputClass} />
+                </div>
               </div>
             </div>
           </div>

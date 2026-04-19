@@ -22,11 +22,13 @@ export async function POST() {
     const { data: profile } = await supabase
       .from("profiles")
       .select(`
-        role, stripe_connect_id, display_name,
-        first_name, last_name, phone,
-        dob_year, dob_month, dob_day,
-        postal_code, prefecture, city, street_address,
-        business_type, business_name
+        role, stripe_connect_id, display_name, social_links,
+        first_name, last_name, first_name_kanji, last_name_kanji, first_name_kana, last_name_kana,
+        phone, dob_year, dob_month, dob_day,
+        postal_code, prefecture, city, address_town, street_address,
+        address_kana_state, address_kana_city, address_kana_town, address_kana_line1,
+        business_type, business_name, company_name_kanji, company_name_kana,
+        product_description, statement_descriptor_kanji, statement_descriptor_kana
       `)
       .eq("profile_id", user.id)
       .single();
@@ -41,6 +43,8 @@ export async function POST() {
     if (!connectId) {
       const isCompany = profile.business_type === "company";
 
+      const websiteUrl: string | undefined = (profile.social_links as Record<string, string> | null)?.website || undefined;
+
       const accountParams: Stripe.AccountCreateParams = {
         type: "express",
         country: "JP",
@@ -48,13 +52,32 @@ export async function POST() {
         capabilities: { transfers: { requested: true } },
         business_type: isCompany ? "company" : "individual",
         metadata: { profile_id: user.id, display_name: profile.display_name ?? "" },
+        business_profile: {
+          mcc: "7929",
+          url: websiteUrl,
+          product_description: profile.product_description ?? undefined,
+        },
       };
 
+      if (profile.statement_descriptor_kanji || profile.statement_descriptor_kana) {
+        accountParams.settings = { payments: {} };
+        if (profile.statement_descriptor_kanji)
+          (accountParams.settings.payments as Record<string, string>).statement_descriptor_kanji = profile.statement_descriptor_kanji;
+        if (profile.statement_descriptor_kana)
+          (accountParams.settings.payments as Record<string, string>).statement_descriptor_kana = profile.statement_descriptor_kana;
+      }
+
       if (!isCompany) {
-        accountParams.individual = {};
-        if (profile.first_name) accountParams.individual.first_name = profile.first_name;
-        if (profile.last_name)  accountParams.individual.last_name  = profile.last_name;
-        if (profile.phone)      accountParams.individual.phone      = toE164JP(profile.phone);
+        accountParams.individual = {
+          email: user.email,
+        };
+        if (profile.first_name)       accountParams.individual.first_name       = profile.first_name;
+        if (profile.last_name)        accountParams.individual.last_name        = profile.last_name;
+        if (profile.first_name_kanji) accountParams.individual.first_name_kanji = profile.first_name_kanji;
+        if (profile.last_name_kanji)  accountParams.individual.last_name_kanji  = profile.last_name_kanji;
+        if (profile.first_name_kana)  accountParams.individual.first_name_kana  = profile.first_name_kana;
+        if (profile.last_name_kana)   accountParams.individual.last_name_kana   = profile.last_name_kana;
+        if (profile.phone)            accountParams.individual.phone            = toE164JP(profile.phone);
         if (profile.dob_year && profile.dob_month && profile.dob_day) {
           accountParams.individual.dob = {
             year:  profile.dob_year,
@@ -71,10 +94,32 @@ export async function POST() {
             line1:       profile.street_address ?? undefined,
           };
         }
+        if (profile.prefecture || profile.city || profile.address_town || profile.street_address) {
+          accountParams.individual.address_kanji = {
+            country:     "JP",
+            postal_code: profile.postal_code ?? undefined,
+            state:       profile.prefecture ?? undefined,
+            city:        profile.city ?? undefined,
+            town:        profile.address_town ?? undefined,
+            line1:       profile.street_address ?? undefined,
+          };
+        }
+        if (profile.address_kana_state || profile.address_kana_city || profile.address_kana_town || profile.address_kana_line1) {
+          accountParams.individual.address_kana = {
+            country:     "JP",
+            postal_code: profile.postal_code ?? undefined,
+            state:       profile.address_kana_state ?? undefined,
+            city:        profile.address_kana_city ?? undefined,
+            town:        profile.address_kana_town ?? undefined,
+            line1:       profile.address_kana_line1 ?? undefined,
+          };
+        }
       } else {
         accountParams.company = {};
-        if (profile.business_name) accountParams.company.name = profile.business_name;
-        if (profile.phone)         accountParams.company.phone = toE164JP(profile.phone);
+        if (profile.business_name)    accountParams.company.name       = profile.business_name;
+        if (profile.company_name_kanji) accountParams.company.name_kanji = profile.company_name_kanji;
+        if (profile.company_name_kana)  accountParams.company.name_kana  = profile.company_name_kana;
+        if (profile.phone)            accountParams.company.phone      = toE164JP(profile.phone);
         if (profile.postal_code || profile.city || profile.street_address) {
           accountParams.company.address = {
             country:     "JP",
@@ -82,6 +127,26 @@ export async function POST() {
             state:       profile.prefecture ?? undefined,
             city:        profile.city ?? undefined,
             line1:       profile.street_address ?? undefined,
+          };
+        }
+        if (profile.prefecture || profile.city || profile.address_town || profile.street_address) {
+          accountParams.company.address_kanji = {
+            country:     "JP",
+            postal_code: profile.postal_code ?? undefined,
+            state:       profile.prefecture ?? undefined,
+            city:        profile.city ?? undefined,
+            town:        profile.address_town ?? undefined,
+            line1:       profile.street_address ?? undefined,
+          };
+        }
+        if (profile.address_kana_state || profile.address_kana_city || profile.address_kana_town || profile.address_kana_line1) {
+          accountParams.company.address_kana = {
+            country:     "JP",
+            postal_code: profile.postal_code ?? undefined,
+            state:       profile.address_kana_state ?? undefined,
+            city:        profile.address_kana_city ?? undefined,
+            town:        profile.address_kana_town ?? undefined,
+            line1:       profile.address_kana_line1 ?? undefined,
           };
         }
       }

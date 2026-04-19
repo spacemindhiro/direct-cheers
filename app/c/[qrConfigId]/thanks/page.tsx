@@ -5,7 +5,7 @@ import { useSearchParams, useParams } from "next/navigation";
 import { CheersCard } from "@/components/cheers-card";
 import { PasskeySetup } from "@/components/passkey-setup";
 import { FollowButton } from "@/components/follow-button";
-import { Loader2, ArrowLeft, Wallet, PlusCircle, MessageSquare, Send } from "lucide-react";
+import { Loader2, ArrowLeft, Wallet, PlusCircle, MessageSquare, Send, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 
 const DEVICE_TOKEN_KEY = "dc_dt";
@@ -373,6 +373,42 @@ function ThanksContent() {
             </div>
           </div>
         )}
+
+        {/* コレクション確認 */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-800" />
+            <div className="flex items-center gap-2">
+              <LayoutDashboard size={14} className="text-slate-600" />
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Collection</p>
+            </div>
+            <div className="h-px flex-1 bg-slate-800" />
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+            <div>
+              <p className="text-sm font-black text-white">応援履歴を確認する</p>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                ログインすると、これまでの応援コレクションをいつでも確認できます。
+              </p>
+            </div>
+            {passkeyDone ? (
+              <Link
+                href="/dashboard/collection"
+                className="flex items-center justify-center gap-2 w-full h-11 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-sm transition-all"
+              >
+                <LayoutDashboard size={15} />
+                コレクションを見る
+              </Link>
+            ) : (
+              <Link
+                href="/auth/login"
+                className="flex items-center justify-center gap-2 w-full h-11 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-sm transition-all"
+              >
+                ログインしてコレクションを確認
+              </Link>
+            )}
+          </div>
+        </div>
 
         {/* 戻るリンク */}
         <div className="text-center">

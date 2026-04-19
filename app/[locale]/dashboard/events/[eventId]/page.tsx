@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
+import { EventCancelButton } from "@/components/event-cancel-button";
+import { EventCancelApproveButton } from "@/components/event-cancel-approve-button";
 import { LiveSalesBoard } from "@/components/live-sales-board";
 import { ScanLine } from "lucide-react";
 
@@ -55,8 +57,16 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const hasEnded = new Date(event.end_at) < new Date();
   const canSubmitEvidence = isOrganizer && hasEnded && event.lifecycle_status !== "settled";
 
+  const cancellableStatuses = ["published", "ongoing", "draft"];
+  const canRequestCancel = isOrganizer &&
+    cancellableStatuses.includes(event.lifecycle_status);
+  const canApproveCancellation = isAgent &&
+    event.lifecycle_status === "cancellation_requested" &&
+    (profile?.role === "admin" || event.agent_id === user.id);
+
   const LIFECYCLE_LABELS: Record<string, string> = {
     draft: "承認待ち", published: "公開済み", ongoing: "開催中", ended: "終了", settled: "精算済み",
+    cancellation_requested: "中止申請中", cancelled: "中止",
   };
 
   return (
@@ -176,6 +186,12 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
       {/* エージェント承認ボタン */}
       {canApprove && <EventApproveButton eventId={eventId} />}
+
+      {/* 中止申請ボタン（オーガナイザー） */}
+      {canRequestCancel && <EventCancelButton eventId={eventId} />}
+
+      {/* 中止承認ボタン（エージェント） */}
+      {canApproveCancellation && <EventCancelApproveButton eventId={eventId} />}
 
       {/* エビデンス提出ボタン */}
       {canSubmitEvidence && (

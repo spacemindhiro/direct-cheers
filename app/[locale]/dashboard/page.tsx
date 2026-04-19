@@ -104,6 +104,25 @@ async function DashboardContent() {
     }
   }
 
+  // エージェント向け: 承認待ちイベント件数
+  let pendingApprovalCount = 0;
+  let pendingCancellationCount = 0;
+  if (['agent', 'admin'].includes(profile?.role ?? '')) {
+    const query = admin.from('events').select('event_id', { count: 'exact', head: true });
+    const baseQuery = profile?.role === 'agent'
+      ? query.eq('agent_id', user!.id)
+      : query;
+
+    const { count: draftCount } = await baseQuery.eq('lifecycle_status', 'draft');
+    const { count: cancelCount } = await (profile?.role === 'agent'
+      ? admin.from('events').select('event_id', { count: 'exact', head: true }).eq('agent_id', user!.id)
+      : admin.from('events').select('event_id', { count: 'exact', head: true })
+    ).eq('lifecycle_status', 'cancellation_requested');
+
+    pendingApprovalCount = draftCount ?? 0;
+    pendingCancellationCount = cancelCount ?? 0;
+  }
+
   // アーティスト向け: 出演依頼（pending）と出演予定（confirmed）を取得
   let lineupInvites: {
     event_artist_id: string;
@@ -169,6 +188,27 @@ async function DashboardContent() {
 
       {/* ホーム画面追加バナー */}
       <AddToHomeScreen />
+
+      {/* エージェント向け: 承認待ちバナー */}
+      {(pendingApprovalCount > 0 || pendingCancellationCount > 0) && (
+        <Link
+          href="/dashboard/events"
+          className="block bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">要対応</p>
+              <p className="text-sm font-black text-white">
+                {[
+                  pendingApprovalCount > 0 && `承認待ち ${pendingApprovalCount}件`,
+                  pendingCancellationCount > 0 && `中止申請 ${pendingCancellationCount}件`,
+                ].filter(Boolean).join('　／　')}
+              </p>
+            </div>
+            <span className="text-amber-400 text-xs font-black uppercase tracking-widest shrink-0">確認 →</span>
+          </div>
+        </Link>
+      )}
 
       {/* ウェルカム */}
       <div className="space-y-1">

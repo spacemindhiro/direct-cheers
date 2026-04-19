@@ -1,11 +1,12 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Loader2 } from "lucide-react";
 import { AdminConnectReview } from "@/components/admin-connect-review";
 
-export default async function AdminConnectReviewPage() {
+async function ConnectReviewContent() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
@@ -26,6 +27,17 @@ export default async function AdminConnectReviewPage() {
     .order("created_at", { ascending: true });
 
   return (
+    <div className="space-y-2">
+      <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
+        審査待ち — {pendingUsers?.length ?? 0}件
+      </p>
+      <AdminConnectReview users={pendingUsers ?? []} />
+    </div>
+  );
+}
+
+export default function AdminConnectReviewPage() {
+  return (
     <div className="max-w-2xl mx-auto space-y-8 pb-20">
       <div className="flex items-center gap-4">
         <Link
@@ -42,12 +54,9 @@ export default async function AdminConnectReviewPage() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-          審査待ち — {pendingUsers?.length ?? 0}件
-        </p>
-        <AdminConnectReview users={pendingUsers ?? []} />
-      </div>
+      <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-slate-600" size={32} /></div>}>
+        <ConnectReviewContent />
+      </Suspense>
     </div>
   );
 }

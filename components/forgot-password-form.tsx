@@ -23,7 +23,7 @@ export function ForgotPasswordForm({
       setError(null);
       const supabase = createClient();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/update-password`,
+        redirectTo: `${window.location.origin}/auth/callback?redirect=/auth/update-password&type=recovery`,
       });
       if (error) {
         setError("メールの送信に失敗しました。アドレスをご確認ください。");

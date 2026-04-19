@@ -5,12 +5,18 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const redirect = searchParams.get('redirect'); // 招待リンクからの引き継ぎ
+  const type = searchParams.get('type');
 
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      // パスワード再設定フロー: セッション確立後すぐにupdate-passwordへ
+      if (type === 'recovery') {
+        return NextResponse.redirect(`${origin}/auth/update-password`);
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {

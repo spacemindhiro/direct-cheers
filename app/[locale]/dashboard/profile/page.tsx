@@ -129,6 +129,42 @@ export default function ProfileEditPage() {
   const [statementDescriptorKanji, setStatementDescriptorKanji] = useState('');
   const [statementDescriptorKana, setStatementDescriptorKana] = useState('');
 
+  const [zipSearching, setZipSearching] = useState(false);
+
+  const toFullWidthKana = (str: string): string => {
+    const map: Record<string, string> = {
+      'ｦ':'ヲ','ｧ':'ァ','ｨ':'ィ','ｩ':'ゥ','ｪ':'ェ','ｫ':'ォ','ｬ':'ャ','ｭ':'ュ','ｮ':'ョ','ｯ':'ッ','ｰ':'ー',
+      'ｱ':'ア','ｲ':'イ','ｳ':'ウ','ｴ':'エ','ｵ':'オ','ｶ':'カ','ｷ':'キ','ｸ':'ク','ｹ':'ケ','ｺ':'コ',
+      'ｻ':'サ','ｼ':'シ','ｽ':'ス','ｾ':'セ','ｿ':'ソ','ﾀ':'タ','ﾁ':'チ','ﾂ':'ツ','ﾃ':'テ','ﾄ':'ト',
+      'ﾅ':'ナ','ﾆ':'ニ','ﾇ':'ヌ','ﾈ':'ネ','ﾉ':'ノ','ﾊ':'ハ','ﾋ':'ヒ','ﾌ':'フ','ﾍ':'ヘ','ﾎ':'ホ',
+      'ﾏ':'マ','ﾐ':'ミ','ﾑ':'ム','ﾒ':'メ','ﾓ':'モ','ﾔ':'ヤ','ﾕ':'ユ','ﾖ':'ヨ',
+      'ﾗ':'ラ','ﾘ':'リ','ﾙ':'ル','ﾚ':'レ','ﾛ':'ロ','ﾜ':'ワ','ﾝ':'ン',
+    };
+    return str.replace(/[ｦ-ﾟ]/g, c => map[c] ?? c);
+  };
+
+  const searchZip = async (zip: string) => {
+    const digits = zip.replace(/\D/g, '');
+    if (digits.length !== 7) return;
+    setZipSearching(true);
+    try {
+      const res = await fetch(`https://zipcloud.ibsregion.com/api/search?zipcode=${digits}`);
+      const json = await res.json();
+      const r = json.results?.[0];
+      if (!r) { toast.error('該当する住所が見つかりませんでした'); return; }
+      setPrefecture(r.address1 ?? '');
+      setCity(r.address2 ?? '');
+      setAddressTown(r.address3 ?? '');
+      setAddressKanaState(toFullWidthKana(r.kana1 ?? ''));
+      setAddressKanaCity(toFullWidthKana(r.kana2 ?? ''));
+      setAddressKanaTown(toFullWidthKana(r.kana3 ?? ''));
+    } catch {
+      toast.error('住所検索に失敗しました');
+    } finally {
+      setZipSearching(false);
+    }
+  };
+
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -561,67 +597,81 @@ export default function ProfileEditPage() {
                 placeholder="09012345678" className={inputClass} />
             </Field>
 
-            {/* 住所（漢字） */}
+            {/* 住所 */}
             <div className="space-y-3">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
-                <MapPin size={11} className="text-indigo-400" /> 住所（漢字）<span className="text-pink-500">*</span>
+                <MapPin size={11} className="text-indigo-400" /> 住所 <span className="text-pink-500">*</span>
               </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <p className="text-[10px] text-slate-600">郵便番号（ハイフンなし）</p>
-                  <input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)}
-                    placeholder="1000001" maxLength={7} className={inputClass} />
+
+              {/* 郵便番号 + 検索 */}
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-600">郵便番号（ハイフンなし）</p>
+                <div className="flex gap-2">
+                  <input type="text" value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                    onBlur={(e) => searchZip(e.target.value)}
+                    placeholder="1000001" maxLength={7}
+                    className={inputClass + " flex-1"} />
+                  <button type="button" onClick={() => searchZip(postalCode)}
+                    disabled={zipSearching}
+                    className="h-12 px-4 bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-black rounded-xl hover:bg-indigo-500/30 transition-all disabled:opacity-50 shrink-0">
+                    {zipSearching ? <Loader2 size={14} className="animate-spin" /> : '検索'}
+                  </button>
                 </div>
+              </div>
+
+              {/* 漢字住所（検索で自動入力） */}
+              <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1">
                   <p className="text-[10px] text-slate-600">都道府県</p>
                   <input type="text" value={prefecture} onChange={(e) => setPrefecture(e.target.value)}
                     placeholder="東京都" className={inputClass} />
                 </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-600">市区</p>
-                <input type="text" value={city} onChange={(e) => setCity(e.target.value)}
-                  placeholder="千代田区" className={inputClass} />
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-600">町域・丁目</p>
-                <input type="text" value={addressTown} onChange={(e) => setAddressTown(e.target.value)}
-                  placeholder="千代田1丁目" className={inputClass} />
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-600">番地・建物名</p>
-                <input type="text" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)}
-                  placeholder="1-1 〇〇ビル 101号室" className={inputClass} />
-              </div>
-            </div>
-
-            {/* 住所（カナ） */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
-                <MapPin size={11} className="text-indigo-400" /> 住所（カナ）<span className="text-pink-500">*</span>
-              </p>
-              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <p className="text-[10px] text-slate-600">都道府県</p>
+                  <p className="text-[10px] text-slate-600">市区</p>
+                  <input type="text" value={city} onChange={(e) => setCity(e.target.value)}
+                    placeholder="千代田区" className={inputClass} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">町域・丁目</p>
+                  <input type="text" value={addressTown} onChange={(e) => setAddressTown(e.target.value)}
+                    placeholder="千代田1丁目" className={inputClass} />
+                </div>
+              </div>
+
+              {/* カナ住所（検索で自動入力） */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">都道府県（カナ）</p>
                   <input type="text" value={addressKanaState} onChange={(e) => setAddressKanaState(e.target.value)}
                     placeholder="トウキョウト" className={inputClass} />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] text-slate-600">市区</p>
+                  <p className="text-[10px] text-slate-600">市区（カナ）</p>
                   <input type="text" value={addressKanaCity} onChange={(e) => setAddressKanaCity(e.target.value)}
                     placeholder="チヨダク" className={inputClass} />
                 </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">町域（カナ）</p>
+                  <input type="text" value={addressKanaTown} onChange={(e) => setAddressKanaTown(e.target.value)}
+                    placeholder="チヨダ" className={inputClass} />
+                </div>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-600">町域・丁目</p>
-                <input type="text" value={addressKanaTown} onChange={(e) => setAddressKanaTown(e.target.value)}
-                  placeholder="チヨダ1チョウメ" className={inputClass} />
+
+              {/* 番地・建物名（手動入力） */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">番地・建物名</p>
+                  <input type="text" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)}
+                    placeholder="1-1 〇〇ビル 101号室" className={inputClass} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-slate-600">番地・建物名（カナ）</p>
+                  <input type="text" value={addressKanaLine1} onChange={(e) => setAddressKanaLine1(e.target.value)}
+                    placeholder="1-1 〇〇ビル 101" className={inputClass} />
+                </div>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-600">番地・建物名</p>
-                <input type="text" value={addressKanaLine1} onChange={(e) => setAddressKanaLine1(e.target.value)}
-                  placeholder="1-1 〇〇ビル 101" className={inputClass} />
-              </div>
+              <p className="text-[10px] text-slate-600">郵便番号を入力すると都道府県〜町域を自動入力します</p>
             </div>
 
             {/* 事業内容 */}

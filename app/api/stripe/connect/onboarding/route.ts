@@ -6,6 +6,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com").replace(/\/$/, "");
 
+function toE164JP(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("0")) return "+81" + digits.slice(1);
+  if (digits.startsWith("81")) return "+" + digits;
+  return phone;
+}
+
 export async function POST() {
   try {
     const supabase = await createClient();
@@ -47,7 +54,7 @@ export async function POST() {
         accountParams.individual = {};
         if (profile.first_name) accountParams.individual.first_name = profile.first_name;
         if (profile.last_name)  accountParams.individual.last_name  = profile.last_name;
-        if (profile.phone)      accountParams.individual.phone      = profile.phone;
+        if (profile.phone)      accountParams.individual.phone      = toE164JP(profile.phone);
         if (profile.dob_year && profile.dob_month && profile.dob_day) {
           accountParams.individual.dob = {
             year:  profile.dob_year,
@@ -67,7 +74,7 @@ export async function POST() {
       } else {
         accountParams.company = {};
         if (profile.business_name) accountParams.company.name = profile.business_name;
-        if (profile.phone)         accountParams.company.phone = profile.phone;
+        if (profile.phone)         accountParams.company.phone = toE164JP(profile.phone);
         if (profile.postal_code || profile.city || profile.street_address) {
           accountParams.company.address = {
             country:     "JP",

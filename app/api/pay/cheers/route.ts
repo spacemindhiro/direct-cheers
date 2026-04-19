@@ -56,8 +56,6 @@ export async function POST(req: Request) {
     metadata: {
       qr_config_id,
       product_id,
-      nickname: metadata?.nickname ?? "",
-      comment: metadata?.comment ?? "",
       artist_name: metadata?.artist_name ?? "",
       event_title: metadata?.event_title ?? "",
     },

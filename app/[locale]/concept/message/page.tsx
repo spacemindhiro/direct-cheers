@@ -105,7 +105,7 @@ export default function MessagePlanPage() {
             <div className="space-y-4">
               <h4 className="text-white font-bold uppercase tracking-widest text-[10px]">役務提供のタイミング</h4>
               <p className="leading-relaxed font-medium">
-                決済完了後、**「データベースへの書き込み」「応援証明書の発行」「アーティスト閲覧画面への掲載」**がシステム上で行われた時点で役務完了とみなします。
+                決済完了後、メッセージ送信権がユーザーに付与された時点で役務完了とみなします。メッセージの送信はその後ユーザーの任意のタイミングで行えます。
               </p>
             </div>
             <div className="space-y-4 text-xs">

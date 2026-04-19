@@ -36,7 +36,7 @@ export default function TermsPage() {
               <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-pink-500 pl-3">第3条（決済および役務の完了）</h2>
               <ul className="list-decimal ml-5 space-y-2">
                 <li>ユーザーは、本サービス上で定められた金額を支払うことにより、デジタルアセットを購入できます。</li>
-                <li className="text-pink-400 font-bold">本サービスにおける役務の提供は、決済完了後、ユーザーのデバイス上にデジタルアセット（DB格納または表示のいずれか）が正常に実行された時点をもって完了したものとみなします。</li>
+                <li className="text-pink-400 font-bold">本サービスにおける役務の提供は、決済完了後、ユーザーにデジタルアセットの閲覧権またはメッセージ送信権が付与された時点をもって完了したものとみなします。</li>
               </ul>
             </section>
 

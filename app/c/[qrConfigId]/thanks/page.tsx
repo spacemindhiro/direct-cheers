@@ -5,7 +5,7 @@ import { useSearchParams, useParams } from "next/navigation";
 import { CheersCard } from "@/components/cheers-card";
 import { PasskeySetup } from "@/components/passkey-setup";
 import { FollowButton } from "@/components/follow-button";
-import { Loader2, ArrowLeft, Wallet, PlusCircle } from "lucide-react";
+import { Loader2, ArrowLeft, Wallet, PlusCircle, MessageSquare, Send } from "lucide-react";
 import Link from "next/link";
 
 const DEVICE_TOKEN_KEY = "dc_dt";
@@ -21,6 +21,7 @@ type PaymentResult = {
   event_title: string | null;
   artist_avatar: string | null;
   product_name: string | null;
+  product_type: string | null;
   stripe_customer_id: string | null;
   serial_number: number | null;
   qr_image_url: string | null;
@@ -49,6 +50,10 @@ function ThanksContent() {
   const [passkeyDone, setPasskeyDone] = useState(false);
   const [hasExistingPasskey, setHasExistingPasskey] = useState(false);
   const [thanks, setThanks] = useState<ThanksData | null>(null);
+  const [msgNickname, setMsgNickname] = useState("");
+  const [msgComment, setMsgComment] = useState("");
+  const [msgSent, setMsgSent] = useState(false);
+  const [msgSending, setMsgSending] = useState(false);
 
   useEffect(() => {
     if (!sessionId) {
@@ -205,6 +210,80 @@ function ThanksContent() {
           thanks={thanks}
           imageUrl={result.qr_image_url}
         />
+
+        {/* メッセージ送信（message タイプのみ） */}
+        {result.product_type === "message" && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-slate-800" />
+              <div className="flex items-center gap-2">
+                <MessageSquare size={14} className="text-slate-600" />
+                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Message</p>
+              </div>
+              <div className="h-px flex-1 bg-slate-800" />
+            </div>
+
+            {msgSent ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-center space-y-1">
+                <p className="text-sm font-black text-pink-400">メッセージを送りました！</p>
+                <p className="text-xs text-slate-500">{result.artist_name ?? "アーティスト"} に届きます</p>
+              </div>
+            ) : (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <div>
+                  <p className="text-sm font-black text-white">メッセージを送る</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {result.artist_name ?? "アーティスト"} へ一言添えることができます（任意）
+                  </p>
+                </div>
+                <input
+                  type="text"
+                  value={msgNickname}
+                  onChange={(e) => setMsgNickname(e.target.value)}
+                  placeholder="ニックネーム（任意）"
+                  className="w-full h-11 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none"
+                />
+                <textarea
+                  value={msgComment}
+                  onChange={(e) => setMsgComment(e.target.value)}
+                  placeholder={`${result.artist_name ?? "アーティスト"} へのメッセージ（任意）`}
+                  rows={3}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none resize-none"
+                />
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    disabled={msgSending}
+                    onClick={async () => {
+                      setMsgSending(true);
+                      await fetch("/api/pay/message", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          transaction_id: result.transaction_id,
+                          nickname: msgNickname || undefined,
+                          comment: msgComment || undefined,
+                        }),
+                      });
+                      setMsgSending(false);
+                      setMsgSent(true);
+                    }}
+                    className="flex-1 h-11 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-xl font-black text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-60"
+                  >
+                    {msgSending ? <Loader2 size={16} className="animate-spin" /> : <><Send size={14} /> 送る</>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMsgSent(true)}
+                    className="px-4 h-11 text-xs text-slate-600 hover:text-slate-400 transition-colors font-bold"
+                  >
+                    スキップ
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ウォレット登録セクション */}
         {email && !passkeyDone && (

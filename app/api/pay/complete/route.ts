@@ -82,8 +82,6 @@ export async function POST(req: Request) {
       product_id: productId,
       qr_config_id: qrConfigId,
       sender_profile_id: provisionalProfileId,
-      sender_name: meta.nickname || null,
-      sender_comment: meta.comment || null,
       status: "completed",
       sender_email: email ?? null,
       total_gross_amount: session.amount_total ?? 0,
@@ -197,10 +195,10 @@ async function getProductInfo(
   admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
   productId: string | null
 ) {
-  if (!productId) return { artist_id: null, artist_name: null, event_title: null, artist_avatar: null, product_name: null };
+  if (!productId) return { artist_id: null, artist_name: null, event_title: null, artist_avatar: null, product_name: null, product_type: null };
   const { data } = await admin
     .from("products")
-    .select("name, artist_id, artist:profiles!artist_id(display_name, avatar_url), event:events!event_id(title)")
+    .select("name, type, artist_id, artist:profiles!artist_id(display_name, avatar_url), event:events!event_id(title)")
     .eq("product_id", productId)
     .single();
   return {
@@ -209,5 +207,6 @@ async function getProductInfo(
     event_title: (data?.event as any)?.title ?? null,
     artist_avatar: (data?.artist as any)?.avatar_url ?? null,
     product_name: data?.name ?? null,
+    product_type: data?.type ?? null,
   };
 }

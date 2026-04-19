@@ -30,8 +30,6 @@ export function CheersPaymentForm({
 }) {
   const selectedProduct = products[0];
   const [amount, setAmount] = useState(products[0]?.min_amount ?? 500);
-  const [nickname, setNickname] = useState("");
-  const [comment, setComment] = useState("");
   const [email, setEmail] = useState("");
   // メール入力が必要な場合に、どの決済方法で進むか保持
   const [pendingMethod, setPendingMethod] = useState<"card" | "paypay" | null>(null);
@@ -54,7 +52,7 @@ export function CheersPaymentForm({
           amount,
           payment_method: paymentMethod,
           customer_email: confirmedEmail,
-          metadata: { nickname, comment, artist_name: recipientName, event_title: eventTitle },
+          metadata: { artist_name: recipientName, event_title: eventTitle },
         }),
       });
       const data = await res.json();
@@ -160,26 +158,6 @@ export function CheersPaymentForm({
           <span>¥{selectedProduct.max_amount.toLocaleString()}</span>
         </div>
       </div>
-
-      {/* メッセージ（message タイプのみ） */}
-      {selectedProduct.type === "message" && (
-        <div className="space-y-3">
-          <input
-            type="text"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            placeholder="ニックネーム（任意）"
-            className="w-full h-12 bg-slate-800 border border-slate-700 rounded-2xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none"
-          />
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder={`${recipientName} へのメッセージ（任意）`}
-            rows={2}
-            className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none resize-none"
-          />
-        </div>
-      )}
 
       {/* メール表示（取得済みの場合） */}
       {email && (

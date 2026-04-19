@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(
   _req: Request,
@@ -46,14 +47,27 @@ export async function POST(
     return NextResponse.json({ error: "Event is not in draft status" }, { status: 400 });
   }
 
-  const { error } = await supabase
+  const { data: eventDetail, error } = await supabase
     .from("events")
     .update({ lifecycle_status: "published" })
-    .eq("event_id", eventId);
+    .eq("event_id", eventId)
+    .select("title, organizer_profile_id")
+    .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  try {
+    const admin = createAdminClient();
+    await admin.from("notifications").insert({
+      profile_id: eventDetail.organizer_profile_id,
+      type: "event_approved",
+      title: "イベントが承認されました",
+      body: `「${eventDetail.title}」がエージェントに承認され、公開されました。`,
+      metadata: { event_id: eventId },
+    });
+  } catch { /* 通知失敗はサイレントに */ }
 
   return NextResponse.json({ success: true });
 }

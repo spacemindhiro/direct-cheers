@@ -104,6 +104,20 @@ async function DashboardContent() {
     }
   }
 
+  // オーガナイザー向け: 未読のイベント承認/中止通知
+  let pendingNotifications: { notification_id: string; title: string; body: string; metadata: any }[] = [];
+  if (['organizer', 'admin'].includes(profile?.role ?? '')) {
+    const { data: notifs } = await admin
+      .from('notifications')
+      .select('notification_id, title, body, metadata')
+      .eq('profile_id', user!.id)
+      .in('type', ['event_approved', 'event_cancelled', 'event_cancel_rejected'])
+      .eq('is_read', false)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    pendingNotifications = notifs ?? [];
+  }
+
   // エージェント向け: 承認待ちイベント件数
   let pendingApprovalCount = 0;
   let pendingCancellationCount = 0;
@@ -188,6 +202,26 @@ async function DashboardContent() {
 
       {/* ホーム画面追加バナー */}
       <AddToHomeScreen />
+
+      {/* オーガナイザー向け: イベント承認/中止通知バナー */}
+      {pendingNotifications.length > 0 && (
+        <div className="space-y-2">
+          {pendingNotifications.map((n) => (
+            <Link
+              key={n.notification_id}
+              href={n.metadata?.event_id ? `/dashboard/events/${n.metadata.event_id}` : '/dashboard/events'}
+              className="flex items-start justify-between gap-4 bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">お知らせ</p>
+                <p className="text-sm font-black text-white">{n.title}</p>
+                <p className="text-xs text-slate-400">{n.body}</p>
+              </div>
+              <span className="text-emerald-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">確認 →</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* エージェント向け: 承認待ちバナー */}
       {(pendingApprovalCount > 0 || pendingCancellationCount > 0) && (

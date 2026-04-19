@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // オーガナイザーが中止申請
 export async function POST(
@@ -89,12 +90,27 @@ export async function PATCH(
 
   const newStatus = approve ? "cancelled" : "published";
 
-  const { error } = await supabase
+  const { data: eventDetail, error } = await supabase
     .from("events")
     .update({ lifecycle_status: newStatus })
-    .eq("event_id", eventId);
+    .eq("event_id", eventId)
+    .select("title, organizer_profile_id")
+    .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  try {
+    const admin = createAdminClient();
+    await admin.from("notifications").insert({
+      profile_id: eventDetail.organizer_profile_id,
+      type: approve ? "event_cancelled" : "event_cancel_rejected",
+      title: approve ? "イベントの中止が承認されました" : "イベントの中止申請が却下されました",
+      body: approve
+        ? `「${eventDetail.title}」の中止がエージェントに承認されました。`
+        : `「${eventDetail.title}」の中止申請が却下され、公開に戻りました。`,
+      metadata: { event_id: eventId },
+    });
+  } catch { /* 通知失敗はサイレントに */ }
 
   return NextResponse.json({ ok: true });
 }

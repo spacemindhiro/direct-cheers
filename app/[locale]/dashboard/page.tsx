@@ -5,7 +5,6 @@ import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, Cl
 import { getFeeConfig } from '@/lib/fee-config';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
-import { RoleUpgradeBanner } from '@/components/role-upgrade-drawer';
 import { ArtistSalesDashboard } from '@/components/artist-sales-dashboard';
 import { LineupInvitations } from '@/components/lineup-invitations';
 import { FollowButton } from '@/components/follow-button';
@@ -504,8 +503,6 @@ async function DashboardContent() {
         </div>
       </Link>
 
-      {/* ロールアップグレード誘導 */}
-      {profile?.role === 'user' && <RoleUpgradeBanner />}
 
     </div>
   );

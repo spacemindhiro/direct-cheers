@@ -190,7 +190,7 @@ async function DashboardContent() {
       }));
 
     upcomingShows = (allRows ?? [])
-      .filter((r: any) => r.status === 'confirmed' && r.event?.end_at > now)
+      .filter((r: any) => r.status === 'confirmed' && (!r.event?.end_at || r.event.end_at > now))
       .map((r: any) => ({
         event_id: r.event_id,
         event: r.event ? { title: r.event.title, venue: r.event.venue, start_at: r.event.start_at } : null,

@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { QRDisplay } from "@/components/qr-display";
 import { QREditDelete } from "@/components/qr-edit-delete";
 import { QRThanksEditor } from "@/components/qr-thanks-editor";
+import { QRRecipientImageEdit } from "@/components/qr-recipient-image-edit";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -55,6 +56,7 @@ async function QRDetailContent({
     (profile?.role === "agent" || profile?.role === "admin") &&
     event.agent_id === user.id;
   const isArtist = profile?.role === "artist";
+  const isRecipient = qr.recipient_profile_id === user.id;
   const canEdit = isOrganizer || isAgent;
 
   // 配分対象候補: オーガナイザー + 出演確定アーティスト
@@ -106,39 +108,68 @@ async function QRDetailContent({
 
       <QRDisplay qrConfigId={qrConfigId} qrUrl={qrUrl} label={qr.label ?? "QRコード"} />
 
-      {!canEdit && isArtist && currentTargets.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-            <span className="text-pink-500">✦</span> 配分設定
-          </p>
-          <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] divide-y divide-slate-800">
-            {(() => {
-              const myTarget = currentTargets.find((t) => t.profile_id === user.id);
-              const othersRatio = currentTargets
-                .filter((t) => t.profile_id !== user.id)
-                .reduce((s, t) => s + Number(t.distribution_ratio), 0);
-              return (
-                <>
-                  {myTarget && (
-                    <div className="flex items-center justify-between px-5 py-3.5 bg-pink-500/5">
-                      <p className="text-sm font-black text-pink-400">あなた</p>
-                      <p className="text-lg font-black text-pink-400 tabular-nums">
-                        {Math.round(Number(myTarget.distribution_ratio) * 100)}%
-                      </p>
-                    </div>
-                  )}
-                  {othersRatio > 0 && (
-                    <div className="flex items-center justify-between px-5 py-3.5">
-                      <p className="text-sm font-black text-slate-500">その他</p>
-                      <p className="text-lg font-black text-slate-500 tabular-nums">
-                        {Math.round(othersRatio * 100)}%
-                      </p>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
+      {!canEdit && isArtist && (
+        <div className="space-y-6">
+          {/* Cheersカードプレビュー / 画像変更 */}
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              <span className="text-pink-500">✦</span> Cheers カード
+            </p>
+            {isRecipient ? (
+              <QRRecipientImageEdit
+                qrConfigId={qrConfigId}
+                currentImageUrl={(qr as any).image_url ?? null}
+                eventTitle={event.title}
+                artistName={candidates.find((c) => c.profile_id === user.id)?.display_name ?? ""}
+              />
+            ) : (qr as any).image_url ? (
+              <img
+                src={(qr as any).image_url}
+                alt="Cheers card"
+                className="w-full max-w-[270px] rounded-2xl object-cover border border-slate-700"
+                style={{ aspectRatio: "3/2" }}
+              />
+            ) : (
+              <p className="text-xs text-slate-600 font-bold">画像未設定</p>
+            )}
           </div>
+
+          {/* 配分設定 */}
+          {currentTargets.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+                <span className="text-pink-500">✦</span> 配分設定
+              </p>
+              <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] divide-y divide-slate-800">
+                {(() => {
+                  const myTarget = currentTargets.find((t) => t.profile_id === user.id);
+                  const othersRatio = currentTargets
+                    .filter((t) => t.profile_id !== user.id)
+                    .reduce((s, t) => s + Number(t.distribution_ratio), 0);
+                  return (
+                    <>
+                      {myTarget && (
+                        <div className="flex items-center justify-between px-5 py-3.5 bg-pink-500/5">
+                          <p className="text-sm font-black text-pink-400">あなた</p>
+                          <p className="text-lg font-black text-pink-400 tabular-nums">
+                            {Math.round(Number(myTarget.distribution_ratio) * 100)}%
+                          </p>
+                        </div>
+                      )}
+                      {othersRatio > 0 && (
+                        <div className="flex items-center justify-between px-5 py-3.5">
+                          <p className="text-sm font-black text-slate-500">その他</p>
+                          <p className="text-lg font-black text-slate-500 tabular-nums">
+                            {Math.round(othersRatio * 100)}%
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

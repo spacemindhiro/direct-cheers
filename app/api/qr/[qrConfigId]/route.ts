@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 async function getQRWithPermission(qrConfigId: string, userId: string) {
   const supabase = await createClient();
+  const admin = createAdminClient();
 
-  const { data: qr } = await supabase
+  const { data: qr } = await admin
     .from("qr_configs")
-    .select("qr_config_id, event_id, creator_profile_id")
+    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id")
     .eq("qr_config_id", qrConfigId)
     .is("deleted_at", null)
     .single();
 
   if (!qr) return { qr: null, supabase, error: "Not found" };
 
-  const { data: event } = await supabase
+  const { data: event } = await admin
     .from("events")
     .select("organizer_profile_id, agent_id")
     .eq("event_id", qr.event_id)
@@ -29,10 +31,9 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
   const isAgent =
     (profile?.role === "agent" || profile?.role === "admin") &&
     event?.agent_id === userId;
+  const isRecipient = qr.recipient_profile_id === userId;
 
-  if (!isOrganizer && !isAgent) return { qr: null, supabase, error: "Forbidden" };
-
-  return { qr, supabase, error: null };
+  return { qr, supabase, isOrganizer, isAgent, isRecipient, error: null };
 }
 
 // ラベル・宛先・配分更新
@@ -45,8 +46,10 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { qr, supabase: sb, error } = await getQRWithPermission(qrConfigId, user.id);
-  if (!qr) return NextResponse.json({ error }, { status: error === "Forbidden" ? 403 : 404 });
+  const { qr, supabase: sb, isOrganizer, isAgent, isRecipient, error } = await getQRWithPermission(qrConfigId, user.id);
+  if (!qr) return NextResponse.json({ error }, { status: error === "Not found" ? 404 : 500 });
+
+  const canEdit = isOrganizer || isAgent;
 
   const { label, image_url, recipient_profile_id, targets } = await req.json() as {
     label?: string;
@@ -54,6 +57,16 @@ export async function PATCH(
     recipient_profile_id?: string;
     targets?: { profile_id: string; distribution_ratio: number }[];
   };
+
+  // 宛先本人は image_url のみ更新可。それ以外のフィールドは organizer/agent のみ。
+  if (!canEdit && !isRecipient) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!canEdit && isRecipient) {
+    if (label !== undefined || recipient_profile_id !== undefined || targets !== undefined) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   // qr_configs 更新
   const configUpdates: Record<string, unknown> = {};

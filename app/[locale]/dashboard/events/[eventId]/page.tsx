@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
@@ -24,7 +25,8 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     .eq("profile_id", user.id)
     .single();
 
-  const { data: event } = await supabase
+  const adminClient = createAdminClient();
+  const { data: event } = await adminClient
     .from("events")
     .select(`
       event_id, title, venue, start_at, end_at, lifecycle_status, agent_id,

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { QRCreateForm } from "@/components/qr-create-form";
 import { getFeeConfig } from "@/lib/fee-config";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -26,7 +27,8 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
     redirect(`/dashboard/events/${eventId}`);
   }
 
-  const { data: event } = await supabase
+  const adminForEvent = createAdminClient();
+  const { data: event } = await adminForEvent
     .from("events")
     .select(`
       event_id, title, lifecycle_status,
@@ -67,7 +69,6 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
     .order("sort_order");
 
   // オーガナイザーの現在残高（タイプB 残高チェック用）
-  const { createAdminClient } = await import("@/lib/supabase/admin");
   const admin = createAdminClient();
   const { data: balanceDists } = await admin
     .from("transaction_distributions")

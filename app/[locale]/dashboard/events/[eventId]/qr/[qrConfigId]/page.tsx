@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { QRDisplay } from "@/components/qr-display";
 import { QREditDelete } from "@/components/qr-edit-delete";
 import { QRThanksEditor } from "@/components/qr-thanks-editor";
@@ -36,7 +37,8 @@ async function QRDetailContent({
 
   if (!qr) notFound();
 
-  const { data: event } = await supabase
+  const adminClient = createAdminClient();
+  const { data: event } = await adminClient
     .from("events")
     .select(`
       title, organizer_profile_id, agent_id,

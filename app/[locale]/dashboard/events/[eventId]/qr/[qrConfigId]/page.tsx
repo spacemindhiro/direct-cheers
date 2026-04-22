@@ -112,26 +112,32 @@ async function QRDetailContent({
             <span className="text-pink-500">✦</span> 配分設定
           </p>
           <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] divide-y divide-slate-800">
-            {currentTargets.map((t) => {
-              const candidate = candidates.find((c) => c.profile_id === t.profile_id);
-              const isMe = t.profile_id === user.id;
+            {(() => {
+              const myTarget = currentTargets.find((t) => t.profile_id === user.id);
+              const othersRatio = currentTargets
+                .filter((t) => t.profile_id !== user.id)
+                .reduce((s, t) => s + Number(t.distribution_ratio), 0);
               return (
-                <div key={t.profile_id} className={`flex items-center justify-between px-5 py-3.5 ${isMe ? "bg-pink-500/5" : ""}`}>
-                  <div>
-                    <p className={`text-sm font-black ${isMe ? "text-pink-400" : "text-slate-300"}`}>
-                      {candidate?.display_name ?? "—"}
-                      {isMe && <span className="ml-2 text-[10px] font-black text-pink-500 uppercase tracking-widest">あなた</span>}
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">
-                      {candidate?.role === "organizer" ? "オーガナイザー" : "アーティスト"}
-                    </p>
-                  </div>
-                  <p className={`text-lg font-black tabular-nums ${isMe ? "text-pink-400" : "text-slate-400"}`}>
-                    {Math.round(Number(t.distribution_ratio) * 100)}%
-                  </p>
-                </div>
+                <>
+                  {myTarget && (
+                    <div className="flex items-center justify-between px-5 py-3.5 bg-pink-500/5">
+                      <p className="text-sm font-black text-pink-400">あなた</p>
+                      <p className="text-lg font-black text-pink-400 tabular-nums">
+                        {Math.round(Number(myTarget.distribution_ratio) * 100)}%
+                      </p>
+                    </div>
+                  )}
+                  {othersRatio > 0 && (
+                    <div className="flex items-center justify-between px-5 py-3.5">
+                      <p className="text-sm font-black text-slate-500">その他</p>
+                      <p className="text-lg font-black text-slate-500 tabular-nums">
+                        {Math.round(othersRatio * 100)}%
+                      </p>
+                    </div>
+                  )}
+                </>
               );
-            })}
+            })()}
           </div>
         </div>
       )}

@@ -150,6 +150,8 @@ export default function ProfileEditPage() {
     try {
       const res = await fetch(`/api/zip-search?zipcode=${digits}`);
       const json = await res.json();
+      console.log('[zip-search] response:', JSON.stringify(json));
+      if (!res.ok) { toast.error(`住所検索エラー: ${json.error ?? res.status}`); return; }
       const r = json.results?.[0];
       if (!r) { toast.error('該当する住所が見つかりませんでした'); return; }
       setPrefecture(r.address1 ?? '');
@@ -158,7 +160,8 @@ export default function ProfileEditPage() {
       setAddressKanaState(toFullWidthKana(r.kana1 ?? ''));
       setAddressKanaCity(toFullWidthKana(r.kana2 ?? ''));
       setAddressKanaTown(toFullWidthKana(r.kana3 ?? ''));
-    } catch {
+    } catch (err) {
+      console.error('[zip-search] error:', err);
       toast.error('住所検索に失敗しました');
     } finally {
       setZipSearching(false);

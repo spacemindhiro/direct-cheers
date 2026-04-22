@@ -186,7 +186,7 @@ async function QRDetailContent({
         />
       )}
 
-      {canEdit && (
+      {(canEdit || isRecipient) && (
         <div className="space-y-3">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
             <span className="text-pink-500">✦</span> Thanks Gift

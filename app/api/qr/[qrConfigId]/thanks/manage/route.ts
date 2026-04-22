@@ -17,7 +17,7 @@ export async function GET(
 
   const { data: qr } = await admin
     .from("qr_configs")
-    .select("event_id")
+    .select("event_id, recipient_profile_id")
     .eq("qr_config_id", qrConfigId)
     .is("deleted_at", null)
     .single();
@@ -41,8 +41,9 @@ export async function GET(
     (profile?.role === "agent" || profile?.role === "admin") &&
     event?.agent_id === user.id;
   const isAdmin = profile?.role === "admin";
+  const isRecipient = qr.recipient_profile_id === user.id;
 
-  if (!isOrganizer && !isAgent && !isAdmin) {
+  if (!isOrganizer && !isAgent && !isAdmin && !isRecipient) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

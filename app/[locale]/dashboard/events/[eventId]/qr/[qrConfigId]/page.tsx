@@ -54,6 +54,7 @@ async function QRDetailContent({
   const isAgent =
     (profile?.role === "agent" || profile?.role === "admin") &&
     event.agent_id === user.id;
+  const isArtist = profile?.role === "artist";
   const canEdit = isOrganizer || isAgent;
 
   // 配分対象候補: オーガナイザー + 出演確定アーティスト
@@ -72,8 +73,8 @@ async function QRDetailContent({
       })),
   ];
 
-  // 現在の配分設定
-  const { data: configTargets } = await supabase
+  // 現在の配分設定（adminClient で全員分取得）
+  const { data: configTargets } = await adminClient
     .from("qr_config_targets")
     .select("profile_id, distribution_ratio")
     .eq("qr_config_id", qrConfigId)
@@ -104,6 +105,36 @@ async function QRDetailContent({
       </div>
 
       <QRDisplay qrConfigId={qrConfigId} qrUrl={qrUrl} label={qr.label ?? "QRコード"} />
+
+      {!canEdit && isArtist && currentTargets.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+            <span className="text-pink-500">✦</span> 配分設定
+          </p>
+          <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] divide-y divide-slate-800">
+            {currentTargets.map((t) => {
+              const candidate = candidates.find((c) => c.profile_id === t.profile_id);
+              const isMe = t.profile_id === user.id;
+              return (
+                <div key={t.profile_id} className={`flex items-center justify-between px-5 py-3.5 ${isMe ? "bg-pink-500/5" : ""}`}>
+                  <div>
+                    <p className={`text-sm font-black ${isMe ? "text-pink-400" : "text-slate-300"}`}>
+                      {candidate?.display_name ?? "—"}
+                      {isMe && <span className="ml-2 text-[10px] font-black text-pink-500 uppercase tracking-widest">あなた</span>}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {candidate?.role === "organizer" ? "オーガナイザー" : "アーティスト"}
+                    </p>
+                  </div>
+                  <p className={`text-lg font-black tabular-nums ${isMe ? "text-pink-400" : "text-slate-400"}`}>
+                    {Math.round(Number(t.distribution_ratio) * 100)}%
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {canEdit && (
         <QREditDelete

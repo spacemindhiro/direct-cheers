@@ -27,7 +27,9 @@ async function QRDetailContent({
     .eq("profile_id", user.id)
     .single();
 
-  const { data: qr } = await supabase
+  const adminClient = createAdminClient();
+
+  const { data: qr } = await adminClient
     .from("qr_configs")
     .select("qr_config_id, label, image_url, recipient_profile_id, created_at, event_id")
     .eq("qr_config_id", qrConfigId)
@@ -36,8 +38,6 @@ async function QRDetailContent({
     .single();
 
   if (!qr) notFound();
-
-  const adminClient = createAdminClient();
   const { data: event } = await adminClient
     .from("events")
     .select(`

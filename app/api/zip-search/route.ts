@@ -12,9 +12,8 @@ export async function GET(req: Request) {
   const timer = setTimeout(() => controller.abort(), 5000);
 
   try {
-    // zipcloud はサーバーサイドからは疎通できる（CORSはブラウザ直呼びの問題だった）
     const res = await fetch(
-      `https://zipcloud.ibsregion.com/api/search?zipcode=${zipcode}`,
+      `https://api.zipaddress.net/?zipcode=${zipcode}`,
       { signal: controller.signal, cache: "no-store" },
     );
     clearTimeout(timer);
@@ -22,8 +21,21 @@ export async function GET(req: Request) {
     const data = await res.json();
     console.log("[zip-search] upstream response:", JSON.stringify(data));
 
-    // zipcloud はそのまま返す（results, kana1/2/3 含む）
-    return NextResponse.json(data);
+    if (data.code !== 200 || !data.data) {
+      return NextResponse.json({ results: null });
+    }
+
+    const d = data.data;
+    return NextResponse.json({
+      results: [{
+        address1: d.pref ?? "",
+        address2: d.city ?? "",
+        address3: d.town ?? "",
+        kana1: d.prefKana ?? "",
+        kana2: d.cityKana ?? "",
+        kana3: d.townKana ?? "",
+      }],
+    });
   } catch (err) {
     clearTimeout(timer);
     console.error("[zip-search] fetch error:", err);

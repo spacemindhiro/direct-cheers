@@ -154,6 +154,7 @@ export default function ProfileEditPage() {
       if (!res.ok) { toast.error(`住所検索エラー: ${json.error ?? res.status}`); return; }
       const r = json.results?.[0];
       if (!r) { toast.error('該当する住所が見つかりませんでした'); return; }
+      console.log('[zip-search] kana raw:', r.kana1, r.kana2, r.kana3);
       setPrefecture(r.address1 ?? '');
       setCity(r.address2 ?? '');
       setAddressTown(r.address3 ?? '');

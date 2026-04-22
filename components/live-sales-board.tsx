@@ -125,10 +125,6 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
 
   if (!stats) return null;
 
-  const ratioPercent = stats.my_distribution_ratio !== null
-    ? Math.round(stats.my_distribution_ratio * 100)
-    : null;
-
   return (
     <div className="space-y-4">
       {/* メインボード */}
@@ -170,7 +166,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
         <div className="px-8 pt-8 pb-6 space-y-2">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
             <ArrowDownToLine size={11} />
-            {ratioPercent !== null ? `あなたの着金予定（配分 ${ratioPercent}%）` : "着金予定額"}
+            あなたの着金予定
           </p>
           <div className={`transition-all duration-500 ${flashNew ? "scale-105" : "scale-100"}`}>
             <p className="text-6xl sm:text-7xl font-black text-white italic tracking-tighter tabular-nums leading-none">

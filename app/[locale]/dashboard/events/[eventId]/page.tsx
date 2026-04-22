@@ -171,7 +171,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       })()}
 
       {/* リアルタイム着金予測ボード */}
-      {(isOrganizer || isAgent) && (
+      {(isOrganizer || isAgent || isArtist) && (
         <div className="space-y-3">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
             <BarChart2 size={14} className="text-pink-500" /> 着金予測

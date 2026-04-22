@@ -148,7 +148,7 @@ export default function ProfileEditPage() {
     if (digits.length !== 7) return;
     setZipSearching(true);
     try {
-      const res = await fetch(`https://zipcloud.ibsregion.com/api/search?zipcode=${digits}`);
+      const res = await fetch(`/api/zip-search?zipcode=${digits}`);
       const json = await res.json();
       const r = json.results?.[0];
       if (!r) { toast.error('該当する住所が見つかりませんでした'); return; }

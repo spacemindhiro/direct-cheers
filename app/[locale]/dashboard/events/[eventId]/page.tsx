@@ -47,7 +47,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const isOrganizer = profile?.role === "organizer" || profile?.role === "admin";
   const isArtist = profile?.role === "artist";
 
-  const { data: allQrConfigs } = await supabase
+  const { data: allQrConfigs } = await adminClient
     .from("qr_configs")
     .select("qr_config_id, label, created_at")
     .eq("event_id", eventId)
@@ -57,7 +57,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   let qrConfigs = allQrConfigs ?? [];
 
   if (isArtist) {
-    const { data: myTargets } = await supabase
+    const { data: myTargets } = await adminClient
       .from("qr_config_targets")
       .select("qr_config_id")
       .eq("profile_id", user.id)

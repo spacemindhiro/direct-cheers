@@ -43,16 +43,28 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
   if (!event) notFound();
 
-  const { data: qrConfigs } = await supabase
+  const isAgent = profile?.role === "agent" || profile?.role === "admin";
+  const isOrganizer = profile?.role === "organizer" || profile?.role === "admin";
+  const isArtist = profile?.role === "artist";
+
+  const { data: allQrConfigs } = await supabase
     .from("qr_configs")
     .select("qr_config_id, label, created_at")
     .eq("event_id", eventId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
-  const isAgent = profile?.role === "agent" || profile?.role === "admin";
-  const isOrganizer = profile?.role === "organizer" || profile?.role === "admin";
-  const isArtist = profile?.role === "artist";
+  let qrConfigs = allQrConfigs ?? [];
+
+  if (isArtist) {
+    const { data: myTargets } = await supabase
+      .from("qr_config_targets")
+      .select("qr_config_id")
+      .eq("profile_id", user.id)
+      .is("deleted_at", null);
+    const myQrIds = new Set((myTargets ?? []).map((t: any) => t.qr_config_id));
+    qrConfigs = qrConfigs.filter((qr) => myQrIds.has(qr.qr_config_id));
+  }
   const canApprove = isAgent && event.lifecycle_status === "draft";
   const canCreateQR = (isOrganizer || isAgent) &&
     (event.lifecycle_status === "published" || event.lifecycle_status === "ongoing");
@@ -159,7 +171,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       })()}
 
       {/* リアルタイム着金予測ボード */}
-      {(isOrganizer || isAgent || isArtist) && (
+      {(isOrganizer || isAgent) && (
         <div className="space-y-3">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
             <BarChart2 size={14} className="text-pink-500" /> 着金予測

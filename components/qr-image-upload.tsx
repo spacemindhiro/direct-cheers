@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ImageCropperModal } from "@/components/image-cropper-modal";
 import { Camera, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
 
 type Props = {
   currentUrl?: string | null;
@@ -138,8 +139,9 @@ export function QRImageUpload({ currentUrl, pathPrefix, eventTitle = "", artistN
       const { data } = supabase.storage.from("qr-images").getPublicUrl(path);
       setDisplayUrl(data.publicUrl);
       onUploadComplete(data.publicUrl);
-    } catch {
-      // アップロード失敗は黙って無視（再試行可）
+    } catch (err) {
+      toast.error("画像のアップロードに失敗しました。もう一度お試しください。");
+      console.error("[qr-image-upload]", err);
     } finally {
       setUploading(false);
     }

@@ -18,7 +18,7 @@ async function EvidencePageContent({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
-  const { data: event } = await supabase
+  const { data: event } = await admin
     .from("events")
     .select("event_id, title, venue, start_at, end_at, lifecycle_status, organizer_profile_id")
     .eq("event_id", eventId)

@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, ArrowLeft, Pencil, CheckCircle2, ScanLine } from "lucide-react";
+import { EventEndButton } from "@/components/event-end-button";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
 import { EventCancelButton } from "@/components/event-cancel-button";
@@ -67,8 +68,9 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const canApprove = isAgent && event.lifecycle_status === "draft";
   const canCreateQR = (isOrganizer || isAgent) &&
     (event.lifecycle_status === "published" || event.lifecycle_status === "ongoing");
-  const hasEnded = new Date(event.end_at) < new Date();
+  const hasEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
   const canSubmitEvidence = isOrganizer && hasEnded && event.lifecycle_status !== "settled";
+  const canEndEvent = isOrganizer && ["published", "ongoing"].includes(event.lifecycle_status);
 
   const cancellableStatuses = ["published", "ongoing", "draft"];
   const canRequestCancel = isOrganizer &&
@@ -211,6 +213,9 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
       {/* 中止承認ボタン（エージェント） */}
       {canApproveCancellation && <EventCancelApproveButton eventId={eventId} />}
+
+      {/* イベント終了ボタン（オーガナイザー） */}
+      {canEndEvent && <EventEndButton eventId={eventId} />}
 
       {/* エビデンス提出ボタン（オーガナイザー） */}
       {canSubmitEvidence && (

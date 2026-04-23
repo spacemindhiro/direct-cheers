@@ -118,14 +118,25 @@ async function DashboardContent() {
     pendingNotifications = notifs ?? [];
   }
 
-  // admin向け: 口座開設審査待ち件数
+  // admin向け: 口座開設審査待ち件数 + 証跡提出通知
   let pendingConnectReviewCount = 0;
+  let pendingEvidenceNotifications: { notification_id: string; title: string; body: string; metadata: any }[] = [];
   if (profile?.role === 'admin') {
     const { count } = await admin
       .from('profiles')
       .select('profile_id', { count: 'exact', head: true })
       .eq('verification_status', 'pending');
     pendingConnectReviewCount = count ?? 0;
+
+    const { data: evidenceNotifs } = await admin
+      .from('notifications')
+      .select('notification_id, title, body, metadata')
+      .eq('profile_id', user!.id)
+      .eq('type', 'evidence_submitted')
+      .eq('is_read', false)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    pendingEvidenceNotifications = evidenceNotifs ?? [];
   }
 
   // エージェント向け: 承認待ちイベント件数
@@ -247,6 +258,27 @@ async function DashboardContent() {
             <span className="text-indigo-400 text-xs font-black uppercase tracking-widest shrink-0">審査する →</span>
           </div>
         </Link>
+      )}
+
+      {/* admin向け: 証跡提出通知バナー */}
+      {pendingEvidenceNotifications.length > 0 && (
+        <div className="space-y-2">
+          {pendingEvidenceNotifications.map((n) => (
+            <Link
+              key={n.notification_id}
+              href="/admin/settlements"
+              className="block bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">証跡提出 — 精算承認待ち</p>
+                  <p className="text-sm font-black text-white">{n.body}</p>
+                </div>
+                <span className="text-amber-400 text-xs font-black uppercase tracking-widest shrink-0">確認する →</span>
+              </div>
+            </Link>
+          ))}
+        </div>
       )}
 
       {/* エージェント向け: 承認待ちバナー */}

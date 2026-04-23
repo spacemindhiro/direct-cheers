@@ -671,24 +671,42 @@ async function DashboardContent() {
         </Link>
       )}
 
-      {/* Admin: 精算管理 */}
+      {/* Admin: 精算管理 + 照合管理 */}
       {profile?.role === 'admin' && (
-        <Link
-          href="/admin/settlements"
-          className="block bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-[2rem] p-6 transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500/20 transition-all">
-              <ClipboardCheck size={22} className="text-amber-400" />
+        <div className="grid grid-cols-2 gap-4">
+          <Link
+            href="/admin/settlements"
+            className="block bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-[2rem] p-6 transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500/20 transition-all shrink-0">
+                <ClipboardCheck size={22} className="text-amber-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+                <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-amber-400 transition-colors">
+                  精算管理
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
-              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-amber-400 transition-colors">
-                精算管理
-              </p>
+          </Link>
+          <Link
+            href="/admin/reconcile"
+            className="block bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-[2rem] p-6 transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all shrink-0">
+                <BarChart2 size={22} className="text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+                <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
+                  照合管理
+                </p>
+              </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+        </div>
       )}
 
       {/* マイチケット */}

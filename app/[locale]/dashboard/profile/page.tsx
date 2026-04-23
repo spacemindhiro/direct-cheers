@@ -344,8 +344,6 @@ export default function ProfileEditPage() {
     dobYear && dobMonth && dobDay &&
     postalCode.trim() && prefecture.trim() &&
     city.trim() && addressTown.trim() && streetAddress.trim() &&
-    addressKanaState.trim() && addressKanaCity.trim() &&
-    addressKanaTown.trim() && addressKanaLine1.trim() &&
     (businessType === 'individual' || (businessName.trim() && companyNameKanji.trim() && companyNameKana.trim())) &&
     productDescription.trim() &&
     website.trim()

@@ -91,6 +91,18 @@ async function SettlementsContent() {
     grossByEvent.set(eventId, total);
   }
 
+  // 全証跡画像の署名付きURL（1時間有効）を一括生成
+  const allPhotoPaths = (evidencesRes.data ?? []).flatMap((ev) => ev.photo_paths as string[]);
+  const signedUrlMap = new Map<string, string>();
+  if (allPhotoPaths.length > 0) {
+    const { data: signedUrls } = await admin.storage
+      .from("event-evidence")
+      .createSignedUrls(allPhotoPaths, 3600);
+    for (const item of signedUrls ?? []) {
+      if (item.signedUrl && item.path) signedUrlMap.set(item.path, item.signedUrl);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
       <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
@@ -179,26 +191,45 @@ async function SettlementsContent() {
 
                 {/* エビデンス */}
                 {hasEvidence ? (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1">
                       <CheckCircle2 size={10} className="text-green-400" />
                       エビデンス {evidences.length}件
                     </p>
-                    {evidences.map((ev) => (
-                      <div key={ev.evidence_id} className="bg-slate-800/50 rounded-xl p-3 space-y-1">
-                        <div className="flex items-center gap-3 text-xs text-slate-400">
-                          {ev.photo_paths.length > 0 && (
-                            <span className="flex items-center gap-1">
-                              <ImageIcon size={10} />{ev.photo_paths.length}枚
-                            </span>
+                    {evidences.map((ev) => {
+                      const paths = ev.photo_paths as string[];
+                      return (
+                        <div key={ev.evidence_id} className="bg-slate-800/50 rounded-xl p-3 space-y-2">
+                          <div className="flex items-center gap-3 text-xs text-slate-400">
+                            {paths.length > 0 && (
+                              <span className="flex items-center gap-1">
+                                <ImageIcon size={10} />{paths.length}枚
+                              </span>
+                            )}
+                            {ev.attendance_count != null && (
+                              <span>動員 {ev.attendance_count}人</span>
+                            )}
+                            <span>{new Date(ev.created_at).toLocaleDateString("ja-JP")}</span>
+                          </div>
+                          {paths.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {paths.map((path) => {
+                                const url = signedUrlMap.get(path);
+                                return url ? (
+                                  <a key={path} href={url} target="_blank" rel="noopener noreferrer">
+                                    <img
+                                      src={url}
+                                      alt="証跡"
+                                      className="w-20 h-20 object-cover rounded-lg border border-slate-700 hover:border-slate-500 transition-colors"
+                                    />
+                                  </a>
+                                ) : null;
+                              })}
+                            </div>
                           )}
-                          {ev.attendance_count != null && (
-                            <span>動員 {ev.attendance_count}人</span>
-                          )}
-                          <span>{new Date(ev.created_at).toLocaleDateString("ja-JP")}</span>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-xs text-slate-600">

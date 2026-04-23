@@ -18,6 +18,7 @@ function resolveContentType(file: File): string {
   return MIME_MAP[ext] ?? "image/jpeg";
 }
 
+// 1ファイル1リクエスト専用
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ eventId: string }> }
@@ -29,7 +30,7 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: event } = await supabase
+  const { data: event } = await admin
     .from("events")
     .select("organizer_profile_id")
     .eq("event_id", eventId)
@@ -40,41 +41,29 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const formData = await req.formData();
-  const files = formData.getAll("files") as File[];
+  const file = formData.get("file") as File | null;
 
-  if (files.length === 0)
-    return NextResponse.json({ error: "No files provided" }, { status: 400 });
+  if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
-  // 全ファイルのバッファをまとめて先読み（ストリーム消費問題を回避）
-  const fileEntries = await Promise.all(
-    files.map(async (file) => {
-      const contentType = resolveContentType(file);
-      const ext = contentType.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
-      const baseName = (file.name || "photo")
-        .replace(/\.[^.]+$/, "")
-        .replace(/[^a-zA-Z0-9_-]/g, "_")
-        .replace(/^[_-]+|[_-]+$/g, "")
-        || "photo";
-      const path = `${eventId}/${randomUUID()}-${baseName}.${ext}`;
-      const data = new Uint8Array(await file.arrayBuffer());
-      return { path, data, contentType };
-    })
-  );
+  const contentType = resolveContentType(file);
+  const ext = contentType.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+  const baseName = (file.name || "photo")
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .replace(/^[_-]+|[_-]+$/g, "")
+    || "photo";
+  const path = `${eventId}/${randomUUID()}-${baseName}.${ext}`;
 
-  const paths: string[] = [];
+  const data = new Uint8Array(await file.arrayBuffer());
 
-  for (const { path, data, contentType } of fileEntries) {
-    const { error } = await admin.storage
-      .from(BUCKET)
-      .upload(path, data, { contentType, upsert: false });
+  const { error } = await admin.storage
+    .from(BUCKET)
+    .upload(path, data, { contentType, upsert: false });
 
-    if (error) {
-      console.error("[evidence/upload] storage error:", path, error);
-      return NextResponse.json({ error: `アップロード失敗: ${error.message}` }, { status: 500 });
-    }
-
-    paths.push(path);
+  if (error) {
+    console.error("[evidence/upload] storage error:", path, error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ paths });
+  return NextResponse.json({ path });
 }

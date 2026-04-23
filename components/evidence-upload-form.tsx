@@ -38,16 +38,20 @@ export function EvidenceUploadForm({ eventId }: Props) {
     setError("");
 
     try {
-      // 1. ファイルをサーバー経由でSupabase Storageにアップロード
-      const formData = new FormData();
-      for (const file of files) formData.append("files", file);
-
-      const uploadRes = await fetch(`/api/events/${eventId}/evidence/upload`, {
-        method: "POST",
-        body: formData,
-      });
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error(uploadData.error ?? "アップロードに失敗しました");
+      // 1. ファイルを1枚ずつ順番にアップロード
+      const uploadedPaths: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const fd = new FormData();
+        fd.append("file", files[i]);
+        const uploadRes = await fetch(`/api/events/${eventId}/evidence/upload`, {
+          method: "POST",
+          body: fd,
+        });
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) throw new Error(`写真${i + 1}枚目: ${uploadData.error ?? "アップロード失敗"}`);
+        uploadedPaths.push(uploadData.path as string);
+      }
+      const uploadData = { paths: uploadedPaths };
 
       // 2. パスを証跡APIに送信
       const res = await fetch(`/api/events/${eventId}/evidence`, {

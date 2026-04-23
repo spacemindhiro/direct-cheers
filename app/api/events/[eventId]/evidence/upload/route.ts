@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -54,7 +55,7 @@ export async function POST(
       .replace(/[^a-zA-Z0-9_-]/g, "_")  // 安全な文字のみ
       .replace(/^[_-]+|[_-]+$/g, "")    // 先頭末尾のアンダースコア/ハイフン除去
       || "photo";
-    const path = `${eventId}/${Date.now()}-${baseName}.${ext}`;
+    const path = `${eventId}/${randomUUID()}-${baseName}.${ext}`;
 
     const arrayBuffer = await file.arrayBuffer();
 

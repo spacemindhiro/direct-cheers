@@ -24,14 +24,15 @@ async function SettlementsContent() {
 
   const { net_rate } = await getFeeConfig();
 
-  // 終了済みイベントを取得（end_at < now）
+  // 終了済みイベントを取得（end_at 経過 OR 手動終了・精算済み）
+  const now = new Date().toISOString();
   const { data: events } = await admin
     .from("events")
     .select(`
       event_id, title, venue, end_at, lifecycle_status,
       organizer:profiles!organizer_profile_id(display_name)
     `)
-    .lt("end_at", new Date().toISOString())
+    .or(`end_at.lt.${now},lifecycle_status.in.(ended,settled)`)
     .order("end_at", { ascending: false })
     .limit(50);
 

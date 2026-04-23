@@ -55,7 +55,6 @@ export async function POST(
       .from("profiles")
       .select("profile_id")
       .eq("role", "admin")
-      .eq("status", "active")
       .limit(1);
     const adminId = admins?.[0]?.profile_id ?? null;
 

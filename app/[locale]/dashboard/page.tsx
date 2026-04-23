@@ -125,8 +125,30 @@ async function DashboardContent() {
       .eq('type', 'evidence_rejected')
       .eq('is_read', false)
       .order('created_at', { ascending: false })
-      .limit(5);
-    evidenceRejectedNotifications = rejectedNotifs ?? [];
+      .limit(20);
+
+    // 差戻し状態が解消済み（再提出・精算完了）のイベントの通知を除外
+    const rejectedEventIds = (rejectedNotifs ?? [])
+      .map((n) => n.metadata?.event_id)
+      .filter(Boolean) as string[];
+
+    let stillRejectedEventIds = new Set<string>();
+    if (rejectedEventIds.length > 0) {
+      const { data: activeSummaries } = await admin
+        .from('settlement_summaries')
+        .select('event_id')
+        .in('event_id', rejectedEventIds)
+        .eq('is_approved_for_payout', false);
+      stillRejectedEventIds = new Set((activeSummaries ?? []).map((s) => s.event_id));
+    }
+
+    const seenRejected = new Set<string>();
+    evidenceRejectedNotifications = (rejectedNotifs ?? []).filter((n) => {
+      const eid = n.metadata?.event_id;
+      if (!eid || !stillRejectedEventIds.has(eid) || seenRejected.has(eid)) return false;
+      seenRejected.add(eid);
+      return true;
+    });
   }
 
   // admin向け: 口座開設審査待ち件数 + 証跡提出通知
@@ -147,11 +169,25 @@ async function DashboardContent() {
       .eq('is_read', false)
       .order('created_at', { ascending: false })
       .limit(50);
-    // event_id単位で最新の1件のみに絞る
+    // 精算済みイベントの通知を除外 + event_id単位で最新1件のみ
+    const evidenceEventIds = (evidenceNotifs ?? [])
+      .map((n) => n.metadata?.event_id)
+      .filter(Boolean) as string[];
+
+    let settledEventIds = new Set<string>();
+    if (evidenceEventIds.length > 0) {
+      const { data: settledEvents } = await admin
+        .from('events')
+        .select('event_id')
+        .in('event_id', evidenceEventIds)
+        .eq('lifecycle_status', 'settled');
+      settledEventIds = new Set((settledEvents ?? []).map((e) => e.event_id));
+    }
+
     const seenEventIds = new Set<string>();
     pendingEvidenceNotifications = (evidenceNotifs ?? []).filter((n) => {
       const eid = n.metadata?.event_id;
-      if (!eid || seenEventIds.has(eid)) return false;
+      if (!eid || settledEventIds.has(eid) || seenEventIds.has(eid)) return false;
       seenEventIds.add(eid);
       return true;
     });

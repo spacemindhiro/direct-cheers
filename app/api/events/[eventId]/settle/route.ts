@@ -202,6 +202,27 @@ export async function POST(
     .update({ lifecycle_status: "settled" })
     .eq("event_id", eventId);
 
+  // オーガナイザーの差戻し通知 + adminの証跡提出通知を既読化
+  const { data: ev } = await admin
+    .from("events")
+    .select("organizer_profile_id")
+    .eq("event_id", eventId)
+    .single();
+  if (ev?.organizer_profile_id) {
+    await admin
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("profile_id", ev.organizer_profile_id)
+      .eq("type", "evidence_rejected")
+      .filter("metadata->>event_id", "eq", eventId);
+  }
+  // adminへの証跡提出通知を既読化
+  await admin
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("type", "evidence_submitted")
+    .filter("metadata->>event_id", "eq", eventId);
+
   return NextResponse.json({
     success: true,
     total_gross: totalGross,

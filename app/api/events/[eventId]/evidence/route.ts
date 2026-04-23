@@ -32,7 +32,7 @@ export async function POST(
     attendance_count?: number;
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from("event_evidences")
     .insert({
       event_id: eventId,
@@ -44,7 +44,10 @@ export async function POST(
     .select("evidence_id")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[evidence/POST] insert error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   // admin に通知
   try {

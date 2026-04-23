@@ -45,26 +45,31 @@ export async function POST(
   if (files.length === 0)
     return NextResponse.json({ error: "No files provided" }, { status: 400 });
 
+  // 全ファイルのバッファをまとめて先読み（ストリーム消費問題を回避）
+  const fileEntries = await Promise.all(
+    files.map(async (file) => {
+      const contentType = resolveContentType(file);
+      const ext = contentType.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+      const baseName = (file.name || "photo")
+        .replace(/\.[^.]+$/, "")
+        .replace(/[^a-zA-Z0-9_-]/g, "_")
+        .replace(/^[_-]+|[_-]+$/g, "")
+        || "photo";
+      const path = `${eventId}/${randomUUID()}-${baseName}.${ext}`;
+      const data = new Uint8Array(await file.arrayBuffer());
+      return { path, data, contentType };
+    })
+  );
+
   const paths: string[] = [];
 
-  for (const file of files) {
-    const contentType = resolveContentType(file);
-    const ext = contentType.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
-    const baseName = (file.name || "photo")
-      .replace(/\.[^.]+$/, "")           // 拡張子除去
-      .replace(/[^a-zA-Z0-9_-]/g, "_")  // 安全な文字のみ
-      .replace(/^[_-]+|[_-]+$/g, "")    // 先頭末尾のアンダースコア/ハイフン除去
-      || "photo";
-    const path = `${eventId}/${randomUUID()}-${baseName}.${ext}`;
-
-    const arrayBuffer = await file.arrayBuffer();
-
+  for (const { path, data, contentType } of fileEntries) {
     const { error } = await admin.storage
       .from(BUCKET)
-      .upload(path, arrayBuffer, { contentType, upsert: false });
+      .upload(path, data, { contentType, upsert: false });
 
     if (error) {
-      console.error("[evidence/upload] storage error:", error);
+      console.error("[evidence/upload] storage error:", path, error);
       return NextResponse.json({ error: `アップロード失敗: ${error.message}` }, { status: 500 });
     }
 

@@ -170,6 +170,47 @@ export async function GET(req: Request) {
     }
   }
 
+  // イベント単位の照合済みフラグを確認・更新
+  const eventIds = [
+    ...new Set(
+      (targets ?? [])
+        .map((tx) => (tx.qr_config as any)?.event_id)
+        .filter(Boolean) as string[]
+    ),
+  ];
+
+  for (const eventId of eventIds) {
+    // このイベントの全 completed transactions を取得
+    const { data: allQrs } = await admin
+      .from("qr_configs")
+      .select("qr_config_id")
+      .eq("event_id", eventId);
+    const qrIds = (allQrs ?? []).map((q) => q.qr_config_id);
+    if (qrIds.length === 0) continue;
+
+    const { count: totalTx } = await admin
+      .from("transactions")
+      .select("transaction_id", { count: "exact", head: true })
+      .in("qr_config_id", qrIds)
+      .eq("status", "completed");
+
+    const { count: reconciledTx } = await admin
+      .from("transactions")
+      .select("transaction_id", { count: "exact", head: true })
+      .in("qr_config_id", qrIds)
+      .eq("status", "completed")
+      .not("reconciled_at", "is", null);
+
+    if (totalTx !== null && reconciledTx !== null && totalTx > 0 && totalTx === reconciledTx) {
+      await admin
+        .from("events")
+        .update({ reconciled_at: now.toISOString() })
+        .eq("event_id", eventId)
+        .is("reconciled_at", null);
+      console.log(`[reconcile] event reconciled: event_id=${eventId} total_tx=${totalTx}`);
+    }
+  }
+
   // ログを記録
   const summary: Record<string, unknown> = {};
   if (feeAdjustDetails.length > 0) summary.fee_adjustments = feeAdjustDetails;

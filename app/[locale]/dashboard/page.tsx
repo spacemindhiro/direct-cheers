@@ -146,8 +146,15 @@ async function DashboardContent() {
       .eq('type', 'evidence_submitted')
       .eq('is_read', false)
       .order('created_at', { ascending: false })
-      .limit(10);
-    pendingEvidenceNotifications = evidenceNotifs ?? [];
+      .limit(50);
+    // event_id単位で最新の1件のみに絞る
+    const seenEventIds = new Set<string>();
+    pendingEvidenceNotifications = (evidenceNotifs ?? []).filter((n) => {
+      const eid = n.metadata?.event_id;
+      if (!eid || seenEventIds.has(eid)) return false;
+      seenEventIds.add(eid);
+      return true;
+    });
   }
 
   // エージェント向け: 承認待ちイベント件数

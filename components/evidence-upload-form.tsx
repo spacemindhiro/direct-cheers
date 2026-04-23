@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
-import { Upload, Loader2, CheckCircle2, X, ImageIcon } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -14,50 +13,49 @@ export function EvidenceUploadForm({ eventId }: Props) {
   const [description, setDescription] = useState("");
   const [attendanceCount, setAttendanceCount] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-  );
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
-    setFiles((prev) => [...prev, ...selected].slice(0, 10));
+    const next = [...files, ...selected].slice(0, 10);
+    setFiles(next);
+    setPreviews(next.map((f) => URL.createObjectURL(f)));
   };
 
   const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    const next = files.filter((_, i) => i !== index);
+    setFiles(next);
+    setPreviews(next.map((f) => URL.createObjectURL(f)));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (files.length === 0) return;
     setUploading(true);
     setError("");
 
     try {
-      // Supabase Storage にアップロード
-      // ※ Supabase Dashboard で "event-evidence" バケット（private）を作成してください
-      const photoPaths: string[] = [];
-      for (const file of files) {
-        const path = `${eventId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("event-evidence")
-          .upload(path, file, { upsert: false });
+      // 1. ファイルをサーバー経由でSupabase Storageにアップロード
+      const formData = new FormData();
+      for (const file of files) formData.append("files", file);
 
-        if (uploadErr) throw new Error(`アップロード失敗: ${uploadErr.message}`);
-        photoPaths.push(path);
-      }
+      const uploadRes = await fetch(`/api/events/${eventId}/evidence/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadData.error ?? "アップロードに失敗しました");
 
-      // evidence API に送信
+      // 2. パスを証跡APIに送信
       const res = await fetch(`/api/events/${eventId}/evidence`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description: description || null,
-          photo_paths: photoPaths,
+          photo_paths: uploadData.paths as string[],
           attendance_count: attendanceCount ? parseInt(attendanceCount) : null,
         }),
       });
@@ -67,8 +65,8 @@ export function EvidenceUploadForm({ eventId }: Props) {
 
       setSubmitted(true);
       router.refresh();
-    } catch (err: any) {
-      setError(err.message ?? "エラーが発生しました");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setUploading(false);
     }
@@ -79,8 +77,8 @@ export function EvidenceUploadForm({ eventId }: Props) {
       <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-2xl p-5">
         <CheckCircle2 size={22} className="text-green-400 shrink-0" />
         <div>
-          <p className="font-black text-green-400">エビデンスを提出しました</p>
-          <p className="text-xs text-slate-500 mt-0.5">Adminが確認後、精算処理が実行されます</p>
+          <p className="font-black text-green-400">証跡を提出しました</p>
+          <p className="text-xs text-slate-500 mt-0.5">管理者が確認後、精算処理が実行されます</p>
         </div>
       </div>
     );
@@ -103,16 +101,12 @@ export function EvidenceUploadForm({ eventId }: Props) {
           />
         </label>
 
-        {files.length > 0 && (
+        {previews.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {files.map((f, i) => (
+            {previews.map((src, i) => (
               <div key={i} className="relative group">
-                <div className="w-16 h-16 bg-slate-800 rounded-xl flex items-center justify-center border border-slate-700 overflow-hidden">
-                  <img
-                    src={URL.createObjectURL(f)}
-                    alt={f.name}
-                    className="w-full h-full object-cover"
-                  />
+                <div className="w-16 h-16 bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
+                  <img src={src} alt={files[i]?.name} className="w-full h-full object-cover" />
                 </div>
                 <button
                   type="button"
@@ -162,7 +156,7 @@ export function EvidenceUploadForm({ eventId }: Props) {
         {uploading ? (
           <><Loader2 size={16} className="animate-spin" />アップロード中...</>
         ) : (
-          <><ImageIcon size={16} />エビデンスを提出する</>
+          <>開催証跡を提出して承認依頼する</>
         )}
       </button>
     </form>

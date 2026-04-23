@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(
   req: Request,
@@ -7,13 +8,14 @@ export async function POST(
 ) {
   const { eventId } = await params;
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data: event } = await supabase
     .from("events")
-    .select("event_id, organizer_profile_id, end_at, lifecycle_status")
+    .select("event_id, title, organizer_profile_id, end_at, lifecycle_status, agent_id")
     .eq("event_id", eventId)
     .single();
 
@@ -42,6 +44,33 @@ export async function POST(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // admin に通知
+  try {
+    const { data: admins } = await admin
+      .from("profiles")
+      .select("profile_id")
+      .eq("role", "admin")
+      .eq("status", "active")
+      .limit(1);
+    const adminId = admins?.[0]?.profile_id ?? null;
+
+    const { data: organizer } = await admin
+      .from("profiles")
+      .select("display_name")
+      .eq("profile_id", user.id)
+      .single();
+
+    if (adminId) {
+      await admin.from("notifications").insert({
+        profile_id: adminId,
+        type: "evidence_submitted",
+        title: "証跡提出 — 精算承認待ち",
+        body: `「${event.title}」の開催証跡が提出されました。精算管理から確認してください。`,
+        metadata: { event_id: eventId, submitted_by: user.id, organizer_name: organizer?.display_name ?? null },
+      });
+    }
+  } catch { /* 通知失敗は無視 */ }
 
   return NextResponse.json({ evidence_id: data.evidence_id });
 }

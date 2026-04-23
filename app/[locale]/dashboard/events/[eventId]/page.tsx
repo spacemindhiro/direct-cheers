@@ -2,13 +2,12 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, ArrowLeft, Pencil } from "lucide-react";
+import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, ArrowLeft, Pencil, CheckCircle2, ScanLine } from "lucide-react";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
 import { EventCancelButton } from "@/components/event-cancel-button";
 import { EventCancelApproveButton } from "@/components/event-cancel-approve-button";
 import { LiveSalesBoard } from "@/components/live-sales-board";
-import { ScanLine } from "lucide-react";
 
 async function EventDetailContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -77,6 +76,12 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const canApproveCancellation = isAgent &&
     event.lifecycle_status === "cancellation_requested" &&
     (profile?.role === "admin" || event.agent_id === user.id);
+
+  const { data: evidences } = await adminClient
+    .from("event_evidences")
+    .select("evidence_id")
+    .eq("event_id", eventId);
+  const evidenceCount = evidences?.length ?? 0;
 
   const LIFECYCLE_LABELS: Record<string, string> = {
     draft: "承認待ち", published: "公開済み", ongoing: "開催中", ended: "終了", settled: "精算済み",
@@ -207,18 +212,49 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       {/* 中止承認ボタン（エージェント） */}
       {canApproveCancellation && <EventCancelApproveButton eventId={eventId} />}
 
-      {/* エビデンス提出ボタン */}
+      {/* エビデンス提出ボタン（オーガナイザー） */}
       {canSubmitEvidence && (
         <Link
           href={`/dashboard/events/${eventId}/evidence`}
-          className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 hover:border-amber-500/40 rounded-[1.5rem] p-5 transition-all group"
+          className={`flex items-center gap-3 border rounded-[1.5rem] p-5 transition-all group ${
+            evidenceCount > 0
+              ? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40"
+              : "bg-amber-500/10 border-amber-500/20 hover:border-amber-500/40"
+          }`}
         >
-          <div className="w-10 h-10 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500/20 transition-all shrink-0">
-            <FileImage size={18} className="text-amber-400" />
+          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-all shrink-0 ${
+            evidenceCount > 0
+              ? "bg-emerald-500/10 border-emerald-500/20 group-hover:bg-emerald-500/20"
+              : "bg-amber-500/10 border-amber-500/20 group-hover:bg-amber-500/20"
+          }`}>
+            {evidenceCount > 0
+              ? <CheckCircle2 size={18} className="text-emerald-400" />
+              : <FileImage size={18} className="text-amber-400" />
+            }
           </div>
           <div>
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Evidence</p>
-            <p className="font-black text-amber-400 text-sm">エビデンスを提出する</p>
+            {evidenceCount > 0 ? (
+              <p className="font-black text-emerald-400 text-sm">証跡提出済み（{evidenceCount}件）· 追加提出</p>
+            ) : (
+              <p className="font-black text-amber-400 text-sm">開催証跡を提出して承認依頼する</p>
+            )}
+          </div>
+        </Link>
+      )}
+
+      {/* 証跡確認リンク（admin） */}
+      {profile?.role === "admin" && hasEnded && evidenceCount > 0 && event.lifecycle_status !== "settled" && (
+        <Link
+          href="/admin/settlements"
+          className="flex items-center gap-3 bg-indigo-500/5 border border-indigo-500/20 hover:border-indigo-500/40 rounded-[1.5rem] p-5 transition-all group"
+        >
+          <div className="w-10 h-10 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all shrink-0">
+            <CheckCircle2 size={18} className="text-indigo-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Settlement</p>
+            <p className="font-black text-indigo-400 text-sm">証跡を確認して精算承認する</p>
           </div>
         </Link>
       )}

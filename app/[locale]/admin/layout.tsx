@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { LogoutButton } from "@/components/logout-button";
 
@@ -29,6 +27,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               className="text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
             >
               Users
+            </Link>
+            <Link
+              href="/admin/reconcile"
+              className="text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
+            >
+              Reconcile
             </Link>
             <LogoutButton />
           </div>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ChevronRight } from "lucide-react";
+import Link from "next/link";
 
 type PendingUser = {
   profile_id: string;
@@ -63,15 +64,20 @@ export function AdminConnectReview({ users }: { users: PendingUser[] }) {
                 : "border-slate-800"
             }`}
           >
-            <div className="min-w-0 space-y-1.5">
-              <p className="text-sm font-bold text-white">{u.display_name ?? "—"}</p>
+            <Link
+              href={`/dashboard/admin/connect-review/${u.profile_id}`}
+              className="min-w-0 space-y-1.5 flex-1 group"
+            >
+              <p className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors flex items-center gap-1.5">
+                {u.display_name ?? "—"} <ChevronRight size={13} className="text-slate-600 group-hover:text-indigo-400" />
+              </p>
               <p className="text-xs text-slate-500">
                 {ROLE_LABELS[u.role] ?? u.role} · {new Date(u.created_at).toLocaleDateString("ja-JP")}
               </p>
               {u.stripe_connect_id && (
                 <p className="text-[10px] text-indigo-400 font-mono">{u.stripe_connect_id}</p>
               )}
-            </div>
+            </Link>
 
             <div className="flex items-center gap-2 shrink-0">
               {result === "approved" && (

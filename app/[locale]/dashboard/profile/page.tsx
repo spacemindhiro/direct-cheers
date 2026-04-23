@@ -172,6 +172,7 @@ export default function ProfileEditPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [isConnecting, setIsConnecting] = useState(false);
+  const [inviter, setInviter] = useState<{ display_name: string | null; profile_id: string } | null>(null);
   const router = useRouter();
 
   const applyProfileData = (data: Profile) => {
@@ -250,6 +251,17 @@ export default function ProfileEditPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/auth/login'); return; }
       await fetchAndApplyProfile(supabase, user.id);
+
+      const { data: inv } = await supabase
+        .from('invitations')
+        .select('invited_by_profile_id, inviter:profiles!invited_by_profile_id(display_name)')
+        .eq('accepted_by_profile_id', user.id)
+        .maybeSingle();
+      if (inv) {
+        const inviterData = inv.inviter as unknown as { display_name: string | null };
+        setInviter({ display_name: inviterData?.display_name ?? null, profile_id: inv.invited_by_profile_id });
+      }
+
       setIsLoading(false);
     };
     init();
@@ -774,12 +786,43 @@ export default function ProfileEditPage() {
             )}
 
             {profile?.verification_status === 'rejected' && (
-              <div className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl">
-                <AlertCircle size={16} className="text-red-400 shrink-0" />
-                <div>
-                  <p className="text-sm text-red-400 font-black">審査却下</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">エージェントにお問い合わせください</p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                  <AlertCircle size={16} className="text-red-400 shrink-0" />
+                  <div>
+                    <p className="text-sm text-red-400 font-black">審査却下</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {inviter ? `担当エージェント（${inviter.display_name ?? '—'}）にご確認ください` : 'エージェントにお問い合わせください'}
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  disabled={isConnecting}
+                  onClick={async () => {
+                    setIsConnecting(true);
+                    try {
+                      const res = await fetch('/api/stripe/connect/onboarding', { method: 'POST' });
+                      const data = await res.json();
+                      if (data.url) { window.location.href = data.url; }
+                      else { toast.error(data.error ?? 'エラーが発生しました'); setIsConnecting(false); }
+                    } catch {
+                      toast.error('通信エラーが発生しました'); setIsConnecting(false);
+                    }
+                  }}
+                  className="w-full h-12 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:brightness-110 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isConnecting ? <Loader2 size={16} className="animate-spin" /> : <><ExternalLink size={14} /> 再申請する</>}
+                </button>
+              </div>
+            )}
+
+            {inviter && profile?.verification_status !== 'rejected' && (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/50 rounded-2xl">
+                <Shield size={12} className="text-slate-500 shrink-0" />
+                <p className="text-[11px] text-slate-500">
+                  担当エージェント: <span className="text-slate-300 font-bold">{inviter.display_name ?? '—'}</span>
+                </p>
               </div>
             )}
           </div>

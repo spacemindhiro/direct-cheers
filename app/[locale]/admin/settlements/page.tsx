@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { SettleButton } from "@/components/settle-button";
-import { Loader2, Calendar, MapPin, ImageIcon, CheckCircle2, Clock, AlertTriangle, ArrowLeft } from "lucide-react";
+import { SettlementDetails, type TxGroup, type DistributionRow } from "@/components/settlement-details";
+import { Loader2, Calendar, MapPin, ImageIcon, CheckCircle2, Clock, AlertTriangle, ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 async function SettlementsContent() {
@@ -36,7 +37,6 @@ async function SettlementsContent() {
     .order("end_at", { ascending: false })
     .limit(50);
 
-  // 各イベントのエビデンス・売上・精算状況を取得
   const eventIds = (events ?? []).map((e) => e.event_id);
 
   const [evidencesRes, summariesRes, qrConfigsRes] = await Promise.all([
@@ -50,7 +50,7 @@ async function SettlementsContent() {
       .in("event_id", eventIds),
     admin
       .from("qr_configs")
-      .select("event_id, qr_config_id")
+      .select("event_id, qr_config_id, label")
       .in("event_id", eventIds)
       .is("deleted_at", null),
   ]);
@@ -67,29 +67,40 @@ async function SettlementsContent() {
   );
 
   const qrConfigIdsByEvent = new Map<string, string[]>();
+  const qrLabelById = new Map<string, string>();
   for (const q of qrConfigsRes.data ?? []) {
     const list = qrConfigIdsByEvent.get(q.event_id) ?? [];
     list.push(q.qr_config_id);
     qrConfigIdsByEvent.set(q.event_id, list);
+    qrLabelById.set(q.qr_config_id, q.label ?? "QRコード");
   }
 
-  // 全 qr_config_id → transaction 集計
   const allQrIds = (qrConfigsRes.data ?? []).map((q) => q.qr_config_id);
+
+  // トランザクション詳細取得
   const { data: txs } = await admin
     .from("transactions")
-    .select("qr_config_id, total_gross_amount, status")
+    .select("transaction_id, qr_config_id, total_gross_amount, status, created_at, sender_name")
     .in("qr_config_id", allQrIds)
-    .eq("status", "completed");
+    .eq("status", "completed")
+    .order("created_at", { ascending: false });
 
+  // 配分先取得
+  const { data: targets } = await admin
+    .from("qr_config_targets")
+    .select("qr_config_id, profile_id, distribution_ratio, profile:profiles!profile_id(display_name)")
+    .in("qr_config_id", allQrIds)
+    .is("deleted_at", null);
+
+  // QR別集計
   const grossByQr = new Map<string, number>();
+  const txsByQr = new Map<string, typeof txs>();
   for (const tx of txs ?? []) {
-    grossByQr.set(tx.qr_config_id!, (grossByQr.get(tx.qr_config_id!) ?? 0) + (tx.total_gross_amount ?? 0));
-  }
-
-  const grossByEvent = new Map<string, number>();
-  for (const [eventId, qrIds] of qrConfigIdsByEvent.entries()) {
-    const total = qrIds.reduce((s, id) => s + (grossByQr.get(id) ?? 0), 0);
-    grossByEvent.set(eventId, total);
+    const id = tx.qr_config_id!;
+    grossByQr.set(id, (grossByQr.get(id) ?? 0) + (tx.total_gross_amount ?? 0));
+    const list = txsByQr.get(id) ?? [];
+    list.push(tx);
+    txsByQr.set(id, list);
   }
 
   // 全証跡画像の署名付きURL（1時間有効）を一括生成
@@ -113,9 +124,7 @@ async function SettlementsContent() {
             <ArrowLeft size={12} /> ダッシュボードへ
           </Link>
           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Admin</p>
-          <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
-            精算管理
-          </h1>
+          <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">精算管理</h1>
           <p className="text-sm text-slate-500">終了したイベントのエビデンスを確認し、精算を承認します</p>
         </div>
 
@@ -129,10 +138,43 @@ async function SettlementsContent() {
           {(events ?? []).map((event) => {
             const evidences = evidenceByEvent.get(event.event_id) ?? [];
             const summary = summaryByEvent.get(event.event_id);
-            const gross = grossByEvent.get(event.event_id) ?? 0;
+            const qrIds = qrConfigIdsByEvent.get(event.event_id) ?? [];
+            const gross = qrIds.reduce((s, id) => s + (grossByQr.get(id) ?? 0), 0);
             const net = Math.floor(gross * net_rate);
             const settled = event.lifecycle_status === "settled";
             const hasEvidence = evidences.length > 0;
+
+            // 売上明細（QR別）
+            const txGroups: TxGroup[] = qrIds.map((qrId) => ({
+              qr_config_id: qrId,
+              qr_label: qrLabelById.get(qrId) ?? "QRコード",
+              total: grossByQr.get(qrId) ?? 0,
+              transactions: (txsByQr.get(qrId) ?? []).map((tx) => ({
+                transaction_id: tx.transaction_id,
+                amount: tx.total_gross_amount ?? 0,
+                created_at: tx.created_at,
+                sender_name: (tx as any).sender_name ?? null,
+              })),
+            })).filter((g) => g.total > 0);
+
+            // 配分内訳（プロフィール別に集計）
+            const profileAmounts = new Map<string, { display_name: string | null; amount: number }>();
+            for (const qrId of qrIds) {
+              const qrGross = grossByQr.get(qrId) ?? 0;
+              const qrNet = Math.floor(qrGross * net_rate);
+              const qrTargets = (targets ?? []).filter((t) => t.qr_config_id === qrId);
+              for (const t of qrTargets) {
+                const amount = Math.floor(qrNet * Number(t.distribution_ratio));
+                const existing = profileAmounts.get(t.profile_id);
+                profileAmounts.set(t.profile_id, {
+                  display_name: (t.profile as any)?.display_name ?? null,
+                  amount: (existing?.amount ?? 0) + amount,
+                });
+              }
+            }
+            const distributionRows: DistributionRow[] = Array.from(profileAmounts.entries())
+              .map(([profile_id, v]) => ({ profile_id, display_name: v.display_name, amount: v.amount }))
+              .sort((a, b) => b.amount - a.amount);
 
             return (
               <div
@@ -146,20 +188,20 @@ async function SettlementsContent() {
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2">
                       {settled ? (
-                        <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">
-                          精算済み
-                        </span>
+                        <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">精算済み</span>
                       ) : hasEvidence ? (
-                        <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">
-                          要承認
-                        </span>
+                        <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">要承認</span>
                       ) : (
-                        <span className="text-[9px] font-black text-slate-600 bg-slate-800 rounded-full px-2 py-0.5 uppercase tracking-wider">
-                          未提出
-                        </span>
+                        <span className="text-[9px] font-black text-slate-600 bg-slate-800 rounded-full px-2 py-0.5 uppercase tracking-wider">未提出</span>
                       )}
                     </div>
-                    <p className="font-black text-white">{event.title}</p>
+                    <Link
+                      href={`/dashboard/events/${event.event_id}`}
+                      className="flex items-center gap-1.5 font-black text-white hover:text-indigo-300 transition-colors group"
+                    >
+                      {event.title}
+                      <ExternalLink size={11} className="text-slate-600 group-hover:text-indigo-400 shrink-0" />
+                    </Link>
                     <div className="flex items-center gap-3 text-xs text-slate-400">
                       {event.venue && (
                         <span className="flex items-center gap-1"><MapPin size={10} />{event.venue}</span>
@@ -178,17 +220,14 @@ async function SettlementsContent() {
                   )}
                 </div>
 
-                {/* 金額 */}
-                <div className="flex gap-4">
-                  <div className="bg-slate-800/60 rounded-xl px-4 py-2">
-                    <p className="text-[9px] text-slate-500 uppercase tracking-widest">総売上</p>
-                    <p className="text-lg font-black text-white italic">¥{gross.toLocaleString()}</p>
-                  </div>
-                  <div className="bg-slate-800/60 rounded-xl px-4 py-2">
-                    <p className="text-[9px] text-slate-500 uppercase tracking-widest">配分額 ({(net_rate * 100).toFixed(1)}%)</p>
-                    <p className="text-lg font-black text-emerald-400 italic">¥{net.toLocaleString()}</p>
-                  </div>
-                </div>
+                {/* 金額（クリックで明細展開） */}
+                <SettlementDetails
+                  gross={gross}
+                  net={net}
+                  netRateLabel={`${(net_rate * 100).toFixed(1)}%`}
+                  txGroups={txGroups}
+                  distributionRows={distributionRows}
+                />
 
                 {/* エビデンス */}
                 {hasEvidence ? (
@@ -203,9 +242,7 @@ async function SettlementsContent() {
                         <div key={ev.evidence_id} className="bg-slate-800/50 rounded-xl p-3 space-y-2">
                           <div className="flex items-center gap-3 text-xs text-slate-400">
                             {paths.length > 0 && (
-                              <span className="flex items-center gap-1">
-                                <ImageIcon size={10} />{paths.length}枚
-                              </span>
+                              <span className="flex items-center gap-1"><ImageIcon size={10} />{paths.length}枚</span>
                             )}
                             {ev.attendance_count != null && (
                               <span>動員 {ev.attendance_count}人</span>
@@ -218,11 +255,7 @@ async function SettlementsContent() {
                                 const url = signedUrlMap.get(path);
                                 return url ? (
                                   <a key={path} href={url} target="_blank" rel="noopener noreferrer">
-                                    <img
-                                      src={url}
-                                      alt="証跡"
-                                      className="w-20 h-20 object-cover rounded-lg border border-slate-700 hover:border-slate-500 transition-colors"
-                                    />
+                                    <img src={url} alt="証跡" className="w-20 h-20 object-cover rounded-lg border border-slate-700 hover:border-slate-500 transition-colors" />
                                   </a>
                                 ) : null;
                               })}

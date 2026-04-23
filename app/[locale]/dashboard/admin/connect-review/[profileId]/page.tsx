@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ArrowLeft, Loader2, User, MapPin, Phone, Calendar, Building2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Loader2, User, MapPin, Building2, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { AdminConnectReview } from "@/components/admin-connect-review";
 
@@ -56,7 +56,7 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
     .eq("accepted_by_profile_id", profileId)
     .maybeSingle();
 
-  const inviter = invitation?.inviter as { display_name: string | null; role: string } | null;
+  const inviter = (invitation?.inviter as unknown as { display_name: string | null; role: string }) ?? null;
 
   const socialLinks = (profile.social_links as Record<string, string> | null) ?? {};
   const dob = profile.dob_year && profile.dob_month && profile.dob_day

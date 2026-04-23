@@ -29,7 +29,7 @@ export async function POST() {
 
   const admin = createAdminClient();
 
-  if (stripeReady && profile.verification_status === "unverified") {
+  if (stripeReady && (profile.verification_status === "unverified" || profile.verification_status === "rejected")) {
     // Stripe審査通過 → プラットフォーム審査待ちに更新
     await admin
       .from("profiles")

@@ -49,6 +49,10 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
 
   if (!profile) notFound();
 
+  // メールアドレスを auth.users から取得
+  const { data: { user: authUser } } = await admin.auth.admin.getUserById(profileId);
+  const email = authUser?.email ?? null;
+
   // 紹介者を取得
   const { data: invitation } = await admin
     .from("invitations")
@@ -102,6 +106,7 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 pb-2">
           <User size={11} className="text-indigo-400" /> 氏名
         </p>
+        <Row label="メール" value={email} />
         <Row label="英字" value={`${profile.last_name ?? ""} ${profile.first_name ?? ""}`.trim() || null} />
         <Row label="漢字" value={`${profile.last_name_kanji ?? ""} ${profile.first_name_kanji ?? ""}`.trim() || null} />
         <Row label="カナ" value={`${profile.last_name_kana ?? ""} ${profile.first_name_kana ?? ""}`.trim() || null} />
@@ -129,7 +134,19 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
           <Building2 size={11} className="text-indigo-400" /> 事業情報
         </p>
         <Row label="事業内容" value={profile.product_description} />
-        <Row label="ウェブサイト" value={socialLinks.website} />
+        {socialLinks.website && (
+          <div className="flex items-start justify-between gap-4 py-2.5 border-b border-slate-800 last:border-0">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0 pt-0.5">ウェブサイト</span>
+            <a
+              href={socialLinks.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1 text-right break-all"
+            >
+              {socialLinks.website} <ExternalLink size={11} className="shrink-0" />
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Stripe */}

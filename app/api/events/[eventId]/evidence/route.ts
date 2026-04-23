@@ -49,6 +49,13 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // 再提出時に差戻しサマリーをリセット（承認待ち状態に戻す）
+  await admin
+    .from("settlement_summaries")
+    .delete()
+    .eq("event_id", eventId)
+    .eq("is_approved_for_payout", false);
+
   // admin に通知
   try {
     const { data: admins } = await admin

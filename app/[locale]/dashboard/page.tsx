@@ -106,6 +106,7 @@ async function DashboardContent() {
 
   // オーガナイザー向け: 未読のイベント承認/中止通知
   let pendingNotifications: { notification_id: string; title: string; body: string; metadata: any }[] = [];
+  let evidenceRejectedNotifications: { notification_id: string; title: string; body: string; metadata: any }[] = [];
   if (['organizer', 'admin'].includes(profile?.role ?? '')) {
     const { data: notifs } = await admin
       .from('notifications')
@@ -116,6 +117,16 @@ async function DashboardContent() {
       .order('created_at', { ascending: false })
       .limit(5);
     pendingNotifications = notifs ?? [];
+
+    const { data: rejectedNotifs } = await admin
+      .from('notifications')
+      .select('notification_id, title, body, metadata')
+      .eq('profile_id', user!.id)
+      .eq('type', 'evidence_rejected')
+      .eq('is_read', false)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    evidenceRejectedNotifications = rejectedNotifs ?? [];
   }
 
   // admin向け: 口座開設審査待ち件数 + 証跡提出通知
@@ -223,6 +234,26 @@ async function DashboardContent() {
 
       {/* ホーム画面追加バナー */}
       <AddToHomeScreen />
+
+      {/* オーガナイザー向け: エビデンス差戻し通知バナー */}
+      {evidenceRejectedNotifications.length > 0 && (
+        <div className="space-y-2">
+          {evidenceRejectedNotifications.map((n) => (
+            <Link
+              key={n.notification_id}
+              href={n.metadata?.event_id ? `/dashboard/events/${n.metadata.event_id}/evidence` : '/dashboard/events'}
+              className="flex items-start justify-between gap-4 bg-red-500/10 border border-red-500/30 hover:border-red-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">エビデンス差戻し</p>
+                <p className="text-sm font-black text-white">{n.title}</p>
+                <p className="text-xs text-slate-400 whitespace-pre-line">{n.body}</p>
+              </div>
+              <span className="text-red-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">再提出 →</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* オーガナイザー向け: イベント承認/中止通知バナー */}
       {pendingNotifications.length > 0 && (

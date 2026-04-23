@@ -36,6 +36,27 @@ export async function POST(
   if (event.lifecycle_status === "settled")
     return NextResponse.json({ error: "Already settled" }, { status: 400 });
 
+  // 差戻し状態をsettlement_summariesに保存
+  const { data: existingSummary } = await admin
+    .from("settlement_summaries")
+    .select("summary_id")
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (existingSummary) {
+    await admin
+      .from("settlement_summaries")
+      .update({ is_approved_for_payout: false })
+      .eq("summary_id", existingSummary.summary_id);
+  } else {
+    await admin.from("settlement_summaries").insert({
+      event_id: eventId,
+      is_approved_for_payout: false,
+      total_gross_amount: 0,
+    });
+  }
+
+  // オーガナイザーに通知
   await admin.from("notifications").insert({
     profile_id: event.organizer_profile_id,
     type: "evidence_rejected",

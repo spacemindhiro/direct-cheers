@@ -142,6 +142,7 @@ async function SettlementsContent() {
             const gross = qrIds.reduce((s, id) => s + (grossByQr.get(id) ?? 0), 0);
             const net = Math.floor(gross * net_rate);
             const settled = event.lifecycle_status === "settled";
+            const isRejected = !settled && summary?.is_approved_for_payout === false;
             const hasEvidence = evidences.length > 0;
 
             // 売上明細（QR別）
@@ -180,7 +181,7 @@ async function SettlementsContent() {
               <div
                 key={event.event_id}
                 className={`bg-slate-900 border rounded-2xl p-5 space-y-4 ${
-                  settled ? "border-emerald-500/20" : hasEvidence ? "border-amber-500/20" : "border-slate-800"
+                  settled ? "border-emerald-500/20" : isRejected ? "border-red-500/20" : hasEvidence ? "border-amber-500/20" : "border-slate-800"
                 }`}
               >
                 {/* ヘッダー */}
@@ -189,6 +190,8 @@ async function SettlementsContent() {
                     <div className="flex items-center gap-2">
                       {settled ? (
                         <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">精算済み</span>
+                      ) : isRejected ? (
+                        <span className="text-[9px] font-black text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">差戻し済み</span>
                       ) : hasEvidence ? (
                         <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">要承認</span>
                       ) : (
@@ -215,7 +218,7 @@ async function SettlementsContent() {
                   </div>
 
                   {/* 精算ボタン */}
-                  {!settled && hasEvidence && gross > 0 && (
+                  {!settled && !isRejected && hasEvidence && gross > 0 && (
                     <SettleButton eventId={event.event_id} />
                   )}
                 </div>

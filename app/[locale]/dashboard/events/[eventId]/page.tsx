@@ -43,6 +43,15 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
   if (!event) notFound();
 
+  // このイベントの承認/中止通知を既読化（詳細ページを開いた時点で消し込み）
+  await adminClient
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("profile_id", user.id)
+    .in("type", ["event_approved", "event_cancelled", "event_cancel_rejected"])
+    .eq("is_read", false)
+    .filter("metadata->>event_id", "eq", eventId);
+
   const isAgent = profile?.role === "agent" || profile?.role === "admin";
   const isOrganizer = profile?.role === "organizer" || profile?.role === "admin";
   const isArtist = profile?.role === "artist";

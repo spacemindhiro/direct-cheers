@@ -56,6 +56,15 @@ export async function POST(
     .eq("event_id", eventId)
     .eq("is_approved_for_payout", false);
 
+  // 差戻し通知を既読化
+  await admin
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("profile_id", user.id)
+    .eq("type", "evidence_rejected")
+    .eq("is_read", false)
+    .filter("metadata->>event_id", "eq", eventId);
+
   // admin に通知
   try {
     const { data: admins } = await admin

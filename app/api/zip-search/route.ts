@@ -13,27 +13,26 @@ export async function GET(req: Request) {
 
   try {
     const res = await fetch(
-      `https://api.zipaddress.net/?zipcode=${zipcode}`,
+      `https://postcode.teraren.com/postcodes/${zipcode}.json`,
       { signal: controller.signal, cache: "no-store" },
     );
     clearTimeout(timer);
 
-    const data = await res.json();
-    console.log("[zip-search] upstream response:", JSON.stringify(data));
-
-    if (data.code !== 200 || !data.data) {
+    if (!res.ok) {
       return NextResponse.json({ results: null });
     }
 
-    const d = data.data;
+    const d = await res.json();
+    console.log("[zip-search] upstream response:", JSON.stringify(d));
+
     return NextResponse.json({
       results: [{
-        address1: d.pref ?? "",
+        address1: d.prefecture ?? "",
         address2: d.city ?? "",
-        address3: d.town ?? "",
-        kana1: d.prefKana ?? "",
-        kana2: d.cityKana ?? "",
-        kana3: d.townKana ?? "",
+        address3: d.suburb ?? "",
+        kana1: d.prefecture_kana ?? "",
+        kana2: d.city_kana ?? "",
+        kana3: d.suburb_kana ?? "",
       }],
     });
   } catch (err) {

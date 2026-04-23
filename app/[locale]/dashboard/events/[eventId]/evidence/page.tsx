@@ -27,7 +27,7 @@ async function EvidencePageContent({
   if (!event) notFound();
   if (event.organizer_profile_id !== user.id) redirect("/dashboard");
 
-  const hasEnded = new Date(event.end_at) < new Date();
+  const hasEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
 
   // 既存エビデンス
   const { data: existingEvidences } = await admin

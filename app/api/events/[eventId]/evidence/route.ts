@@ -22,7 +22,8 @@ export async function POST(
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
   if (event.organizer_profile_id !== user.id)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  if (new Date(event.end_at) > new Date())
+  const eventEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
+  if (!eventEnded)
     return NextResponse.json({ error: "Event has not ended yet" }, { status: 400 });
 
   const { description, photo_paths, attendance_count } = await req.json() as {

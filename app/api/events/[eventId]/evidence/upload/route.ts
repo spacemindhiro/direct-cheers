@@ -4,6 +4,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "event-evidence";
 
+const MIME_MAP: Record<string, string> = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+  gif: "image/gif", webp: "image/webp", heic: "image/heic",
+  heif: "image/heif", avif: "image/avif",
+};
+
+function resolveContentType(file: File): string {
+  const t = file.type;
+  if (t && t !== "application/octet-stream") return t;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_MAP[ext] ?? "image/jpeg";
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ eventId: string }> }
@@ -34,21 +47,23 @@ export async function POST(
   const paths: string[] = [];
 
   for (const file of files) {
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `${eventId}/${Date.now()}-${safeName}`;
+    const contentType = resolveContentType(file);
+    const ext = contentType.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+    const baseName = (file.name || "photo")
+      .replace(/\.[^.]+$/, "")           // 拡張子除去
+      .replace(/[^a-zA-Z0-9_-]/g, "_")  // 安全な文字のみ
+      .replace(/^[_-]+|[_-]+$/g, "")    // 先頭末尾のアンダースコア/ハイフン除去
+      || "photo";
+    const path = `${eventId}/${Date.now()}-${baseName}.${ext}`;
 
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
 
     const { error } = await admin.storage
       .from(BUCKET)
-      .upload(path, buffer, {
-        contentType: file.type || `image/${ext}`,
-        upsert: false,
-      });
+      .upload(path, arrayBuffer, { contentType, upsert: false });
 
     if (error) {
+      console.error("[evidence/upload] storage error:", error);
       return NextResponse.json({ error: `アップロード失敗: ${error.message}` }, { status: 500 });
     }
 

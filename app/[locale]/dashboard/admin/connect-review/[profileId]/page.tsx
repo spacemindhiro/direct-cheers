@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ArrowLeft, Loader2, User, MapPin, Building2, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import Stripe from "stripe";
 import { AdminConnectReview } from "@/components/admin-connect-review";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const ROLE_LABELS: Record<string, string> = {
   agent: "エージェント",
@@ -49,9 +52,19 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
 
   if (!profile) notFound();
 
-  // メールアドレスを auth.users から取得
+  // メールアドレス・最終ログインを auth.users から取得
   const { data: { user: authUser } } = await admin.auth.admin.getUserById(profileId);
   const email = authUser?.email ?? null;
+  const lastSignInAt = authUser?.last_sign_in_at ?? null;
+
+  // Stripe口座作成日時を取得
+  let stripeAccountCreatedAt: Date | null = null;
+  if (profile.stripe_connect_id) {
+    try {
+      const account = await stripe.accounts.retrieve(profile.stripe_connect_id);
+      stripeAccountCreatedAt = account.created ? new Date(account.created * 1000) : null;
+    } catch { /* 取得失敗は無視 */ }
+  }
 
   // 紹介者を取得
   const { data: invitation } = await admin
@@ -81,9 +94,25 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
         <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">
           {profile.display_name ?? "—"}
         </h1>
-        <p className="text-slate-500 text-sm">
-          {ROLE_LABELS[profile.role] ?? profile.role} · 登録 {new Date(profile.created_at).toLocaleDateString("ja-JP")}
-        </p>
+        <p className="text-slate-500 text-sm">{ROLE_LABELS[profile.role] ?? profile.role}</p>
+        <div className="flex flex-col gap-0.5 pt-1">
+          <p className="text-[11px] text-slate-500">
+            <span className="text-slate-600 font-bold">登録</span>{" "}
+            {new Date(profile.created_at).toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" })}
+          </p>
+          {stripeAccountCreatedAt && (
+            <p className="text-[11px] text-slate-500">
+              <span className="text-slate-600 font-bold">Stripe申請</span>{" "}
+              {stripeAccountCreatedAt.toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" })}
+            </p>
+          )}
+          {lastSignInAt && (
+            <p className="text-[11px] text-slate-500">
+              <span className="text-slate-600 font-bold">最終ログイン</span>{" "}
+              {new Date(lastSignInAt).toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" })}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* 紹介者 */}

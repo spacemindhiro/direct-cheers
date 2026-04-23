@@ -6,6 +6,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com").replace(/\/$/, "");
 
+// ひらがな→カタカナ変換 + Stripe kana フィールドで許可されていない文字を除去
+function toStripeKana(str: string | null | undefined): string | undefined {
+  if (!str) return undefined;
+  const katakana = str.replace(/[\u3041-\u3096]/g, (c) =>
+    String.fromCharCode(c.charCodeAt(0) + 0x60),
+  );
+  // 全角カタカナ・長音符・スペース・ハイフン・ドットのみ残す
+  const cleaned = katakana.replace(/[^\u30A1-\u30FC\s\-\.]/g, "").trim();
+  return cleaned || undefined;
+}
+
 function toE164JP(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.startsWith("0")) return "+81" + digits.slice(1);
@@ -63,8 +74,9 @@ export async function POST() {
         accountParams.settings = { payments: {} };
         if (profile.statement_descriptor_kanji)
           (accountParams.settings.payments as Record<string, string>).statement_descriptor_kanji = profile.statement_descriptor_kanji;
-        if (profile.statement_descriptor_kana)
-          (accountParams.settings.payments as Record<string, string>).statement_descriptor_kana = profile.statement_descriptor_kana;
+        const sdKana = toStripeKana(profile.statement_descriptor_kana);
+        if (sdKana)
+          (accountParams.settings.payments as Record<string, string>).statement_descriptor_kana = sdKana;
       }
 
       if (!isCompany) {
@@ -75,8 +87,10 @@ export async function POST() {
         if (profile.last_name)        accountParams.individual.last_name        = profile.last_name;
         if (profile.first_name_kanji) accountParams.individual.first_name_kanji = profile.first_name_kanji;
         if (profile.last_name_kanji)  accountParams.individual.last_name_kanji  = profile.last_name_kanji;
-        if (profile.first_name_kana)  accountParams.individual.first_name_kana  = profile.first_name_kana;
-        if (profile.last_name_kana)   accountParams.individual.last_name_kana   = profile.last_name_kana;
+        const fnKana = toStripeKana(profile.first_name_kana);
+        const lnKana = toStripeKana(profile.last_name_kana);
+        if (fnKana) accountParams.individual.first_name_kana = fnKana;
+        if (lnKana) accountParams.individual.last_name_kana  = lnKana;
         if (profile.phone)            accountParams.individual.phone            = toE164JP(profile.phone);
         if (profile.dob_year && profile.dob_month && profile.dob_day) {
           accountParams.individual.dob = {
@@ -104,21 +118,26 @@ export async function POST() {
             line1:       profile.street_address ?? undefined,
           };
         }
-        if (profile.address_kana_state || profile.address_kana_city || profile.address_kana_town || profile.address_kana_line1) {
+        const kanaState = toStripeKana(profile.address_kana_state);
+        const kanaCity  = toStripeKana(profile.address_kana_city);
+        const kanaTown  = toStripeKana(profile.address_kana_town);
+        const kanaLine1 = toStripeKana(profile.address_kana_line1);
+        if (kanaState || kanaCity || kanaTown || kanaLine1) {
           accountParams.individual.address_kana = {
             country:     "JP",
             postal_code: profile.postal_code ?? undefined,
-            state:       profile.address_kana_state ?? undefined,
-            city:        profile.address_kana_city ?? undefined,
-            town:        profile.address_kana_town ?? undefined,
-            line1:       profile.address_kana_line1 ?? undefined,
+            state:       kanaState,
+            city:        kanaCity,
+            town:        kanaTown,
+            line1:       kanaLine1,
           };
         }
       } else {
         accountParams.company = {};
         if (profile.business_name)    accountParams.company.name       = profile.business_name;
         if (profile.company_name_kanji) accountParams.company.name_kanji = profile.company_name_kanji;
-        if (profile.company_name_kana)  accountParams.company.name_kana  = profile.company_name_kana;
+        const coKana = toStripeKana(profile.company_name_kana);
+        if (coKana) accountParams.company.name_kana = coKana;
         if (profile.phone)            accountParams.company.phone      = toE164JP(profile.phone);
         if (profile.postal_code || profile.city || profile.street_address) {
           accountParams.company.address = {
@@ -139,14 +158,18 @@ export async function POST() {
             line1:       profile.street_address ?? undefined,
           };
         }
-        if (profile.address_kana_state || profile.address_kana_city || profile.address_kana_town || profile.address_kana_line1) {
+        const coKanaState = toStripeKana(profile.address_kana_state);
+        const coKanaCity  = toStripeKana(profile.address_kana_city);
+        const coKanaTown  = toStripeKana(profile.address_kana_town);
+        const coKanaLine1 = toStripeKana(profile.address_kana_line1);
+        if (coKanaState || coKanaCity || coKanaTown || coKanaLine1) {
           accountParams.company.address_kana = {
             country:     "JP",
             postal_code: profile.postal_code ?? undefined,
-            state:       profile.address_kana_state ?? undefined,
-            city:        profile.address_kana_city ?? undefined,
-            town:        profile.address_kana_town ?? undefined,
-            line1:       profile.address_kana_line1 ?? undefined,
+            state:       coKanaState,
+            city:        coKanaCity,
+            town:        coKanaTown,
+            line1:       coKanaLine1,
           };
         }
       }

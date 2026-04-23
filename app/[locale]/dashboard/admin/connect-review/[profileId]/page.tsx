@@ -106,7 +106,14 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 pb-2">
           <User size={11} className="text-indigo-400" /> 氏名
         </p>
-        <Row label="メール" value={email} />
+        {email && (
+          <div className="flex items-start justify-between gap-4 py-2.5 border-b border-slate-800 last:border-0">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0 pt-0.5">メール</span>
+            <a href={`mailto:${email}`} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors break-all text-right">
+              {email}
+            </a>
+          </div>
+        )}
         <Row label="英字" value={`${profile.last_name ?? ""} ${profile.first_name ?? ""}`.trim() || null} />
         <Row label="漢字" value={`${profile.last_name_kanji ?? ""} ${profile.first_name_kanji ?? ""}`.trim() || null} />
         <Row label="カナ" value={`${profile.last_name_kana ?? ""} ${profile.first_name_kana ?? ""}`.trim() || null} />
@@ -170,6 +177,15 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
       {/* 承認・却下 */}
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">審査アクション</p>
+        <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl px-5 py-3 space-y-0.5">
+          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">申請内容</p>
+          <p className="text-sm font-black text-white">
+            Stripe口座開設 — {ROLE_LABELS[profile.role] ?? profile.role}
+          </p>
+          {profile.stripe_connect_id && (
+            <p className="text-[10px] text-slate-500">Stripe審査通過済み · {profile.stripe_connect_id}</p>
+          )}
+        </div>
         <AdminConnectReview users={[{
           profile_id: profile.profile_id,
           display_name: profile.display_name,

@@ -122,6 +122,8 @@ export function QRCreateForm({
 
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!label.trim()) { setError("ラベルを入力してください"); return; }
+    if (!imageUrl) { setError("QR画像をアップロードしてください"); return; }
     if (!recipientId) { setError("宛先を選択してください"); return; }
     if (targets.length === 0) { setError("配分先を1人以上設定してください"); return; }
     if (Math.abs(totalRatio - 100) > 0.1) { setError("配分比率の合計を100%にしてください"); return; }
@@ -181,7 +183,7 @@ export function QRCreateForm({
 
         {/* ラベル */}
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">ラベル（任意）</label>
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">ラベル <span className="text-pink-500">*</span></label>
           <Input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
@@ -564,7 +566,7 @@ export function QRCreateForm({
 
       <button
         type="submit"
-        disabled={isPending || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
+        disabled={isPending || !label.trim() || !imageUrl || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
         className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>QRを作成 <ArrowRight size={18} /></>}

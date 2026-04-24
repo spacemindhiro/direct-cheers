@@ -53,6 +53,14 @@ export function QREditDelete({
     setTargets((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
 
   const handleSave = () => {
+    if (!label.trim()) {
+      setError("ラベルを入力してください");
+      return;
+    }
+    if (!imageUrl) {
+      setError("QR画像をアップロードしてください");
+      return;
+    }
     if (!recipientId) {
       setError("宛先を選択してください");
       return;
@@ -140,7 +148,7 @@ export function QREditDelete({
           {/* ラベル */}
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-              ラベル（任意）
+              ラベル <span className="text-pink-500">*</span>
             </label>
             <Input
               value={label}
@@ -245,7 +253,7 @@ export function QREditDelete({
             <button
               type="button"
               onClick={handleSave}
-              disabled={isPending}
+              disabled={isPending || !label.trim() || !imageUrl || Math.abs(totalRatio - 100) > 0.1}
               className="flex-1 h-12 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-xl font-black text-sm hover:brightness-110 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isPending ? <Loader2 size={16} className="animate-spin" /> : <><Check size={14} /> 保存</>}

@@ -70,6 +70,8 @@ export function QRCreateForm({
   // 前売り販売期間（A/B タイプ必須）
   const [salesStartAt, setSalesStartAt] = useState("");
   const [salesEndAt, setSalesEndAt] = useState("");
+  // テスト用有効期間バイパス
+  const [bypassValidity, setBypassValidity] = useState(false);
 
   const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
 
@@ -153,6 +155,7 @@ export function QRCreateForm({
               sales_end_at: salesEndAt,
             }),
           }),
+          bypass_validity: bypassValidity,
         }),
       });
       const data = await res.json();
@@ -517,6 +520,21 @@ export function QRCreateForm({
               <span>アーティスト配分</span><span>{(feeConfig.net_rate * 100).toFixed(1)}%</span>
             </div>
           </div>
+        </div>
+
+        {/* テスト用バイパス */}
+        <div className="flex items-center justify-between bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3">
+          <div>
+            <p className="text-xs font-black text-amber-400">テスト用：有効期間バイパス</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">ONにするとイベント時間外でも決済可能になります</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setBypassValidity((v) => !v)}
+            className={`w-11 h-6 rounded-full transition-colors relative ${bypassValidity ? "bg-amber-500" : "bg-slate-700"}`}
+          >
+            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${bypassValidity ? "translate-x-5" : "translate-x-0.5"}`} />
+          </button>
         </div>
 
         {error && <p className="text-sm text-red-400 font-bold">{error}</p>}

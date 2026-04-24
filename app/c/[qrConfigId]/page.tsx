@@ -2,7 +2,20 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersPaymentForm } from "@/components/cheers-payment-form";
-import { MapPin, Calendar, Loader2 } from "lucide-react";
+import { MapPin, Calendar, Clock, Loader2 } from "lucide-react";
+
+function ValidityMessage({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex items-center justify-center px-6">
+      <div className="max-w-sm w-full text-center space-y-4">
+        <Clock size={40} className="text-slate-600 mx-auto" />
+        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Direct Cheers</p>
+        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">{title}</h1>
+        <p className="text-sm text-slate-500">{message}</p>
+      </div>
+    </div>
+  );
+}
 
 async function CheersContent({ params }: { params: Promise<{ qrConfigId: string }> }) {
   const { qrConfigId } = await params;
@@ -15,11 +28,13 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
       label,
       image_url,
       product_id,
+      bypass_validity,
       event:events!event_id (
         event_id,
         title,
         venue,
         start_at,
+        end_at,
         lifecycle_status
       ),
       recipient:profiles!recipient_profile_id (
@@ -34,20 +49,16 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
   if (!qr) notFound();
 
   const event = qr.event as any;
-  if (!event || !["published", "ongoing"].includes(event.lifecycle_status)) {
+  if (!event || ["draft", "cancelled"].includes(event.lifecycle_status)) {
     notFound();
   }
 
-  const recipient = qr.recipient as any;
-  const recipientName = recipient?.display_name ?? "Artist";
-  const recipientAvatar = recipient?.avatar_url ?? null;
-  const qrImageUrl = (qr as any).image_url as string | null;
-
   const qrProductId = (qr as any).product_id as string | null;
+  const bypassValidity = (qr as any).bypass_validity as boolean;
 
   const productsQuery = admin
     .from("products")
-    .select("product_id, name, type, min_amount, max_amount")
+    .select("product_id, name, type, payment_type, min_amount, max_amount, sales_start_at, sales_end_at")
     .is("deleted_at", null);
 
   const { data: products } = qrProductId
@@ -56,7 +67,61 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
 
   if (!products || products.length === 0) notFound();
 
-  const formProducts = products.map((p) => ({
+  // 有効期間チェック
+  if (!bypassValidity) {
+    const now = new Date();
+    const product = products[0] as any;
+    const isEntranceAB =
+      product.type === "entrance" &&
+      (product.payment_type === "A" || product.payment_type === "B");
+
+    if (isEntranceAB) {
+      const salesStart = product.sales_start_at ? new Date(product.sales_start_at) : null;
+      const salesEnd = product.sales_end_at ? new Date(product.sales_end_at) : null;
+      if (salesStart && now < salesStart) {
+        return (
+          <ValidityMessage
+            title="販売期間前です"
+            message={`前売り販売は ${salesStart.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })} から開始します`}
+          />
+        );
+      }
+      if (salesEnd && now > salesEnd) {
+        return (
+          <ValidityMessage
+            title="販売期間が終了しました"
+            message="このQRコードの前売り販売は終了しました"
+          />
+        );
+      }
+    } else {
+      const eventStart = new Date(event.start_at);
+      const eventEndPlus3h = new Date(new Date(event.end_at).getTime() + 3 * 60 * 60 * 1000);
+      if (now < eventStart) {
+        return (
+          <ValidityMessage
+            title="イベント当日からご利用いただけます"
+            message={`${eventStart.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "long", day: "numeric" })} 開場後にお使いください`}
+          />
+        );
+      }
+      if (now > eventEndPlus3h) {
+        return (
+          <ValidityMessage
+            title="決済受付が終了しました"
+            message="イベント終了から3時間が経過したため、このQRコードは無効になりました"
+          />
+        );
+      }
+    }
+  }
+
+  const recipient = qr.recipient as any;
+  const recipientName = recipient?.display_name ?? "Artist";
+  const recipientAvatar = recipient?.avatar_url ?? null;
+  const qrImageUrl = (qr as any).image_url as string | null;
+
+  const formProducts = products.map((p: any) => ({
     product_id: p.product_id,
     name: p.name,
     type: p.type,
@@ -98,6 +163,13 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
           </div>
         </div>
       </div>
+
+      {/* テスト用バイパス表示 */}
+      {bypassValidity && (
+        <div className="mx-6 mt-4 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2 text-[10px] font-black text-amber-400 uppercase tracking-widest">
+          ⚠ テストモード：有効期間チェックをバイパス中
+        </div>
+      )}
 
       {/* 決済フォーム */}
       <div className="px-6 py-8 max-w-md mx-auto space-y-6">

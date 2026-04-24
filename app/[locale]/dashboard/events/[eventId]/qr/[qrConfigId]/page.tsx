@@ -32,7 +32,7 @@ async function QRDetailContent({
 
   const { data: qr } = await adminClient
     .from("qr_configs")
-    .select("qr_config_id, label, image_url, recipient_profile_id, created_at, event_id")
+    .select("qr_config_id, label, image_url, recipient_profile_id, created_at, event_id, bypass_validity, product_id")
     .eq("qr_config_id", qrConfigId)
     .eq("event_id", eventId)
     .is("deleted_at", null)
@@ -42,7 +42,7 @@ async function QRDetailContent({
   const { data: event } = await adminClient
     .from("events")
     .select(`
-      title, organizer_profile_id, agent_id,
+      title, organizer_profile_id, agent_id, start_at, end_at,
       organizer:profiles!organizer_profile_id(display_name),
       event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name))
     `)
@@ -87,6 +87,27 @@ async function QRDetailContent({
     distribution_ratio: t.distribution_ratio as number,
   }));
 
+  // 有効期間情報
+  const productId = (qr as any).product_id as string | null;
+  let validityInfo: { label: string; from: string; to: string } | null = null;
+  if (productId && event) {
+    const { data: product } = await adminClient
+      .from("products")
+      .select("type, payment_type, sales_start_at, sales_end_at")
+      .eq("product_id", productId)
+      .single();
+    if (product) {
+      const isEntranceAB = product.type === "entrance" && (product.payment_type === "A" || product.payment_type === "B");
+      const fmt = (d: string) => new Date(d).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      if (isEntranceAB && product.sales_start_at && product.sales_end_at) {
+        validityInfo = { label: "前売り販売期間", from: fmt(product.sales_start_at), to: fmt(product.sales_end_at) };
+      } else if ((event as any).start_at && (event as any).end_at) {
+        const endPlus3h = new Date(new Date((event as any).end_at).getTime() + 3 * 60 * 60 * 1000).toISOString();
+        validityInfo = { label: "決済有効期間", from: fmt((event as any).start_at), to: fmt(endPlus3h) };
+      }
+    }
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com";
   const qrUrl = `${siteUrl}/c/${qrConfigId}`;
 
@@ -107,6 +128,17 @@ async function QRDetailContent({
       </div>
 
       <QRDisplay qrConfigId={qrConfigId} qrUrl={qrUrl} label={qr.label ?? "QRコード"} />
+
+      {/* 有効期間 */}
+      {validityInfo && (
+        <div className={`border rounded-2xl px-5 py-3 space-y-1 ${(qr as any).bypass_validity ? "bg-amber-500/5 border-amber-500/20" : "bg-slate-900 border-slate-800"}`}>
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{validityInfo.label}</p>
+          <p className="text-xs font-bold text-slate-200">{validityInfo.from} 〜 {validityInfo.to}</p>
+          {(qr as any).bypass_validity && (
+            <p className="text-[10px] font-black text-amber-400">⚠ テストモード：有効期間バイパス中</p>
+          )}
+        </div>
+      )}
 
       {!canEdit && isArtist && (
         <div className="space-y-6">

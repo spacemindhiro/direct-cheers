@@ -48,6 +48,7 @@ export async function POST(req: Request) {
     serial_scope = "event",
     sales_start_at = null,
     sales_end_at = null,
+    bypass_validity = false,
   } = body as {
     event_id: string;
     label?: string;
@@ -64,6 +65,7 @@ export async function POST(req: Request) {
     serial_scope?: "event" | "qr" | "artist";
     sales_start_at?: string | null;
     sales_end_at?: string | null;
+    bypass_validity?: boolean;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -151,6 +153,7 @@ export async function POST(req: Request) {
       image_url: image_url ?? null,
       product_id: product.product_id,
       serial_scope,
+      bypass_validity,
     })
     .select("qr_config_id")
     .single();

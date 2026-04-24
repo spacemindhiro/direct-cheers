@@ -389,43 +389,59 @@ async function DashboardContent() {
         </p>
       </div>
 
-      {/* ステータスカード */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 space-y-3">
-          <div className="w-10 h-10 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20">
-            <Heart size={20} className="text-pink-500" />
+      {/* 受け取り金額セクション（artist / organizer / agent のみ） */}
+      {['organizer', 'artist', 'agent'].includes(profile?.role ?? '') && (
+        <div className="space-y-3">
+          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+            <Zap size={14} className="text-emerald-400" /> 受け取り金額
+          </h2>
+          <Link
+            href="/dashboard/payout"
+            className="block bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-[2rem] p-6 transition-all group"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Projected Net（着金予測）</p>
+                <p className="text-4xl font-black text-emerald-400 italic tracking-tighter">
+                  ¥{projectedNet.toLocaleString('ja-JP')}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all shrink-0">
+                <Zap size={22} className="text-emerald-400" />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-600 mt-3">タップして出金管理へ →</p>
+          </Link>
+        </div>
+      )}
+
+      {/* Cheers送信セクション */}
+      <div className="space-y-4">
+        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+          <Heart size={14} className="text-pink-500" /> 送ったチア
+        </h2>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-2">
+            <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20">
+              <Heart size={18} className="text-pink-500" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Cheers</p>
+              <p className="text-3xl font-black text-white italic tracking-tighter">{cheersHistory?.length ?? 0}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Cheers</p>
-            <p className="text-3xl font-black text-white italic tracking-tighter">{cheersHistory?.length ?? 0}</p>
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-2">
+            <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20">
+              <TrendingUp size={18} className="text-pink-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Amount</p>
+              <p className="text-3xl font-black text-white italic tracking-tighter">
+                ¥{totalCheersAmount.toLocaleString('ja-JP')}
+              </p>
+            </div>
           </div>
         </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 space-y-3">
-          <div className="w-10 h-10 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20">
-            <Zap size={20} className="text-indigo-400" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-              {['organizer', 'artist', 'agent'].includes(profile?.role ?? '') ? 'Projected Net' : 'Total Amount'}
-            </p>
-            <p className="text-3xl font-black text-white italic tracking-tighter">
-              {['organizer', 'artist', 'agent'].includes(profile?.role ?? '')
-                ? `¥${projectedNet.toLocaleString('ja-JP')}`
-                : `¥${totalCheersAmount.toLocaleString('ja-JP')}`}
-            </p>
-          </div>
-        </div>
-
-        <Link href="/dashboard/collection" className="bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 space-y-3 block transition-all group">
-          <div className="w-10 h-10 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
-            <Layers size={20} className="text-pink-400" />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">My Cards</p>
-            <p className="text-3xl font-black text-white italic tracking-tighter group-hover:text-pink-400 transition-colors">{cheersHistory?.length ?? 0}</p>
-          </div>
-        </Link>
       </div>
 
       {/* Cheers履歴 */}

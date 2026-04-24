@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // フォールバック（product_type_configs が取得できなかった場合）
 const PRODUCT_TYPE_FALLBACK: Record<string, { min: number; max: number; label: string }> = {
@@ -131,7 +132,10 @@ export async function POST(req: Request) {
     }
   }
 
-  const { data: product, error: productError } = await supabase
+  // 権限チェック済みのため adminClient でRLSをバイパスしてinsert
+  const adminClient = createAdminClient();
+
+  const { data: product, error: productError } = await adminClient
     .from("products")
     .insert(productInsert)
     .select("product_id")
@@ -142,7 +146,7 @@ export async function POST(req: Request) {
   }
 
   // qr_config 作成
-  const { data: qrConfig, error: qrError } = await supabase
+  const { data: qrConfig, error: qrError } = await adminClient
     .from("qr_configs")
     .insert({
       event_id,
@@ -169,7 +173,7 @@ export async function POST(req: Request) {
     distribution_ratio: t.distribution_ratio,
   }));
 
-  const { error: targetError } = await supabase
+  const { error: targetError } = await adminClient
     .from("qr_config_targets")
     .insert(targetRows);
 

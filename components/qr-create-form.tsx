@@ -75,6 +75,12 @@ export function QRCreateForm({
 
   const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
 
+  const fmtAmt = (n: number) => (n === 0 ? "" : n.toLocaleString("ja-JP"));
+  const parseAmt = (v: string) => {
+    const n = parseInt(v.replace(/,/g, ""), 10);
+    return isNaN(n) ? 0 : n;
+  };
+
   // タイプB 残高チェック
   const needsReserve = productType === "entrance" && paymentType === "B" && !!stockLimit;
   const effectiveMax = priceMode === "fixed" ? fixedAmount : maxAmount;
@@ -89,6 +95,11 @@ export function QRCreateForm({
     setMinAmount(cfg.min_amount);
     setMaxAmount(cfg.max_amount);
   };
+
+  // エントランスはワンプライス固定
+  useEffect(() => {
+    if (productType === "entrance") setPriceMode("fixed");
+  }, [productType]);
 
   // 配分リストが変わったとき、宛先が配分に含まれなくなったら先頭に戻す
   useEffect(() => {
@@ -338,40 +349,45 @@ export function QRCreateForm({
           </div>
         )}
 
-        {/* 価格モード */}
+        {/* 価格モード（エントランスはワンプライス固定） */}
         <div className="space-y-3">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">価格設定</label>
-          <div className="grid grid-cols-2 gap-2">
-            {(["fixed", "range"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setPriceMode(mode)}
-                className={`p-3 rounded-2xl text-left transition-all border ${
-                  priceMode === mode
-                    ? "bg-pink-500/20 border-pink-500/50 text-white"
-                    : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
-                }`}
-              >
-                <p className="text-xs font-black">{mode === "fixed" ? "ワンプライス" : "レンジ"}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  {mode === "fixed" ? "金額を1つに固定" : "最低〜最高を指定"}
-                </p>
-              </button>
-            ))}
-          </div>
+
+          {productType !== "entrance" && (
+            <div className="grid grid-cols-2 gap-2">
+              {(["fixed", "range"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setPriceMode(mode)}
+                  className={`p-3 rounded-2xl text-left transition-all border ${
+                    priceMode === mode
+                      ? "bg-pink-500/20 border-pink-500/50 text-white"
+                      : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                  }`}
+                >
+                  <p className="text-xs font-black">{mode === "fixed" ? "ワンプライス" : "レンジ"}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {mode === "fixed" ? "金額を1つに固定" : "最低〜最高を指定"}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
 
           {priceMode === "fixed" ? (
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">金額</label>
-              <Input
-                type="number"
-                value={fixedAmount}
-                onChange={(e) => setFixedAmount(Number(e.target.value))}
-                min={currentConfig?.min_amount ?? 1}
-                max={currentConfig?.max_amount ?? 100000}
-                className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
+              <div className="relative">
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold pointer-events-none">¥</span>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={fmtAmt(fixedAmount)}
+                  onChange={(e) => setFixedAmount(parseAmt(e.target.value))}
+                  className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl pl-9 pr-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
               <p className="text-[10px] text-slate-600">
                 ¥{(currentConfig?.min_amount ?? 1).toLocaleString()} 〜 ¥{(currentConfig?.max_amount ?? 100000).toLocaleString()} の範囲で設定
               </p>
@@ -380,25 +396,29 @@ export function QRCreateForm({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">最低金額</label>
-                <Input
-                  type="number"
-                  value={minAmount}
-                  onChange={(e) => setMinAmount(Number(e.target.value))}
-                  min={currentConfig?.min_amount ?? 1}
-                  max={maxAmount}
-                  className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
+                <div className="relative">
+                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold pointer-events-none">¥</span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={fmtAmt(minAmount)}
+                    onChange={(e) => setMinAmount(parseAmt(e.target.value))}
+                    className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl pl-9 pr-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">最高金額</label>
-                <Input
-                  type="number"
-                  value={maxAmount}
-                  onChange={(e) => setMaxAmount(Number(e.target.value))}
-                  min={minAmount}
-                  max={currentConfig?.max_amount ?? 100000}
-                  className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
+                <div className="relative">
+                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold pointer-events-none">¥</span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={fmtAmt(maxAmount)}
+                    onChange={(e) => setMaxAmount(parseAmt(e.target.value))}
+                    className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl pl-9 pr-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -530,10 +550,12 @@ export function QRCreateForm({
           </div>
           <button
             type="button"
+            role="switch"
+            aria-checked={bypassValidity}
             onClick={() => setBypassValidity((v) => !v)}
-            className={`w-11 h-6 rounded-full transition-colors relative ${bypassValidity ? "bg-amber-500" : "bg-slate-700"}`}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${bypassValidity ? "bg-amber-500" : "bg-slate-700"}`}
           >
-            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${bypassValidity ? "translate-x-5" : "translate-x-0.5"}`} />
+            <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${bypassValidity ? "translate-x-5" : "translate-x-1"}`} />
           </button>
         </div>
 

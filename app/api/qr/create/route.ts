@@ -78,8 +78,8 @@ export async function POST(req: Request) {
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
-  if (event.lifecycle_status !== "published") {
-    return NextResponse.json({ error: "Event is not published" }, { status: 400 });
+  if (!["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status)) {
+    return NextResponse.json({ error: "このイベントではQRを作成できません" }, { status: 400 });
   }
   if (event.organizer_profile_id !== user.id && event.agent_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

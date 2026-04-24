@@ -6,6 +6,7 @@ import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, ArrowLeft, Pen
 import { EventEndButton } from "@/components/event-end-button";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
+import { EventRequestReviewButton } from "@/components/event-request-review-button";
 import { EventCancelButton } from "@/components/event-cancel-button";
 import { EventCancelApproveButton } from "@/components/event-cancel-approve-button";
 import { LiveSalesBoard } from "@/components/live-sales-board";
@@ -74,14 +75,15 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     const myQrIds = new Set((myTargets ?? []).map((t: any) => t.qr_config_id));
     qrConfigs = qrConfigs.filter((qr) => myQrIds.has(qr.qr_config_id));
   }
-  const canApprove = isAgent && event.lifecycle_status === "draft";
+  const canRequestReview = isOrganizer && event.lifecycle_status === "draft";
+  const canApprove = isAgent && event.lifecycle_status === "review_requested";
   const canCreateQR = (isOrganizer || isAgent) &&
-    (event.lifecycle_status === "published" || event.lifecycle_status === "ongoing");
+    ["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status);
   const hasEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
   const canSubmitEvidence = isOrganizer && hasEnded && event.lifecycle_status !== "settled";
   const canEndEvent = isOrganizer && ["published", "ongoing"].includes(event.lifecycle_status);
 
-  const cancellableStatuses = ["published", "ongoing", "draft"];
+  const cancellableStatuses = ["draft", "review_requested", "published", "ongoing"];
   const canRequestCancel = isOrganizer &&
     cancellableStatuses.includes(event.lifecycle_status);
   const canApproveCancellation = isAgent &&
@@ -95,7 +97,8 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const evidenceCount = evidences?.length ?? 0;
 
   const LIFECYCLE_LABELS: Record<string, string> = {
-    draft: "承認待ち", published: "公開済み", ongoing: "開催中", ended: "終了", settled: "精算済み",
+    draft: "下書き", review_requested: "承認待ち", published: "公開済み",
+    ongoing: "開催中", ended: "終了", settled: "精算済み",
     cancellation_requested: "中止申請中", cancelled: "中止",
   };
 
@@ -132,7 +135,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             {LIFECYCLE_LABELS[event.lifecycle_status] ?? event.lifecycle_status}
           </span>
         </div>
-        {event.lifecycle_status === "draft" && (event.agent as any)?.display_name && (
+        {["draft", "review_requested"].includes(event.lifecycle_status) && (event.agent as any)?.display_name && (
           <p className="text-[11px] text-slate-500 font-bold">
             担当エージェント: <span className="text-slate-300">{(event.agent as any).display_name}</span>
           </p>
@@ -214,6 +217,9 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         </Link>
       )}
 
+      {/* 承認依頼ボタン（オーガナイザー） */}
+      {canRequestReview && <EventRequestReviewButton eventId={eventId} />}
+
       {/* エージェント承認ボタン */}
       {canApprove && <EventApproveButton eventId={eventId} />}
 
@@ -289,13 +295,6 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
           )}
         </div>
 
-        {!canCreateQR && event.lifecycle_status === "draft" && (
-          <p className="text-xs text-slate-600">
-            {(event.agent as any)?.display_name
-              ? `担当エージェント「${(event.agent as any).display_name}」の承認後にQRを作成できます`
-              : "エージェントが承認するとQRを作成できます"}
-          </p>
-        )}
 
         {!qrConfigs || qrConfigs.length === 0 ? (
           <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-8 text-center">

@@ -62,7 +62,7 @@ export async function PATCH(
   if (venue !== undefined) updates.venue = venue;
   if (start_at !== undefined) updates.start_at = start_at;
   if (end_at !== undefined) updates.end_at = end_at;
-  if (scheduleOrVenueChanged && event.lifecycle_status !== "draft") {
+  if (scheduleOrVenueChanged && !["draft", "settled", "cancelled"].includes(event.lifecycle_status)) {
     updates.lifecycle_status = "draft";
   }
 
@@ -132,6 +132,6 @@ export async function PATCH(
     }
   }
 
-  const reApprovalRequired = scheduleOrVenueChanged && event.lifecycle_status !== "draft";
+  const reApprovalRequired = scheduleOrVenueChanged && !["draft", "settled", "cancelled"].includes(event.lifecycle_status);
   return NextResponse.json({ ok: true, re_approval_required: reApprovalRequired });
 }

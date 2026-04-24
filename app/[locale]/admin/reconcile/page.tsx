@@ -119,7 +119,7 @@ async function ReconcileContent() {
                   <div>
                     <p className="text-[9px] text-slate-500 uppercase tracking-widest">実行日</p>
                     <p className="text-xs font-bold text-slate-200">
-                      {new Date(log.run_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      {new Date(log.run_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
                   <div>

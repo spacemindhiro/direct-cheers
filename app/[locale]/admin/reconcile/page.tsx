@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Clock } from "lucide-react";
+import { ReconcileButton } from "@/components/reconcile-button";
 import Link from "next/link";
 
 async function ReconcileContent() {
@@ -178,50 +179,45 @@ async function ReconcileContent() {
               return (
                 <div
                   key={event.event_id}
-                  className={`bg-slate-900 border rounded-2xl px-5 py-4 flex items-center gap-4 ${
+                  className={`bg-slate-900 border rounded-2xl px-5 py-4 space-y-3 ${
                     hasError ? "border-red-500/20" : allDone ? "border-emerald-500/20" : inProgress ? "border-amber-500/20" : "border-slate-800"
                   }`}
                 >
-                  <div className="shrink-0">
-                    {hasError ? (
-                      <XCircle size={18} className="text-red-400" />
-                    ) : allDone ? (
-                      <CheckCircle2 size={18} className="text-emerald-400" />
-                    ) : inProgress ? (
-                      <Clock size={18} className="text-amber-400" />
-                    ) : (
-                      <Clock size={18} className="text-slate-600" />
-                    )}
+                  <div className="flex items-center gap-4">
+                    <div className="shrink-0">
+                      {hasError ? (
+                        <XCircle size={18} className="text-red-400" />
+                      ) : allDone ? (
+                        <CheckCircle2 size={18} className="text-emerald-400" />
+                      ) : inProgress ? (
+                        <Clock size={18} className="text-amber-400" />
+                      ) : (
+                        <Clock size={18} className="text-slate-600" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        href={`/dashboard/events/${event.event_id}`}
+                        className="font-black text-white hover:text-indigo-300 transition-colors text-sm truncate block"
+                      >
+                        {event.title}
+                      </Link>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        終了: {new Date(event.end_at).toLocaleDateString("ja-JP")}
+                        　{event.lifecycle_status === "settled" ? "精算済み" : "未精算"}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0 space-y-0.5">
+                      <p className="text-xs font-black text-slate-200">{reconciled} / {total} 件照合</p>
+                      {hasError && <p className="text-[10px] font-black text-red-400">不一致 {mismatched}件</p>}
+                      {allDone && !hasError && <p className="text-[10px] font-black text-emerald-400">照合完了</p>}
+                      {!allDone && inProgress && <p className="text-[10px] font-black text-amber-400">照合中</p>}
+                      {total === 0 && <p className="text-[10px] text-slate-600">売上なし</p>}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/dashboard/events/${event.event_id}`}
-                      className="font-black text-white hover:text-indigo-300 transition-colors text-sm truncate block"
-                    >
-                      {event.title}
-                    </Link>
-                    <p className="text-[10px] text-slate-500 mt-0.5">
-                      終了: {new Date(event.end_at).toLocaleDateString("ja-JP")}
-                      　{event.lifecycle_status === "settled" ? "精算済み" : "未精算"}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0 space-y-0.5">
-                    <p className="text-xs font-black text-slate-200">
-                      {reconciled} / {total} 件照合
-                    </p>
-                    {hasError && (
-                      <p className="text-[10px] font-black text-red-400">不一致 {mismatched}件</p>
-                    )}
-                    {allDone && !hasError && (
-                      <p className="text-[10px] font-black text-emerald-400">照合完了</p>
-                    )}
-                    {!allDone && inProgress && (
-                      <p className="text-[10px] font-black text-amber-400">照合中</p>
-                    )}
-                    {total === 0 && (
-                      <p className="text-[10px] text-slate-600">売上なし</p>
-                    )}
-                  </div>
+                  {!allDone && total > 0 && (
+                    <ReconcileButton eventId={event.event_id} pendingCount={total - reconciled} />
+                  )}
                 </div>
               );
             })}

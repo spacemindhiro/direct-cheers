@@ -193,6 +193,42 @@ async function DashboardContent() {
     });
   }
 
+  // エージェント向け: 承認依頼通知
+  let approvalRequestedNotifications: { notification_id: string; title: string; body: string; metadata: any }[] = [];
+  if (['agent', 'admin'].includes(profile?.role ?? '')) {
+    const { data: approvalNotifs } = await admin
+      .from('notifications')
+      .select('notification_id, title, body, metadata')
+      .eq('profile_id', user!.id)
+      .eq('type', 'approval_requested')
+      .eq('is_read', false)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    // review_requested のままのイベントの通知のみ表示（承認済み・却下済みは除外）
+    const notifEventIds = (approvalNotifs ?? [])
+      .map((n) => n.metadata?.event_id)
+      .filter(Boolean) as string[];
+
+    let pendingEventIds = new Set<string>();
+    if (notifEventIds.length > 0) {
+      const { data: pendingEvents } = await admin
+        .from('events')
+        .select('event_id')
+        .in('event_id', notifEventIds)
+        .eq('lifecycle_status', 'review_requested');
+      pendingEventIds = new Set((pendingEvents ?? []).map((e) => e.event_id));
+    }
+
+    const seenApproval = new Set<string>();
+    approvalRequestedNotifications = (approvalNotifs ?? []).filter((n) => {
+      const eid = n.metadata?.event_id;
+      if (!eid || !pendingEventIds.has(eid) || seenApproval.has(eid)) return false;
+      seenApproval.add(eid);
+      return true;
+    });
+  }
+
   // エージェント向け: 承認待ちイベント件数
   let pendingApprovalCount = 0;
   let pendingCancellationCount = 0;
@@ -202,7 +238,7 @@ async function DashboardContent() {
       ? query.eq('agent_id', user!.id)
       : query;
 
-    const { count: draftCount } = await baseQuery.eq('lifecycle_status', 'draft');
+    const { count: draftCount } = await baseQuery.eq('lifecycle_status', 'review_requested');
     const { count: cancelCount } = await (profile?.role === 'agent'
       ? admin.from('events').select('event_id', { count: 'exact', head: true }).eq('agent_id', user!.id)
       : admin.from('events').select('event_id', { count: 'exact', head: true })
@@ -277,6 +313,26 @@ async function DashboardContent() {
 
       {/* ホーム画面追加バナー */}
       <AddToHomeScreen />
+
+      {/* エージェント向け: 承認依頼通知バナー */}
+      {approvalRequestedNotifications.length > 0 && (
+        <div className="space-y-2">
+          {approvalRequestedNotifications.map((n) => (
+            <Link
+              key={n.notification_id}
+              href={n.metadata?.event_id ? `/dashboard/events/${n.metadata.event_id}` : '/dashboard/events'}
+              className="flex items-start justify-between gap-4 bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">承認依頼</p>
+                <p className="text-sm font-black text-white">{n.title}</p>
+                <p className="text-xs text-slate-400">{n.body}</p>
+              </div>
+              <span className="text-amber-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">確認 →</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* オーガナイザー向け: エビデンス差戻し通知バナー */}
       {evidenceRejectedNotifications.length > 0 && (

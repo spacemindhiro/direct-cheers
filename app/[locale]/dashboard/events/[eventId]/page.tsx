@@ -50,7 +50,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     .from("notifications")
     .update({ is_read: true })
     .eq("profile_id", user.id)
-    .in("type", ["event_approved", "event_cancelled", "event_cancel_rejected"])
+    .in("type", ["event_approved", "event_cancelled", "event_cancel_rejected", "approval_requested"])
     .eq("is_read", false)
     .filter("metadata->>event_id", "eq", eventId);
 

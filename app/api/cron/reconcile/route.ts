@@ -32,14 +32,7 @@ export async function GET(req: Request) {
       reconciled_at,
       qr_config_id,
       qr_config:qr_configs!qr_config_id(
-        event_id,
-        event:events!event_id(organizer_profile_id)
-      ),
-      transaction_distributions(
-        transaction_distribution_id,
-        profile_id,
-        actual_amount,
-        distribution_status
+        event_id
       )
     `)
     .eq("status", "completed")
@@ -56,12 +49,6 @@ export async function GET(req: Request) {
   let matched = 0;
   let mismatched = 0;
   let errors = 0;
-  const feeAdjustDetails: {
-    transaction_id: string;
-    estimated_net: number;
-    actual_net: number;
-    diff: number;
-  }[] = [];
 
   for (const tx of targets) {
     try {
@@ -86,62 +73,6 @@ export async function GET(req: Request) {
         console.error(`[reconcile] GROSS MISMATCH tx=${tx.transaction_id} expected=${tx.total_gross_amount} actual=${stripeGross}`);
       } else {
         matched++;
-      }
-
-      // 手数料の端数による配分額の調整
-      // estimated_net = distributions の合計（事前計算値）
-      // actual_net = Stripe の balance_transaction.net（実際の手数料控除後）
-      const dists = (tx.transaction_distributions ?? []).filter(
-        (d: any) => d.distribution_status === "accrued"
-      );
-      const estimatedNet = dists.reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);
-
-      if (stripeNet !== null && estimatedNet > 0 && stripeNet !== estimatedNet) {
-        const netDiff = stripeNet - estimatedNet;
-        feeAdjustDetails.push({
-          transaction_id: tx.transaction_id,
-          estimated_net: estimatedNet,
-          actual_net: stripeNet,
-          diff: netDiff,
-        });
-
-        // イベントオーナーを特定
-        const organizerProfileId =
-          (tx.qr_config as any)?.event?.organizer_profile_id ?? null;
-
-        // 端数優先順位でソート
-        // 1. 比率（actual_amount）が大きい順
-        // 2. 同率の場合：イベントオーナーが最優先
-        const sortedDists = [...dists].sort((a: any, b: any) => {
-          if (b.actual_amount !== a.actual_amount) {
-            return b.actual_amount - a.actual_amount; // 金額降順
-          }
-          // 同額の場合：オーナーを最後（端数を受け取る側）に回す
-          const aIsOwner = a.profile_id === organizerProfileId ? 1 : 0;
-          const bIsOwner = b.profile_id === organizerProfileId ? 1 : 0;
-          return bIsOwner - aIsOwner; // オーナーが末尾
-        });
-
-        // 按分計算：floor で切り捨て、端数は末尾（オーナー優先）が吸収
-        let allocated = 0;
-        for (let i = 0; i < sortedDists.length; i++) {
-          const d = sortedDists[i] as any;
-          const isLast = i === sortedDists.length - 1;
-          const adjustedAmount = isLast
-            ? stripeNet - allocated  // 端数を全て吸収
-            : Math.floor((d.actual_amount / estimatedNet) * stripeNet);
-
-          await admin
-            .from("transaction_distributions")
-            .update({ actual_amount: adjustedAmount })
-            .eq("transaction_distribution_id", d.transaction_distribution_id);
-
-          allocated += adjustedAmount;
-        }
-
-        console.log(
-          `[reconcile] fee adjusted tx=${tx.transaction_id} organizer=${organizerProfileId} estimated_net=${estimatedNet} actual_net=${stripeNet} diff=${netDiff}`
-        );
       }
 
       // transaction を照合済みに更新
@@ -212,9 +143,6 @@ export async function GET(req: Request) {
   }
 
   // ログを記録
-  const summary: Record<string, unknown> = {};
-  if (feeAdjustDetails.length > 0) summary.fee_adjustments = feeAdjustDetails;
-
   await admin.from("reconciliation_logs").insert({
     run_at: now.toISOString(),
     target_date: targetDate,
@@ -222,7 +150,7 @@ export async function GET(req: Request) {
     total_matched: matched,
     total_mismatched: mismatched,
     total_errors: errors,
-    summary: Object.keys(summary).length > 0 ? summary : null,
+    summary: null,
   });
 
   if (mismatched > 0) {
@@ -230,7 +158,7 @@ export async function GET(req: Request) {
   }
 
   console.log(
-    `[reconcile] done: checked=${targets.length} matched=${matched} mismatched=${mismatched} errors=${errors} fee_adjusted=${feeAdjustDetails.length}`
+    `[reconcile] done: checked=${targets.length} matched=${matched} mismatched=${mismatched} errors=${errors}`
   );
 
   return NextResponse.json({
@@ -240,6 +168,5 @@ export async function GET(req: Request) {
     matched,
     mismatched,
     errors,
-    fee_adjusted: feeAdjustDetails.length,
   });
 }

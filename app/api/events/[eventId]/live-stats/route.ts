@@ -115,24 +115,7 @@ export async function GET(
       const totalRatio = myTargets.reduce((s, t) => s + Number(t.distribution_ratio ?? 0), 0);
       myDistributionRatio = totalRatio / qrConfigIds.length;
 
-      // 分配済み: actual_amount をそのまま使う（settle処理の計算式と一致させる）
-      const { data: accruedDists } = await admin
-        .from("transaction_distributions")
-        .select("actual_amount, transaction_id")
-        .eq("profile_id", user.id)
-        .eq("distribution_status", "accrued")
-        .in("transaction_id", txList.map((t) => t.transaction_id))
-        .is("deleted_at", null);
-
-      const distributedTxIds = new Set<string>();
-      for (const d of accruedDists ?? []) {
-        myProjectedNet += d.actual_amount ?? 0;
-        distributedTxIds.add(d.transaction_id);
-      }
-
-      // 未分配: 推定計算
       for (const tx of txList) {
-        if (distributedTxIds.has(tx.transaction_id)) continue;
         const txTargets = myTargets.filter((t) => t.qr_config_id === tx.qr_config_id);
         const ratio = txTargets.reduce((s, t) => s + Number(t.distribution_ratio ?? 0), 0);
         const txNet = Math.floor((tx.total_gross_amount ?? 0) * NET_RATE);
@@ -153,22 +136,6 @@ export async function GET(
       .in("qr_config_id", qrConfigIds)
       .is("deleted_at", null);
 
-    // 分配済みの actual_amount を profile ごとに取得
-    const { data: allAccrued } = await admin
-      .from("transaction_distributions")
-      .select("profile_id, actual_amount, transaction_id")
-      .in("transaction_id", txList.map((t) => t.transaction_id))
-      .eq("distribution_status", "accrued")
-      .is("deleted_at", null);
-
-    const accruedByProfile = new Map<string, { amount: number; txIds: Set<string> }>();
-    for (const d of allAccrued ?? []) {
-      const existing = accruedByProfile.get(d.profile_id) ?? { amount: 0, txIds: new Set() };
-      existing.amount += d.actual_amount ?? 0;
-      existing.txIds.add(d.transaction_id);
-      accruedByProfile.set(d.profile_id, existing);
-    }
-
     const distMap = new Map<string, { display_name: string | null; role: string; projected_net: number; total_ratio: number; count: number }>();
     for (const target of allTargets ?? []) {
       const ratio = Number(target.distribution_ratio ?? 0);
@@ -179,24 +146,14 @@ export async function GET(
         total_ratio: 0,
         count: 0,
       };
-      const accrued = accruedByProfile.get(target.profile_id);
       const txForQr = txList.filter((tx) => tx.qr_config_id === target.qr_config_id);
       for (const tx of txForQr) {
-        if (accrued?.txIds.has(tx.transaction_id)) continue; // actual_amount で計上済み
         const txNet = Math.floor((tx.total_gross_amount ?? 0) * NET_RATE);
         existing.projected_net += Math.floor(txNet * ratio);
       }
       existing.total_ratio += ratio;
       existing.count += 1;
       distMap.set(target.profile_id, existing);
-    }
-
-    // actual_amount 分を加算
-    for (const [profileId, accrued] of accruedByProfile.entries()) {
-      const existing = distMap.get(profileId);
-      if (existing) {
-        existing.projected_net += accrued.amount;
-      }
     }
 
     distributions = Array.from(distMap.entries()).map(([profile_id, d]) => ({

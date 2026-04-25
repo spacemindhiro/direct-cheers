@@ -39,13 +39,26 @@ async function PayoutContent() {
   const cutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const { net_rate: NET_RATE } = await getFeeConfig();
 
-  // 配分済み: イベント情報まで展開
+  // 未精算（distributions未作成）の見込み保留額をイベント別に加算するため先に取得
+  const { data: myTargets } = await admin
+    .from("qr_config_targets")
+    .select(`
+      qr_config_id, distribution_ratio,
+      qr_config:qr_configs!qr_config_id(
+        event_id,
+        event:events!event_id(event_id, title, lifecycle_status, reconciled_at)
+      )
+    `)
+    .eq("profile_id", user.id)
+    .is("deleted_at", null);
+
+  // 配分済み: イベント情報まで展開（金額は formula で再計算）
   const { data: dists } = await admin
     .from("transaction_distributions")
     .select(`
-      actual_amount, is_frozen, transaction_id,
+      is_frozen, transaction_id,
       transaction:transactions!transaction_id(
-        created_at, qr_config_id,
+        created_at, qr_config_id, total_gross_amount,
         qr_config:qr_configs!qr_config_id(
           event_id,
           event:events!event_id(event_id, title, lifecycle_status, reconciled_at)
@@ -81,7 +94,9 @@ async function PayoutContent() {
     const event = qrConfig?.event;
     const eventId: string = event?.event_id ?? "__unknown__";
     const txDate: string | null = tx?.created_at ?? null;
-    const amt = d.actual_amount ?? 0;
+    const txTarget = (myTargets ?? []).find((t) => t.qr_config_id === tx?.qr_config_id);
+    const ratio = Number(txTarget?.distribution_ratio ?? 0);
+    const amt = Math.floor(Math.floor((tx?.total_gross_amount ?? 0) * NET_RATE) * ratio);
 
     if (!eventMap.has(eventId)) {
       eventMap.set(eventId, {
@@ -111,18 +126,6 @@ async function PayoutContent() {
   }
 
   // 未精算（distributions未作成）の見込み保留額をイベント別に加算
-  const { data: myTargets } = await admin
-    .from("qr_config_targets")
-    .select(`
-      qr_config_id, distribution_ratio,
-      qr_config:qr_configs!qr_config_id(
-        event_id,
-        event:events!event_id(event_id, title, lifecycle_status, reconciled_at)
-      )
-    `)
-    .eq("profile_id", user.id)
-    .is("deleted_at", null);
-
   if ((myTargets ?? []).length > 0) {
     const qrConfigIds = myTargets!.map((t) => t.qr_config_id);
     const { data: unsettledTxs } = await admin
@@ -137,7 +140,7 @@ async function PayoutContent() {
       if (!target) continue;
       const ratio = Number(target.distribution_ratio ?? 0);
       if (ratio <= 0) continue;
-      const amt = Math.floor((tx.total_gross_amount ?? 0) * NET_RATE * ratio);
+      const amt = Math.floor(Math.floor((tx.total_gross_amount ?? 0) * NET_RATE) * ratio);
       if (amt <= 0) continue;
 
       const event = (target as any).qr_config?.event;

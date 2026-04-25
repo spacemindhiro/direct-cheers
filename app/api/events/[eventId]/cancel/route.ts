@@ -34,19 +34,23 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const cancellableStatuses = ["published", "ongoing", "draft"];
+  const cancellableStatuses = ["draft", "review_requested", "published", "ongoing"];
   if (!cancellableStatuses.includes(event.lifecycle_status)) {
     return NextResponse.json({ error: "このステータスのイベントは中止申請できません" }, { status: 400 });
   }
 
+  // 承認前（draft/review_requested）はエージェント不要で即中止
+  const isDraft = ["draft", "review_requested"].includes(event.lifecycle_status);
+  const newStatus = isDraft ? "cancelled" : "cancellation_requested";
+
   const { error } = await supabase
     .from("events")
-    .update({ lifecycle_status: "cancellation_requested" })
+    .update({ lifecycle_status: newStatus })
     .eq("event_id", eventId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, immediate: isDraft });
 }
 
 // エージェントが中止を承認または却下

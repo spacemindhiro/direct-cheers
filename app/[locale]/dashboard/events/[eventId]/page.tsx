@@ -7,6 +7,7 @@ import { EventEndButton } from "@/components/event-end-button";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
 import { EventRequestReviewButton } from "@/components/event-request-review-button";
+import { EventDeleteButton } from "@/components/event-delete-button";
 import { EventCancelButton } from "@/components/event-cancel-button";
 import { EventCancelApproveButton } from "@/components/event-cancel-approve-button";
 import { LiveSalesBoard } from "@/components/live-sales-board";
@@ -219,6 +220,11 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
       {/* 承認依頼ボタン（オーガナイザー） */}
       {canRequestReview && <EventRequestReviewButton eventId={eventId} />}
+
+      {/* 削除ボタン（承認前のみ、オーガナイザー） */}
+      {isOrganizer && ["draft", "review_requested"].includes(event.lifecycle_status) && (
+        <EventDeleteButton eventId={eventId} />
+      )}
 
       {/* エージェント承認ボタン */}
       {canApprove && <EventApproveButton eventId={eventId} />}

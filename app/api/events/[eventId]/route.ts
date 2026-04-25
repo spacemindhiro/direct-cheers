@@ -135,3 +135,39 @@ export async function PATCH(
   const reApprovalRequired = scheduleOrVenueChanged && !["draft", "settled", "cancelled"].includes(event.lifecycle_status);
   return NextResponse.json({ ok: true, re_approval_required: reApprovalRequired });
 }
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ eventId: string }> },
+) {
+  const { eventId } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data: event } = await supabase
+    .from("events")
+    .select("event_id, lifecycle_status, organizer_profile_id")
+    .eq("event_id", eventId)
+    .single();
+
+  if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if (event.organizer_profile_id !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (!["draft", "review_requested"].includes(event.lifecycle_status)) {
+    return NextResponse.json({ error: "承認前のイベントのみ削除できます" }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from("events")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("event_id", eventId);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}

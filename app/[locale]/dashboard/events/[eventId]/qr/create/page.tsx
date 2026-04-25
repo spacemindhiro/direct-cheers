@@ -40,7 +40,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
     .single();
 
   if (!event) notFound();
-  if (event.lifecycle_status !== "published" && event.lifecycle_status !== "ongoing") {
+  if (!["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status)) {
     redirect(`/dashboard/events/${eventId}`);
   }
 

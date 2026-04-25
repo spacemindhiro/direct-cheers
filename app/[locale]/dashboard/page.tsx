@@ -252,11 +252,11 @@ async function DashboardContent() {
   let lineupInvites: {
     event_artist_id: string;
     event_id: string;
-    status: string;
+    status: "pending" | "confirmed";
     invite_message?: string | null;
     event: { title: string; venue: string; start_at: string; organizer_profile_id: string; organizer_name: string } | null;
   }[] = [];
-  let upcomingShows: { event_id: string; event: { title: string; venue: string; start_at: string } | null }[] = [];
+
   if (profile?.role === 'artist') {
     const { data: allRows } = await admin
       .from('event_artists')
@@ -273,11 +273,11 @@ async function DashboardContent() {
 
     const now = new Date().toISOString();
     lineupInvites = (allRows ?? [])
-      .filter((r: any) => r.status === 'pending')
+      .filter((r: any) => r.status === 'pending' || (r.status === 'confirmed' && (!r.event?.end_at || r.event.end_at > now)))
       .map((r: any) => ({
         event_artist_id: r.event_artist_id,
         event_id: r.event_id,
-        status: r.status,
+        status: r.status as 'pending' | 'confirmed',
         invite_message: r.invite_message ?? null,
         event: r.event
           ? {
@@ -288,13 +288,6 @@ async function DashboardContent() {
               organizer_name: r.event.organizer?.display_name ?? 'オーガナイザー',
             }
           : null,
-      }));
-
-    upcomingShows = (allRows ?? [])
-      .filter((r: any) => r.status === 'confirmed' && (!r.event?.end_at || r.event.end_at > now))
-      .map((r: any) => ({
-        event_id: r.event_id,
-        event: r.event ? { title: r.event.title, venue: r.event.venue, start_at: r.event.start_at } : null,
       }));
   }
 
@@ -609,32 +602,6 @@ async function DashboardContent() {
         <LineupInvitations invites={lineupInvites} artistId={user!.id} />
       )}
 
-      {/* アーティスト向け: 出演予定（confirmed） */}
-      {profile?.role === 'artist' && upcomingShows.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-            <Mic2 size={14} className="text-emerald-400" /> 出演予定
-          </h2>
-          <div className="space-y-3">
-            {upcomingShows.map((s) => (
-              <Link
-                key={s.event_id}
-                href={`/dashboard/events/${s.event_id}`}
-                className="bg-slate-900 border border-emerald-500/20 hover:border-emerald-500/40 rounded-[1.5rem] px-6 py-4 flex items-center justify-between gap-4 transition-colors"
-              >
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-black text-white truncate">{s.event?.title ?? '—'}</p>
-                  <p className="text-xs text-slate-500">
-                    {s.event?.venue}
-                    {s.event?.start_at && <span> · {new Date(s.event.start_at).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}</span>}
-                  </p>
-                </div>
-                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest shrink-0">出演確定</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* アーティスト売上ダッシュボード */}
       {profile?.role === 'artist' && (

@@ -5,11 +5,12 @@ import { Loader2, Plus, Calendar, MapPin, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 const LIFECYCLE_CONFIG: Record<string, { label: string; className: string }> = {
-  draft:      { label: "承認待ち",   className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
-  published:  { label: "公開済み",   className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-  ongoing:    { label: "開催中",     className: "text-pink-400 bg-pink-500/10 border-pink-500/20" },
-  ended:      { label: "終了",       className: "text-slate-500 bg-slate-800 border-slate-700" },
-  settled:    { label: "精算済み",   className: "text-slate-600 bg-slate-800/50 border-slate-700/50" },
+  draft:             { label: "下書き",     className: "text-slate-400 bg-slate-800 border-slate-700" },
+  review_requested:  { label: "承認待ち",   className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
+  published:         { label: "公開済み",   className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+  ongoing:           { label: "開催中",     className: "text-pink-400 bg-pink-500/10 border-pink-500/20" },
+  ended:             { label: "終了",       className: "text-slate-500 bg-slate-800 border-slate-700" },
+  settled:           { label: "精算済み",   className: "text-slate-600 bg-slate-800/50 border-slate-700/50" },
 };
 
 async function EventsContent() {

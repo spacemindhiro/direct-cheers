@@ -81,22 +81,39 @@ async function DashboardContent() {
   let projectedNet = 0;
   if (['organizer', 'artist', 'agent'].includes(profile?.role ?? '')) {
     const { net_rate: NET_RATE } = await getFeeConfig();
-    const { data: myDists } = await admin
+
+    // 分配済み: actual_amount を使用（出金管理ページと同一ロジック）
+    const { data: accruedDists } = await admin
+      .from('transaction_distributions')
+      .select('actual_amount, transaction_id')
+      .eq('profile_id', user!.id)
+      .eq('distribution_status', 'accrued')
+      .is('deleted_at', null);
+
+    const distributedTxIds = new Set<string>();
+    for (const d of accruedDists ?? []) {
+      projectedNet += d.actual_amount ?? 0;
+      distributedTxIds.add((d as any).transaction_id);
+    }
+
+    // 未分配: qr_config_targets から計算
+    const { data: myTargets } = await admin
       .from('qr_config_targets')
       .select('distribution_ratio, qr_config_id')
       .eq('profile_id', user!.id)
       .is('deleted_at', null);
 
-    if (myDists && myDists.length > 0) {
-      const qrIds = myDists.map((d) => d.qr_config_id);
+    if (myTargets && myTargets.length > 0) {
+      const qrIds = myTargets.map((d) => d.qr_config_id);
       const { data: txs } = await admin
         .from('transactions')
-        .select('total_gross_amount, qr_config_id')
+        .select('transaction_id, total_gross_amount, qr_config_id')
         .in('qr_config_id', qrIds)
         .eq('status', 'completed');
 
       for (const tx of txs ?? []) {
-        const ratio = myDists
+        if (distributedTxIds.has(tx.transaction_id)) continue;
+        const ratio = myTargets
           .filter((d) => d.qr_config_id === tx.qr_config_id)
           .reduce((s, d) => s + Number(d.distribution_ratio ?? 0), 0);
         projectedNet += Math.floor((tx.total_gross_amount ?? 0) * NET_RATE * ratio);

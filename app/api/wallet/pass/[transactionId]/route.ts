@@ -100,7 +100,7 @@ export async function GET(
     foregroundColor: "rgb(255, 255, 255)",
     labelColor: "rgb(148, 163, 184)",
     logoText: "direct cheers",
-    eventTicket: {
+    storeCard: {
       headerFields: [
         { key: "artist", label: "ARTIST", value: artistName },
       ],
@@ -135,38 +135,38 @@ export async function GET(
   const logoPath = path.join(process.cwd(), "public", "logo-emblem.png");
   const logoBuffer = fs.readFileSync(logoPath);
 
-  // background: QR画像があればそれを使い、なければロゴエンブレムをセンタリング (2x=360x440)
+  // strip: QR画像があればそれを使い、なければロゴエンブレムをセンタリング (2x=640x426 ≈ 3:2)
   const qrImageUrl = (tx.qr_config as any)?.image_url as string | null | undefined;
-  let bg2xRaw: Buffer;
+  let strip2xRaw: Buffer;
   if (qrImageUrl) {
     const imgRes = await fetch(qrImageUrl);
     const imgBuf = Buffer.from(await imgRes.arrayBuffer());
-    bg2xRaw = await sharp(imgBuf)
-      .resize(360, 440, { fit: "cover", position: "centre" })
+    strip2xRaw = await sharp(imgBuf)
+      .resize(640, 426, { fit: "cover", position: "centre" })
       .png()
       .toBuffer();
   } else {
-    const emblemForBg = await sharp(logoBuffer)
-      .resize(260, 260, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    const emblemForStrip = await sharp(logoBuffer)
+      .resize(200, 200, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toBuffer();
-    bg2xRaw = await sharp({
-      create: { width: 360, height: 440, channels: 4, background: { r: 2, g: 6, b: 23, alpha: 255 } },
+    strip2xRaw = await sharp({
+      create: { width: 640, height: 426, channels: 4, background: { r: 2, g: 6, b: 23, alpha: 255 } },
     })
-      .composite([{ input: emblemForBg, gravity: "centre" }])
+      .composite([{ input: emblemForStrip, gravity: "centre" }])
       .png()
       .toBuffer();
   }
 
-  const [icon1x, icon2x, icon3x, logo1x, logo2x, bg1x, bg2x, bg3x] = await Promise.all([
+  const [icon1x, icon2x, icon3x, logo1x, logo2x, strip1x, strip2x, strip3x] = await Promise.all([
     sharp(logoBuffer).resize(29, 29).png().toBuffer(),
     sharp(logoBuffer).resize(58, 58).png().toBuffer(),
     sharp(logoBuffer).resize(87, 87).png().toBuffer(),
     sharp(logoBuffer).resize(160, 50, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer(),
     sharp(logoBuffer).resize(320, 100, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer(),
-    sharp(bg2xRaw).resize(180, 220).png().toBuffer(),
-    Promise.resolve(bg2xRaw),
-    sharp(bg2xRaw).resize(540, 660).png().toBuffer(),
+    sharp(strip2xRaw).resize(320, 213).png().toBuffer(),
+    Promise.resolve(strip2xRaw),
+    sharp(strip2xRaw).resize(960, 639).png().toBuffer(),
   ]);
 
   const [wwdrPem, { certPem, keyPem }] = await Promise.all([
@@ -182,9 +182,9 @@ export async function GET(
       "icon@3x.png": icon3x,
       "logo.png": logo1x,
       "logo@2x.png": logo2x,
-      "background.png": bg1x,
-      "background@2x.png": bg2x,
-      "background@3x.png": bg3x,
+      "strip.png": strip1x,
+      "strip@2x.png": strip2x,
+      "strip@3x.png": strip3x,
     },
     {
       wwdr: wwdrPem,

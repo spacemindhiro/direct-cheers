@@ -99,14 +99,18 @@ export async function POST(req: Request) {
   // qr_config を取得（event_id / image_url）
   let newEventId: string | null = null;
   let newQrImageUrl: string | null = null;
+  let newRecipientName: string | null = null;
+  let newRecipientAvatar: string | null = null;
   if (qrConfigId) {
     const { data: qrc } = await admin
       .from("qr_configs")
-      .select("event_id, image_url")
+      .select("event_id, image_url, recipient:profiles!recipient_profile_id(display_name, avatar_url)")
       .eq("qr_config_id", qrConfigId)
       .single();
     newEventId = qrc?.event_id ?? null;
     newQrImageUrl = qrc?.image_url ?? null;
+    newRecipientName = (qrc?.recipient as any)?.display_name ?? null;
+    newRecipientAvatar = (qrc?.recipient as any)?.avatar_url ?? null;
   }
 
   // シリアルナンバー採番
@@ -152,7 +156,9 @@ export async function POST(req: Request) {
     },
     product,
     newEventId,
-    newQrImageUrl
+    newQrImageUrl,
+    newRecipientName,
+    newRecipientAvatar,
   );
 
   if (email) {
@@ -178,7 +184,9 @@ function buildResponse(
   },
   product: Record<string, unknown>,
   eventId: string | null = null,
-  qrImageUrl: string | null = null
+  qrImageUrl: string | null = null,
+  recipientName: string | null = null,
+  recipientAvatar: string | null = null,
 ): NextResponse {
   return NextResponse.json({
     transaction_id: tx.transaction_id,
@@ -187,6 +195,8 @@ function buildResponse(
     serial_number: tx.sequence_number_in_event,
     event_id: eventId,
     qr_image_url: qrImageUrl,
+    recipient_name: recipientName,
+    recipient_avatar: recipientAvatar,
     ...product,
   });
 }

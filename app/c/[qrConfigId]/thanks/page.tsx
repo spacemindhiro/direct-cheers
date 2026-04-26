@@ -25,6 +25,8 @@ type PaymentResult = {
   stripe_customer_id: string | null;
   serial_number: number | null;
   qr_image_url: string | null;
+  recipient_name: string | null;
+  recipient_avatar: string | null;
 };
 
 type ThanksData = {
@@ -175,8 +177,13 @@ function ThanksContent() {
             応援ありがとう！
           </h1>
           <p className="text-sm text-slate-400">
-            {result.artist_name ?? "アーティスト"} へのCheersが届きました
+            {result.recipient_name ?? result.artist_name ?? "アーティスト"} へのCheersが届きました
           </p>
+          {email && (
+            <p className="text-xs text-slate-500 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 inline-block">
+              {email}
+            </p>
+          )}
         </div>
 
         {/* シリアルナンバー演出 */}
@@ -201,27 +208,28 @@ function ThanksContent() {
 
         {/* Apple Wallet ボタン（iOS/macOS のみ） */}
         {isAppleDevice() && (
-          <div className="flex justify-center">
-            <a
-              href={`/api/wallet/pass/${result.transaction_id}`}
-              className="inline-flex items-center gap-2.5 h-12 bg-black border border-white/15 rounded-xl px-5 hover:border-white/30 transition-all"
-            >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white shrink-0">
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-              </svg>
-              <div className="text-left">
-                <p className="text-[9px] text-white/60 leading-none">Add to</p>
-                <p className="text-sm font-semibold text-white leading-tight">Apple Wallet</p>
-              </div>
-            </a>
-          </div>
+          <a
+            href={`/api/wallet/pass/${result.transaction_id}`}
+            className="flex items-center gap-3 w-full h-14 bg-black border border-white/20 rounded-2xl px-5 hover:border-white/40 transition-all"
+          >
+            <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white shrink-0">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-[10px] text-white/50 leading-none">このCheersカードを</p>
+              <p className="text-base font-bold text-white leading-tight">Apple Walletに保存</p>
+            </div>
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white/40 shrink-0">
+              <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+            </svg>
+          </a>
         )}
 
         {/* Cheers カード */}
         <CheersCard
-          artistName={result.artist_name ?? "Artist"}
+          artistName={result.recipient_name ?? result.artist_name ?? "Artist"}
           eventTitle={result.event_title ?? ""}
-          artistAvatar={result.artist_avatar}
+          artistAvatar={result.recipient_avatar ?? result.artist_avatar}
           amount={result.amount}
           transactionId={result.transaction_id}
           serialNumber={result.serial_number}
@@ -303,36 +311,44 @@ function ThanksContent() {
           </div>
         )}
 
-        {/* パスキー登録セクション（応援履歴をアカウントに保存） */}
-        {email && !passkeyDone && (
+        {/* アカウントセクション：新規→作成、既存→ログイン、完了後→コレクション */}
+        {email && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-slate-800" />
               <div className="flex items-center gap-2">
                 <PlusCircle size={14} className="text-slate-600" />
-                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
-                  {hasExistingPasskey ? "このデバイスを追加" : "アカウント"}
-                </p>
+                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Account</p>
               </div>
               <div className="h-px flex-1 bg-slate-800" />
             </div>
 
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-              {hasExistingPasskey ? (
+              {passkeyDone ? (
+                <>
+                  <p className="text-sm font-black text-white">コレクションを確認する</p>
+                  <Link
+                    href="/dashboard/collection"
+                    className="flex items-center justify-center gap-2 w-full h-11 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-sm transition-all"
+                  >
+                    <LayoutDashboard size={15} />
+                    コレクションを見る
+                  </Link>
+                </>
+              ) : hasExistingPasskey ? (
                 <>
                   <div>
-                    <p className="text-sm font-black text-white">このデバイスでも顔パスを有効にする</p>
+                    <p className="text-sm font-black text-white">ログインしてコレクションを確認</p>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      既にパスキーが登録されています。このデバイスにも追加登録すると、いつでもここからアクセスできます。
+                      {email} でアカウントが登録されています。ログインして応援履歴を確認できます。
                     </p>
                   </div>
-                  <PasskeySetup
-                    email={email}
-                    mode="register"
-                    deviceName={getDeviceLabel()}
-                    onSuccess={() => setPasskeyDone(true)}
-                    buttonLabel="このデバイスを追加登録"
-                  />
+                  <Link
+                    href="/auth/login"
+                    className="flex items-center justify-center gap-2 w-full h-11 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-sm transition-all"
+                  >
+                    ログインする
+                  </Link>
                 </>
               ) : (
                 <>
@@ -353,12 +369,6 @@ function ThanksContent() {
               )}
             </div>
           </div>
-        )}
-
-        {passkeyDone && (
-          <p className="text-center text-xs text-slate-500">
-            ウォレットでいつでも応援履歴を確認できます
-          </p>
         )}
 
         {/* アーティストフォロー */}
@@ -383,42 +393,6 @@ function ThanksContent() {
             </div>
           </div>
         )}
-
-        {/* コレクション確認 */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-slate-800" />
-            <div className="flex items-center gap-2">
-              <LayoutDashboard size={14} className="text-slate-600" />
-              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Collection</p>
-            </div>
-            <div className="h-px flex-1 bg-slate-800" />
-          </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
-            <div>
-              <p className="text-sm font-black text-white">応援履歴を確認する</p>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                ログインすると、これまでの応援コレクションをいつでも確認できます。
-              </p>
-            </div>
-            {passkeyDone ? (
-              <Link
-                href="/dashboard/collection"
-                className="flex items-center justify-center gap-2 w-full h-11 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-sm transition-all"
-              >
-                <LayoutDashboard size={15} />
-                コレクションを見る
-              </Link>
-            ) : (
-              <Link
-                href="/auth/login"
-                className="flex items-center justify-center gap-2 w-full h-11 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-sm transition-all"
-              >
-                ログインしてコレクションを確認
-              </Link>
-            )}
-          </div>
-        </div>
 
         {/* 戻るリンク */}
         <div className="text-center">

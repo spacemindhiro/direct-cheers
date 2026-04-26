@@ -3,11 +3,15 @@ import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID ?? "localhost";
-const ORIGIN =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+function getRpIdAndOrigin(req: Request): { rpId: string; origin: string } {
+  const host = req.headers.get("host") ?? "localhost";
+  const rpId = host.split(":")[0];
+  const origin = req.headers.get("origin") ?? (rpId === "localhost" ? "http://localhost:3000" : `https://${rpId}`);
+  return { rpId, origin };
+}
 
 export async function POST(req: Request) {
+  const { rpId: RP_ID, origin: ORIGIN } = getRpIdAndOrigin(req);
   const { email, credential, device_name } = await req.json() as {
     email: string;
     credential: RegistrationResponseJSON;

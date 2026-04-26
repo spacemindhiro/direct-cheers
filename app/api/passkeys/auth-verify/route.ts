@@ -3,11 +3,10 @@ import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID ?? "localhost";
-const ORIGIN =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
-
 export async function POST(req: Request) {
+  const host = req.headers.get("host") ?? "localhost";
+  const RP_ID = host.split(":")[0];
+  const ORIGIN = req.headers.get("origin") ?? (RP_ID === "localhost" ? "http://localhost:3000" : `https://${RP_ID}`);
   const { credential } = await req.json() as {
     credential: AuthenticationResponseJSON;
   };

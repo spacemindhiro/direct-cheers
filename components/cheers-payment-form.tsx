@@ -136,7 +136,7 @@ export function CheersPaymentForm({
   return (
     <div className="space-y-6">
 
-      {/* 金額スライダー */}
+      {/* 金額 */}
       <div className="space-y-3">
         <div className="flex justify-between items-baseline">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">金額</p>
@@ -144,19 +144,23 @@ export function CheersPaymentForm({
             ¥{amount.toLocaleString()}
           </p>
         </div>
-        <input
-          type="range"
-          min={selectedProduct.min_amount}
-          max={selectedProduct.max_amount}
-          step={100}
-          value={amount}
-          onChange={(e) => setAmount(Number(e.target.value))}
-          className="w-full accent-pink-500"
-        />
-        <div className="flex justify-between text-[10px] text-slate-600 font-bold">
-          <span>¥{selectedProduct.min_amount.toLocaleString()}</span>
-          <span>¥{selectedProduct.max_amount.toLocaleString()}</span>
-        </div>
+        {selectedProduct.min_amount !== selectedProduct.max_amount && (
+          <>
+            <input
+              type="range"
+              min={selectedProduct.min_amount}
+              max={selectedProduct.max_amount}
+              step={100}
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              className="w-full accent-pink-500"
+            />
+            <div className="flex justify-between text-[10px] text-slate-600 font-bold">
+              <span>¥{selectedProduct.min_amount.toLocaleString()}</span>
+              <span>¥{selectedProduct.max_amount.toLocaleString()}</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* メール表示（取得済みの場合） */}

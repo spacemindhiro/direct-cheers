@@ -3,9 +3,13 @@ import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const RP_NAME = "Direct Cheers";
-const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID ?? "localhost";
+
+function getRpId(req: Request): string {
+  return req.headers.get("host")?.split(":")[0] ?? "localhost";
+}
 
 export async function POST(req: Request) {
+  const RP_ID = getRpId(req);
   const { email, device_name } = await req.json() as { email: string; device_name?: string };
 
   if (!email) {

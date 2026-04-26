@@ -3,9 +3,8 @@ import { generateAuthenticationOptions } from "@simplewebauthn/server";
 import type { AuthenticatorTransportFuture } from "@simplewebauthn/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const RP_ID = process.env.NEXT_PUBLIC_WEBAUTHN_RP_ID ?? "localhost";
-
 export async function POST(req: Request) {
+  const RP_ID = req.headers.get("host")?.split(":")[0] ?? "localhost";
   const { email } = await req.json() as { email?: string };
 
   const admin = createAdminClient();

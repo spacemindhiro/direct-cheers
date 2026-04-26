@@ -11,7 +11,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
   }
 
-  // Stripe セッションを取得
   let session: Stripe.Checkout.Session;
   try {
     session = await stripe.checkout.sessions.retrieve(session_id, {
@@ -42,19 +41,12 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (existing) {
-    const product = await getProductInfo(admin, existing.product_id);
-    // event_id を qr_config から取得
-    let existingEventId: string | null = null;
-    if (existing.qr_config_id) {
-      const { data: qrc } = await admin.from("qr_configs").select("event_id").eq("qr_config_id", existing.qr_config_id).single();
-      existingEventId = qrc?.event_id ?? null;
-    }
-    let existingQrImageUrl: string | null = null;
-    if (existing.qr_config_id) {
-      const { data: qrcImg } = await admin.from("qr_configs").select("image_url").eq("qr_config_id", existing.qr_config_id).single();
-      existingQrImageUrl = qrcImg?.image_url ?? null;
-    }
-    return buildResponse(email, existing, product, existingEventId, existingQrImageUrl);
+    const [product, qrcInfo, isMember] = await Promise.all([
+      getProductInfo(admin, existing.product_id),
+      getQrConfigInfo(admin, existing.qr_config_id ?? null),
+      checkIsMember(admin, email ?? null),
+    ]);
+    return buildResponse(email, existing, product, qrcInfo, isMember);
   }
 
   // provisional_users に email を upsert
@@ -68,10 +60,6 @@ export async function POST(req: Request) {
     provisionalProfileId = provisional?.profile_id ?? null;
   }
 
-  const amountVerified = session.amount_total !== null;
-  const amountMismatch = 0;
-
-  // transaction を作成
   const productId = meta.product_id || null;
   const qrConfigId = meta.qr_config_id || null;
 
@@ -86,8 +74,8 @@ export async function POST(req: Request) {
       sender_email: email ?? null,
       total_gross_amount: session.amount_total ?? 0,
       stripe_funds_status: "held_in_platform",
-      amount_verified: amountVerified,
-      amount_mismatch: amountMismatch,
+      amount_verified: session.amount_total !== null,
+      amount_mismatch: 0,
     })
     .select("transaction_id")
     .single();
@@ -96,35 +84,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: txError.message }, { status: 500 });
   }
 
-  // qr_config を取得（event_id / image_url）
-  let newEventId: string | null = null;
-  let newQrImageUrl: string | null = null;
-  let newRecipientName: string | null = null;
-  let newRecipientAvatar: string | null = null;
-  if (qrConfigId) {
-    const { data: qrc } = await admin
-      .from("qr_configs")
-      .select("event_id, image_url, recipient_profile_id")
-      .eq("qr_config_id", qrConfigId)
-      .single();
-    newEventId = qrc?.event_id ?? null;
-    newQrImageUrl = qrc?.image_url ?? null;
-    if (qrc?.recipient_profile_id) {
-      const { data: recipientProfile } = await admin
-        .from("profiles")
-        .select("display_name, avatar_url")
-        .eq("profile_id", qrc.recipient_profile_id)
-        .single();
-      newRecipientName = recipientProfile?.display_name ?? null;
-      newRecipientAvatar = recipientProfile?.avatar_url ?? null;
-    }
-  }
+  const [qrcInfo, isMember] = await Promise.all([
+    getQrConfigInfo(admin, qrConfigId),
+    checkIsMember(admin, email ?? null),
+  ]);
 
   // シリアルナンバー採番
   let serialNumber: number | null = null;
-  if (qrConfigId && newEventId) {
+  if (qrConfigId && qrcInfo.eventId) {
     try {
-      // artist_id を取得（products → artist_id）
       let artistId: string | null = null;
       if (productId) {
         const { data: product } = await admin
@@ -134,18 +102,14 @@ export async function POST(req: Request) {
           .single();
         artistId = product?.artist_id ?? null;
       }
-
-      // RPC で排他制御付き採番
       const { data: seqData } = await admin.rpc("assign_serial_number", {
         p_transaction_id: tx.transaction_id,
-        p_event_id: newEventId,
+        p_event_id: qrcInfo.eventId,
         p_artist_id: artistId,
         p_qr_config_id: qrConfigId,
       });
-
       serialNumber = seqData ?? null;
     } catch (err) {
-      // 採番失敗はサイレントに（カード発行は継続）
       console.error("[pay/complete] serial number assignment failed:", err);
     }
   }
@@ -162,10 +126,8 @@ export async function POST(req: Request) {
       qr_config_id: qrConfigId,
     },
     product,
-    newEventId,
-    newQrImageUrl,
-    newRecipientName,
-    newRecipientAvatar,
+    qrcInfo,
+    isMember,
   );
 
   if (email) {
@@ -180,6 +142,66 @@ export async function POST(req: Request) {
   return response;
 }
 
+type QrConfigInfo = {
+  eventId: string | null;
+  imageUrl: string | null;
+  recipientName: string | null;
+  recipientAvatar: string | null;
+};
+
+async function getQrConfigInfo(
+  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
+  qrConfigId: string | null,
+): Promise<QrConfigInfo> {
+  if (!qrConfigId) return { eventId: null, imageUrl: null, recipientName: null, recipientAvatar: null };
+
+  const { data: qrc } = await admin
+    .from("qr_configs")
+    .select("event_id, image_url, recipient_profile_id")
+    .eq("qr_config_id", qrConfigId)
+    .single();
+
+  let recipientName: string | null = null;
+  let recipientAvatar: string | null = null;
+  if (qrc?.recipient_profile_id) {
+    const { data: rp } = await admin
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("profile_id", qrc.recipient_profile_id)
+      .single();
+    recipientName = rp?.display_name ?? null;
+    recipientAvatar = rp?.avatar_url ?? null;
+  }
+
+  return {
+    eventId: qrc?.event_id ?? null,
+    imageUrl: qrc?.image_url ?? null,
+    recipientName,
+    recipientAvatar,
+  };
+}
+
+async function checkIsMember(
+  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
+  email: string | null,
+): Promise<boolean> {
+  if (!email) return false;
+  // provisional_users で profile_id が紐いていれば会員
+  const { data: prov } = await admin
+    .from("provisional_users")
+    .select("profile_id")
+    .eq("email", email)
+    .maybeSingle();
+  if (prov?.profile_id) return true;
+  // それ以外は Supabase auth に存在するか確認（organizer 等のケース）
+  try {
+    const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    return data.users.some((u) => u.email === email);
+  } catch {
+    return false;
+  }
+}
+
 function buildResponse(
   email: string | null | undefined,
   tx: {
@@ -190,20 +212,19 @@ function buildResponse(
     qr_config_id?: string | null;
   },
   product: Record<string, unknown>,
-  eventId: string | null = null,
-  qrImageUrl: string | null = null,
-  recipientName: string | null = null,
-  recipientAvatar: string | null = null,
+  qrcInfo: QrConfigInfo,
+  isMember: boolean,
 ): NextResponse {
   return NextResponse.json({
     transaction_id: tx.transaction_id,
     email,
     amount: tx.total_gross_amount,
     serial_number: tx.sequence_number_in_event,
-    event_id: eventId,
-    qr_image_url: qrImageUrl,
-    recipient_name: recipientName,
-    recipient_avatar: recipientAvatar,
+    event_id: qrcInfo.eventId,
+    qr_image_url: qrcInfo.imageUrl,
+    recipient_name: qrcInfo.recipientName,
+    recipient_avatar: qrcInfo.recipientAvatar,
+    is_member: isMember,
     ...product,
   });
 }

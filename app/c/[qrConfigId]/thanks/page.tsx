@@ -27,6 +27,7 @@ type PaymentResult = {
   qr_image_url: string | null;
   recipient_name: string | null;
   recipient_avatar: string | null;
+  is_member: boolean;
 };
 
 type ThanksData = {
@@ -77,6 +78,11 @@ function ThanksContent() {
         }
         setResult(data);
 
+        // 会員判定（pay/complete が返す is_member を使用）
+        if (data.is_member) {
+          setHasExistingPasskey(true);
+        }
+
         // サンクス特典を取得（QR単位）
         if (data.transaction_id) {
           try {
@@ -110,24 +116,6 @@ function ThanksContent() {
           }
         } catch {
           // トークン発行失敗は無視
-        }
-
-        // 既存パスキーの有無を確認（既存アカウントの場合は「このデバイスを追加」モード）
-        try {
-          const optRes = await fetch("/api/passkeys/register-options", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
-          });
-          if (optRes.ok) {
-            const optData = await optRes.json();
-            // excludeCredentials が1件以上 = 既存アカウント
-            if (optData.has_account) {
-              setHasExistingPasskey(true);
-            }
-          }
-        } catch {
-          // パスキー確認失敗は無視
         }
       })
       .catch(() => setError("通信エラーが発生しました"))

@@ -70,5 +70,10 @@ export async function POST(req: Request) {
   // シンプルに: email を暗号化してオプションに含める代わりに
   // challenge_id ベースで検索可能にする（challenge は unique）
 
-  return NextResponse.json({ options, email, device_name: device_name ?? null });
+  return NextResponse.json({
+    options,
+    email,
+    device_name: device_name ?? null,
+    has_account: !!provisional.profile_id,
+  });
 }

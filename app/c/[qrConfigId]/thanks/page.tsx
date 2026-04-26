@@ -122,7 +122,7 @@ function ThanksContent() {
           if (optRes.ok) {
             const optData = await optRes.json();
             // excludeCredentials が1件以上 = 既存アカウント
-            if (optData.options?.excludeCredentials?.length > 0) {
+            if (optData.has_account) {
               setHasExistingPasskey(true);
             }
           }

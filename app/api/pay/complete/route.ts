@@ -104,13 +104,20 @@ export async function POST(req: Request) {
   if (qrConfigId) {
     const { data: qrc } = await admin
       .from("qr_configs")
-      .select("event_id, image_url, recipient:profiles!recipient_profile_id(display_name, avatar_url)")
+      .select("event_id, image_url, recipient_profile_id")
       .eq("qr_config_id", qrConfigId)
       .single();
     newEventId = qrc?.event_id ?? null;
     newQrImageUrl = qrc?.image_url ?? null;
-    newRecipientName = (qrc?.recipient as any)?.display_name ?? null;
-    newRecipientAvatar = (qrc?.recipient as any)?.avatar_url ?? null;
+    if (qrc?.recipient_profile_id) {
+      const { data: recipientProfile } = await admin
+        .from("profiles")
+        .select("display_name, avatar_url")
+        .eq("profile_id", qrc.recipient_profile_id)
+        .single();
+      newRecipientName = recipientProfile?.display_name ?? null;
+      newRecipientAvatar = recipientProfile?.avatar_url ?? null;
+    }
   }
 
   // シリアルナンバー採番

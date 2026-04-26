@@ -58,6 +58,7 @@ export async function GET(
         qr_config_id,
         event_id,
         image_url,
+        recipient_profile_id,
         event:events!event_id(title)
       )
     `)
@@ -90,6 +91,14 @@ export async function GET(
   const serialNumber = tx.sequence_number_in_event ?? 0;
   const txDate = new Date(tx.created_at).toLocaleDateString("ja-JP");
   const qrConfigId = (tx.qr_config as any)?.qr_config_id as string | null | undefined;
+
+  // 宛先名を取得（recipient_profile_id → profiles）
+  const recipientProfileId = (tx.qr_config as any)?.recipient_profile_id as string | null | undefined;
+  let recipientName = artistName;
+  if (recipientProfileId) {
+    const { data: rp } = await admin.from("profiles").select("display_name").eq("profile_id", recipientProfileId).single();
+    if (rp?.display_name) recipientName = rp.display_name;
+  }
   const { data: thanksData } = qrConfigId
     ? await admin.from("qr_config_thanks")
         .select("thanks_message, thanks_link_url, published_at")
@@ -109,11 +118,8 @@ export async function GET(
     backgroundColor: "rgb(2, 6, 23)",
     foregroundColor: "rgb(255, 255, 255)",
     labelColor: "rgb(148, 163, 184)",
-    logoText: "direct cheers",
+    logoText: recipientName,
     storeCard: {
-      headerFields: [
-        { key: "artist", label: "ARTIST", value: artistName },
-      ],
       secondaryFields: [
         { key: "event", label: "EVENT", value: eventTitle || "—" },
         {
@@ -170,12 +176,19 @@ export async function GET(
       .toBuffer();
   }
 
+  // ピンクハートアイコン（logo.png に使用）
+  const heartSvg = (size: number) => Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24">` +
+    `<path fill="#ec4899" d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>` +
+    `</svg>`
+  );
+
   const [icon1x, icon2x, icon3x, logo1x, logo2x, strip1x, strip2x, strip3x] = await Promise.all([
     sharp(logoBuffer).resize(29, 29).png().toBuffer(),
     sharp(logoBuffer).resize(58, 58).png().toBuffer(),
     sharp(logoBuffer).resize(87, 87).png().toBuffer(),
-    sharp(logoBuffer).resize(160, 50, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer(),
-    sharp(logoBuffer).resize(320, 100, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer(),
+    sharp(heartSvg(50)).resize(50, 50).png().toBuffer(),
+    sharp(heartSvg(100)).resize(100, 100).png().toBuffer(),
     sharp(strip2xRaw).resize(320, 213).png().toBuffer(),
     Promise.resolve(strip2xRaw),
     sharp(strip2xRaw).resize(960, 639).png().toBuffer(),

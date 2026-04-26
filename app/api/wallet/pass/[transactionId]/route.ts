@@ -74,6 +74,11 @@ export async function GET(
   const teamId = process.env.APPLE_TEAM_ID;
 
   if (!p12Base64 || !passTypeId || !teamId) {
+    console.error("[wallet/pass] missing env:", {
+      hasP12: !!p12Base64,
+      hasPassTypeId: !!passTypeId,
+      hasTeamId: !!teamId,
+    });
     return NextResponse.json({ error: "Apple Wallet設定が不完全です" }, { status: 500 });
   }
 

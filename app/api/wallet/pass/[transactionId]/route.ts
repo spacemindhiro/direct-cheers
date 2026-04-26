@@ -57,6 +57,8 @@ export async function GET(
       qr_config:qr_configs!qr_config_id(
         event_id,
         image_url,
+        thanks_message,
+        thanks_link_url,
         event:events!event_id(title)
       )
     `)
@@ -65,8 +67,8 @@ export async function GET(
     .single();
 
   if (txErr || !tx) {
-    console.error("[wallet/pass] tx fetch error:", txErr?.message);
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    console.error("[wallet/pass] tx fetch error:", txErr?.code, txErr?.message, txErr?.details, "transactionId:", transactionId);
+    return NextResponse.json({ error: "Not found", detail: txErr?.message ?? "tx null" }, { status: 404 });
   }
 
   const p12Base64 = process.env.APPLE_PASS_CERTIFICATE_P12_BASE64;
@@ -88,6 +90,8 @@ export async function GET(
   const amount = tx.total_gross_amount ?? 0;
   const serialNumber = tx.sequence_number_in_event ?? 0;
   const txDate = new Date(tx.created_at).toLocaleDateString("ja-JP");
+  const thanksMessage = (tx.qr_config as any)?.thanks_message as string | null | undefined;
+  const thanksLinkUrl = (tx.qr_config as any)?.thanks_link_url as string | null | undefined;
 
   const passJson = {
     formatVersion: 1,
@@ -119,8 +123,10 @@ export async function GET(
           value: `#${String(serialNumber).padStart(3, "0")}`,
         },
         { key: "date", label: "DATE", value: txDate },
+        ...(thanksLinkUrl ? [{ key: "benefit", label: "特典", value: thanksLinkUrl }] : []),
       ],
       backFields: [
+        ...(thanksMessage ? [{ key: "thanks", label: "メッセージ", value: thanksMessage }] : []),
         { key: "txid", label: "Transaction ID", value: tx.transaction_id },
         {
           key: "site",

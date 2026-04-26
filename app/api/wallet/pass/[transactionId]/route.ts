@@ -55,10 +55,9 @@ export async function GET(
       transaction_id, total_gross_amount, created_at, sequence_number_in_event,
       product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
       qr_config:qr_configs!qr_config_id(
+        qr_config_id,
         event_id,
         image_url,
-        thanks_message,
-        thanks_link_url,
         event:events!event_id(title)
       )
     `)
@@ -90,8 +89,15 @@ export async function GET(
   const amount = tx.total_gross_amount ?? 0;
   const serialNumber = tx.sequence_number_in_event ?? 0;
   const txDate = new Date(tx.created_at).toLocaleDateString("ja-JP");
-  const thanksMessage = (tx.qr_config as any)?.thanks_message as string | null | undefined;
-  const thanksLinkUrl = (tx.qr_config as any)?.thanks_link_url as string | null | undefined;
+  const qrConfigId = (tx.qr_config as any)?.qr_config_id as string | null | undefined;
+  const { data: thanksData } = qrConfigId
+    ? await admin.from("qr_config_thanks")
+        .select("thanks_message, thanks_link_url, published_at")
+        .eq("qr_config_id", qrConfigId)
+        .maybeSingle()
+    : { data: null };
+  const thanksMessage = thanksData?.published_at ? thanksData.thanks_message : null;
+  const thanksLinkUrl = thanksData?.published_at ? thanksData.thanks_link_url : null;
 
   const passJson = {
     formatVersion: 1,

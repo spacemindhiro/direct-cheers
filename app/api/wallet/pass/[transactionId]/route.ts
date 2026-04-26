@@ -49,10 +49,10 @@ export async function GET(
   const { transactionId } = await params;
 
   const admin = createAdminClient();
-  const { data: tx } = await admin
+  const { data: tx, error: txErr } = await admin
     .from("transactions")
     .select(`
-      transaction_id, total_gross_amount, created_at, serial_number,
+      transaction_id, total_gross_amount, created_at, sequence_number_in_event,
       product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
       qr_config:qr_configs!qr_config_id(
         event_id,
@@ -63,7 +63,8 @@ export async function GET(
     .eq("status", "completed")
     .single();
 
-  if (!tx) {
+  if (txErr || !tx) {
+    console.error("[wallet/pass] tx fetch error:", txErr?.message);
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -79,7 +80,7 @@ export async function GET(
   const artistName = (tx.product as any)?.artist?.display_name ?? "Artist";
   const eventTitle = (tx.qr_config as any)?.event?.title ?? "";
   const amount = tx.total_gross_amount ?? 0;
-  const serialNumber = tx.serial_number ?? 0;
+  const serialNumber = tx.sequence_number_in_event ?? 0;
   const txDate = new Date(tx.created_at).toLocaleDateString("ja-JP");
 
   const passJson = {

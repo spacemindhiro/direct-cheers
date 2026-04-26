@@ -104,24 +104,24 @@ export async function GET(
       headerFields: [
         { key: "artist", label: "ARTIST", value: artistName },
       ],
-      primaryFields: [
-        { key: "event", label: "EVENT", value: eventTitle || "—" },
-      ],
       secondaryFields: [
+        { key: "event", label: "EVENT", value: eventTitle || "—" },
         {
           key: "amount",
           label: "CHEERS",
           value: `¥${amount.toLocaleString("ja-JP")}`,
         },
+      ],
+      auxiliaryFields: [
         {
           key: "serial",
           label: "No.",
           value: `#${String(serialNumber).padStart(3, "0")}`,
         },
+        { key: "date", label: "DATE", value: txDate },
       ],
       backFields: [
         { key: "txid", label: "Transaction ID", value: tx.transaction_id },
-        { key: "date", label: "Date", value: txDate },
         {
           key: "site",
           label: "direct cheers",

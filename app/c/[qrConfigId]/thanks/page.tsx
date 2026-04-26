@@ -199,6 +199,23 @@ function ThanksContent() {
           </div>
         )}
 
+        {/* Apple Wallet ボタン（iOS/macOS のみ） */}
+        {isAppleDevice() && (
+          <div className="flex justify-center">
+            <a
+              href={`/api/wallet/pass/${result.transaction_id}`}
+              className="block"
+            >
+              {/* Apple公式スタイルに準拠したボタン */}
+              <img
+                src="https://developer.apple.com/wallet/add-to-apple-wallet-guidelines/downloads/Add_to_Apple_Wallet_rgb_US-UK.svg"
+                alt="Add to Apple Wallet"
+                className="h-12 w-auto"
+              />
+            </a>
+          </div>
+        )}
+
         {/* Cheers カード */}
         <CheersCard
           artistName={result.artist_name ?? "Artist"}
@@ -423,6 +440,11 @@ function ThanksContent() {
       </div>
     </div>
   );
+}
+
+function isAppleDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
 }
 
 // ブラウザ UA からデバイスラベルを推定

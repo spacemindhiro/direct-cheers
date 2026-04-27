@@ -58,11 +58,14 @@ export async function GET(
   // このイベントの qr_config_ids を取得
   const { data: qrConfigs } = await admin
     .from("qr_configs")
-    .select("qr_config_id")
+    .select("qr_config_id, recipient:profiles!recipient_profile_id(display_name)")
     .eq("event_id", eventId)
     .is("deleted_at", null);
 
   const qrConfigIds = (qrConfigs ?? []).map((q) => q.qr_config_id);
+  const qrRecipientMap = new Map<string, string | null>(
+    (qrConfigs ?? []).map((q) => [q.qr_config_id, (q.recipient as any)?.display_name ?? null])
+  );
 
   if (qrConfigIds.length === 0) {
     return NextResponse.json({
@@ -173,6 +176,7 @@ export async function GET(
     sender_name: tx.sender_name ?? null,
     sender_comment: tx.sender_comment ?? null,
     product_type: (tx.product as any)?.type ?? null,
+    recipient_name: qrRecipientMap.get(tx.qr_config_id) ?? null,
   }));
 
   return NextResponse.json({

@@ -13,6 +13,7 @@ type TxItem = {
   sender_name: string | null;
   sender_comment: string | null;
   product_type: string | null;
+  recipient_name: string | null;
 };
 
 type LiveStats = {
@@ -314,6 +315,9 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
                       <div className="min-w-0">
                         <p className="text-xs font-black text-white truncate">
                           {tx.sender_name ?? "ゲスト"}
+                          {tx.recipient_name && (
+                            <span className="text-slate-500 font-normal"> → {tx.recipient_name}</span>
+                          )}
                         </p>
                         {isMsg && tx.sender_comment && (
                           <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{tx.sender_comment}</p>

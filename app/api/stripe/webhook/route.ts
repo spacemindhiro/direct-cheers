@@ -30,15 +30,54 @@ export async function POST(req: Request) {
 
       // charges_enabled になったタイミングで pending_terms へ
       if (account.charges_enabled) {
-        const { error } = await admin
+        await admin
           .from("profiles")
           .update({ status: "pending_terms" })
           .eq("stripe_connect_id", account.id)
-          .eq("status", "pending_onboarding"); // 二重遷移防止
+          .eq("status", "pending_onboarding");
+      }
 
-        if (error) {
-          console.error("[webhook] profile update failed:", error.message);
-          return NextResponse.json({ error: error.message }, { status: 500 });
+      // 機能制限の検出・解除
+      const isRestricted = !account.charges_enabled || !account.payouts_enabled;
+      const { data: targetProfile } = await admin
+        .from("profiles")
+        .select("profile_id, display_name, stripe_restricted")
+        .eq("stripe_connect_id", account.id)
+        .maybeSingle();
+
+      if (targetProfile) {
+        await admin
+          .from("profiles")
+          .update({ stripe_restricted: isRestricted })
+          .eq("profile_id", targetProfile.profile_id);
+
+        // 新たに制限がかかった場合のみ本人に通知
+        if (isRestricted && !targetProfile.stripe_restricted) {
+          const due = account.requirements?.currently_due ?? [];
+          try {
+            await admin.from("notifications").insert({
+              profile_id: targetProfile.profile_id,
+              type: "stripe_restricted",
+              title: "Stripeから追加情報の提出が求められています",
+              body: `口座機能に制限がかかっています。Stripeダッシュボードで確認・対応してください。${due.length > 0 ? `（必要項目: ${due.join(", ")}）` : ""}`,
+              metadata: { stripe_account_id: account.id, currently_due: due },
+            });
+          } catch { /* notifications テーブルがなければスキップ */ }
+          console.log(`[webhook] stripe_restricted: account=${account.id} profile=${targetProfile.profile_id} due=${due.join(",")}`);
+        }
+
+        // 制限が解除された場合も通知
+        if (!isRestricted && targetProfile.stripe_restricted) {
+          try {
+            await admin.from("notifications").insert({
+              profile_id: targetProfile.profile_id,
+              type: "stripe_restriction_lifted",
+              title: "Stripeの機能制限が解除されました",
+              body: "口座機能が回復しました。",
+              metadata: { stripe_account_id: account.id },
+            });
+          } catch { /* スキップ */ }
+          console.log(`[webhook] stripe_restriction_lifted: account=${account.id} profile=${targetProfile.profile_id}`);
         }
       }
       break;

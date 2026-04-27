@@ -332,7 +332,7 @@ function ThanksContent() {
                     </p>
                   </div>
                   <Link
-                    href="/auth/login"
+                    href={`/auth/login?email=${encodeURIComponent(email)}&redirect=/dashboard/collection`}
                     className="flex items-center justify-center gap-2 w-full h-11 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-sm transition-all"
                   >
                     ログインする

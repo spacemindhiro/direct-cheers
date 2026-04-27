@@ -107,6 +107,9 @@ export async function GET(
   let myDistributionRatio: number | null = null;
   let myProjectedNet = 0;
 
+  // qr_config_id → 自分の ratio マップ（アーティストのフィルタにも使う）
+  const myTargetRatioMap = new Map<string, number>();
+
   if (!isAdmin) {
     const { data: myTargets } = await admin
       .from("qr_config_targets")
@@ -122,6 +125,7 @@ export async function GET(
       for (const tx of txList) {
         const txTargets = myTargets.filter((t) => t.qr_config_id === tx.qr_config_id);
         const ratio = txTargets.reduce((s, t) => s + Number(t.distribution_ratio ?? 0), 0);
+        myTargetRatioMap.set(tx.qr_config_id, ratio);
         const txNet = Math.floor((tx.total_gross_amount ?? 0) * NET_RATE);
         myProjectedNet += Math.floor(txNet * ratio);
       }
@@ -169,15 +173,26 @@ export async function GET(
     })).sort((a, b) => b.projected_net - a.projected_net);
   }
 
-  const recentTransactions = txList.slice(0, 50).map((tx) => ({
-    transaction_id: tx.transaction_id,
-    total_gross_amount: tx.total_gross_amount,
-    created_at: tx.created_at,
-    sender_name: tx.sender_name ?? null,
-    sender_comment: tx.sender_comment ?? null,
-    product_type: (tx.product as any)?.type ?? null,
-    recipient_name: qrRecipientMap.get(tx.qr_config_id) ?? null,
-  }));
+  // アーティストは自分の配分に含まれるトランザクションのみ
+  const filteredTxList = isArtist
+    ? txList.filter((tx) => myTargetRatioMap.has(tx.qr_config_id))
+    : txList;
+
+  const recentTransactions = filteredTxList.slice(0, 50).map((tx) => {
+    const gross = tx.total_gross_amount ?? 0;
+    const ratio = myTargetRatioMap.get(tx.qr_config_id) ?? null;
+    const myNet = ratio !== null ? Math.floor(Math.floor(gross * NET_RATE) * ratio) : null;
+    return {
+      transaction_id: tx.transaction_id,
+      total_gross_amount: gross,
+      created_at: tx.created_at,
+      sender_name: tx.sender_name ?? null,
+      sender_comment: tx.sender_comment ?? null,
+      product_type: (tx.product as any)?.type ?? null,
+      recipient_name: qrRecipientMap.get(tx.qr_config_id) ?? null,
+      my_net_amount: myNet,
+    };
+  });
 
   return NextResponse.json({
     total_gross: totalGross,

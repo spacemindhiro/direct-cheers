@@ -14,6 +14,7 @@ type TxItem = {
   sender_comment: string | null;
   product_type: string | null;
   recipient_name: string | null;
+  my_net_amount: number | null;
 };
 
 type LiveStats = {
@@ -325,9 +326,20 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-black text-white tabular-nums">
-                        {formatJPY(tx.total_gross_amount ?? 0)}
-                      </p>
+                      {tx.my_net_amount !== null ? (
+                        <>
+                          <p className="text-sm font-black text-emerald-400 tabular-nums">
+                            {formatJPY(tx.my_net_amount)}
+                          </p>
+                          <p className="text-[10px] text-slate-500 tabular-nums">
+                            投入 {formatJPY(tx.total_gross_amount ?? 0)}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm font-black text-white tabular-nums">
+                          {formatJPY(tx.total_gross_amount ?? 0)}
+                        </p>
+                      )}
                       <p className="text-[10px] text-slate-600 tabular-nums">{formatTime(tx.created_at)}</p>
                     </div>
                   </div>

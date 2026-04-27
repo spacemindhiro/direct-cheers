@@ -58,13 +58,21 @@ export async function GET(
   // このイベントの qr_config_ids を取得
   const { data: qrConfigs } = await admin
     .from("qr_configs")
-    .select("qr_config_id, recipient:profiles!recipient_profile_id(display_name)")
+    .select("qr_config_id, recipient_profile_id, recipient:profiles!recipient_profile_id(display_name)")
     .eq("event_id", eventId)
     .is("deleted_at", null);
 
   const qrConfigIds = (qrConfigs ?? []).map((q) => q.qr_config_id);
   const qrRecipientMap = new Map<string, string | null>(
     (qrConfigs ?? []).map((q) => [q.qr_config_id, (q.recipient as any)?.display_name ?? null])
+  );
+  // メッセージ閲覧可否：宛先が自分のQRのみ（adminは全て可）
+  const qrCanReadMessageSet = new Set<string>(
+    isAdmin || isAgent
+      ? qrConfigIds
+      : (qrConfigs ?? [])
+          .filter((q) => (q as any).recipient_profile_id === user.id)
+          .map((q) => q.qr_config_id)
   );
 
   if (qrConfigIds.length === 0) {
@@ -187,7 +195,7 @@ export async function GET(
       total_gross_amount: gross,
       created_at: tx.created_at,
       sender_name: tx.sender_name ?? null,
-      sender_comment: tx.sender_comment ?? null,
+      sender_comment: qrCanReadMessageSet.has(tx.qr_config_id) ? (tx.sender_comment ?? null) : null,
       product_type: (tx.product as any)?.type ?? null,
       recipient_name: qrRecipientMap.get(tx.qr_config_id) ?? null,
       my_net_amount: myNet,

@@ -70,6 +70,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
   const [isConnected, setIsConnected] = useState(true);
   const [flashNew, setFlashNew] = useState(false);
   const [toasts, setToasts] = useState<CheeringToast[]>([]);
+  const [logTab, setLogTab] = useState<"log" | "message">("log");
   const prevCountRef = useRef<number>(0);
   const prevTxIdsRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -291,64 +292,97 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
         </div>
       )}
 
-      {/* 決済掲示板 */}
-      {stats.recent_transactions.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-            <Coins size={11} className="text-pink-500" /> 決済ログ
-          </p>
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-800">
-            {stats.recent_transactions.map((tx, i) => {
-              const isMsg = tx.product_type === "message";
-              const isNew = i === 0 && flashNew;
-              return (
-                <div
-                  key={tx.transaction_id}
-                  className={`px-5 py-3 transition-colors duration-700 ${isNew ? "bg-pink-500/10" : ""}`}
+      {/* 決済掲示板（タブ切替） */}
+      {stats.recent_transactions.length > 0 && (() => {
+        const messageTxs = stats.recent_transactions.filter(
+          (tx) => tx.product_type === "message" && tx.sender_comment
+        );
+        const visibleTxs = logTab === "message" ? messageTxs : stats.recent_transactions;
+        return (
+          <div className="space-y-2">
+            {/* タブヘッダー */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setLogTab("log")}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-colors ${
+                  logTab === "log"
+                    ? "bg-pink-500/20 text-pink-400 border border-pink-500/40"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                <Coins size={10} /> 決済ログ
+              </button>
+              {messageTxs.length > 0 && (
+                <button
+                  onClick={() => setLogTab("message")}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-colors ${
+                    logTab === "message"
+                      ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/40"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {isMsg ? (
-                        <MessageSquare size={12} className="text-indigo-400 shrink-0 mt-0.5" />
-                      ) : (
-                        <Coins size={12} className="text-pink-400 shrink-0 mt-0.5" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-white truncate">
-                          {tx.sender_name ?? "ゲスト"}
-                          {tx.recipient_name && (
-                            <span className="text-slate-500 font-normal"> → {tx.recipient_name}</span>
-                          )}
-                        </p>
-                        {isMsg && tx.sender_comment && (
-                          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{tx.sender_comment}</p>
+                  <MessageSquare size={10} /> メッセージ
+                  <span className="bg-indigo-500/30 text-indigo-300 rounded-full px-1.5 py-0.5 text-[9px]">
+                    {messageTxs.length}
+                  </span>
+                </button>
+              )}
+            </div>
+
+            {/* リスト */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-800">
+              {visibleTxs.map((tx, i) => {
+                const isMsg = tx.product_type === "message";
+                const isNew = i === 0 && flashNew && logTab === "log";
+                return (
+                  <div
+                    key={tx.transaction_id}
+                    className={`px-5 py-3 transition-colors duration-700 ${isNew ? "bg-pink-500/10" : ""}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isMsg ? (
+                          <MessageSquare size={12} className="text-indigo-400 shrink-0 mt-0.5" />
+                        ) : (
+                          <Coins size={12} className="text-pink-400 shrink-0 mt-0.5" />
                         )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-white truncate">
+                            {tx.sender_name ?? "ゲスト"}
+                            {tx.recipient_name && (
+                              <span className="text-slate-500 font-normal"> → {tx.recipient_name}</span>
+                            )}
+                          </p>
+                          {tx.sender_comment && (
+                            <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{tx.sender_comment}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        {tx.my_net_amount !== null ? (
+                          <>
+                            <p className="text-sm font-black text-emerald-400 tabular-nums">
+                              {formatJPY(tx.my_net_amount)}
+                            </p>
+                            <p className="text-[10px] text-slate-500 tabular-nums">
+                              投入 {formatJPY(tx.total_gross_amount ?? 0)}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-sm font-black text-white tabular-nums">
+                            {formatJPY(tx.total_gross_amount ?? 0)}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-slate-600 tabular-nums">{formatTime(tx.created_at)}</p>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      {tx.my_net_amount !== null ? (
-                        <>
-                          <p className="text-sm font-black text-emerald-400 tabular-nums">
-                            {formatJPY(tx.my_net_amount)}
-                          </p>
-                          <p className="text-[10px] text-slate-500 tabular-nums">
-                            投入 {formatJPY(tx.total_gross_amount ?? 0)}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-sm font-black text-white tabular-nums">
-                          {formatJPY(tx.total_gross_amount ?? 0)}
-                        </p>
-                      )}
-                      <p className="text-[10px] text-slate-600 tabular-nums">{formatTime(tx.created_at)}</p>
-                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 更新時刻 */}
       {lastFetched && (

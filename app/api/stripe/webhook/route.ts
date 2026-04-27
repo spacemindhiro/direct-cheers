@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -150,7 +151,7 @@ export async function POST(req: Request) {
           provisionalProfileId = provisional?.profile_id ?? null;
         }
 
-        await admin.from("transactions").insert({
+        const { data: newTx } = await admin.from("transactions").insert({
           stripe_payment_intent_id: session.payment_intent as string,
           product_id: meta.product_id || null,
           qr_config_id: meta.qr_config_id || null,
@@ -160,7 +161,36 @@ export async function POST(req: Request) {
           status: "completed",
           total_gross_amount: session.amount_total ?? 0,
           stripe_funds_status: "held_in_platform",
-        });
+        }).select("transaction_id").single();
+
+        // 購入確認メール（fire-and-forget）
+        if (email && newTx) {
+          let recipientName: string | null = null;
+          let eventTitle: string | null = null;
+          if (meta.qr_config_id) {
+            const { data: qrc } = await admin
+              .from("qr_configs")
+              .select("recipient_profile_id, event:events!event_id(title)")
+              .eq("qr_config_id", meta.qr_config_id)
+              .single();
+            eventTitle = (qrc?.event as any)?.title ?? null;
+            if (qrc?.recipient_profile_id) {
+              const { data: rp } = await admin
+                .from("profiles")
+                .select("display_name")
+                .eq("profile_id", qrc.recipient_profile_id)
+                .single();
+              recipientName = rp?.display_name ?? null;
+            }
+          }
+          sendPurchaseReceipt({
+            to: email,
+            amount: session.amount_total ?? 0,
+            recipientName,
+            eventTitle,
+            transactionId: newTx.transaction_id,
+          }).catch((err) => console.error("[webhook] メール送信失敗:", err));
+        }
       }
       break;
     }

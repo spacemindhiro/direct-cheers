@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -137,6 +138,14 @@ export async function POST(req: Request) {
       sameSite: "lax",
       httpOnly: false,
     });
+
+    sendPurchaseReceipt({
+      to: email,
+      amount: session.amount_total ?? 0,
+      recipientName: qrcInfo.recipientName,
+      eventTitle: product.event_title as string | null,
+      transactionId: tx.transaction_id,
+    }).catch((err) => console.error("[pay/complete] メール送信失敗:", err));
   }
 
   return response;

@@ -187,7 +187,7 @@ export async function GET(
 
   // アーティストは自分の配分に含まれるトランザクションのみ
   const filteredTxList = isArtist
-    ? txList.filter((tx) => myTargetRatioMap.has(tx.qr_config_id))
+    ? txList.filter((tx) => (myTargetRatioMap.get(tx.qr_config_id) ?? 0) > 0)
     : txList;
 
   const totalPages = Math.max(1, Math.ceil(filteredTxList.length / PAGE_SIZE));

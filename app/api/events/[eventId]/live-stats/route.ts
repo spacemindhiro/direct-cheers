@@ -81,13 +81,14 @@ export async function GET(
       stripe_rate: STRIPE_RATE,
       platform_rate: PLATFORM_RATE,
       net_rate: NET_RATE,
+      recent_transactions: [],
     });
   }
 
   // 売上集計
   const { data: transactions } = await admin
     .from("transactions")
-    .select("transaction_id, total_gross_amount, created_at, qr_config_id")
+    .select("transaction_id, total_gross_amount, created_at, qr_config_id, sender_name, sender_comment, product:products!product_id(type)")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed")
     .order("created_at", { ascending: false });
@@ -165,6 +166,15 @@ export async function GET(
     })).sort((a, b) => b.projected_net - a.projected_net);
   }
 
+  const recentTransactions = txList.slice(0, 50).map((tx) => ({
+    transaction_id: tx.transaction_id,
+    total_gross_amount: tx.total_gross_amount,
+    created_at: tx.created_at,
+    sender_name: tx.sender_name ?? null,
+    sender_comment: tx.sender_comment ?? null,
+    product_type: (tx.product as any)?.type ?? null,
+  }));
+
   return NextResponse.json({
     total_gross: totalGross,
     transaction_count: txList.length,
@@ -181,5 +191,6 @@ export async function GET(
     stripe_rate: STRIPE_RATE,
     platform_rate: PLATFORM_RATE,
     net_rate: NET_RATE,
+    recent_transactions: recentTransactions,
   });
 }

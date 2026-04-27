@@ -3,8 +3,17 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   TrendingUp, Zap, RefreshCw, Wifi, WifiOff,
-  ArrowDownToLine, Loader2
+  ArrowDownToLine, Loader2, MessageSquare, Coins
 } from "lucide-react";
+
+type TxItem = {
+  transaction_id: string;
+  total_gross_amount: number | null;
+  created_at: string | null;
+  sender_name: string | null;
+  sender_comment: string | null;
+  product_type: string | null;
+};
 
 type LiveStats = {
   total_gross: number;
@@ -28,6 +37,7 @@ type LiveStats = {
   stripe_rate: number;
   platform_rate: number;
   net_rate: number;
+  recent_transactions: TxItem[];
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -37,8 +47,8 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "管理者",
 };
 
-const POLL_INTERVAL_LIVE = 5000;   // 開催中: 5秒
-const POLL_INTERVAL_IDLE = 30000;  // それ以外: 30秒
+const POLL_INTERVAL_LIVE = 5000;
+const POLL_INTERVAL_IDLE = 30000;
 
 function formatJPY(n: number) {
   return "¥" + n.toLocaleString("ja-JP");
@@ -49,14 +59,19 @@ function formatTime(iso: string | null) {
   return new Date(iso).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+type CheeringToast = { id: number; amount: number; sender: string | null };
+
 export function LiveSalesBoard({ eventId }: { eventId: string }) {
   const [stats, setStats] = useState<LiveStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
   const [isConnected, setIsConnected] = useState(true);
   const [flashNew, setFlashNew] = useState(false);
+  const [toasts, setToasts] = useState<CheeringToast[]>([]);
   const prevCountRef = useRef<number>(0);
+  const prevTxIdsRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastIdRef = useRef(0);
 
   const fetch_ = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -68,12 +83,22 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
       setIsConnected(true);
       setLastFetched(new Date());
 
-      // 新しいトランザクションが来たらフラッシュ
       if (prevCountRef.current > 0 && data.transaction_count > prevCountRef.current) {
         setFlashNew(true);
         setTimeout(() => setFlashNew(false), 1500);
+
+        // 新着トランザクションのチャリーントースト
+        const newTxs = data.recent_transactions.filter(
+          (tx) => tx.transaction_id && !prevTxIdsRef.current.has(tx.transaction_id)
+        );
+        for (const tx of newTxs.slice(0, 3)) {
+          const id = ++toastIdRef.current;
+          setToasts((prev) => [...prev, { id, amount: tx.total_gross_amount ?? 0, sender: tx.sender_name }]);
+          setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2500);
+        }
       }
       prevCountRef.current = data.transaction_count;
+      prevTxIdsRef.current = new Set(data.recent_transactions.map((t) => t.transaction_id));
     } catch {
       setIsConnected(false);
     } finally {
@@ -81,7 +106,6 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
     }
   }, [eventId]);
 
-  // ポーリング
   useEffect(() => {
     fetch_(false);
 
@@ -99,7 +123,6 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
-  // is_live が変わったらポーリング間隔を再設定
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     const interval = stats?.is_live ? POLL_INTERVAL_LIVE : POLL_INTERVAL_IDLE;
@@ -127,6 +150,23 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
 
   return (
     <div className="space-y-4">
+      {/* チャリーントースト */}
+      <div className="fixed bottom-6 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="flex items-center gap-2 bg-slate-900 border border-pink-500/60 shadow-[0_0_20px_rgba(236,72,153,0.4)] rounded-2xl px-4 py-3 animate-slide-up-fade"
+          >
+            <Coins size={16} className="text-pink-400 shrink-0" />
+            <div>
+              <p className="text-xs font-black text-pink-400 leading-none">チャリーン！</p>
+              <p className="text-base font-black text-white tabular-nums leading-tight">{formatJPY(t.amount)}</p>
+              {t.sender && <p className="text-[10px] text-slate-500">{t.sender}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* メインボード */}
       <div className={`relative bg-slate-900 border rounded-[2rem] overflow-hidden transition-all duration-300 ${
         flashNew
@@ -162,7 +202,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
           </button>
         </div>
 
-        {/* 自分の着金予定額（ヒーロー数字） */}
+        {/* 自分の着金予定額 */}
         <div className="px-8 pt-8 pb-6 space-y-2">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
             <ArrowDownToLine size={11} />
@@ -178,7 +218,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
           </p>
         </div>
 
-        {/* Gross・手数料ブレークダウン（organizer/agent/admin のみ） */}
+        {/* Gross・手数料ブレークダウン */}
         {stats.show_gross && (
           <div className="mx-6 mb-6 bg-slate-800/60 rounded-2xl p-5 space-y-3">
             <div className="flex items-center justify-between">
@@ -222,7 +262,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
         </div>
       </div>
 
-      {/* 配分先内訳（organizer/agent/admin のみ） */}
+      {/* 配分先内訳 */}
       {stats.distributions.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -245,6 +285,51 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 決済掲示板 */}
+      {stats.recent_transactions.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            <Coins size={11} className="text-pink-500" /> 決済ログ
+          </p>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-800">
+            {stats.recent_transactions.map((tx, i) => {
+              const isMsg = tx.product_type === "message";
+              const isNew = i === 0 && flashNew;
+              return (
+                <div
+                  key={tx.transaction_id}
+                  className={`px-5 py-3 transition-colors duration-700 ${isNew ? "bg-pink-500/10" : ""}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {isMsg ? (
+                        <MessageSquare size={12} className="text-indigo-400 shrink-0 mt-0.5" />
+                      ) : (
+                        <Coins size={12} className="text-pink-400 shrink-0 mt-0.5" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-white truncate">
+                          {tx.sender_name ?? "ゲスト"}
+                        </p>
+                        {isMsg && tx.sender_comment && (
+                          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{tx.sender_comment}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-black text-white tabular-nums">
+                        {formatJPY(tx.total_gross_amount ?? 0)}
+                      </p>
+                      <p className="text-[10px] text-slate-600 tabular-nums">{formatTime(tx.created_at)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

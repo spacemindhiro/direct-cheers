@@ -51,7 +51,7 @@ export function PayoutBypassButton({ eventId, eventTitle, pendingAmount, transfe
         onClick={() => setOpen(true)}
         className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border bg-slate-800 border-slate-700 text-slate-500 hover:text-amber-400 hover:border-amber-500/30 transition-all"
       >
-        <FlaskConical size={10} /> 14日待機スキップ（テスト）
+        <FlaskConical size={10} /> 特例出金（管理者）
       </button>
     );
   }
@@ -59,7 +59,7 @@ export function PayoutBypassButton({ eventId, eventTitle, pendingAmount, transfe
   return (
     <div className="space-y-2 border border-amber-500/30 bg-amber-500/5 rounded-xl p-3">
       <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
-        <FlaskConical size={10} /> テスト：14日待機スキップ
+        <FlaskConical size={10} /> 特例出金（管理者）
       </p>
       <p className="text-[10px] text-slate-500">
         「{eventTitle}」の保留中 ¥{pendingAmount.toLocaleString()} を即時出金します

@@ -32,26 +32,47 @@ export async function sendWalletPush(pushToken: string): Promise<void> {
       key: keyPem,
     });
 
-    client.on("error", (err) => { client.destroy(); reject(err); });
+    client.on("error", (err) => {
+      console.error("[wallet/push] http2 connect error:", err.message);
+      client.destroy();
+      reject(err);
+    });
 
+    const body = JSON.stringify({});
     const req = client.request({
       ":method": "POST",
       ":path": `/3/device/${pushToken}`,
       "apns-topic": passTypeId,
-      "apns-push-type": "background",
+      "apns-priority": "5",
       "content-type": "application/json",
+      "content-length": Buffer.byteLength(body).toString(),
     });
 
-    req.write("{}");
+    req.write(body);
     req.end();
 
+    let responseData = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => { responseData += chunk; });
+
     req.on("response", (headers) => {
-      client.close();
       const status = headers[":status"];
-      if (status === 200) resolve();
-      else reject(new Error(`APNs status ${status}`));
+      req.on("end", () => {
+        client.close();
+        if (status === 200) {
+          console.log("[wallet/push] sent ok:", pushToken.slice(0, 8));
+          resolve();
+        } else {
+          console.error("[wallet/push] APNs error status:", status, responseData);
+          reject(new Error(`APNs status ${status}: ${responseData}`));
+        }
+      });
     });
 
-    req.on("error", (err) => { client.close(); reject(err); });
+    req.on("error", (err) => {
+      console.error("[wallet/push] req error:", err.message);
+      client.close();
+      reject(err);
+    });
   });
 }

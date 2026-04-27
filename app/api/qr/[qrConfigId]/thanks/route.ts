@@ -154,7 +154,10 @@ export async function POST(
           .eq("qr_config_id", qrConfigId)
           .eq("status", "completed");
 
-        if (!txRows?.length) return;
+        if (!txRows?.length) {
+          console.log("[thanks/push] no transactions for qrConfigId:", qrConfigId);
+          return;
+        }
 
         const serialNumbers = txRows.map((t) => t.transaction_id);
         const { data: devices } = await admin
@@ -163,7 +166,17 @@ export async function POST(
           .in("serial_number", serialNumbers);
 
         const uniqueTokens = [...new Set((devices ?? []).map((d) => d.push_token))];
-        await Promise.allSettled(uniqueTokens.map((token) => sendWalletPush(token)));
+        console.log("[thanks/push] pushing to", uniqueTokens.length, "devices for", qrConfigId);
+
+        if (uniqueTokens.length === 0) {
+          console.log("[thanks/push] no registered devices — pass may have been added before webServiceURL was set");
+          return;
+        }
+
+        const results = await Promise.allSettled(uniqueTokens.map((token) => sendWalletPush(token)));
+        results.forEach((r) => {
+          if (r.status === "rejected") console.error("[thanks/push] push failed:", r.reason);
+        });
       } catch (err) {
         console.error("[thanks/push]", err);
       }

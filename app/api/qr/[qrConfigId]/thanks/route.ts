@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendWalletPush } from "@/lib/apple-wallet-push";
 
 // GET: 購入済みユーザーが特典を取得（transaction_id で購入検証）
 export async function GET(
@@ -141,6 +142,32 @@ export async function POST(
   } else {
     const { error } = await admin.from("qr_config_thanks").insert(payload);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // publish時: ウォレット登録済みデバイスにpush
+  if (body.publish) {
+    (async () => {
+      try {
+        const { data: txRows } = await admin
+          .from("transactions")
+          .select("transaction_id")
+          .eq("qr_config_id", qrConfigId)
+          .eq("status", "completed");
+
+        if (!txRows?.length) return;
+
+        const serialNumbers = txRows.map((t) => t.transaction_id);
+        const { data: devices } = await admin
+          .from("wallet_device_registrations")
+          .select("push_token")
+          .in("serial_number", serialNumbers);
+
+        const uniqueTokens = [...new Set((devices ?? []).map((d) => d.push_token))];
+        await Promise.allSettled(uniqueTokens.map((token) => sendWalletPush(token)));
+      } catch (err) {
+        console.error("[thanks/push]", err);
+      }
+    })();
   }
 
   return NextResponse.json({ ok: true });

@@ -81,12 +81,13 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
 
   const { data: thanksData } = qrConfigId
     ? await admin.from("qr_config_thanks")
-        .select("thanks_message, thanks_link_url, published_at")
+        .select("thanks_message, thanks_link_url, thanks_media_url, published_at")
         .eq("qr_config_id", qrConfigId)
         .maybeSingle()
     : { data: null };
   const thanksMessage = thanksData?.published_at ? thanksData.thanks_message : null;
   const thanksLinkUrl = thanksData?.published_at ? thanksData.thanks_link_url : null;
+  const thanksMediaUrl = thanksData?.published_at ? thanksData.thanks_media_url : null;
 
   const passJson: Record<string, unknown> = {
     formatVersion: 1,
@@ -107,10 +108,11 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
       auxiliaryFields: [
         { key: "serial", label: "No.", value: `#${String(serialNumber).padStart(3, "0")}` },
         { key: "date", label: "DATE", value: txDate },
-        ...(thanksLinkUrl ? [{ key: "benefit", label: "特典", value: thanksLinkUrl }] : []),
       ],
       backFields: [
         ...(thanksMessage ? [{ key: "thanks", label: "メッセージ", value: thanksMessage }] : []),
+        ...(thanksLinkUrl ? [{ key: "benefit", label: "特典リンク", value: thanksLinkUrl }] : []),
+        ...(thanksMediaUrl ? [{ key: "media", label: "特典メディア", value: thanksMediaUrl }] : []),
         { key: "txid", label: "Transaction ID", value: tx.transaction_id },
         { key: "site", label: "direct cheers", value: "https://direct-cheers.com" },
       ],

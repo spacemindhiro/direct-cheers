@@ -151,9 +151,12 @@ export function CheersCard({
               </button>
             )}
 
-            <div className="flex items-center justify-between pt-1">
-              <p className="text-[9px] text-slate-600 font-mono">#{transactionId.slice(0, 8).toUpperCase()}</p>
-              <p className="text-[9px] text-slate-600">{dateStr}</p>
+            <div className="space-y-1 pt-1">
+              <div className="flex items-center justify-between">
+                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Transaction ID</p>
+                <p className="text-[9px] text-slate-600">{dateStr}</p>
+              </div>
+              <p className="text-[9px] text-slate-500 font-mono break-all">{transactionId}</p>
             </div>
           </div>
         </div>

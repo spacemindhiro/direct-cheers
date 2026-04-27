@@ -14,7 +14,7 @@ async function DashboardNav() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('display_name, role, stripe_restricted, stripe_connect_id')
+    .select('display_name, role, stripe_restricted, stripe_connect_id, avatar_url')
     .eq('profile_id', user.id)
     .maybeSingle();
 
@@ -39,8 +39,12 @@ async function DashboardNav() {
               href="/dashboard/profile"
               className="flex items-center gap-2 group"
             >
-              <div className="w-9 h-9 bg-slate-800 border border-slate-700 group-hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all">
-                <UserCircle size={18} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
+              <div className="w-9 h-9 bg-slate-800 border border-slate-700 group-hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all overflow-hidden">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt={profile.display_name} className="w-full h-full object-cover" />
+                ) : (
+                  <UserCircle size={18} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
+                )}
               </div>
               <span className="text-[10px] font-bold text-slate-500 group-hover:text-pink-500 uppercase tracking-widest hidden sm:block transition-colors">
                 {profile.display_name}

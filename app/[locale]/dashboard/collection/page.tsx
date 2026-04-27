@@ -136,17 +136,17 @@ async function CollectionContent() {
                     thanks_media_url: thanks.thanks_media_url,
                   } : null}
                 />
-                <div className="flex items-center justify-between px-1">
+                <div className="space-y-2 px-1">
                   <a
                     href={`/api/wallet/pass/${tx.transaction_id}`}
-                    className="inline-flex items-center gap-1.5 bg-black text-white text-[10px] font-bold rounded-lg px-3 py-1.5 hover:bg-slate-800 transition-colors"
+                    className="flex items-center justify-center gap-2 w-full bg-black text-white text-sm font-bold rounded-2xl px-4 py-3 hover:bg-slate-800 transition-colors"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M21.5 6.5h-19C1.67 6.5 1 7.17 1 8v13c0 .83.67 1.5 1.5 1.5h19c.83 0 1.5-.67 1.5-1.5V8c0-.83-.67-1.5-1.5-1.5zM12 17.25c-2.07 0-3.75-1.68-3.75-3.75S9.93 9.75 12 9.75s3.75 1.68 3.75 3.75-1.68 3.75-3.75 3.75zM21.5 3.5h-19C1.67 3.5 1 4.17 1 5s.67 1.5 1.5 1.5h19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z"/>
                     </svg>
-                    Apple Walletに追加
+                    Apple Wallet に追加
                   </a>
-                  <p className="text-[10px] text-slate-600">
+                  <p className="text-[10px] text-slate-600 text-right">
                     {new Date(tx.created_at).toLocaleDateString("ja-JP", {
                       year: "numeric",
                       month: "short",

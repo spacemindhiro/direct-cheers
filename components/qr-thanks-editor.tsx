@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Gift, Save, Eye, EyeOff, Loader2, CheckCircle, Link, Image, MessageSquare } from "lucide-react";
+import { Gift, Save, Eye, EyeOff, Loader2, CheckCircle, Link, Image, MessageSquare, Wallet } from "lucide-react";
 
 type Props = {
   qrConfigId: string;
@@ -165,15 +165,26 @@ export function QRThanksEditor({ qrConfigId }: Props) {
               公開する
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={() => handleSave(false)}
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-500/20 transition-all disabled:opacity-50"
-            >
-              {saving ? <Loader2 size={12} className="animate-spin" /> : <EyeOff size={12} />}
-              非公開にする
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => handleSave(true)}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={12} className="animate-spin" /> : <Wallet size={12} />}
+                Walletに通知
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSave(false)}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-500/20 transition-all disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={12} className="animate-spin" /> : <EyeOff size={12} />}
+                非公開
+              </button>
+            </>
           )}
         </div>
 

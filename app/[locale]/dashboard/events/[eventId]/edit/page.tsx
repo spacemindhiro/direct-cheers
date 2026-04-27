@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { EventEditForm } from "@/components/event-edit-form";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -36,24 +37,26 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
   if (!isOrganizer && !isAgent) redirect("/dashboard");
   if (event.lifecycle_status === "settled") redirect(`/dashboard/events/${eventId}`);
 
+  const admin = createAdminClient();
+
   // 現在の出演アーティスト（出演確定のみ）
-  const { data: eventArtists } = await supabase
+  const { data: eventArtists } = await admin
     .from("event_artists")
     .select("artist_profile_id, status, artist:profiles!artist_profile_id(display_name)")
     .eq("event_id", eventId)
     .is("deleted_at", null)
     .neq("status", "rejected");
 
-  // 確定済みのみ編集対象に含める（交渉中は別イベントと混同を防ぐためこのイベント単位で管理）
+  // 確定済みのみ編集対象に含める
   const currentArtists = (eventArtists ?? [])
     .filter((ea: any) => ea.status === "confirmed")
     .map((ea: any) => ({
       profile_id: ea.artist_profile_id,
-      display_name: ea.artist?.display_name ?? "—",
+      display_name: (ea.artist as any)?.display_name ?? "Unknown",
     }));
 
   // コネクション済みアーティスト
-  const { data: connections } = await supabase
+  const { data: connections } = await admin
     .from("connections")
     .select("artist_profile_id, artist:profiles!artist_profile_id(display_name)")
     .eq("organizer_profile_id", event.organizer_profile_id)
@@ -62,7 +65,7 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
 
   const connectedArtists = (connections ?? []).map((c: any) => ({
     profile_id: c.artist_profile_id,
-    display_name: c.artist?.display_name ?? "Unknown",
+    display_name: (c.artist as any)?.display_name ?? "Unknown",
   }));
 
   const toLocalDatetime = (iso: string) => iso.slice(0, 16);

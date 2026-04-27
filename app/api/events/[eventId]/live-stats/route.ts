@@ -3,11 +3,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 
+const PAGE_SIZE = 50;
+
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   const { eventId } = await params;
+  const { searchParams } = new URL(req.url);
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const supabase = await createClient();
   const admin = createAdminClient();
 
@@ -186,7 +190,10 @@ export async function GET(
     ? txList.filter((tx) => myTargetRatioMap.has(tx.qr_config_id))
     : txList;
 
-  const recentTransactions = filteredTxList.slice(0, 50).map((tx) => {
+  const totalPages = Math.max(1, Math.ceil(filteredTxList.length / PAGE_SIZE));
+  const pagedTxList = filteredTxList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const recentTransactions = pagedTxList.map((tx) => {
     const gross = tx.total_gross_amount ?? 0;
     const ratio = myTargetRatioMap.get(tx.qr_config_id) ?? null;
     const myNet = ratio !== null ? Math.floor(Math.floor(gross * NET_RATE) * ratio) : null;
@@ -219,5 +226,7 @@ export async function GET(
     platform_rate: PLATFORM_RATE,
     net_rate: NET_RATE,
     recent_transactions: recentTransactions,
+    current_page: page,
+    total_pages: totalPages,
   });
 }

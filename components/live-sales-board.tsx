@@ -40,6 +40,8 @@ type LiveStats = {
   platform_rate: number;
   net_rate: number;
   recent_transactions: TxItem[];
+  current_page: number;
+  total_pages: number;
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -71,6 +73,8 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
   const [flashNew, setFlashNew] = useState(false);
   const [toasts, setToasts] = useState<CheeringToast[]>([]);
   const [logTab, setLogTab] = useState<"log" | "message">("log");
+  const [logPage, setLogPage] = useState(1);
+  const logPageRef = useRef(1);
   const prevCountRef = useRef<number>(0);
   const prevTxIdsRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -79,7 +83,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
   const fetch_ = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch(`/api/events/${eventId}/live-stats`);
+      const res = await fetch(`/api/events/${eventId}/live-stats?page=${logPageRef.current}`);
       if (!res.ok) throw new Error("fetch failed");
       const data: LiveStats = await res.json();
       setStats(data);
@@ -89,6 +93,9 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
       if (prevCountRef.current > 0 && data.transaction_count > prevCountRef.current) {
         setFlashNew(true);
         setTimeout(() => setFlashNew(false), 1500);
+        // 新着が来たらページ1に戻す
+        setLogPage(1);
+        logPageRef.current = 1;
 
         // 新着トランザクションのチャリーントースト
         const newTxs = data.recent_transactions.filter(
@@ -380,6 +387,39 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
                 );
               })}
             </div>
+
+            {/* ページネーション */}
+            {stats.total_pages > 1 && (
+              <div className="flex items-center justify-center gap-3 pt-1">
+                <button
+                  onClick={() => {
+                    const p = Math.max(1, logPage - 1);
+                    setLogPage(p);
+                    logPageRef.current = p;
+                    fetch_(true);
+                  }}
+                  disabled={logPage <= 1}
+                  className="px-3 py-1 text-[10px] font-black text-slate-500 hover:text-white disabled:opacity-30 transition-colors"
+                >
+                  ← 前へ
+                </button>
+                <span className="text-[10px] text-slate-500 tabular-nums">
+                  {logPage} / {stats.total_pages}
+                </span>
+                <button
+                  onClick={() => {
+                    const p = Math.min(stats.total_pages, logPage + 1);
+                    setLogPage(p);
+                    logPageRef.current = p;
+                    fetch_(true);
+                  }}
+                  disabled={logPage >= stats.total_pages}
+                  className="px-3 py-1 text-[10px] font-black text-slate-500 hover:text-white disabled:opacity-30 transition-colors"
+                >
+                  次へ →
+                </button>
+              </div>
+            )}
           </div>
         );
       })()}

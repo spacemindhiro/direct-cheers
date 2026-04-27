@@ -19,7 +19,7 @@ async function CollectionContent() {
   const query = `
     transaction_id, total_gross_amount, created_at, sequence_number_in_event,
     product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name, avatar_url)),
-    qr_config:qr_configs!qr_config_id(image_url, event:events!event_id(title))
+    qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, event:events!event_id(title))
   `;
 
   const [{ data: byProfile }, { data: byEmail }] = await Promise.all([
@@ -51,6 +51,26 @@ async function CollectionContent() {
   cards.sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
+
+  // qr_config_thanks を一括取得
+  const qrConfigIds = [...new Set(cards.map((c) => c.qr_config?.qr_config_id).filter(Boolean))];
+  const { data: thanksRows } = qrConfigIds.length > 0
+    ? await admin.from("qr_config_thanks")
+        .select("qr_config_id, thanks_message, thanks_link_url, thanks_media_url, published_at")
+        .in("qr_config_id", qrConfigIds)
+    : { data: [] };
+  const thanksMap = new Map(
+    (thanksRows ?? [])
+      .filter((t) => t.published_at)
+      .map((t) => [t.qr_config_id, t])
+  );
+
+  // 宛先名を一括取得
+  const recipientIds = [...new Set(cards.map((c) => c.qr_config?.recipient_profile_id).filter(Boolean))];
+  const { data: recipientProfiles } = recipientIds.length > 0
+    ? await admin.from("profiles").select("profile_id, display_name, avatar_url").in("profile_id", recipientIds)
+    : { data: [] };
+  const recipientMap = new Map((recipientProfiles ?? []).map((p) => [p.profile_id, p]));
 
   return (
     <div className="space-y-8 pb-20">
@@ -84,33 +104,48 @@ async function CollectionContent() {
         </div>
       ) : (
         <div className="space-y-8">
-          {cards.map((tx: any) => (
-            <div key={tx.transaction_id} className="space-y-2">
-              <CheersCard
-                artistName={
-                  (tx.product?.artist as any)?.display_name ?? "Artist"
-                }
-                eventTitle={
-                  (tx.qr_config?.event as any)?.title ??
-                  tx.product?.name ??
-                  ""
-                }
-                artistAvatar={(tx.product?.artist as any)?.avatar_url ?? null}
-                imageUrl={(tx.qr_config as any)?.image_url ?? null}
-                amount={tx.total_gross_amount}
-                transactionId={tx.transaction_id}
-                serialNumber={tx.sequence_number_in_event ?? null}
-                paidAt={tx.created_at}
-              />
-              <p className="text-[10px] text-slate-600 text-right pr-1">
-                {new Date(tx.created_at).toLocaleDateString("ja-JP", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </p>
-            </div>
-          ))}
+          {cards.map((tx: any) => {
+            const qrConfigId = tx.qr_config?.qr_config_id;
+            const thanks = thanksMap.get(qrConfigId) ?? null;
+            const recipientProfileId = tx.qr_config?.recipient_profile_id;
+            const recipient = recipientMap.get(recipientProfileId);
+            const displayName = recipient?.display_name ?? (tx.product?.artist as any)?.display_name ?? "Artist";
+            const displayAvatar = recipient?.avatar_url ?? (tx.product?.artist as any)?.avatar_url ?? null;
+            return (
+              <div key={tx.transaction_id} className="space-y-2">
+                {thanks && (
+                  <div className="flex items-center gap-2 px-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse shrink-0" />
+                    <p className="text-[10px] font-black text-pink-400 uppercase tracking-widest">
+                      メッセージが届いています — タップして確認
+                    </p>
+                  </div>
+                )}
+                <CheersCard
+                  artistName={displayName}
+                  eventTitle={(tx.qr_config?.event as any)?.title ?? tx.product?.name ?? ""}
+                  artistAvatar={displayAvatar}
+                  imageUrl={tx.qr_config?.image_url ?? null}
+                  amount={tx.total_gross_amount}
+                  transactionId={tx.transaction_id}
+                  serialNumber={tx.sequence_number_in_event ?? null}
+                  paidAt={tx.created_at}
+                  thanks={thanks ? {
+                    thanks_message: thanks.thanks_message,
+                    thanks_link_url: thanks.thanks_link_url,
+                    thanks_media_url: thanks.thanks_media_url,
+                  } : null}
+                />
+                <p className="text-[10px] text-slate-600 text-right pr-1">
+                  {new Date(tx.created_at).toLocaleDateString("ja-JP", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

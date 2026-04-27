@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PayoutForm } from "@/components/payout-form";
+import { PayoutBypassButton } from "@/components/payout-bypass-button";
 import { getFeeConfig } from "@/lib/fee-config";
 import {
   Loader2, Wallet, Clock, Lock, AlertTriangle, ArrowLeft,
@@ -312,6 +313,16 @@ async function PayoutContent() {
                           ? "出金可能になっています"
                           : `${payoutDate.toLocaleDateString("ja-JP")} 以降に出金可能`}
                       </div>
+                    )}
+
+                    {/* adminテスト用バイパス */}
+                    {profile?.role === "admin" && row.pending > 0 && row.event_id !== "__unknown__" && (
+                      <PayoutBypassButton
+                        eventId={row.event_id}
+                        eventTitle={row.title}
+                        pendingAmount={row.pending}
+                        transferFee={TRANSFER_FEE}
+                      />
                     )}
                   </div>
                 );

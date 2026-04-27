@@ -26,13 +26,16 @@ export async function POST(req: Request) {
   if (!profile?.stripe_connect_id)
     return NextResponse.json({ error: "Stripe Connectアカウントが未設定です" }, { status: 400 });
 
-  const { requested_amount } = await req.json() as { requested_amount: number };
+  const { requested_amount, bypass_event_id } = await req.json() as { requested_amount: number; bypass_event_id?: string };
 
   if (!requested_amount || requested_amount <= TRANSFER_FEE)
     return NextResponse.json(
       { error: `出金額は振込手数料 ¥${TRANSFER_FEE} より大きくしてください` },
       { status: 400 }
     );
+
+  const isAdmin = profile?.role === "admin";
+  const useBypass = !!bypass_event_id && isAdmin;
 
   // 出金可能残高を取得（14日以上前のトランザクションに紐づく accrued distributions）
   const cutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
@@ -42,6 +45,7 @@ export async function POST(req: Request) {
     .select(`
       transaction_distribution_id,
       actual_amount,
+      event_id,
       transaction:transactions!transaction_id(
         transaction_id,
         created_at,
@@ -56,14 +60,13 @@ export async function POST(req: Request) {
     .is("deleted_at", null);
 
   // 14日経過 かつ 照合済み かつ 金額一致 のみ出金可能
+  // bypass_event_id が指定されたイベントの distributions は14日チェックをスキップ
   const eligibleDists = (availableDists ?? []).filter((d) => {
     const tx = d.transaction as any;
     if (!tx) return false;
-    // 14日経過チェック
-    if (!tx.created_at || tx.created_at >= cutoff) return false;
-    // 照合未完了はブロック
+    const isTargetEvent = useBypass && (d as any).event_id === bypass_event_id;
+    if (!isTargetEvent && (!tx.created_at || tx.created_at >= cutoff)) return false;
     if (!tx.reconciled_at) return false;
-    // 金額不一致はブロック
     if (tx.amount_verified === false || (tx.amount_mismatch ?? 0) !== 0) return false;
     return true;
   });

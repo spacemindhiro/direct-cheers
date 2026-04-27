@@ -51,7 +51,6 @@ export function PayoutForm({ available, transferFee }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* 金額入力 */}
       <div className="space-y-2">
         <div className="flex justify-between items-baseline">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">出金額</p>
@@ -75,7 +74,6 @@ export function PayoutForm({ available, transferFee }: Props) {
         </div>
       </div>
 
-      {/* 手数料内訳 */}
       <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 space-y-2">
         <div className="flex justify-between text-xs text-slate-400">
           <span>出金申請額</span>

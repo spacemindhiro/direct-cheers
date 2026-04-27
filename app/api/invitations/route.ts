@@ -35,6 +35,10 @@ export async function POST(req: Request) {
     target_email?: string;
   };
 
+  if (!target_email) {
+    return NextResponse.json({ error: "メールアドレスは必須です" }, { status: 400 });
+  }
+
   // 権限チェック
   const allowed = PERMISSION_MATRIX[profile.role] ?? [];
   if (!allowed.includes(target_role)) {

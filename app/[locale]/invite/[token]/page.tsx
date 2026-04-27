@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { InviteAcceptSection } from "@/components/invite-accept-section";
-import { UserCircle, Clock, ShieldCheck } from "lucide-react";
+import { UserCircle, Clock, ShieldCheck, Mail } from "lucide-react";
 import Link from "next/link";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -115,6 +115,20 @@ async function InviteContent({
                 <p className="text-white font-bold">{roleLabel}</p>
               </div>
             </div>
+
+            {invitation.target_email && (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                  <Mail size={20} className="text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    招待先メールアドレス
+                  </p>
+                  <p className="text-white font-bold">{invitation.target_email}</p>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center">

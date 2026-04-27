@@ -101,17 +101,18 @@ export function InviteCreateForm({ myRole }: { myRole: string }) {
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-              メールアドレス（任意）
+              メールアドレス
             </label>
             <Input
               type="email"
+              required
               value={targetEmail}
               onChange={(e) => setTargetEmail(e.target.value)}
-              placeholder="相手のメールアドレス（省略可）"
+              placeholder="相手のメールアドレス"
               className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             <p className="text-[10px] text-slate-600 leading-relaxed">
-              入力すると同じ相手への既存の招待を無効化してから新しく発行します
+              同じ相手への既存の招待は自動的に無効化されます
             </p>
           </div>
 

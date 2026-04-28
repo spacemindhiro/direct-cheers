@@ -1,16 +1,9 @@
+import { Suspense } from "react";
 import { LoginForm } from "@/components/login-form";
 import Link from "next/link";
 import { LoginErrorBoundary } from "@/components/login-error-boundary";
 
-export const dynamic = "force-dynamic";
-
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ redirect?: string; email?: string }>;
-}) {
-  const { redirect, email } = await searchParams;
-
+export default function Page() {
   return (
     <div className="min-h-screen bg-slate-950 font-sans flex flex-col">
       {/* ロゴ */}
@@ -31,7 +24,9 @@ export default async function Page({
       <div className="flex-1 flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-md">
           <LoginErrorBoundary>
-            <LoginForm redirectTo={redirect} emailHint={email} />
+            <Suspense fallback={null}>
+              <LoginForm />
+            </Suspense>
           </LoginErrorBoundary>
         </div>
       </div>

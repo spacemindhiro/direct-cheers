@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   // チャレンジを保存（profile_id はまだないかもしれないのでnull許容）
   await admin.from("passkey_challenges").insert({
     challenge: options.challenge,
-    profile_id: provisional.profile_id ?? null,
+    profile_id: resolvedProfileId ?? null,
     purpose: "registration",
   });
 

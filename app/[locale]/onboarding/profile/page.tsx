@@ -1,10 +1,9 @@
 'use client';
 
-import { Suspense, useState, useTransition } from 'react';
+import { Suspense, useState, useTransition, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { User, ArrowRight, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import type { PasskeySetup as PasskeySetupType } from '@/components/passkey-setup';
 
 export default function ProfileSetupPage() {

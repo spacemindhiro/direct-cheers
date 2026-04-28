@@ -81,6 +81,6 @@ export async function POST(req: Request) {
     options,
     email,
     device_name: device_name ?? null,
-    has_account: !!provisional.profile_id,
+    has_account: !!resolvedProfileId,
   });
 }

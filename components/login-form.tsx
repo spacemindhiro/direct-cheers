@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Loader2, ArrowRight, Mail, Lock, Send, CheckCircle2 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -13,8 +13,10 @@ const PasskeySetup = dynamic(() => import("@/components/passkey-setup").then(m =
 
 export function LoginForm({
   className,
+  redirectTo,
+  emailHint = "",
   ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+}: React.ComponentPropsWithoutRef<"div"> & { redirectTo?: string | null; emailHint?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [showForgot, setShowForgot] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -22,9 +24,6 @@ export function LoginForm({
   const [magicSent, setMagicSent] = useState(false);
   const [magicPending, setMagicPending] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect");
-  const emailHint = searchParams.get("email") ?? "";
 
   const handleMagicLink = async () => {
     const email = emailValue || emailHint;

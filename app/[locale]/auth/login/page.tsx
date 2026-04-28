@@ -1,10 +1,14 @@
-import { Suspense } from "react";
 import { LoginForm } from "@/components/login-form";
 import Link from "next/link";
 import { LoginErrorBoundary } from "@/components/login-error-boundary";
-import { Loader2 } from "lucide-react";
 
-export default function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect?: string; email?: string }>;
+}) {
+  const { redirect, email } = await searchParams;
+
   return (
     <div className="min-h-screen bg-slate-950 font-sans flex flex-col">
       {/* ロゴ */}
@@ -25,9 +29,7 @@ export default function Page() {
       <div className="flex-1 flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-md">
           <LoginErrorBoundary>
-            <Suspense fallback={<div className="flex justify-center"><Loader2 className="animate-spin text-pink-500" size={28} /></div>}>
-              <LoginForm />
-            </Suspense>
+            <LoginForm redirectTo={redirect} emailHint={email} />
           </LoginErrorBoundary>
         </div>
       </div>

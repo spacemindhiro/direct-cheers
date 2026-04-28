@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, ArrowRight, Mail, Lock, Send, CheckCircle2 } from "lucide-react";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
 
@@ -15,7 +15,7 @@ export function LoginForm({
 }: React.ComponentPropsWithoutRef<"div">) {
   const [error, setError] = useState<string | null>(null);
   const [showForgot, setShowForgot] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [emailValue, setEmailValue] = useState("");
   const [magicSent, setMagicSent] = useState(false);
   const [magicPending, setMagicPending] = useState(false);
@@ -49,24 +49,29 @@ export function LoginForm({
     setMagicSent(true);
   };
 
-  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const email = (form.elements.namedItem("email") as HTMLInputElement).value;
     const password = (form.elements.namedItem("password") as HTMLInputElement).value;
 
-    startTransition(async () => {
-      setError(null);
+    setIsPending(true);
+    setError(null);
+    try {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setError("メールアドレスまたはパスワードが正しくありません");
+        setError(error.message);
         setShowForgot(true);
       } else {
         router.refresh();
         router.push(redirectTo ?? "/dashboard");
       }
-    });
+    } catch (err: any) {
+      setError(err?.message ?? "ログインに失敗しました");
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (

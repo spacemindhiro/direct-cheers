@@ -5,11 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { Loader2, ArrowRight, Mail, Lock, Send, CheckCircle2 } from "lucide-react";
-import dynamic from "next/dynamic";
-
-const PasskeySetup = dynamic(() => import("@/components/passkey-setup").then(m => ({ default: m.PasskeySetup })), { ssr: false });
+import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
 
 export function LoginForm({
   className,
@@ -23,7 +21,14 @@ export function LoginForm({
   const [emailValue, setEmailValue] = useState("");
   const [magicSent, setMagicSent] = useState(false);
   const [magicPending, setMagicPending] = useState(false);
+  const [PasskeySetup, setPasskeySetup] = useState<typeof PasskeySetupType | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    import("@/components/passkey-setup")
+      .then(m => setPasskeySetup(() => m.PasskeySetup))
+      .catch(() => {}); // 読み込めなくてもフォームには影響しない
+  }, []);
 
   const handleMagicLink = async () => {
     const email = emailValue || emailHint;
@@ -137,11 +142,11 @@ export function LoginForm({
         <div className="flex-1 h-px bg-slate-800" />
       </div>
 
-      <PasskeySetup
+      {PasskeySetup && <PasskeySetup
         mode="authenticate"
         email={emailValue || emailHint}
         onSuccess={() => router.push(redirectTo ?? "/dashboard")}
-      />
+      />}
 
       {/* マジックリンク（別デバイス・パスキー未登録端末向け） */}
       {magicSent ? (

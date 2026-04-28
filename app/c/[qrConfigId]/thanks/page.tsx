@@ -3,9 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useParams } from "next/navigation";
 import { CheersCard } from "@/components/cheers-card";
-import dynamic from "next/dynamic";
-
-const PasskeySetup = dynamic(() => import("@/components/passkey-setup").then(m => ({ default: m.PasskeySetup })), { ssr: false });
+import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
 import { FollowButton } from "@/components/follow-button";
 import { Loader2, ArrowLeft, PlusCircle, MessageSquare, Send, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
@@ -59,6 +57,13 @@ function ThanksContent() {
   const [msgComment, setMsgComment] = useState("");
   const [msgSent, setMsgSent] = useState(false);
   const [msgSending, setMsgSending] = useState(false);
+  const [PasskeySetup, setPasskeySetup] = useState<typeof PasskeySetupType | null>(null);
+
+  useEffect(() => {
+    import("@/components/passkey-setup")
+      .then(m => setPasskeySetup(() => m.PasskeySetup))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!sessionId) {
@@ -333,12 +338,12 @@ function ThanksContent() {
                       {email} でアカウントが登録されています。パスキーでログインして応援履歴を確認できます。
                     </p>
                   </div>
-                  <PasskeySetup
+                  {PasskeySetup && <PasskeySetup
                     email={email}
                     mode="authenticate"
                     onSuccess={() => setPasskeyDone(true)}
                     buttonLabel="パスキーでログイン"
-                  />
+                  />}
                   <Link
                     href={`/auth/login?email=${encodeURIComponent(email)}&redirect=/dashboard/collection`}
                     className="block text-center text-xs text-slate-600 hover:text-slate-400 font-bold transition-colors"
@@ -354,13 +359,13 @@ function ThanksContent() {
                       顔認証・指紋認証でアカウントを作成し、応援コレクションをいつでも確認できます。
                     </p>
                   </div>
-                  <PasskeySetup
+                  {PasskeySetup && <PasskeySetup
                     email={email}
                     mode="register"
                     deviceName={getDeviceLabel()}
                     onSuccess={() => setPasskeyDone(true)}
                     buttonLabel="パスキーでアカウント作成"
-                  />
+                  />}
                 </>
               )}
             </div>

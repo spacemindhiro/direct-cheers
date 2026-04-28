@@ -4,9 +4,8 @@ import { Suspense, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { User, ArrowRight, Loader2 } from 'lucide-react';
-import dynamic from 'next/dynamic';
-
-const PasskeySetup = dynamic(() => import('@/components/passkey-setup').then(m => ({ default: m.PasskeySetup })), { ssr: false });
+import { useEffect, useState } from 'react';
+import type { PasskeySetup as PasskeySetupType } from '@/components/passkey-setup';
 
 export default function ProfileSetupPage() {
   return (
@@ -21,6 +20,13 @@ function ProfileSetupForm() {
   const [isPending, startTransition] = useTransition();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [profileDone, setProfileDone] = useState(false);
+  const [PasskeySetup, setPasskeySetup] = useState<typeof PasskeySetupType | null>(null);
+
+  useEffect(() => {
+    import('@/components/passkey-setup')
+      .then(m => setPasskeySetup(() => m.PasskeySetup))
+      .catch(() => {});
+  }, []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect');
@@ -84,7 +90,7 @@ function ProfileSetupForm() {
             <p className="text-xs text-slate-500 leading-relaxed">
               パスキーを登録しておくと、次回以降はパスワード不要でログインできます。iCloud キーチェーンや Google パスワードマネージャーを使っている場合は自動的に同期されます。
             </p>
-            {userEmail ? (
+            {userEmail && PasskeySetup ? (
               <PasskeySetup
                 email={userEmail}
                 mode="register"

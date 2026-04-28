@@ -4,7 +4,9 @@ import { Suspense, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { User, ArrowRight, Loader2 } from 'lucide-react';
-import { PasskeySetup } from '@/components/passkey-setup';
+import dynamic from 'next/dynamic';
+
+const PasskeySetup = dynamic(() => import('@/components/passkey-setup').then(m => ({ default: m.PasskeySetup })), { ssr: false });
 
 export default function ProfileSetupPage() {
   return (

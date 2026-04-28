@@ -3,7 +3,9 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useParams } from "next/navigation";
 import { CheersCard } from "@/components/cheers-card";
-import { PasskeySetup } from "@/components/passkey-setup";
+import dynamic from "next/dynamic";
+
+const PasskeySetup = dynamic(() => import("@/components/passkey-setup").then(m => ({ default: m.PasskeySetup })), { ssr: false });
 import { FollowButton } from "@/components/follow-button";
 import { Loader2, ArrowLeft, PlusCircle, MessageSquare, Send, LayoutDashboard } from "lucide-react";
 import Link from "next/link";

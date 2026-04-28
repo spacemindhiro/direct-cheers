@@ -1,13 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Merge, CheckCircle2, Loader2, ChevronRight, ArrowLeft } from "lucide-react";
+import { Mail, Merge, CheckCircle2, Loader2, ChevronRight, ArrowLeft, KeyRound, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AccountPage() {
   const [targetEmail, setTargetEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [pwStatus, setPwStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [pwError, setPwError] = useState("");
+
+  const handleSetPassword = async () => {
+    if (newPassword.length < 8) { setPwError("8文字以上で設定してください"); return; }
+    if (newPassword !== confirmPassword) { setPwError("パスワードが一致しません"); return; }
+    setPwStatus("loading");
+    setPwError("");
+    const supabase = createClient();
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      setPwError(error.message);
+      setPwStatus("error");
+    } else {
+      setPwStatus("done");
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+  };
 
   const handleMergeRequest = async () => {
     if (!targetEmail.includes("@")) {
@@ -106,6 +130,56 @@ export default function AccountPage() {
               入力したメールアドレス宛に確認メールを送ります。メール内のリンクをクリックすると、そのメアドで決済した応援履歴がこのアカウントに統合されます。
             </p>
           </>
+        )}
+      </div>
+
+      {/* パスワード設定 */}
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20">
+            <KeyRound size={16} className="text-pink-500" />
+          </div>
+          <div>
+            <p className="text-sm font-black text-white">パスワードを設定・変更</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">パスキー未対応の端末でもログインできます</p>
+          </div>
+        </div>
+
+        {pwStatus === "done" ? (
+          <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+            <CheckCircle2 size={18} className="text-green-400 shrink-0" />
+            <p className="text-sm font-bold text-green-400">パスワードを設定しました</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="新しいパスワード（8文字以上）"
+                className="w-full h-12 bg-slate-950 border border-slate-600 rounded-xl px-4 pr-12 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none"
+              />
+              <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500">
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <input
+              type={showPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder="パスワードを再入力"
+              className="w-full h-12 bg-slate-950 border border-slate-600 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none"
+            />
+            {pwError && <p className="text-xs text-red-400">{pwError}</p>}
+            <button
+              onClick={handleSetPassword}
+              disabled={!newPassword || !confirmPassword || pwStatus === "loading"}
+              className="w-full h-12 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-xl font-black text-sm hover:brightness-110 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {pwStatus === "loading" ? <Loader2 size={16} className="animate-spin" /> : "パスワードを設定する"}
+            </button>
+          </div>
         )}
       </div>
 

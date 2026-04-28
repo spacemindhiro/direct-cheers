@@ -859,6 +859,40 @@ export default function ProfileEditPage() {
         </div>
       </div>
 
+      {/* アカウント管理（パスワード設定・履歴統合） */}
+      <Link
+        href="/dashboard/account"
+        className="flex items-center justify-between bg-slate-900 border border-slate-800 hover:border-pink-500/30 rounded-[2.5rem] p-6 transition-all group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-pink-500/10 transition-colors">
+            <Shield size={18} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
+          </div>
+          <div>
+            <p className="text-sm font-black text-white">アカウント管理</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">パスワード設定・応援履歴の統合</p>
+          </div>
+        </div>
+        <ArrowLeft size={16} className="text-slate-600 rotate-180 group-hover:text-pink-500 transition-colors" />
+      </Link>
+
+      {/* パスキー管理 */}
+      <Link
+        href="/dashboard/passkeys"
+        className="flex items-center justify-between bg-slate-900 border border-slate-800 hover:border-pink-500/30 rounded-[2.5rem] p-6 transition-all group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-pink-500/10 transition-colors">
+            <Smartphone size={18} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
+          </div>
+          <div>
+            <p className="text-sm font-black text-white">パスキー管理</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">顔認証・指紋認証でログインできるデバイスを管理</p>
+          </div>
+        </div>
+        <ArrowLeft size={16} className="text-slate-600 rotate-180 group-hover:text-pink-500 transition-colors" />
+      </Link>
+
     </div>
   );
 }

@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Loader2, ArrowRight, Mail, Lock } from "lucide-react";
-import { PasskeySetup } from "@/components/passkey-setup";
+import { Loader2, ArrowRight, Mail, Lock, Send, CheckCircle2 } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const PasskeySetup = dynamic(() => import("@/components/passkey-setup").then(m => ({ default: m.PasskeySetup })), { ssr: false });
 
 export function LoginForm({
   className,
@@ -17,10 +19,25 @@ export function LoginForm({
   const [showForgot, setShowForgot] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [emailValue, setEmailValue] = useState("");
+  const [magicSent, setMagicSent] = useState(false);
+  const [magicPending, setMagicPending] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect");
   const emailHint = searchParams.get("email") ?? "";
+
+  const handleMagicLink = async () => {
+    const email = emailValue || emailHint;
+    if (!email) return;
+    setMagicPending(true);
+    const supabase = createClient();
+    await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}` },
+    });
+    setMagicPending(false);
+    setMagicSent(true);
+  };
 
   const handleLogin = (formData: FormData) => {
     const email = formData.get("email") as string;
@@ -126,6 +143,24 @@ export function LoginForm({
         email={emailValue || emailHint}
         onSuccess={() => router.push(redirectTo ?? "/dashboard")}
       />
+
+      {/* マジックリンク（別デバイス・パスキー未登録端末向け） */}
+      {magicSent ? (
+        <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4">
+          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          <p className="text-sm text-emerald-400 font-bold">ログインリンクを送りました</p>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={!(emailValue || emailHint) || magicPending}
+          onClick={handleMagicLink}
+          className="w-full flex items-center justify-center gap-2 h-12 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl text-sm text-slate-300 font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {magicPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={15} />}
+          メールでログインリンクを受け取る
+        </button>
+      )}
 
       <p className="text-center text-sm text-slate-500">
         アカウントをお持ちでない方は{" "}

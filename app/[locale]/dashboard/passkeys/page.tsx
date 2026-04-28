@@ -54,12 +54,16 @@ export default function PasskeysPage() {
 
   const handleDelete = async (credentialId: string) => {
     if (!confirm("このデバイスのパスキーを削除しますか？")) return;
-    const res = await fetch(`/api/passkeys/credentials/${credentialId}`, { method: "DELETE" });
-    const data = await res.json();
-    if (data.error) {
-      setError(data.error);
-    } else {
-      setCredentials((prev) => prev.filter((c) => c.credential_id !== credentialId));
+    try {
+      const res = await fetch(`/api/passkeys/credentials/${credentialId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setCredentials((prev) => prev.filter((c) => c.credential_id !== credentialId));
+      }
+    } catch {
+      setError("削除に失敗しました。再度お試しください。");
     }
   };
 

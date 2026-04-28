@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { LoginForm } from "@/components/login-form";
 import Link from "next/link";
 import { LoginErrorBoundary } from "@/components/login-error-boundary";
@@ -24,9 +23,7 @@ export default function Page() {
       <div className="flex-1 flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-md">
           <LoginErrorBoundary>
-            <Suspense fallback={null}>
-              <LoginForm />
-            </Suspense>
+            <LoginForm />
           </LoginErrorBoundary>
         </div>
       </div>

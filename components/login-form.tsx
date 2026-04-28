@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useTransition, useEffect } from "react";
 import { Loader2, ArrowRight, Mail, Lock, Send, CheckCircle2 } from "lucide-react";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
@@ -20,10 +20,15 @@ export function LoginForm({
   const [magicSent, setMagicSent] = useState(false);
   const [magicPending, setMagicPending] = useState(false);
   const [PasskeySetup, setPasskeySetup] = useState<typeof PasskeySetupType | null>(null);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+  const [emailHint, setEmailHint] = useState("");
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect");
-  const emailHint = searchParams.get("email") ?? "";
+
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    setRedirectTo(p.get("redirect"));
+    setEmailHint(p.get("email") ?? "");
+  }, []);
 
   useEffect(() => {
     import("@/components/passkey-setup")

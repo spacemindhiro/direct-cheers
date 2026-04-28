@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Loader2, ArrowRight, Mail, Lock, Send, CheckCircle2 } from "lucide-react";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
@@ -22,8 +21,6 @@ export function LoginForm({
   const [PasskeySetup, setPasskeySetup] = useState<typeof PasskeySetupType | null>(null);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const [emailHint, setEmailHint] = useState("");
-  const router = useRouter();
-
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     setRedirectTo(p.get("redirect"));
@@ -64,8 +61,7 @@ export function LoginForm({
         setError(error.message);
         setShowForgot(true);
       } else {
-        router.refresh();
-        router.push(redirectTo ?? "/dashboard");
+        window.location.replace(redirectTo ?? "/dashboard");
       }
     } catch (err: any) {
       setError(err?.message ?? "ログインに失敗しました");
@@ -159,7 +155,7 @@ export function LoginForm({
       {PasskeySetup && <PasskeySetup
         mode="authenticate"
         email={emailValue || emailHint}
-        onSuccess={() => router.push(redirectTo ?? "/dashboard")}
+        onSuccess={() => window.location.replace(redirectTo ?? "/dashboard")}
       />}
 
       {/* マジックリンク（別デバイス・パスキー未登録端末向け） */}

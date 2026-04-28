@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -133,17 +133,26 @@ export default function ProfileEditPage() {
   const [zipSearching, setZipSearching] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
 
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
     setCropSrc(url);
+    setShowCropper(true);
     e.target.value = "";
   };
 
+  const handleAvatarClick = () => {
+    if (cropSrc) setShowCropper(true);
+    else avatarFileRef.current?.click();
+  };
+
   const handleCropComplete = async (blob: Blob) => {
-    setCropSrc(null);
+    setShowCropper(false);
+    // cropSrc は保持（再クロップ用）
     setAvatarUploading(true);
     try {
       const fd = new FormData();
@@ -390,7 +399,7 @@ export default function ProfileEditPage() {
 
   return (
     <>
-    {cropSrc && (
+    {showCropper && cropSrc && (
       <ImageCropperModal
         imageSrc={cropSrc}
         aspect={1}
@@ -398,7 +407,7 @@ export default function ProfileEditPage() {
         outputHeight={400}
         label="1:1"
         onComplete={handleCropComplete}
-        onCancel={() => setCropSrc(null)}
+        onCancel={() => setShowCropper(false)}
       />
     )}
     <div className="max-w-lg mx-auto space-y-8 pb-20">
@@ -450,23 +459,36 @@ export default function ProfileEditPage() {
 
           <Field label="アバター画像" icon={<Camera size={11} className="text-pink-500" />} optional>
             <div className="flex items-center gap-3">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="avatar"
-                  className="w-14 h-14 rounded-2xl object-cover border border-slate-700 shrink-0"
-                  onError={(e) => (e.currentTarget.style.display = 'none')} />
-              ) : (
-                <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
-                  <Camera size={20} className="text-slate-600" />
+              {/* アバター画像 — クリックで再クロップ or ファイル選択 */}
+              <div
+                onClick={handleAvatarClick}
+                className="relative w-14 h-14 rounded-2xl overflow-hidden border border-slate-700 shrink-0 cursor-pointer group"
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover"
+                    onError={(e) => (e.currentTarget.style.display = 'none')} />
+                ) : (
+                  <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                    <Camera size={20} className="text-slate-600" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Camera size={16} className="text-white" />
                 </div>
-              )}
+              </div>
+
+              {/* ファイル選択ボタン */}
               <label className="flex-1 h-14 bg-slate-950/50 border border-dashed border-slate-700 rounded-2xl px-5 flex items-center gap-2 text-sm cursor-pointer hover:border-pink-500/50 transition-all">
-                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} disabled={avatarUploading} />
+                <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} disabled={avatarUploading} />
                 {avatarUploading
                   ? <><Loader2 size={16} className="animate-spin text-pink-500" /><span className="text-slate-400">アップロード中...</span></>
-                  : <><Camera size={16} className="text-slate-500" /><span className="text-slate-500">{avatarUrl ? '別の画像を選択' : '画像をアップロード'}</span></>
+                  : <><Camera size={16} className="text-slate-500" /><span className="text-slate-500">別の画像を選択</span></>
                 }
               </label>
             </div>
+            {cropSrc && avatarUrl && (
+              <p className="text-[10px] text-slate-600 mt-1">↑ 画像をタップすると再クロップできます</p>
+            )}
           </Field>
         </div>
 

@@ -120,7 +120,7 @@ export function QRImageUpload({ currentUrl, pathPrefix, eventTitle = "", artistN
 
   const handleCropComplete = async (blob: Blob) => {
     setCropOpen(false);
-    setRawSrc(null);
+    // rawSrc は保持（再クロップ用）
     setUploading(true);
     try {
       // Wallet合成画像を生成（eventTitle / artistName があれば）
@@ -147,7 +147,8 @@ export function QRImageUpload({ currentUrl, pathPrefix, eventTitle = "", artistN
     }
   };
 
-  const handleRemove = () => { setDisplayUrl(null); onUploadComplete(null); };
+  const handleRemove = () => { setDisplayUrl(null); setRawSrc(null); onUploadComplete(null); };
+  const handleAreaClick = () => { rawSrc ? setCropOpen(true) : fileRef.current?.click(); };
 
   return (
     <div className="space-y-2">
@@ -156,8 +157,8 @@ export function QRImageUpload({ currentUrl, pathPrefix, eventTitle = "", artistN
       </label>
 
       <div
-        onClick={() => fileRef.current?.click()}
-        className="relative w-full max-w-[270px] rounded-2xl overflow-hidden bg-slate-800 border border-slate-700 cursor-pointer hover:border-pink-500/40 transition-colors flex items-center justify-center select-none"
+        onClick={handleAreaClick}
+        className="relative w-full max-w-[270px] rounded-2xl overflow-hidden bg-slate-800 border border-slate-700 cursor-pointer hover:border-pink-500/40 transition-colors flex items-center justify-center select-none group"
         style={{ aspectRatio: "3/2" }}
       >
         {uploading ? (
@@ -165,9 +166,11 @@ export function QRImageUpload({ currentUrl, pathPrefix, eventTitle = "", artistN
         ) : displayUrl ? (
           <>
             <img src={displayUrl} className="w-full h-full object-cover" alt="QR image" />
-            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5">
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5">
               <Camera size={20} className="text-white" />
-              <p className="text-[10px] font-black text-white uppercase tracking-widest">変更</p>
+              <p className="text-[10px] font-black text-white uppercase tracking-widest">
+                {rawSrc ? '再クロップ' : '変更'}
+              </p>
             </div>
           </>
         ) : (
@@ -179,10 +182,18 @@ export function QRImageUpload({ currentUrl, pathPrefix, eventTitle = "", artistN
       </div>
 
       {displayUrl && (
-        <button type="button" onClick={handleRemove}
-          className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-red-400 transition-colors font-bold">
-          <X size={10} /> 画像を削除
-        </button>
+        <div className="flex items-center gap-4">
+          {rawSrc && (
+            <button type="button" onClick={() => fileRef.current?.click()}
+              className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors font-bold">
+              <Camera size={10} /> 別の画像
+            </button>
+          )}
+          <button type="button" onClick={handleRemove}
+            className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-red-400 transition-colors font-bold">
+            <X size={10} /> 画像を削除
+          </button>
+        </div>
       )}
 
       <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />

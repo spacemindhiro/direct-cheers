@@ -13,7 +13,20 @@ type Props = {
   onSuccess?: () => void;
 };
 
+function getDeviceLabel(): string {
+  if (typeof navigator === "undefined") return "";
+  const ua = navigator.userAgent;
+  if (/iPhone/.test(ua)) return "iPhone";
+  if (/iPad/.test(ua)) return "iPad";
+  if (/Android/.test(ua) && /Mobile/.test(ua)) return "Android";
+  if (/Android/.test(ua)) return "Androidタブレット";
+  if (/Mac/.test(ua)) return "Mac";
+  if (/Windows/.test(ua)) return "Windows PC";
+  return "";
+}
+
 export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }: Props) {
+  const resolvedDeviceName = deviceName || getDeviceLabel() || undefined;
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -30,7 +43,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       const optRes = await fetch("/api/passkeys/register-options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, device_name: deviceName }),
+        body: JSON.stringify({ email, device_name: resolvedDeviceName }),
       });
       const { options, error: optErr } = await optRes.json();
       if (optErr) throw new Error(optErr);
@@ -42,7 +55,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       const verRes = await fetch("/api/passkeys/register-verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, credential, device_name: deviceName }),
+        body: JSON.stringify({ email, credential, device_name: resolvedDeviceName }),
       });
       const { success, session_token, error: verErr } = await verRes.json();
       if (verErr) throw new Error(verErr);

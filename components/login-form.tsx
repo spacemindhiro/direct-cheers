@@ -49,9 +49,11 @@ export function LoginForm({
     setMagicSent(true);
   };
 
-  const handleLogin = (formData: FormData) => {
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
+  const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value;
 
     startTransition(async () => {
       setError(null);
@@ -83,7 +85,7 @@ export function LoginForm({
       </div>
 
       {/* フォーム */}
-      <form action={handleLogin} className="space-y-4">
+      <form onSubmit={handleLogin} className="space-y-4">
         <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 space-y-5">
 
           <div className="space-y-2">

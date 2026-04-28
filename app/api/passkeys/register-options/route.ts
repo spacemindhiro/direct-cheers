@@ -18,24 +18,31 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  // provisional_user から userId を取得（存在チェック兼用）
+  // provisional_users または Supabase auth からユーザーを特定
   const { data: provisional } = await admin
     .from("provisional_users")
     .select("provisional_id, profile_id")
     .eq("email", email)
     .maybeSingle();
 
-  if (!provisional) {
-    return NextResponse.json({ error: "Email not found" }, { status: 404 });
+  // provisional_users にいない場合は auth ユーザーから profile_id を解決
+  let resolvedProfileId: string | null = provisional?.profile_id ?? null;
+  if (!resolvedProfileId) {
+    const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const authUser = users.find(u => u.email === email);
+    if (!authUser && !provisional) {
+      return NextResponse.json({ error: "Email not found" }, { status: 404 });
+    }
+    resolvedProfileId = authUser?.id ?? null;
   }
 
   // 既存クレデンシャルを除外リストに
   let excludeCredentials: { id: string; type: "public-key" }[] = [];
-  if (provisional.profile_id) {
+  if (resolvedProfileId) {
     const { data: creds } = await admin
       .from("passkey_credentials")
       .select("credential_id")
-      .eq("profile_id", provisional.profile_id);
+      .eq("profile_id", resolvedProfileId);
     if (creds) {
       excludeCredentials = creds.map((c) => ({
         id: c.credential_id,

@@ -44,15 +44,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Challenge expired" }, { status: 400 });
   }
 
-  // provisional_user チェック
+  // provisional_users または auth からユーザーを特定
   const { data: provisional } = await admin
     .from("provisional_users")
     .select("provisional_id, profile_id")
     .eq("email", email)
     .maybeSingle();
 
-  if (!provisional) {
-    return NextResponse.json({ error: "Email not found" }, { status: 404 });
+  // provisional_users にいない場合は auth から直接解決
+  let resolvedProfileId: string | null = provisional?.profile_id ?? null;
+  if (!resolvedProfileId) {
+    const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const authUser = users.find(u => u.email === email);
+    if (!authUser && !provisional) {
+      return NextResponse.json({ error: "Email not found" }, { status: 404 });
+    }
+    resolvedProfileId = authUser?.id ?? null;
   }
 
   // WebAuthn 検証
@@ -83,41 +90,47 @@ export async function POST(req: Request) {
 
   // Supabase auth ユーザーを作成 or 既存取得
   let authUserId: string;
-  if (provisional.profile_id) {
-    // すでに profile がある場合はその auth user を使う
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("profile_id")
-      .eq("profile_id", provisional.profile_id)
-      .single();
-    authUserId = profile!.profile_id;
+  if (resolvedProfileId) {
+    authUserId = resolvedProfileId;
   } else {
-    // 新規 auth ユーザーを作成
+    // 新規 auth ユーザーを作成（既存の場合は既存ユーザーを使用）
     const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
       email,
       email_confirm: true,
       user_metadata: { source: "passkey_registration" },
     });
-    if (createErr || !newUser.user) {
-      return NextResponse.json({ error: createErr?.message ?? "User creation failed" }, { status: 500 });
-    }
-    authUserId = newUser.user.id;
 
-    // profiles レコードを作成（fan ロール）
-    const { error: profileErr } = await admin.from("profiles").insert({
-      profile_id: authUserId,
-      role: "fan",
-      status: "active",
-    });
-    if (profileErr) {
-      return NextResponse.json({ error: profileErr.message }, { status: 500 });
+    if (createErr) {
+      // すでに auth ユーザーが存在する場合は検索して使用
+      const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const existingUser = users.find(u => u.email === email);
+      if (!existingUser) {
+        return NextResponse.json({ error: createErr.message }, { status: 500 });
+      }
+      authUserId = existingUser.id;
+    } else if (!newUser.user) {
+      return NextResponse.json({ error: "User creation failed" }, { status: 500 });
+    } else {
+      authUserId = newUser.user.id;
+
+      // profiles レコードを作成（fan ロール）
+      const { error: profileErr } = await admin.from("profiles").insert({
+        profile_id: authUserId,
+        role: "fan",
+        status: "active",
+      });
+      if (profileErr) {
+        return NextResponse.json({ error: profileErr.message }, { status: 500 });
+      }
     }
 
-    // provisional_user を本登録に昇格
-    await admin
-      .from("provisional_users")
-      .update({ profile_id: authUserId, converted_at: new Date().toISOString() })
-      .eq("provisional_id", provisional.provisional_id);
+    // provisional_user を本登録に昇格（存在する場合のみ）
+    if (provisional) {
+      await admin
+        .from("provisional_users")
+        .update({ profile_id: authUserId, converted_at: new Date().toISOString() })
+        .eq("provisional_id", provisional.provisional_id);
+    }
   }
 
   // passkey_credentials に保存

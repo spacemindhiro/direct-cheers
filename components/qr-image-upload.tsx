@@ -182,18 +182,10 @@ export function QRImageUpload({ currentUrl, pathPrefix, eventTitle = "", artistN
       </div>
 
       {displayUrl && (
-        <div className="flex items-center gap-4">
-          {rawSrc && (
-            <button type="button" onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors font-bold">
-              <Camera size={10} /> 別の画像
-            </button>
-          )}
-          <button type="button" onClick={handleRemove}
-            className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-red-400 transition-colors font-bold">
-            <X size={10} /> 画像を削除
-          </button>
-        </div>
+        <button type="button" onClick={handleRemove}
+          className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-red-400 transition-colors font-bold">
+          <X size={10} /> 画像を削除
+        </button>
       )}
 
       <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />

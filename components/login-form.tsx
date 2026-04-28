@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Loader2, ArrowRight, Mail, Lock } from "lucide-react";
+import { PasskeySetup } from "@/components/passkey-setup";
 
 export function LoginForm({
   className,
@@ -15,6 +16,7 @@ export function LoginForm({
   const [error, setError] = useState<string | null>(null);
   const [showForgot, setShowForgot] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [emailValue, setEmailValue] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect");
@@ -65,7 +67,8 @@ export function LoginForm({
               name="email"
               type="email"
               placeholder="your@email.com"
-              defaultValue={emailHint}
+              value={emailValue || emailHint}
+              onChange={e => setEmailValue(e.target.value)}
               required
               className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
@@ -111,6 +114,18 @@ export function LoginForm({
           )}
         </button>
       </form>
+
+      <div className="flex items-center gap-4">
+        <div className="flex-1 h-px bg-slate-800" />
+        <span className="text-xs text-slate-600 font-bold">または</span>
+        <div className="flex-1 h-px bg-slate-800" />
+      </div>
+
+      <PasskeySetup
+        mode="authenticate"
+        email={emailValue || emailHint}
+        onSuccess={() => router.push(redirectTo ?? "/dashboard")}
+      />
 
       <p className="text-center text-sm text-slate-500">
         アカウントをお持ちでない方は{" "}

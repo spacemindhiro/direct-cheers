@@ -4,6 +4,7 @@ import { Suspense, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { User, ArrowRight, Loader2 } from 'lucide-react';
+import { PasskeySetup } from '@/components/passkey-setup';
 
 export default function ProfileSetupPage() {
   return (
@@ -16,6 +17,8 @@ export default function ProfileSetupPage() {
 function ProfileSetupForm() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [profileDone, setProfileDone] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect');
@@ -53,10 +56,53 @@ function ProfileSetupForm() {
       if (insertError) {
         setError(insertError.message);
       } else {
-        router.push(redirectTo ?? '/dashboard');
+        setUserEmail(user.email ?? null);
+        setProfileDone(true);
       }
     });
   };
+
+  if (profileDone) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex items-center justify-center px-6 py-16">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center space-y-2">
+            <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">
+              Step 2 / 2
+            </p>
+            <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
+              Passkey Setup
+            </h1>
+            <p className="text-sm text-slate-400 font-medium">
+              次回から顔認証・指紋認証でログインできます
+            </p>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 space-y-5">
+            <p className="text-xs text-slate-500 leading-relaxed">
+              パスキーを登録しておくと、次回以降はパスワード不要でログインできます。iCloud キーチェーンや Google パスワードマネージャーを使っている場合は自動的に同期されます。
+            </p>
+            {userEmail ? (
+              <PasskeySetup
+                email={userEmail}
+                mode="register"
+                onSuccess={() => router.push(redirectTo ?? '/dashboard')}
+                buttonLabel="パスキーを登録してダッシュボードへ"
+              />
+            ) : null}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => router.push(redirectTo ?? '/dashboard')}
+            className="w-full text-center text-xs text-slate-600 hover:text-slate-400 font-bold transition-colors py-2"
+          >
+            スキップしてダッシュボードへ
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex items-center justify-center px-6 py-16">
@@ -65,7 +111,7 @@ function ProfileSetupForm() {
         {/* ヘッダー */}
         <div className="text-center space-y-2">
           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">
-            Step 1 / 1
+            Step 1 / 2
           </p>
           <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
             Profile Setup

@@ -32,6 +32,11 @@ export async function POST(req: Request) {
         }));
       }
     }
+
+    // email 指定時にパスキーが見つからなければ即エラー
+    if (allowCredentials.length === 0) {
+      return NextResponse.json({ error: "このメールアドレスにパスキーが登録されていません" }, { status: 400 });
+    }
   }
 
   const options = await generateAuthenticationOptions({

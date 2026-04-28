@@ -126,7 +126,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
     <div className="space-y-3">
       <button
         type="button"
-        disabled={status === "loading"}
+        disabled={status === "loading" || (mode === "authenticate" && !email)}
         onClick={mode === "register" ? handleRegister : handleAuthenticate}
         className="w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl p-4 transition-all active:scale-[0.98] disabled:opacity-60"
       >

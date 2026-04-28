@@ -42,12 +42,13 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (existing) {
-    const [product, qrcInfo, isMember] = await Promise.all([
+    const [product, qrcInfo, isMember, hasPasskey] = await Promise.all([
       getProductInfo(admin, existing.product_id),
       getQrConfigInfo(admin, existing.qr_config_id ?? null),
       checkIsMember(admin, email ?? null),
+      checkHasPasskey(admin, email ?? null),
     ]);
-    return buildResponse(email, existing, product, qrcInfo, isMember);
+    return buildResponse(email, existing, product, qrcInfo, isMember, hasPasskey);
   }
 
   // provisional_users に email を upsert
@@ -85,9 +86,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: txError.message }, { status: 500 });
   }
 
-  const [qrcInfo, isMember] = await Promise.all([
+  const [qrcInfo, isMember, hasPasskey] = await Promise.all([
     getQrConfigInfo(admin, qrConfigId),
     checkIsMember(admin, email ?? null),
+    checkHasPasskey(admin, email ?? null),
   ]);
 
   // シリアルナンバー採番
@@ -129,6 +131,7 @@ export async function POST(req: Request) {
     product,
     qrcInfo,
     isMember,
+    hasPasskey,
   );
 
   if (email) {
@@ -190,6 +193,24 @@ async function getQrConfigInfo(
   };
 }
 
+async function checkHasPasskey(
+  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
+  email: string | null,
+): Promise<boolean> {
+  if (!email) return false;
+  const { data: prov } = await admin
+    .from("provisional_users")
+    .select("profile_id")
+    .eq("email", email)
+    .maybeSingle();
+  if (!prov?.profile_id) return false;
+  const { count } = await admin
+    .from("passkey_credentials")
+    .select("*", { count: "exact", head: true })
+    .eq("profile_id", prov.profile_id);
+  return (count ?? 0) > 0;
+}
+
 async function checkIsMember(
   admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
   email: string | null,
@@ -223,6 +244,7 @@ function buildResponse(
   product: Record<string, unknown>,
   qrcInfo: QrConfigInfo,
   isMember: boolean,
+  hasPasskey: boolean = false,
 ): NextResponse {
   return NextResponse.json({
     transaction_id: tx.transaction_id,
@@ -234,6 +256,7 @@ function buildResponse(
     recipient_name: qrcInfo.recipientName,
     recipient_avatar: qrcInfo.recipientAvatar,
     is_member: isMember,
+    has_passkey: hasPasskey,
     ...product,
   });
 }

@@ -78,8 +78,8 @@ function ThanksContent() {
         }
         setResult(data);
 
-        // 会員判定（pay/complete が返す is_member を使用）
-        if (data.is_member) {
+        // 会員かつパスキー登録済みの場合のみパスキーログインを表示
+        if (data.is_member && data.has_passkey) {
           setHasExistingPasskey(true);
         }
 
@@ -328,14 +328,20 @@ function ThanksContent() {
                   <div>
                     <p className="text-sm font-black text-white">ログインしてコレクションを確認</p>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      {email} でアカウントが登録されています。ログインして応援履歴を確認できます。
+                      {email} でアカウントが登録されています。パスキーでログインして応援履歴を確認できます。
                     </p>
                   </div>
+                  <PasskeySetup
+                    email={email}
+                    mode="authenticate"
+                    onSuccess={() => setPasskeyDone(true)}
+                    buttonLabel="パスキーでログイン"
+                  />
                   <Link
                     href={`/auth/login?email=${encodeURIComponent(email)}&redirect=/dashboard/collection`}
-                    className="flex items-center justify-center gap-2 w-full h-11 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-sm transition-all"
+                    className="block text-center text-xs text-slate-600 hover:text-slate-400 font-bold transition-colors"
                   >
-                    ログインする
+                    パスワードでログイン
                   </Link>
                 </>
               ) : (

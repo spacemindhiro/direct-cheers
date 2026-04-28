@@ -74,9 +74,11 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
 
   const recipientProfileId = (tx.qr_config as any)?.recipient_profile_id as string | null | undefined;
   let recipientName = artistName;
+  let recipientAvatarUrl: string | null = null;
   if (recipientProfileId) {
-    const { data: rp } = await admin.from("profiles").select("display_name").eq("profile_id", recipientProfileId).single();
+    const { data: rp } = await admin.from("profiles").select("display_name, avatar_url").eq("profile_id", recipientProfileId).single();
     if (rp?.display_name) recipientName = rp.display_name;
+    if (rp?.avatar_url) recipientAvatarUrl = rp.avatar_url;
   }
 
   const { data: thanksData } = qrConfigId
@@ -149,18 +151,33 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
       .toBuffer();
   }
 
-  const heartSvg = (size: number) => Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24">` +
-    `<path fill="#ec4899" d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>` +
+  // ピンク背景 + 白ハートのフォールバックロゴ
+  const pinkHeartSvg = (size: number) => Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
+    `<rect width="${size}" height="${size}" fill="#ec4899"/>` +
+    `<path fill="white" transform="translate(${size * 0.2},${size * 0.18}) scale(${(size * 0.6) / 24})" d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>` +
     `</svg>`
   );
+
+  const makeLogoBuffer = async (size: number): Promise<Buffer> => {
+    if (recipientAvatarUrl) {
+      try {
+        const res = await fetch(recipientAvatarUrl);
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer());
+          return await sharp(buf).resize(size, size, { fit: "cover", position: "centre" }).png().toBuffer();
+        }
+      } catch { /* フォールバックへ */ }
+    }
+    return await sharp(pinkHeartSvg(size)).png().toBuffer();
+  };
 
   const [icon1x, icon2x, icon3x, logo1x, logo2x, strip1x, strip2x, strip3x] = await Promise.all([
     sharp(logoBuffer).resize(29, 29).png().toBuffer(),
     sharp(logoBuffer).resize(58, 58).png().toBuffer(),
     sharp(logoBuffer).resize(87, 87).png().toBuffer(),
-    sharp(heartSvg(50)).resize(50, 50).png().toBuffer(),
-    sharp(heartSvg(100)).resize(100, 100).png().toBuffer(),
+    makeLogoBuffer(50),
+    makeLogoBuffer(100),
     sharp(strip2xRaw).resize(320, 213).png().toBuffer(),
     Promise.resolve(strip2xRaw),
     sharp(strip2xRaw).resize(960, 639).png().toBuffer(),

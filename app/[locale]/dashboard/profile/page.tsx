@@ -130,6 +130,24 @@ export default function ProfileEditPage() {
   const [statementDescriptorKana, setStatementDescriptorKana] = useState('');
 
   const [zipSearching, setZipSearching] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/avatar/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.url) setAvatarUrl(data.url);
+      else toast.error("アップロードに失敗しました");
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = "";
+    }
+  };
 
   const toFullWidthKana = (str: string): string => {
     const map: Record<string, string> = {
@@ -410,16 +428,24 @@ export default function ProfileEditPage() {
               className="w-full h-14 bg-slate-950/50 border border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 outline-none transition-all placeholder:text-slate-600 font-bold" />
           </Field>
 
-          <Field label="アバター URL" icon={<Camera size={11} className="text-pink-500" />} optional>
+          <Field label="アバター画像" icon={<Camera size={11} className="text-pink-500" />} optional>
             <div className="flex items-center gap-3">
-              {avatarUrl && (
+              {avatarUrl ? (
                 <img src={avatarUrl} alt="avatar"
-                  className="w-12 h-12 rounded-2xl object-cover border border-slate-700 shrink-0"
+                  className="w-14 h-14 rounded-2xl object-cover border border-slate-700 shrink-0"
                   onError={(e) => (e.currentTarget.style.display = 'none')} />
+              ) : (
+                <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                  <Camera size={20} className="text-slate-600" />
+                </div>
               )}
-              <input type="url" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="https://..."
-                className="flex-1 h-14 bg-slate-950/50 border border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 outline-none transition-all placeholder:text-slate-600" />
+              <label className="flex-1 h-14 bg-slate-950/50 border border-dashed border-slate-700 rounded-2xl px-5 flex items-center gap-2 text-sm cursor-pointer hover:border-pink-500/50 transition-all">
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={avatarUploading} />
+                {avatarUploading
+                  ? <><Loader2 size={16} className="animate-spin text-pink-500" /><span className="text-slate-400">アップロード中...</span></>
+                  : <><Camera size={16} className="text-slate-500" /><span className="text-slate-500">{avatarUrl ? '別の画像を選択' : '画像をアップロード'}</span></>
+                }
+              </label>
             </div>
           </Field>
         </div>

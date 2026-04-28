@@ -2,6 +2,8 @@ import { LoginForm } from "@/components/login-form";
 import Link from "next/link";
 import { LoginErrorBoundary } from "@/components/login-error-boundary";
 
+export const dynamic = "force-dynamic";
+
 export default async function Page({
   searchParams,
 }: {

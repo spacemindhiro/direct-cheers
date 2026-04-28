@@ -133,8 +133,8 @@ export async function POST(req: Request) {
     }
   }
 
-  // passkey_credentials に保存
-  const { error: credErr } = await admin.from("passkey_credentials").insert({
+  // passkey_credentials に保存（同じクレデンシャルの再登録はupsert）
+  const { error: credErr } = await admin.from("passkey_credentials").upsert({
     credential_id: cred.id,
     profile_id: authUserId,
     public_key: Buffer.from(cred.publicKey),

@@ -57,7 +57,6 @@ export async function POST(req: Request) {
     userName: email,
     userDisplayName: email,
     attestationType: "none",
-    excludeCredentials,
     authenticatorSelection: {
       residentKey: "required",
       userVerification: "required",

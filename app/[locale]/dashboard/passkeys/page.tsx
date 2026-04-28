@@ -128,8 +128,9 @@ export default function PasskeysPage() {
             {credentials.map((cred) => (
               <div
                 key={cred.credential_id}
-                className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex items-center gap-3"
+                className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex flex-col gap-3"
               >
+                <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-slate-700 rounded-xl flex items-center justify-center shrink-0">
                   {deviceIcon(cred)}
                 </div>
@@ -190,9 +191,10 @@ export default function PasskeysPage() {
                     </button>
                   </div>
                 )}
+                </div>
                 {confirmDeleteId === cred.credential_id && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <p className="text-xs text-slate-400 flex-1">削除しますか？</p>
+                  <div className="flex items-center gap-2 border-t border-slate-700 pt-3">
+                    <p className="text-xs text-slate-400 flex-1">このパスキーを削除しますか？</p>
                     <button
                       onClick={() => handleDelete(cred.credential_id)}
                       className="px-3 h-8 bg-red-500 hover:bg-red-400 text-white rounded-lg text-xs font-black transition-colors"

@@ -28,6 +28,7 @@ export default function PasskeysPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,7 +54,6 @@ export default function PasskeysPage() {
   useEffect(() => { load(); }, []);
 
   const handleDelete = async (credentialId: string) => {
-    if (!confirm("このデバイスのパスキーを削除しますか？")) return;
     try {
       const res = await fetch(`/api/passkeys/credentials/${credentialId}`, { method: "DELETE" });
       const data = await res.json();
@@ -64,6 +64,8 @@ export default function PasskeysPage() {
       }
     } catch {
       setError("削除に失敗しました。再度お試しください。");
+    } finally {
+      setConfirmDeleteId(null);
     }
   };
 
@@ -180,11 +182,28 @@ export default function PasskeysPage() {
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => handleDelete(cred.credential_id)}
+                      onClick={() => setConfirmDeleteId(cred.credential_id)}
                       className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-red-400 transition-colors"
                       disabled={credentials.length <= 1}
                     >
                       <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+                {confirmDeleteId === cred.credential_id && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <p className="text-xs text-slate-400 flex-1">削除しますか？</p>
+                    <button
+                      onClick={() => handleDelete(cred.credential_id)}
+                      className="px-3 h-8 bg-red-500 hover:bg-red-400 text-white rounded-lg text-xs font-black transition-colors"
+                    >
+                      削除
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="px-3 h-8 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-black transition-colors"
+                    >
+                      キャンセル
                     </button>
                   </div>
                 )}

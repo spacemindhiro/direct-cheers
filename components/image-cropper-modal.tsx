@@ -9,22 +9,29 @@ type Props = {
   imageSrc: string;
   onComplete: (blob: Blob) => void;
   onCancel: () => void;
+  aspect?: number;
+  outputWidth?: number;
+  outputHeight?: number;
+  label?: string;
 };
 
-/** 3:2 クロップ → 1200×800 JPEG */
-export async function getCroppedImg(src: string, crop: Area): Promise<Blob> {
+export async function getCroppedImg(
+  src: string,
+  crop: Area,
+  outputWidth = 1200,
+  outputHeight = 800,
+): Promise<Blob> {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = src;
   });
-  const W = 1200, H = 800;
   const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
   const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height, 0, 0, W, H);
+  ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height, 0, 0, outputWidth, outputHeight);
   return new Promise((resolve, reject) =>
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("crop failed"))),
@@ -34,7 +41,15 @@ export async function getCroppedImg(src: string, crop: Area): Promise<Blob> {
   );
 }
 
-export function ImageCropperModal({ imageSrc, onComplete, onCancel }: Props) {
+export function ImageCropperModal({
+  imageSrc,
+  onComplete,
+  onCancel,
+  aspect = 3 / 2,
+  outputWidth = 1200,
+  outputHeight = 800,
+  label,
+}: Props) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -48,30 +63,32 @@ export function ImageCropperModal({ imageSrc, onComplete, onCancel }: Props) {
     if (!croppedAreaPixels) return;
     setProcessing(true);
     try {
-      const blob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      const blob = await getCroppedImg(imageSrc, croppedAreaPixels, outputWidth, outputHeight);
       onComplete(blob);
     } finally {
       setProcessing(false);
     }
   };
 
+  const aspectLabel = label ?? (aspect === 1 ? "1:1" : "3:2");
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-3xl overflow-hidden w-full max-w-sm">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-          <p className="text-sm font-black text-white">画像をトリミング <span className="text-slate-500 text-xs font-normal">3:2</span></p>
+          <p className="text-sm font-black text-white">画像をトリミング <span className="text-slate-500 text-xs font-normal">{aspectLabel}</span></p>
           <button type="button" onClick={onCancel} className="text-slate-500 hover:text-white transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        {/* クロップエリア（3:2 表示） */}
-        <div className="relative bg-black" style={{ aspectRatio: "3/2" }}>
+        {/* クロップエリア */}
+        <div className="relative bg-black" style={{ aspectRatio: String(aspect === 1 ? "1/1" : "3/2") }}>
           <Cropper
             image={imageSrc}
             crop={crop}
             zoom={zoom}
-            aspect={3 / 2}
+            aspect={aspect}
             onCropChange={setCrop}
             onZoomChange={setZoom}
             onCropComplete={onCropComplete}

@@ -11,6 +11,7 @@ import {
   Phone, MapPin, CreditCard,
 } from 'lucide-react';
 import Link from 'next/link';
+import { ImageCropperModal } from '@/components/image-cropper-modal';
 
 type Profile = {
   display_name: string;
@@ -131,21 +132,28 @@ export default function ProfileEditPage() {
 
   const [zipSearching, setZipSearching] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const url = URL.createObjectURL(file);
+    setCropSrc(url);
+    e.target.value = "";
+  };
+
+  const handleCropComplete = async (blob: Blob) => {
+    setCropSrc(null);
     setAvatarUploading(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", blob, "avatar.jpg");
       const res = await fetch("/api/avatar/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (data.url) setAvatarUrl(data.url);
       else toast.error("アップロードに失敗しました");
     } finally {
       setAvatarUploading(false);
-      e.target.value = "";
     }
   };
 
@@ -381,6 +389,18 @@ export default function ProfileEditPage() {
   const stripeConnected = !!profile?.stripe_connect_id;
 
   return (
+    <>
+    {cropSrc && (
+      <ImageCropperModal
+        imageSrc={cropSrc}
+        aspect={1}
+        outputWidth={400}
+        outputHeight={400}
+        label="1:1"
+        onComplete={handleCropComplete}
+        onCancel={() => setCropSrc(null)}
+      />
+    )}
     <div className="max-w-lg mx-auto space-y-8 pb-20">
 
       {/* ヘッダー */}
@@ -440,7 +460,7 @@ export default function ProfileEditPage() {
                 </div>
               )}
               <label className="flex-1 h-14 bg-slate-950/50 border border-dashed border-slate-700 rounded-2xl px-5 flex items-center gap-2 text-sm cursor-pointer hover:border-pink-500/50 transition-all">
-                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={avatarUploading} />
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} disabled={avatarUploading} />
                 {avatarUploading
                   ? <><Loader2 size={16} className="animate-spin text-pink-500" /><span className="text-slate-400">アップロード中...</span></>
                   : <><Camera size={16} className="text-slate-500" /><span className="text-slate-500">{avatarUrl ? '別の画像を選択' : '画像をアップロード'}</span></>
@@ -920,5 +940,6 @@ export default function ProfileEditPage() {
       </Link>
 
     </div>
+    </>
   );
 }

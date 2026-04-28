@@ -63,7 +63,8 @@ export function LoginForm({
         setError("メールアドレスまたはパスワードが正しくありません");
         setShowForgot(true);
       } else {
-        window.location.href = redirectTo ?? "/dashboard";
+        router.refresh();
+        router.push(redirectTo ?? "/dashboard");
       }
     });
   };

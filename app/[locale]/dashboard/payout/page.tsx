@@ -57,7 +57,7 @@ async function PayoutContent() {
   const { data: dists } = await admin
     .from("transaction_distributions")
     .select(`
-      is_frozen, transaction_id,
+      is_frozen, hold_released, transaction_id,
       transaction:transactions!transaction_id(
         created_at, qr_config_id, total_gross_amount,
         qr_config:qr_configs!qr_config_id(
@@ -114,7 +114,7 @@ async function PayoutContent() {
     if (d.is_frozen) {
       frozen += amt;
       row.frozen += amt;
-    } else if (txDate && txDate < cutoff) {
+    } else if ((d as any).hold_released || (txDate && txDate < cutoff)) {
       available += amt;
       row.available += amt;
     } else {

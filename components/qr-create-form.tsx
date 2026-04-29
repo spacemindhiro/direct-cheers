@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Loader2, Plus, Trash2, Info, Hash, Lock } from "lucide-react";
 import { QRImageUpload } from "@/components/qr-image-upload";
+import { CheersCard } from "@/components/cheers-card";
 
 const PAYMENT_TYPE_INFO = {
   A: { label: "Aタイプ：5日前確定", desc: "予約→カード保存、5日前に自動決済" },
@@ -198,6 +199,25 @@ export function QRCreateForm({
           artistName={targetCandidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
           onUploadComplete={setImageUrl}
         />
+
+        {/* カードプレビュー */}
+        {imageUrl && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">カードプレビュー</p>
+            <div className="max-w-xs mx-auto opacity-90 pointer-events-none">
+              <CheersCard
+                artistName={targetCandidates.find((c) => c.profile_id === recipientId)?.display_name ?? "Artist"}
+                eventTitle={eventTitle}
+                artistAvatar={null}
+                imageUrl={imageUrl}
+                amount={priceMode === "fixed" ? fixedAmount : Math.round((minAmount + maxAmount) / 2)}
+                transactionId="PREVIEW"
+                serialNumber={1}
+              />
+            </div>
+            <p className="text-[9px] text-slate-600 text-center">※ 実際の金額・シリアル番号は異なります</p>
+          </div>
+        )}
 
         {/* 商品タイプ */}
         <div className="space-y-3">

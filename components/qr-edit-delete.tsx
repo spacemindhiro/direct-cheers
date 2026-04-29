@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Pencil, Trash2, Loader2, Check, X, Plus } from "lucide-react";
 import { QRImageUpload } from "@/components/qr-image-upload";
+import { CheersCard } from "@/components/cheers-card";
 
 type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist" };
 type DistTarget = { profile_id: string; ratio: string };
@@ -166,6 +167,25 @@ export function QREditDelete({
             artistName={candidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
             onUploadComplete={setImageUrl}
           />
+
+          {/* カードプレビュー */}
+          {imageUrl && (
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">カードプレビュー</p>
+              <div className="max-w-xs mx-auto opacity-90 pointer-events-none">
+                <CheersCard
+                  artistName={candidates.find((c) => c.profile_id === recipientId)?.display_name ?? "Artist"}
+                  eventTitle={eventTitle}
+                  artistAvatar={null}
+                  imageUrl={imageUrl}
+                  amount={1000}
+                  transactionId="PREVIEW"
+                  serialNumber={1}
+                />
+              </div>
+              <p className="text-[9px] text-slate-600 text-center">※ 実際の金額・シリアル番号は異なります</p>
+            </div>
+          )}
 
           {/* 宛先 */}
           <div className="space-y-2">

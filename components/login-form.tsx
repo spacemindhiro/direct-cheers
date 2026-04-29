@@ -65,7 +65,12 @@ export function LoginForm({
         setError(data.error ?? "ログインに失敗しました");
         setShowForgot(true);
       } else {
-        window.location.replace(redirectTo ?? "/dashboard");
+        // DEBUG: クッキーの状態を確認
+        const cookieCount = document.cookie.split(";").filter(c => c.trim().startsWith("sb-")).length;
+        setError(`✓ ログインOK / クッキー: ${cookieCount}件 / 遷移先: ${redirectTo ?? "/dashboard"} — この表示が見えたらクロに教えてください`);
+        setTimeout(() => {
+          window.location.replace(redirectTo ?? "/dashboard");
+        }, 5000);
       }
     } catch (err: any) {
       setError(err?.message ?? "ログインに失敗しました");

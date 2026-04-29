@@ -30,15 +30,17 @@ export async function POST(
   if (event.lifecycle_status !== "settled")
     return NextResponse.json({ error: "精算済みのイベントのみホールド解除できます" }, { status: 400 });
 
-  const { count, error } = await admin
+  const { data: released_rows, error } = await admin
     .from("transaction_distributions")
     .update({ hold_released: true })
     .eq("event_id", eventId)
     .eq("distribution_status", "accrued")
     .eq("hold_released", false)
-    .select("transaction_distribution_id", { count: "exact", head: true });
+    .select("transaction_distribution_id");
+
+  const count = released_rows?.length ?? 0;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ success: true, released: count ?? 0 });
+  return NextResponse.json({ success: true, released: count });
 }

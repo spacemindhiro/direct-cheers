@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     .is("deleted_at", null);
 
   // 14日経過 かつ 照合済み かつ 金額一致 のみ出金可能
-  // bypass_event_id が指定されたイベントの distributions は14日チェックをスキップ
+  // bypass_event_id が指定されたイベントの distributions は14日・照合チェックをすべてスキップ
   const eligibleDists = (availableDists ?? []).filter((d) => {
     const tx = d.transaction as any;
     if (!tx) return false;
@@ -71,9 +71,10 @@ export async function POST(req: Request) {
     return true;
   });
 
-  // 照合未完了の distributions があるか確認（警告用）
+  // 照合未完了の distributions があるか確認（bypass 対象イベント以外）
   const unreconciledCount = (availableDists ?? []).filter((d) => {
     const tx = d.transaction as any;
+    if (useBypass && (d as any).event_id === bypass_event_id) return false;
     return tx?.created_at && tx.created_at < cutoff && !tx.reconciled_at;
   }).length;
 

@@ -7,31 +7,37 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Loader2, ArrowRight, Mail, Lock, Send, CheckCircle2 } from "lucide-react";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
+import { loginAction } from "@/app/[locale]/auth/login/actions";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
-  const [error, setError] = useState<string | null>(null);
   const [showForgot, setShowForgot] = useState(false);
-  const [isPending, setIsPending] = useState(false);
   const [emailValue, setEmailValue] = useState("");
-  const [passwordValue, setPasswordValue] = useState("");
   const [magicSent, setMagicSent] = useState(false);
   const [magicPending, setMagicPending] = useState(false);
   const [PasskeySetup, setPasskeySetup] = useState<typeof PasskeySetupType | null>(null);
-  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+  const [redirectTo, setRedirectTo] = useState("/dashboard");
   const [emailHint, setEmailHint] = useState("");
+  const [serverError, setServerError] = useState("");
+
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
-    setRedirectTo(p.get("redirect"));
+    const redirect = p.get("redirect") || "/dashboard";
+    setRedirectTo(redirect);
     setEmailHint(p.get("email") ?? "");
+    const err = p.get("error");
+    if (err) {
+      setServerError(decodeURIComponent(err));
+      setShowForgot(true);
+    }
   }, []);
 
   useEffect(() => {
     import("@/components/passkey-setup")
       .then(m => setPasskeySetup(() => m.PasskeySetup))
-      .catch(() => {}); // 読み込めなくてもフォームには影響しない
+      .catch(() => {});
   }, []);
 
   const handleMagicLink = async () => {
@@ -41,47 +47,12 @@ export function LoginForm({
     const supabase = createClient();
     await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`,
+      },
     });
     setMagicPending(false);
     setMagicSent(true);
-  };
-
-  const handleLogin = async () => {
-    const email = emailValue || emailHint;
-    const password = passwordValue;
-
-    alert(`[DEBUG 1] ハンドラ起動\nemail: ${email}\nredirectTo: ${redirectTo}`);
-
-    setIsPending(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      let data: any = {};
-      try { data = await res.json(); } catch {}
-      const cookieCount = document.cookie.split(";").filter(c => c.trim().startsWith("sb-")).length;
-      alert(`[DEBUG 2] APIレスポンス\nstatus: ${res.status}\nok: ${res.ok}\ncookies(sb-*): ${cookieCount}\nerror: ${data.error ?? "なし"}`);
-
-      if (!res.ok) {
-        setError(data.error ?? "ログインに失敗しました");
-        setShowForgot(true);
-      } else {
-        const dest = redirectTo ?? "/dashboard";
-        alert(`[DEBUG 3] 遷移します → ${dest}\n5秒後に自動遷移`);
-        setTimeout(() => {
-          window.location.replace(dest);
-        }, 5000);
-      }
-    } catch (err: any) {
-      alert(`[DEBUG ERR] ${err?.message}`);
-      setError(err?.message ?? "ログインに失敗しました");
-    } finally {
-      setIsPending(false);
-    }
   };
 
   return (
@@ -100,8 +71,11 @@ export function LoginForm({
         </p>
       </div>
 
-      {/* フォーム */}
-      <div className="space-y-4">
+      {/* フォーム — Server Action で送信 */}
+      <form action={loginAction} className="space-y-4">
+        {/* redirectTo を hidden で渡す */}
+        <input type="hidden" name="redirectTo" value={redirectTo} />
+
         <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 space-y-5">
 
           <div className="space-y-2">
@@ -137,30 +111,23 @@ export function LoginForm({
               name="password"
               type="password"
               placeholder="••••••••"
-              value={passwordValue}
-              onChange={e => setPasswordValue(e.target.value)}
+              required
               className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-red-400 font-bold text-center">{error}</p>
+          {serverError && (
+            <p className="text-sm text-red-400 font-bold text-center">{serverError}</p>
           )}
         </div>
 
         <button
-          type="button"
-          disabled={isPending}
-          onClick={handleLogin}
-          className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
+          type="submit"
+          className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3"
         >
-          {isPending ? (
-            <Loader2 size={20} className="animate-spin" />
-          ) : (
-            <>ログイン <ArrowRight size={18} /></>
-          )}
+          ログイン <ArrowRight size={18} />
         </button>
-      </div>
+      </form>
 
       <div className="flex items-center gap-4">
         <div className="flex-1 h-px bg-slate-800" />
@@ -171,10 +138,10 @@ export function LoginForm({
       {PasskeySetup && <PasskeySetup
         mode="authenticate"
         email={emailValue || emailHint}
-        onSuccess={() => window.location.replace(redirectTo ?? "/dashboard")}
+        onSuccess={() => window.location.replace(redirectTo)}
       />}
 
-      {/* マジックリンク（別デバイス・パスキー未登録端末向け） */}
+      {/* マジックリンク */}
       {magicSent ? (
         <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4">
           <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />

@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { SettleButton } from "@/components/settle-button";
 import { SettlementDetails, type TxGroup, type DistributionRow } from "@/components/settlement-details";
+import { AdminForcePayoutButton } from "@/components/admin-force-payout-button";
 import { Loader2, Calendar, MapPin, ImageIcon, CheckCircle2, Clock, AlertTriangle, ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
@@ -275,11 +276,14 @@ async function SettlementsContent() {
                   </div>
                 )}
 
-                {/* 精算済み情報 */}
+                {/* 精算済み情報 + 強制出金 */}
                 {settled && summary && (
-                  <p className="text-[10px] text-slate-500">
-                    精算済み · {summary.approved_at ? new Date(summary.approved_at).toLocaleDateString("ja-JP") : ""}
-                  </p>
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-[10px] text-slate-500">
+                      精算済み · {summary.approved_at ? new Date(summary.approved_at).toLocaleDateString("ja-JP") : ""}
+                    </p>
+                    <AdminForcePayoutButton eventId={event.event_id} eventTitle={event.title} />
+                  </div>
                 )}
 
                 {/* 売上なしのアラート */}

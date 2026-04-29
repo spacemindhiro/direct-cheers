@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
+import { getFeeConfig } from "@/lib/fee-config";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -118,6 +119,34 @@ export async function POST(req: Request) {
   }
 
   const product = await getProductInfo(admin, productId);
+
+  // エージェント手数料を売上発生時に即時積み上げ
+  if (qrcInfo.eventId) {
+    try {
+      const { data: eventRow } = await admin
+        .from("events")
+        .select("agent_id")
+        .eq("event_id", qrcInfo.eventId)
+        .single();
+
+      if (eventRow?.agent_id) {
+        const { agent_fee_rate } = await getFeeConfig();
+        const agentFee = Math.floor((session.amount_total ?? 0) * agent_fee_rate);
+        if (agentFee > 0) {
+          await admin.from("transaction_distributions").insert({
+            transaction_id: tx.transaction_id,
+            event_id: qrcInfo.eventId,
+            profile_id: eventRow.agent_id,
+            distribution_role: "agent",
+            actual_amount: agentFee,
+            distribution_status: "accrued",
+          });
+        }
+      }
+    } catch (err) {
+      console.error("[pay/complete] agent fee distribution failed:", err);
+    }
+  }
 
   const response = buildResponse(
     email,

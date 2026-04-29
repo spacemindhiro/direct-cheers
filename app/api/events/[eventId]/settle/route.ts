@@ -14,7 +14,7 @@ export async function POST(
   const { eventId } = await params;
   const supabase = await createClient();
   const admin = createAdminClient();
-  const { net_rate: NET_RATE } = await getFeeConfig();
+  const { net_rate: NET_RATE, agent_fee_rate: AGENT_FEE_RATE } = await getFeeConfig();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,7 +31,7 @@ export async function POST(
   // イベント取得
   const { data: event } = await admin
     .from("events")
-    .select("event_id, title, organizer_profile_id, end_at, lifecycle_status")
+    .select("event_id, title, organizer_profile_id, agent_id, end_at, lifecycle_status")
     .eq("event_id", eventId)
     .single();
 
@@ -142,6 +142,54 @@ export async function POST(
         amount: (existing?.amount ?? 0) + amount,
         role: distRole,
         stripe_connect_id: (target.profile as any)?.stripe_connect_id ?? null,
+      });
+    }
+  }
+
+  // エージェント手数料 — pay/complete で積み上げ済みのレコードを Transfer 対象に加算し、
+  // 未作成（コード変更前の古いトランザクション等）は補完作成する
+  if (event.agent_id) {
+    const [{ data: agentProfile }, { data: existingAgentDists }] = await Promise.all([
+      admin.from("profiles").select("stripe_connect_id").eq("profile_id", event.agent_id).single(),
+      admin.from("transaction_distributions")
+        .select("transaction_id, actual_amount")
+        .eq("event_id", eventId)
+        .eq("profile_id", event.agent_id)
+        .eq("distribution_role", "agent"),
+    ]);
+
+    const existingByTxId = new Map(
+      (existingAgentDists ?? []).map((d) => [d.transaction_id, d.actual_amount])
+    );
+
+    let totalAgentAmount = 0;
+
+    for (const tx of transactions) {
+      const agentFee = existingByTxId.has(tx.transaction_id)
+        ? (existingByTxId.get(tx.transaction_id) ?? 0)
+        : Math.floor((tx.total_gross_amount ?? 0) * AGENT_FEE_RATE);
+
+      if (agentFee <= 0) continue;
+
+      if (!existingByTxId.has(tx.transaction_id)) {
+        distributionRows.push({
+          transaction_id: tx.transaction_id,
+          event_id: eventId,
+          profile_id: event.agent_id,
+          distribution_role: "agent",
+          actual_amount: agentFee,
+          distribution_status: "accrued",
+        });
+      }
+
+      totalAgentAmount += agentFee;
+    }
+
+    if (totalAgentAmount > 0) {
+      profileAmounts.set(event.agent_id, {
+        amount: totalAgentAmount,
+        role: "agent",
+        stripe_connect_id: agentProfile?.stripe_connect_id ?? null,
       });
     }
   }

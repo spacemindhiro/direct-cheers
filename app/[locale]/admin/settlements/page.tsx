@@ -43,7 +43,7 @@ async function SettlementsContent() {
 
   const eventIds = (events ?? []).map((e) => e.event_id);
 
-  const [evidencesRes, summariesRes, qrConfigsRes] = await Promise.all([
+  const [evidencesRes, summariesRes, qrConfigsRes, holdStatusRes] = await Promise.all([
     admin
       .from("event_evidences")
       .select("event_id, evidence_id, photo_paths, attendance_count, created_at")
@@ -57,7 +57,23 @@ async function SettlementsContent() {
       .select("event_id, qr_config_id, label")
       .in("event_id", eventIds)
       .is("deleted_at", null),
+    admin
+      .from("transaction_distributions")
+      .select("event_id, hold_released")
+      .in("event_id", eventIds)
+      .eq("distribution_status", "accrued"),
   ]);
+
+  // イベントごとにhold_released=falseが残っているか集計
+  const holdReleasedByEvent = new Map<string, boolean>();
+  for (const d of holdStatusRes.data ?? []) {
+    if (!holdReleasedByEvent.has(d.event_id)) {
+      holdReleasedByEvent.set(d.event_id, true);
+    }
+    if (!d.hold_released) {
+      holdReleasedByEvent.set(d.event_id, false);
+    }
+  }
 
   const evidenceByEvent = new Map<string, typeof evidencesRes.data>();
   for (const ev of evidencesRes.data ?? []) {
@@ -299,7 +315,11 @@ async function SettlementsContent() {
                     <p className="text-[10px] text-slate-500">
                       精算済み · {summary.approved_at ? new Date(summary.approved_at).toLocaleDateString("ja-JP") : ""}
                     </p>
-                    <AdminForcePayoutButton eventId={event.event_id} eventTitle={event.title} />
+                    <AdminForcePayoutButton
+                      eventId={event.event_id}
+                      eventTitle={event.title}
+                      alreadyReleased={holdReleasedByEvent.get(event.event_id) ?? false}
+                    />
                   </div>
                 )}
 

@@ -4,13 +4,13 @@ import { useState } from "react";
 import { Zap, Loader2, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-type Props = { eventId: string; eventTitle: string };
+type Props = { eventId: string; eventTitle: string; alreadyReleased?: boolean };
 
-export function AdminForcePayoutButton({ eventId, eventTitle }: Props) {
+export function AdminForcePayoutButton({ eventId, eventTitle, alreadyReleased = false }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [released, setReleased] = useState<number | null>(null);
+  const [released, setReleased] = useState<boolean>(alreadyReleased);
   const [error, setError] = useState("");
 
   const handleRelease = async () => {
@@ -22,15 +22,15 @@ export function AdminForcePayoutButton({ eventId, eventTitle }: Props) {
     if (data.error) {
       setError(data.error);
     } else {
-      setReleased(data.released);
+      setReleased(true);
       router.refresh();
     }
   };
 
-  if (released !== null) {
+  if (released) {
     return (
       <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-black">
-        <CheckCircle2 size={10} /> ホールド解除済み（{released}件）
+        <CheckCircle2 size={10} /> ホールド解除済み
       </div>
     );
   }

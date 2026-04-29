@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export async function POST(req: Request) {
   const { email, password } = await req.json();
@@ -9,7 +8,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing credentials" }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
+  // setAll で受け取ったクッキーを手動でキャプチャし、
+  // NextResponse に直接セットすることで確実に Set-Cookie に載せる
+  const captured: { name: string; value: string; options: CookieOptions }[] = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,12 +18,16 @@ export async function POST(req: Request) {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          // 既存クッキーはリクエストヘッダーから読む
+          const raw = req.headers.get("cookie") ?? "";
+          return raw.split(";").flatMap((part) => {
+            const idx = part.indexOf("=");
+            if (idx < 0) return [];
+            return [{ name: part.slice(0, idx).trim(), value: part.slice(idx + 1).trim() }];
+          });
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
+          cookiesToSet.forEach((c) => captured.push(c));
         },
       },
     }
@@ -34,5 +39,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 401 });
   }
 
-  return NextResponse.json({ success: true });
+  const response = NextResponse.json({ success: true });
+
+  // キャプチャしたセッションクッキーをレスポンスに明示的にセット
+  captured.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
+  });
+
+  return response;
 }

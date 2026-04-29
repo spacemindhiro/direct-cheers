@@ -16,6 +16,7 @@ export function LoginForm({
   const [showForgot, setShowForgot] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [emailValue, setEmailValue] = useState("");
+  const [passwordValue, setPasswordValue] = useState("");
   const [magicSent, setMagicSent] = useState(false);
   const [magicPending, setMagicPending] = useState(false);
   const [PasskeySetup, setPasskeySetup] = useState<typeof PasskeySetupType | null>(null);
@@ -46,11 +47,9 @@ export function LoginForm({
     setMagicSent(true);
   };
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
-    const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+  const handleLogin = async () => {
+    const email = emailValue || emailHint;
+    const password = passwordValue;
 
     alert(`[DEBUG 1] ハンドラ起動\nemail: ${email}\nredirectTo: ${redirectTo}`);
 
@@ -102,7 +101,7 @@ export function LoginForm({
       </div>
 
       {/* フォーム */}
-      <form onSubmit={handleLogin} className="space-y-4">
+      <div className="space-y-4">
         <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 space-y-5">
 
           <div className="space-y-2">
@@ -138,7 +137,8 @@ export function LoginForm({
               name="password"
               type="password"
               placeholder="••••••••"
-              required
+              value={passwordValue}
+              onChange={e => setPasswordValue(e.target.value)}
               className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
@@ -149,8 +149,9 @@ export function LoginForm({
         </div>
 
         <button
-          type="submit"
+          type="button"
           disabled={isPending}
+          onClick={handleLogin}
           className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {isPending ? (
@@ -159,7 +160,7 @@ export function LoginForm({
             <>ログイン <ArrowRight size={18} /></>
           )}
         </button>
-      </form>
+      </div>
 
       <div className="flex items-center gap-4">
         <div className="flex-1 h-px bg-slate-800" />

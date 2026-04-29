@@ -75,7 +75,7 @@ export async function POST(
   // トランザクション取得
   const { data: transactions } = await admin
     .from("transactions")
-    .select("transaction_id, qr_config_id, total_gross_amount, status")
+    .select("transaction_id, qr_config_id, total_gross_amount, status, stripe_payment_intent_id")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed");
 
@@ -201,6 +201,17 @@ export async function POST(
       .insert(distributionRows);
     if (distErr)
       return NextResponse.json({ error: distErr.message }, { status: 500 });
+  }
+
+  // Payment Intent をキャプチャ（オーソリ → 売上確定）
+  const captureResults: { transaction_id: string; captured: boolean; error?: string }[] = [];
+  for (const tx of transactions) {
+    try {
+      await stripe.paymentIntents.capture(tx.stripe_payment_intent_id);
+      captureResults.push({ transaction_id: tx.transaction_id, captured: true });
+    } catch (err: any) {
+      captureResults.push({ transaction_id: tx.transaction_id, captured: false, error: err.message });
+    }
   }
 
   // Stripe transfers（Connect アカウントへ送金）

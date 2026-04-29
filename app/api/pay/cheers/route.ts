@@ -35,6 +35,7 @@ export async function POST(req: Request) {
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: paymentMethodTypes,
+    payment_intent_data: { capture_method: "manual" },
     line_items: [
       {
         price_data: {

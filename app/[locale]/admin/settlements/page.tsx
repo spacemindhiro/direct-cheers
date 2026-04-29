@@ -6,7 +6,8 @@ import { getFeeConfig } from "@/lib/fee-config";
 import { SettleButton } from "@/components/settle-button";
 import { SettlementDetails, type TxGroup, type DistributionRow } from "@/components/settlement-details";
 import { AdminForcePayoutButton } from "@/components/admin-force-payout-button";
-import { Loader2, Calendar, MapPin, ImageIcon, CheckCircle2, Clock, AlertTriangle, ArrowLeft, ExternalLink } from "lucide-react";
+import { AdminAuthExpiryActions } from "@/components/admin-auth-expiry-actions";
+import { Loader2, Calendar, MapPin, ImageIcon, CheckCircle2, Clock, AlertTriangle, ArrowLeft, ExternalLink, Zap } from "lucide-react";
 import Link from "next/link";
 
 async function SettlementsContent() {
@@ -27,14 +28,16 @@ async function SettlementsContent() {
   const { net_rate } = await getFeeConfig();
 
   // 終了済みイベントを取得（end_at 経過 OR 手動終了・精算済み）
-  const now = new Date().toISOString();
+  const now = new Date();
+  const AUTH_EXPIRE_DAYS = 7;
+  const nowIso = now.toISOString();
   const { data: events } = await admin
     .from("events")
     .select(`
-      event_id, title, venue, end_at, lifecycle_status,
+      event_id, title, venue, start_at, end_at, lifecycle_status,
       organizer:profiles!organizer_profile_id(display_name)
     `)
-    .or(`end_at.lt.${now},lifecycle_status.in.(ended,settled)`)
+    .or(`end_at.lt.${nowIso},lifecycle_status.in.(ended,settled)`)
     .order("end_at", { ascending: false })
     .limit(50);
 
@@ -146,6 +149,16 @@ async function SettlementsContent() {
             const isRejected = !settled && summary?.is_approved_for_payout === false;
             const hasEvidence = evidences.length > 0;
 
+            // オーソリ期限（開催開始日 + 7日）
+            const authExpiresAt = event.start_at
+              ? new Date(new Date(event.start_at).getTime() + AUTH_EXPIRE_DAYS * 24 * 60 * 60 * 1000)
+              : null;
+            const daysLeft = authExpiresAt
+              ? Math.ceil((authExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+              : null;
+            const isExpiring = !settled && gross > 0 && daysLeft !== null && daysLeft <= 2;
+            const isExpired = !settled && gross > 0 && daysLeft !== null && daysLeft <= 0;
+
             // 売上明細（QR別）
             const txGroups: TxGroup[] = qrIds.map((qrId) => ({
               qr_config_id: qrId,
@@ -182,7 +195,7 @@ async function SettlementsContent() {
               <div
                 key={event.event_id}
                 className={`bg-slate-900 border rounded-2xl p-5 space-y-4 ${
-                  settled ? "border-emerald-500/20" : isRejected ? "border-red-500/20" : hasEvidence ? "border-amber-500/20" : "border-slate-800"
+                  settled ? "border-emerald-500/20" : isExpired ? "border-red-500/40" : isExpiring ? "border-orange-500/40" : isRejected ? "border-red-500/20" : hasEvidence ? "border-amber-500/20" : "border-slate-800"
                 }`}
               >
                 {/* ヘッダー */}
@@ -191,6 +204,10 @@ async function SettlementsContent() {
                     <div className="flex items-center gap-2">
                       {settled ? (
                         <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">精算済み</span>
+                      ) : isExpired ? (
+                        <span className="text-[9px] font-black text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2 py-0.5 flex items-center gap-1"><Zap size={9} />オーソリ期限切れ</span>
+                      ) : isExpiring ? (
+                        <span className="text-[9px] font-black text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-full px-2 py-0.5 flex items-center gap-1"><Zap size={9} />期限{daysLeft}日前</span>
                       ) : isRejected ? (
                         <span className="text-[9px] font-black text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">差戻し済み</span>
                       ) : hasEvidence ? (
@@ -283,6 +300,19 @@ async function SettlementsContent() {
                       精算済み · {summary.approved_at ? new Date(summary.approved_at).toLocaleDateString("ja-JP") : ""}
                     </p>
                     <AdminForcePayoutButton eventId={event.event_id} eventTitle={event.title} />
+                  </div>
+                )}
+
+                {/* オーソリ期限警告 + キャプチャ/返金 */}
+                {(isExpiring || isExpired) && (
+                  <div className="border border-red-500/20 bg-red-500/5 rounded-xl p-3 space-y-2">
+                    <p className="text-[10px] font-black text-red-400 flex items-center gap-1.5">
+                      <AlertTriangle size={10} />
+                      {isExpired
+                        ? "オーソリ期限が切れています。キャプチャするか全件返金してください。"
+                        : `オーソリ期限まであと${daysLeft}日です。精算またはキャプチャを実施してください。`}
+                    </p>
+                    <AdminAuthExpiryActions eventId={event.event_id} eventTitle={event.title} />
                   </div>
                 )}
 

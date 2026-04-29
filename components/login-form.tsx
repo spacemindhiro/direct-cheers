@@ -52,6 +52,8 @@ export function LoginForm({
     const email = (form.elements.namedItem("email") as HTMLInputElement).value;
     const password = (form.elements.namedItem("password") as HTMLInputElement).value;
 
+    alert(`[DEBUG 1] ハンドラ起動\nemail: ${email}\nredirectTo: ${redirectTo}`);
+
     setIsPending(true);
     setError(null);
     try {
@@ -60,19 +62,23 @@ export function LoginForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
+      let data: any = {};
+      try { data = await res.json(); } catch {}
+      const cookieCount = document.cookie.split(";").filter(c => c.trim().startsWith("sb-")).length;
+      alert(`[DEBUG 2] APIレスポンス\nstatus: ${res.status}\nok: ${res.ok}\ncookies(sb-*): ${cookieCount}\nerror: ${data.error ?? "なし"}`);
+
       if (!res.ok) {
         setError(data.error ?? "ログインに失敗しました");
         setShowForgot(true);
       } else {
-        // DEBUG: クッキーの状態を確認
-        const cookieCount = document.cookie.split(";").filter(c => c.trim().startsWith("sb-")).length;
-        setError(`✓ ログインOK / クッキー: ${cookieCount}件 / 遷移先: ${redirectTo ?? "/dashboard"} — この表示が見えたらクロに教えてください`);
+        const dest = redirectTo ?? "/dashboard";
+        alert(`[DEBUG 3] 遷移します → ${dest}\n5秒後に自動遷移`);
         setTimeout(() => {
-          window.location.replace(redirectTo ?? "/dashboard");
+          window.location.replace(dest);
         }, 5000);
       }
     } catch (err: any) {
+      alert(`[DEBUG ERR] ${err?.message}`);
       setError(err?.message ?? "ログインに失敗しました");
     } finally {
       setIsPending(false);

@@ -46,6 +46,7 @@ export async function POST(req: Request) {
       transaction_distribution_id,
       actual_amount,
       event_id,
+      hold_released,
       transaction:transactions!transaction_id(
         transaction_id,
         created_at,
@@ -60,20 +61,21 @@ export async function POST(req: Request) {
     .is("deleted_at", null);
 
   // 14日経過 かつ 照合済み かつ 金額一致 のみ出金可能
-  // bypass_event_id が指定されたイベントの distributions は14日・照合チェックをすべてスキップ
+  // hold_released=true または bypass_event_id 指定時は14日チェックをスキップ
   const eligibleDists = (availableDists ?? []).filter((d) => {
     const tx = d.transaction as any;
     if (!tx) return false;
-    const isTargetEvent = useBypass && (d as any).event_id === bypass_event_id;
-    if (!isTargetEvent && (!tx.created_at || tx.created_at >= cutoff)) return false;
+    const skipHold = (d as any).hold_released || (useBypass && (d as any).event_id === bypass_event_id);
+    if (!skipHold && (!tx.created_at || tx.created_at >= cutoff)) return false;
     if (!tx.reconciled_at) return false;
     if (tx.amount_verified === false || (tx.amount_mismatch ?? 0) !== 0) return false;
     return true;
   });
 
-  // 照合未完了の distributions があるか確認（bypass 対象イベント以外）
+  // 照合未完了の distributions があるか確認（hold解除済み・bypass対象を除く）
   const unreconciledCount = (availableDists ?? []).filter((d) => {
     const tx = d.transaction as any;
+    if ((d as any).hold_released) return false;
     if (useBypass && (d as any).event_id === bypass_event_id) return false;
     return tx?.created_at && tx.created_at < cutoff && !tx.reconciled_at;
   }).length;
@@ -164,6 +166,7 @@ export async function GET(_req: Request) {
       actual_amount,
       distribution_status,
       is_frozen,
+      hold_released,
       transaction:transactions!transaction_id(
         created_at,
         reconciled_at,
@@ -184,17 +187,15 @@ export async function GET(_req: Request) {
     const amt = d.actual_amount ?? 0;
     if (d.is_frozen) {
       frozen += amt;
-    } else if (tx?.created_at && tx.created_at < cutoff) {
-      // 14日経過済み → 照合完了かつ金額一致のみ出金可能、それ以外は保留扱い
-      const reconciled = !!tx.reconciled_at;
-      const verified = tx.amount_verified !== false && (tx.amount_mismatch ?? 0) === 0;
-      if (reconciled && verified) {
+    } else {
+      const holdOk = (d as any).hold_released || (tx?.created_at && tx.created_at < cutoff);
+      const reconciled = !!tx?.reconciled_at;
+      const verified = tx?.amount_verified !== false && (tx?.amount_mismatch ?? 0) === 0;
+      if (holdOk && reconciled && verified) {
         available += amt;
       } else {
         pending += amt;
       }
-    } else {
-      pending += amt;
     }
   }
 

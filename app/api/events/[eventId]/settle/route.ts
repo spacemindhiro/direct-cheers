@@ -218,6 +218,12 @@ export async function POST(
         metadata: { event_id: eventId, profile_id: profileId },
       });
       transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: transfer.id });
+      await admin.from("settle_transfers").insert({
+        event_id: eventId,
+        profile_id: profileId,
+        stripe_transfer_id: transfer.id,
+        amount: info.amount,
+      });
     } catch (err: any) {
       transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: null, error: err.message });
     }

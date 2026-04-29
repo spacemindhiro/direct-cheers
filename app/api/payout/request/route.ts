@@ -109,6 +109,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Stripe payout 失敗: ${err.message}` }, { status: 500 });
   }
 
+  // 振込手数料をプラットフォームへ回収（精算Transferの一部取り消し）
+  const { data: settleTransfer } = await admin
+    .from("settle_transfers")
+    .select("stripe_transfer_id")
+    .eq("profile_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (settleTransfer?.stripe_transfer_id) {
+    try {
+      await stripe.transfers.createReversal(settleTransfer.stripe_transfer_id, {
+        amount: TRANSFER_FEE,
+      });
+    } catch (err: any) {
+      console.error("[payout/request] transfer reversal 失敗:", err.message);
+    }
+  }
+
   // payout_requests を作成
   const { data: payoutReq, error: prErr } = await admin
     .from("payout_requests")

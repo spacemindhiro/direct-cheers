@@ -67,8 +67,20 @@ export function LoginForm({
           Welcome Back
         </h1>
         <p className="text-sm text-slate-400">
-          メールアドレスとパスワードでログイン
+          パスキーまたはパスワードでログイン
         </p>
+      </div>
+
+      {PasskeySetup && <PasskeySetup
+        mode="authenticate"
+        email={emailValue || emailHint || undefined}
+        onSuccess={() => window.location.replace(redirectTo)}
+      />}
+
+      <div className="flex items-center gap-4">
+        <div className="flex-1 h-px bg-slate-800" />
+        <span className="text-xs text-slate-600 font-bold">または</span>
+        <div className="flex-1 h-px bg-slate-800" />
       </div>
 
       {/* フォーム — Server Action で送信 */}
@@ -128,18 +140,6 @@ export function LoginForm({
           ログイン <ArrowRight size={18} />
         </button>
       </form>
-
-      <div className="flex items-center gap-4">
-        <div className="flex-1 h-px bg-slate-800" />
-        <span className="text-xs text-slate-600 font-bold">または</span>
-        <div className="flex-1 h-px bg-slate-800" />
-      </div>
-
-      {PasskeySetup && <PasskeySetup
-        mode="authenticate"
-        email={emailValue || emailHint || undefined}
-        onSuccess={() => window.location.replace(redirectTo)}
-      />}
 
       {/* マジックリンク */}
       {magicSent ? (

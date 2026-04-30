@@ -6,7 +6,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { Fingerprint, Loader2, CheckCircle2, ChevronRight } from "lucide-react";
 
 type Props = {
-  email: string;
+  email?: string;
   mode: "register" | "authenticate";
   deviceName?: string;
   buttonLabel?: string;
@@ -81,11 +81,11 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
     setStatus("loading");
     setErrorMsg("");
     try {
-      // 1. オプション取得
+      // 1. オプション取得（emailなしでも可 → デバイス上の全パスキーをピッカーで表示）
       const optRes = await fetch("/api/passkeys/auth-options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(email ? { email } : {}),
       });
       const { options, error: optErr } = await optRes.json();
       if (optErr) throw new Error(optErr);
@@ -139,7 +139,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
     <div className="space-y-3">
       <button
         type="button"
-        disabled={status === "loading" || (mode === "authenticate" && !email)}
+        disabled={status === "loading" || (mode === "register" && !email)}
         onClick={mode === "register" ? handleRegister : handleAuthenticate}
         className="w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl p-4 transition-all active:scale-[0.98] disabled:opacity-60"
       >

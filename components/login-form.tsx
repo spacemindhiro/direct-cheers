@@ -137,7 +137,7 @@ export function LoginForm({
 
       {PasskeySetup && <PasskeySetup
         mode="authenticate"
-        email={emailValue || emailHint}
+        email={emailValue || emailHint || undefined}
         onSuccess={() => window.location.replace(redirectTo)}
       />}
 

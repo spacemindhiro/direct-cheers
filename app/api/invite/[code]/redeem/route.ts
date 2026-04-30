@@ -16,22 +16,33 @@ export async function POST(
 
   const { data: invite } = await admin
     .from("invitation_codes")
-    .select("code_id, qr_config_id, event_id, used_at, expires_at")
+    .select("code_id, qr_config_id, event_id, expires_at, max_uses")
     .eq("code", code.toUpperCase())
     .maybeSingle();
 
   if (!invite) return NextResponse.json({ error: "無効な招待コードです" }, { status: 404 });
-  if (invite.used_at) return NextResponse.json({ error: "この招待コードはすでに使用済みです" }, { status: 410 });
   if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
     return NextResponse.json({ error: "この招待コードは期限切れです" }, { status: 410 });
   }
 
-  // 同じコードをすでに引き換え済みか確認
+  // 使用数チェック（定員）
+  const maxUses = invite.max_uses ?? 1;
+  const { count: usedCount } = await admin
+    .from("transactions")
+    .select("transaction_id", { count: "exact", head: true })
+    .eq("invitation_code_id", invite.code_id);
+
+  if ((usedCount ?? 0) >= maxUses) {
+    return NextResponse.json({ error: "この招待の定員に達しました" }, { status: 410 });
+  }
+
+  // 同じイベントの招待をすでに受け取っていないか確認
   const { data: alreadyUsed } = await admin
-    .from("invitation_codes")
-    .select("code_id")
-    .eq("used_by_profile_id", user.id)
-    .eq("event_id", invite.event_id)
+    .from("transactions")
+    .select("transaction_id")
+    .eq("sender_profile_id", user.id)
+    .eq("transaction_type", "invitation")
+    .in("qr_config_id", [invite.qr_config_id])
     .maybeSingle();
 
   if (alreadyUsed) return NextResponse.json({ error: "すでにこのイベントの招待を受け取っています" }, { status: 409 });
@@ -50,6 +61,7 @@ export async function POST(
       sender_profile_id: user.id,
       sender_email: user.email,
       transaction_type: "invitation",
+      invitation_code_id: invite.code_id,
       total_gross_amount: 0,
       cumulative_amount_at_tx: 0,
       sequence_number_in_event: (count ?? 0) + 1,
@@ -66,15 +78,6 @@ export async function POST(
     .update({ nft_serial_number: tx.transaction_id })
     .eq("transaction_id", tx.transaction_id);
 
-  // コードを使用済みにマーク
-  await admin
-    .from("invitation_codes")
-    .update({
-      used_at: new Date().toISOString(),
-      used_by_profile_id: user.id,
-      transaction_id: tx.transaction_id,
-    })
-    .eq("code_id", invite.code_id);
 
   return NextResponse.json({ ok: true, transaction_id: tx.transaction_id });
 }

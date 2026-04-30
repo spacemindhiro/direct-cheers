@@ -43,7 +43,7 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { qr_config_id } = await req.json() as { qr_config_id: string };
+  const { qr_config_id, max_uses } = await req.json() as { qr_config_id: string; max_uses?: number };
   if (!qr_config_id) return NextResponse.json({ error: "qr_config_id は必須です" }, { status: 400 });
 
   const { data: qrConfig } = await admin
@@ -80,6 +80,7 @@ export async function POST(
     event_id: eventId,
     created_by: user.id,
     expires_at: expiresAt,
+    max_uses: max_uses ?? null,
   });
 
   if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });

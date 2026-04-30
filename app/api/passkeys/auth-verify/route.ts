@@ -51,15 +51,21 @@ export async function POST(req: Request) {
   }
 
   // bytea をPostgresから受け取った形式に応じてUint8Arrayに変換
-  function toUint8Array(val: unknown): Uint8Array {
-    if (val instanceof Uint8Array) return val;
-    if (Buffer.isBuffer(val)) return new Uint8Array(val);
-    if (typeof val === "string") {
+  function toUint8Array(val: unknown): Uint8Array<ArrayBuffer> {
+    let buf: Buffer;
+    if (Buffer.isBuffer(val)) {
+      buf = val;
+    } else if (typeof val === "string") {
       const hex = val.startsWith("\\x") ? val.slice(2) : val;
-      return new Uint8Array(Buffer.from(hex, "hex"));
+      buf = Buffer.from(hex, "hex");
+    } else if (Array.isArray(val)) {
+      buf = Buffer.from(val as number[]);
+    } else if (val instanceof Uint8Array) {
+      buf = Buffer.from(val);
+    } else {
+      throw new Error(`public_key の型が不明: ${typeof val}`);
     }
-    if (Array.isArray(val)) return new Uint8Array(val as number[]);
-    throw new Error(`public_key の型が不明: ${typeof val}`);
+    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) as Uint8Array<ArrayBuffer>;
   }
 
   // WebAuthn 検証

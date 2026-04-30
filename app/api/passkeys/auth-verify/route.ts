@@ -91,12 +91,23 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: any) {
-    console.error("[auth-verify] verifyAuthenticationResponse error:", err.message, {
-      credentialId: storedCred.credential_id,
-      publicKeyType: typeof storedCred.public_key,
-      publicKeyValue: JSON.stringify(storedCred.public_key)?.slice(0, 80),
-    });
-    return NextResponse.json({ error: err.message }, { status: 400 });
+    const rawVal = storedCred.public_key;
+    const debugInfo = {
+      rawType: typeof rawVal,
+      rawPrefix: typeof rawVal === "string" ? (rawVal as string).slice(0, 30) : String(rawVal).slice(0, 30),
+      decodedLength: (() => {
+        try {
+          if (typeof rawVal === "string") {
+            const s = rawVal as string;
+            if (s.startsWith("\\x")) return Buffer.from(s.slice(2), "hex").length;
+            return Buffer.from(s, "base64").length;
+          }
+          return -1;
+        } catch { return -2; }
+      })(),
+    };
+    console.error("[auth-verify] verifyAuthenticationResponse error:", err.message, debugInfo);
+    return NextResponse.json({ error: `${err.message} | debug: ${JSON.stringify(debugInfo)}` }, { status: 400 });
   }
 
   if (!verification.verified) {

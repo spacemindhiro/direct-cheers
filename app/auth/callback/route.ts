@@ -28,9 +28,10 @@ export async function GET(request: Request) {
         if (profile) {
           return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
         } else {
-          const dest = redirect
+          const onboarding = redirect
             ? `/onboarding/profile?redirect=${encodeURIComponent(redirect)}`
             : '/onboarding/profile';
+          const dest = `/auth/passkey-setup?redirect=${encodeURIComponent(onboarding)}`;
           return NextResponse.redirect(`${origin}${dest}`);
         }
       }

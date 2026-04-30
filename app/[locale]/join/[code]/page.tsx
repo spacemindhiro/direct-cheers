@@ -28,7 +28,7 @@ function InvitePage() {
   useEffect(() => {
     (async () => {
       const [infoRes, { data: { user } }] = await Promise.all([
-        fetch(`/api/invite/${code}/info`),
+        fetch(`/api/join/${code}/info`),
         supabase.auth.getUser(),
       ]);
 
@@ -52,7 +52,7 @@ function InvitePage() {
 
   const redeem = async () => {
     setStep("redeeming");
-    const res = await fetch(`/api/invite/${code}/redeem`, { method: "POST" });
+    const res = await fetch(`/api/join/${code}/redeem`, { method: "POST" });
     if (res.ok) {
       setStep("done");
       setTimeout(() => router.replace("/dashboard"), 1500);
@@ -90,14 +90,14 @@ function InvitePage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?redirect=/invite/${code}`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?redirect=/join/${code}`,
         data: { skip_onboarding: true },
       },
     });
     setPending(false);
     if (error) { setErrorMsg(error.message); return; }
     // メール確認待ち画面へ
-    router.push(`/auth/sign-up-success?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(`/invite/${code}`)}`);
+    router.push(`/auth/sign-up-success?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(`/join/${code}`)}`);
   };
 
   const fmt = (d: string) => new Date(d).toLocaleDateString("ja-JP", {

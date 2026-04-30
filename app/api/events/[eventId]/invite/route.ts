@@ -86,5 +86,5 @@ export async function POST(
   if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com";
-  return NextResponse.json({ ok: true, code, url: `${siteUrl}/invite/${code}` });
+  return NextResponse.json({ ok: true, code, url: `${siteUrl}/join/${code}` });
 }

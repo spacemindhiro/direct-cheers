@@ -51,13 +51,18 @@ export async function POST(req: Request) {
   }
 
   // bytea をPostgresから受け取った形式に応じてUint8Arrayに変換
+  // PostgREST は bytea を base64 文字列で返す（\x hex ではない）
   function toUint8Array(val: unknown): Uint8Array<ArrayBuffer> {
     let buf: Buffer;
     if (Buffer.isBuffer(val)) {
-      buf = val;
+      buf = Buffer.from(val); // 独立コピー
     } else if (typeof val === "string") {
-      const hex = val.startsWith("\\x") ? val.slice(2) : val;
-      buf = Buffer.from(hex, "hex");
+      if (val.startsWith("\\x")) {
+        buf = Buffer.from(val.slice(2), "hex");
+      } else {
+        // PostgREST はbase64で返す
+        buf = Buffer.from(val, "base64");
+      }
     } else if (Array.isArray(val)) {
       buf = Buffer.from(val as number[]);
     } else if (val instanceof Uint8Array) {
@@ -65,7 +70,8 @@ export async function POST(req: Request) {
     } else {
       throw new Error(`public_key の型が不明: ${typeof val}`);
     }
-    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) as Uint8Array<ArrayBuffer>;
+    console.log("[auth-verify] public_key decoded:", buf.length, "bytes, raw type:", typeof val, "raw prefix:", typeof val === "string" ? (val as string).slice(0, 10) : "n/a");
+    return Uint8Array.from(buf) as Uint8Array<ArrayBuffer>;
   }
 
   // WebAuthn 検証

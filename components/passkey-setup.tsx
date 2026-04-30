@@ -63,10 +63,11 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
 
       // 4. セッション確立
       if (session_token) {
-        await supabase.auth.verifyOtp({
+        const { error: otpErr } = await supabase.auth.verifyOtp({
           token_hash: session_token,
           type: "magiclink",
         });
+        if (otpErr) throw new Error(`セッション確立失敗: ${otpErr.message}`);
       }
 
       setStatus("success");
@@ -105,10 +106,11 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
 
       // 4. セッション確立
       if (session_token) {
-        await supabase.auth.verifyOtp({
+        const { error: otpErr } = await supabase.auth.verifyOtp({
           token_hash: session_token,
           type: "magiclink",
         });
+        if (otpErr) throw new Error(`セッション確立失敗: ${otpErr.message}`);
       }
 
       setStatus("success");

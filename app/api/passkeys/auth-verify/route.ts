@@ -31,6 +31,7 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (!challengeRow) {
+    console.error("[auth-verify] challenge not found:", challenge?.slice(0, 20));
     return NextResponse.json({ error: "Invalid challenge" }, { status: 400 });
   }
   if (new Date(challengeRow.expires_at) < new Date()) {
@@ -45,7 +46,20 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (!storedCred) {
+    console.error("[auth-verify] credential not found:", credential.id?.slice(0, 20));
     return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+  }
+
+  // bytea をPostgresから受け取った形式に応じてUint8Arrayに変換
+  function toUint8Array(val: unknown): Uint8Array {
+    if (val instanceof Uint8Array) return val;
+    if (Buffer.isBuffer(val)) return new Uint8Array(val);
+    if (typeof val === "string") {
+      const hex = val.startsWith("\\x") ? val.slice(2) : val;
+      return new Uint8Array(Buffer.from(hex, "hex"));
+    }
+    if (Array.isArray(val)) return new Uint8Array(val as number[]);
+    throw new Error(`public_key の型が不明: ${typeof val}`);
   }
 
   // WebAuthn 検証
@@ -59,12 +73,17 @@ export async function POST(req: Request) {
       requireUserVerification: true,
       credential: {
         id: storedCred.credential_id,
-        publicKey: new Uint8Array(storedCred.public_key as unknown as Buffer),
+        publicKey: toUint8Array(storedCred.public_key),
         counter: storedCred.counter,
         transports: storedCred.transports ?? [],
       },
     });
   } catch (err: any) {
+    console.error("[auth-verify] verifyAuthenticationResponse error:", err.message, {
+      credentialId: storedCred.credential_id,
+      publicKeyType: typeof storedCred.public_key,
+      publicKeyValue: JSON.stringify(storedCred.public_key)?.slice(0, 80),
+    });
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
 

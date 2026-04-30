@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+function generateCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ eventId: string }> }
@@ -14,10 +21,9 @@ export async function POST(
 
   const admin = createAdminClient();
 
-  // イベント取得＋権限確認
   const { data: event } = await admin
     .from("events")
-    .select("event_id, organizer_profile_id, agent_id")
+    .select("event_id, organizer_profile_id, agent_id, end_at")
     .eq("event_id", eventId)
     .single();
 
@@ -37,17 +43,9 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { qr_config_id, email, name } = await req.json() as {
-    qr_config_id: string;
-    email: string;
-    name?: string;
-  };
+  const { qr_config_id } = await req.json() as { qr_config_id: string };
+  if (!qr_config_id) return NextResponse.json({ error: "qr_config_id は必須です" }, { status: 400 });
 
-  if (!qr_config_id || !email) {
-    return NextResponse.json({ error: "qr_config_id と email は必須です" }, { status: 400 });
-  }
-
-  // QR config がこのイベントに属するか確認
   const { data: qrConfig } = await admin
     .from("qr_configs")
     .select("qr_config_id")
@@ -58,60 +56,34 @@ export async function POST(
 
   if (!qrConfig) return NextResponse.json({ error: "QR config not found" }, { status: 404 });
 
-  // 既存トランザクション数（sequence番号用）
-  const { count } = await admin
-    .from("transactions")
-    .select("transaction_id", { count: "exact", head: true })
-    .eq("qr_config_id", qr_config_id);
-
-  const sequence = (count ?? 0) + 1;
-
-  // provisional_users に登録（未登録なら作成）
-  const { data: existing } = await admin
-    .from("provisional_users")
-    .select("provisional_id, profile_id")
-    .eq("email", email)
-    .maybeSingle();
-
-  let senderProfileId: string | null = existing?.profile_id ?? null;
-
-  if (!existing) {
-    // auth.users にいるか確認
-    const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const authUser = users.find(u => u.email === email);
-    if (authUser) {
-      senderProfileId = authUser.id;
-    } else {
-      // provisional_user を新規作成
-      await admin.from("provisional_users").insert({ email });
-    }
+  // コード生成（重複時はリトライ）
+  let code = "";
+  for (let i = 0; i < 5; i++) {
+    const candidate = generateCode();
+    const { data: exists } = await admin
+      .from("invitation_codes")
+      .select("code_id")
+      .eq("code", candidate)
+      .maybeSingle();
+    if (!exists) { code = candidate; break; }
   }
+  if (!code) return NextResponse.json({ error: "コード生成に失敗しました" }, { status: 500 });
 
-  // 招待トランザクション作成
-  const { data: tx, error: txErr } = await admin
-    .from("transactions")
-    .insert({
-      qr_config_id,
-      sender_profile_id: senderProfileId,
-      sender_email: email,
-      sender_name: name ?? null,
-      transaction_type: "invitation",
-      total_gross_amount: 0,
-      cumulative_amount_at_tx: 0,
-      sequence_number_in_event: sequence,
-      status: "completed",
-      stripe_funds_status: "transferred",
-    })
-    .select("transaction_id")
-    .single();
+  // イベント終了翌日を有効期限に
+  const expiresAt = event.end_at
+    ? new Date(new Date(event.end_at).getTime() + 24 * 60 * 60 * 1000).toISOString()
+    : null;
 
-  if (txErr) return NextResponse.json({ error: txErr.message }, { status: 500 });
+  const { error: insertErr } = await admin.from("invitation_codes").insert({
+    code,
+    qr_config_id,
+    event_id: eventId,
+    created_by: user.id,
+    expires_at: expiresAt,
+  });
 
-  // nft_serial_number をtransaction_idで設定
-  await admin
-    .from("transactions")
-    .update({ nft_serial_number: tx.transaction_id })
-    .eq("transaction_id", tx.transaction_id);
+  if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true, transaction_id: tx.transaction_id });
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com";
+  return NextResponse.json({ ok: true, code, url: `${siteUrl}/invite/${code}` });
 }

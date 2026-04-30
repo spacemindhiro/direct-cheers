@@ -27,13 +27,26 @@ export async function GET(request: Request) {
 
         if (profile) {
           return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
-        } else {
-          const onboarding = redirect
-            ? `/onboarding/profile?redirect=${encodeURIComponent(redirect)}`
-            : '/onboarding/profile';
-          const dest = `/auth/passkey-setup?redirect=${encodeURIComponent(onboarding)}`;
-          return NextResponse.redirect(`${origin}${dest}`);
         }
+
+        // 招待ユーザー（skip_onboarding）はファンプロフィールを自動作成してダッシュボードへ
+        if (user.user_metadata?.skip_onboarding) {
+          const { createAdminClient } = await import('@/lib/supabase/admin');
+          const adminForCallback = createAdminClient();
+          await adminForCallback.from('profiles').insert({
+            profile_id: user.id,
+            role: 'fan',
+            status: 'active',
+          });
+          return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
+        }
+
+        // 通常新規ユーザー → passkey-setup → onboarding
+        const onboarding = redirect
+          ? `/onboarding/profile?redirect=${encodeURIComponent(redirect)}`
+          : '/onboarding/profile';
+        const dest = `/auth/passkey-setup?redirect=${encodeURIComponent(onboarding)}`;
+        return NextResponse.redirect(`${origin}${dest}`);
       }
     }
   }

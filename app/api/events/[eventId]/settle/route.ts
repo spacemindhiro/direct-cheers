@@ -72,12 +72,13 @@ export async function POST(
   if (qrConfigIds.length === 0)
     return NextResponse.json({ error: "No QR configs for this event" }, { status: 400 });
 
-  // トランザクション取得
+  // トランザクション取得（招待は精算対象外）
   const { data: transactions } = await admin
     .from("transactions")
     .select("transaction_id, qr_config_id, total_gross_amount, status, stripe_payment_intent_id")
     .in("qr_config_id", qrConfigIds)
-    .eq("status", "completed");
+    .eq("status", "completed")
+    .neq("transaction_type", "invitation");
 
   if (!transactions || transactions.length === 0)
     return NextResponse.json({ error: "No completed transactions" }, { status: 400 });
@@ -206,6 +207,10 @@ export async function POST(
   // Payment Intent をキャプチャ（オーソリ → 売上確定）
   const captureResults: { transaction_id: string; captured: boolean; error?: string }[] = [];
   for (const tx of transactions) {
+    if (!tx.stripe_payment_intent_id) {
+      captureResults.push({ transaction_id: tx.transaction_id, captured: false, error: "no payment intent" });
+      continue;
+    }
     try {
       await stripe.paymentIntents.capture(tx.stripe_payment_intent_id);
       captureResults.push({ transaction_id: tx.transaction_id, captured: true });

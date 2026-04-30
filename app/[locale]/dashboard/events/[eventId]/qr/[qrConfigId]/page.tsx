@@ -6,6 +6,7 @@ import { QRDisplay } from "@/components/qr-display";
 import { QREditDelete } from "@/components/qr-edit-delete";
 import { QRThanksEditor } from "@/components/qr-thanks-editor";
 import { QRRecipientImageEdit } from "@/components/qr-recipient-image-edit";
+import { QRInviteIssuer } from "@/components/qr-invite-issuer";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -90,6 +91,7 @@ async function QRDetailContent({
   // 有効期間情報
   const productId = (qr as any).product_id as string | null;
   let validityInfo: { label: string; from: string; to: string } | null = null;
+  let isEntrance = false;
   if (productId && event) {
     const { data: product } = await adminClient
       .from("products")
@@ -97,7 +99,8 @@ async function QRDetailContent({
       .eq("product_id", productId)
       .single();
     if (product) {
-      const isEntranceAB = product.type === "entrance" && (product.payment_type === "A" || product.payment_type === "B");
+      isEntrance = product.type === "entrance";
+      const isEntranceAB = isEntrance && (product.payment_type === "A" || product.payment_type === "B");
       const fmt = (d: string) => new Date(d).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
       if (isEntranceAB && product.sales_start_at && product.sales_end_at) {
         validityInfo = { label: "前売り販売期間", from: fmt(product.sales_start_at), to: fmt(product.sales_end_at) };
@@ -203,6 +206,10 @@ async function QRDetailContent({
             </div>
           )}
         </div>
+      )}
+
+      {canEdit && isEntrance && (
+        <QRInviteIssuer eventId={eventId} qrConfigId={qrConfigId} />
       )}
 
       {canEdit && (

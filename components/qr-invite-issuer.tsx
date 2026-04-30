@@ -78,7 +78,7 @@ export function QRInviteIssuer({ eventId, qrConfigId }: Props) {
 
         {codes.length > 0 && (
           <div className="space-y-2">
-            {codes.map(({ code, url }) => (
+            {codes.map(({ code, url, max_uses }) => (
               <div key={code} className="flex items-center gap-2 bg-slate-950/60 border border-slate-700 rounded-xl px-4 py-3">
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-black text-indigo-300 tracking-widest">{code}</span>

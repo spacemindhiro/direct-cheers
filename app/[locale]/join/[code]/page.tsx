@@ -28,7 +28,7 @@ function InvitePage() {
   useEffect(() => {
     (async () => {
       const [infoRes, { data: { user } }] = await Promise.all([
-        fetch(`/api/join/${code}/info`),
+        fetch(`/api/invite/${code}/info`),
         supabase.auth.getUser(),
       ]);
 
@@ -52,7 +52,7 @@ function InvitePage() {
 
   const redeem = async () => {
     setStep("redeeming");
-    const res = await fetch(`/api/join/${code}/redeem`, { method: "POST" });
+    const res = await fetch(`/api/invite/${code}/redeem`, { method: "POST" });
     if (res.ok) {
       setStep("done");
       setTimeout(() => router.replace("/dashboard"), 1500);

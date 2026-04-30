@@ -137,7 +137,7 @@ export async function POST(req: Request) {
   const { error: credErr } = await admin.from("passkey_credentials").upsert({
     credential_id: cred.id,
     profile_id: authUserId,
-    public_key: Buffer.from(cred.publicKey),
+    public_key: "\\x" + Buffer.from(cred.publicKey).toString("hex"),
     counter: cred.counter,
     device_type: verification.registrationInfo.credentialDeviceType,
     backed_up: verification.registrationInfo.credentialBackedUp,

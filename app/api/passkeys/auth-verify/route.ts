@@ -51,27 +51,26 @@ export async function POST(req: Request) {
   }
 
   // bytea をPostgresから受け取った形式に応じてUint8Arrayに変換
-  // PostgREST は bytea を base64 文字列で返す（\x hex ではない）
   function toUint8Array(val: unknown): Uint8Array<ArrayBuffer> {
-    let buf: Buffer;
-    if (Buffer.isBuffer(val)) {
-      buf = Buffer.from(val); // 独立コピー
-    } else if (typeof val === "string") {
-      if (val.startsWith("\\x")) {
-        buf = Buffer.from(val.slice(2), "hex");
-      } else {
-        // PostgREST はbase64で返す
-        buf = Buffer.from(val, "base64");
+    if (typeof val === "string") {
+      // PostgREST は bytea を \x<hex> 形式で返す
+      const raw = val.startsWith("\\x") ? Buffer.from(val.slice(2), "hex") : Buffer.from(val, "base64");
+      // 旧バグ: Node.js Buffer.toJSON() が JSON 文字列として格納されてしまった場合の救済
+      const str = raw.toString("utf8");
+      if (str.startsWith('{"type":"Buffer"')) {
+        try {
+          const json = JSON.parse(str) as { type: string; data: number[] };
+          if (json.type === "Buffer" && Array.isArray(json.data)) {
+            return Uint8Array.from(json.data) as Uint8Array<ArrayBuffer>;
+          }
+        } catch { /* fall through */ }
       }
-    } else if (Array.isArray(val)) {
-      buf = Buffer.from(val as number[]);
-    } else if (val instanceof Uint8Array) {
-      buf = Buffer.from(val);
-    } else {
-      throw new Error(`public_key の型が不明: ${typeof val}`);
+      return Uint8Array.from(raw) as Uint8Array<ArrayBuffer>;
     }
-    console.log("[auth-verify] public_key decoded:", buf.length, "bytes, raw type:", typeof val, "raw prefix:", typeof val === "string" ? (val as string).slice(0, 10) : "n/a");
-    return Uint8Array.from(buf) as Uint8Array<ArrayBuffer>;
+    if (Buffer.isBuffer(val)) return Uint8Array.from(val) as Uint8Array<ArrayBuffer>;
+    if (val instanceof Uint8Array) return Uint8Array.from(val) as Uint8Array<ArrayBuffer>;
+    if (Array.isArray(val)) return Uint8Array.from(val as number[]) as Uint8Array<ArrayBuffer>;
+    throw new Error(`public_key の型が不明: ${typeof val}`);
   }
 
   // WebAuthn 検証
@@ -91,23 +90,8 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: any) {
-    const rawVal = storedCred.public_key;
-    const debugInfo = {
-      rawType: typeof rawVal,
-      rawPrefix: typeof rawVal === "string" ? (rawVal as string).slice(0, 30) : String(rawVal).slice(0, 30),
-      decodedLength: (() => {
-        try {
-          if (typeof rawVal === "string") {
-            const s = rawVal as string;
-            if (s.startsWith("\\x")) return Buffer.from(s.slice(2), "hex").length;
-            return Buffer.from(s, "base64").length;
-          }
-          return -1;
-        } catch { return -2; }
-      })(),
-    };
-    console.error("[auth-verify] verifyAuthenticationResponse error:", err.message, debugInfo);
-    return NextResponse.json({ error: `${err.message} | debug: ${JSON.stringify(debugInfo)}` }, { status: 400 });
+    console.error("[auth-verify] verifyAuthenticationResponse error:", err.message);
+    return NextResponse.json({ error: err.message }, { status: 400 });
   }
 
   if (!verification.verified) {

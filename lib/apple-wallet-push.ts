@@ -26,8 +26,12 @@ export async function sendWalletPush(pushToken: string): Promise<void> {
 
   const { certPem, keyPem } = extractFromP12(p12Base64, password);
 
+  const apnHost = process.env.APPLE_APN_ENV === "sandbox"
+    ? "https://api.sandbox.push.apple.com"
+    : "https://api.push.apple.com";
+
   return new Promise((resolve, reject) => {
-    const client = http2.connect("https://api.push.apple.com", {
+    const client = http2.connect(apnHost, {
       cert: certPem,
       key: keyPem,
     });

@@ -144,22 +144,17 @@ export async function POST(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // publish時: ウォレット登録済みデバイスにpush
+  // publish時: ウォレット登録済みデバイスにpush（awaitして確実に完了させる）
   if (body.publish) {
-    (async () => {
-      try {
-        const { data: txRows } = await admin
-          .from("transactions")
-          .select("transaction_id")
-          .eq("qr_config_id", qrConfigId)
-          .eq("status", "completed");
+    try {
+      const { data: txRows } = await admin
+        .from("transactions")
+        .select("transaction_id")
+        .eq("qr_config_id", qrConfigId)
+        .eq("status", "completed");
 
-        if (!txRows?.length) {
-          console.log("[thanks/push] no transactions for qrConfigId:", qrConfigId);
-          return;
-        }
-
-        const serialNumbers = txRows.map((t) => t.transaction_id);
+      const serialNumbers = (txRows ?? []).map((t) => t.transaction_id);
+      if (serialNumbers.length > 0) {
         const { data: devices } = await admin
           .from("wallet_device_registrations")
           .select("push_token")
@@ -168,19 +163,14 @@ export async function POST(
         const uniqueTokens = [...new Set((devices ?? []).map((d) => d.push_token))];
         console.log("[thanks/push] pushing to", uniqueTokens.length, "devices for", qrConfigId);
 
-        if (uniqueTokens.length === 0) {
-          console.log("[thanks/push] no registered devices — pass may have been added before webServiceURL was set");
-          return;
-        }
-
         const results = await Promise.allSettled(uniqueTokens.map((token) => sendWalletPush(token)));
         results.forEach((r) => {
           if (r.status === "rejected") console.error("[thanks/push] push failed:", r.reason);
         });
-      } catch (err) {
-        console.error("[thanks/push]", err);
       }
-    })();
+    } catch (err) {
+      console.error("[thanks/push]", err);
+    }
   }
 
   return NextResponse.json({ ok: true });

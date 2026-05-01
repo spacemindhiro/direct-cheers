@@ -44,13 +44,18 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
       ticket_id, ticket_code, status, created_at,
       product:products!product_id(name, payment_type, min_amount),
       event:events!event_id(title, venue, start_at),
-      transaction:transactions!transaction_id(total_gross_amount)
+      transaction:transactions!transaction_id(total_gross_amount, qr_config_id)
     `)
     .eq("ticket_id", ticketId)
     .single();
 
   if (error || !ticket) throw Object.assign(new Error("Not found"), { status: 404 });
   if (ticket.status === "cancelled") throw Object.assign(new Error("Ticket cancelled"), { status: 410 });
+
+  const qrConfigId = (ticket.transaction as any)?.qr_config_id as string | null;
+  const { data: qrDesign } = qrConfigId
+    ? await admin.from("qr_configs").select("strip_image_url, bg_color, fg_color, label_color").eq("qr_config_id", qrConfigId).single()
+    : { data: null };
 
   const p12Base64 = process.env.APPLE_PASS_CERTIFICATE_P12_BASE64;
   const p12Password = process.env.APPLE_PASS_CERTIFICATE_PASSWORD ?? "";
@@ -81,6 +86,18 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
       })
     : "";
 
+  const hexToRgb = (hex: string) => {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+  const bgColorHex = qrDesign?.bg_color ?? "#0f172a";
+  const fgColorHex = qrDesign?.fg_color ?? "#ffffff";
+  const lblColorHex = qrDesign?.label_color ?? "#94a3b8";
+  const stripImageUrl = qrDesign?.strip_image_url ?? null;
+
   const passJson: Record<string, unknown> = {
     formatVersion: 1,
     passTypeIdentifier: passTypeId,
@@ -88,9 +105,9 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
     teamIdentifier: teamId,
     organizationName: "direct cheers",
     description: eventTitle,
-    backgroundColor: "rgb(15, 23, 42)",
-    foregroundColor: "rgb(255, 255, 255)",
-    labelColor: "rgb(148, 163, 184)",
+    backgroundColor: hexToRgb(bgColorHex),
+    foregroundColor: hexToRgb(fgColorHex),
+    labelColor: hexToRgb(lblColorHex),
     logoText: "direct cheers",
     barcodes: [
       {
@@ -127,19 +144,30 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
   const logoPath = path.join(process.cwd(), "public", "logo-emblem.png");
   const logoBuffer = fs.readFileSync(logoPath);
 
-  const indigo = { r: 15, g: 23, b: 42, alpha: 255 };
-  const stripRaw = await sharp({
-    create: { width: 640, height: 426, channels: 4, background: indigo },
-  })
-    .composite([{
-      input: await sharp(logoBuffer)
-        .resize(160, 160, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .png()
-        .toBuffer(),
-      gravity: "centre",
-    }])
-    .png()
-    .toBuffer();
+  // strip画像: アップロード済みなら取得、なければ背景色+ロゴのフォールバック
+  let strip3xRaw: Buffer;
+  if (stripImageUrl) {
+    const imgRes = await fetch(stripImageUrl);
+    const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+    strip3xRaw = await sharp(imgBuf).resize(1125, 294, { fit: "cover", position: "centre" }).png().toBuffer();
+  } else {
+    const bgHex = bgColorHex.replace("#", "");
+    const bgR = parseInt(bgHex.slice(0, 2), 16);
+    const bgG = parseInt(bgHex.slice(2, 4), 16);
+    const bgB = parseInt(bgHex.slice(4, 6), 16);
+    strip3xRaw = await sharp({
+      create: { width: 1125, height: 294, channels: 4, background: { r: bgR, g: bgG, b: bgB, alpha: 255 } },
+    })
+      .composite([{
+        input: await sharp(logoBuffer)
+          .resize(120, 120, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+          .png()
+          .toBuffer(),
+        gravity: "centre",
+      }])
+      .png()
+      .toBuffer();
+  }
 
   const [icon1x, icon2x, icon3x, logo1x, logo2x, strip1x, strip2x, strip3x] = await Promise.all([
     sharp(logoBuffer).resize(29, 29).png().toBuffer(),
@@ -147,9 +175,9 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
     sharp(logoBuffer).resize(87, 87).png().toBuffer(),
     sharp(logoBuffer).resize(50, 50).png().toBuffer(),
     sharp(logoBuffer).resize(100, 100).png().toBuffer(),
-    sharp(stripRaw).resize(320, 213).png().toBuffer(),
-    Promise.resolve(stripRaw),
-    sharp(stripRaw).resize(960, 639).png().toBuffer(),
+    sharp(strip3xRaw).resize(375, 98, { fit: "cover" }).png().toBuffer(),
+    sharp(strip3xRaw).resize(750, 196, { fit: "cover" }).png().toBuffer(),
+    Promise.resolve(strip3xRaw),
   ]);
 
   const [wwdrPem, { certPem, keyPem }] = await Promise.all([

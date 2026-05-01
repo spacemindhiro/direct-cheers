@@ -50,6 +50,10 @@ export async function POST(req: Request) {
     sales_start_at = null,
     sales_end_at = null,
     bypass_validity = false,
+    strip_image_url = null,
+    bg_color = "#0f172a",
+    fg_color = "#ffffff",
+    label_color = "#94a3b8",
   } = body as {
     event_id: string;
     label?: string;
@@ -67,6 +71,10 @@ export async function POST(req: Request) {
     sales_start_at?: string | null;
     sales_end_at?: string | null;
     bypass_validity?: boolean;
+    strip_image_url?: string | null;
+    bg_color?: string;
+    fg_color?: string;
+    label_color?: string;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -158,6 +166,12 @@ export async function POST(req: Request) {
       product_id: product.product_id,
       serial_scope,
       bypass_validity,
+      ...(product_type === "entrance" && {
+        strip_image_url: strip_image_url ?? null,
+        bg_color,
+        fg_color,
+        label_color,
+      }),
     })
     .select("qr_config_id")
     .single();

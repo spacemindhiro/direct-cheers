@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Loader2, Plus, Trash2, Info, Hash, Lock } from "lucide-react";
 import { QRImageUpload } from "@/components/qr-image-upload";
+import { StripImageUpload } from "@/components/strip-image-upload";
 import { CheersCard } from "@/components/cheers-card";
+import { WalletTicketPreview } from "@/components/wallet-ticket-preview";
 
 const PAYMENT_TYPE_INFO = {
   A: { label: "Aタイプ：5日前確定", desc: "予約→カード保存、5日前に自動決済" },
@@ -28,6 +30,8 @@ type DistTarget = { profile_id: string; ratio: string };
 export function QRCreateForm({
   eventId,
   eventTitle = "",
+  eventStartAt,
+  eventVenue,
   targets: targetCandidates,
   feeConfig = { stripe_rate: 0.036, platform_rate: 0.10, net_rate: 0.864 },
   organizerBalance = 0,
@@ -35,6 +39,8 @@ export function QRCreateForm({
 }: {
   eventId: string;
   eventTitle?: string;
+  eventStartAt?: string | null;
+  eventVenue?: string | null;
   targets: TargetCandidate[];
   feeConfig?: { stripe_rate: number; platform_rate: number; net_rate: number };
   organizerBalance?: number;
@@ -73,6 +79,11 @@ export function QRCreateForm({
   const [salesEndAt, setSalesEndAt] = useState("");
   // テスト用有効期間バイパス
   const [bypassValidity, setBypassValidity] = useState(false);
+  // entrance タイプ用ビジュアル
+  const [stripImageUrl, setStripImageUrl] = useState<string | null>(null);
+  const [bgColor, setBgColor] = useState("#0f172a");
+  const [fgColor, setFgColor] = useState("#ffffff");
+  const [labelColor, setLabelColor] = useState("#94a3b8");
 
   const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
 
@@ -124,7 +135,7 @@ export function QRCreateForm({
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!label.trim()) { setError("ラベルを入力してください"); return; }
-    if (!imageUrl) { setError("QR画像をアップロードしてください"); return; }
+    if (productType !== "entrance" && !imageUrl) { setError("QR画像をアップロードしてください"); return; }
     if (!recipientId) { setError("宛先を選択してください"); return; }
     if (targets.length === 0) { setError("配分先を1人以上設定してください"); return; }
     if (Math.abs(totalRatio - 100) > 0.1) { setError("配分比率の合計を100%にしてください"); return; }
@@ -150,7 +161,7 @@ export function QRCreateForm({
         body: JSON.stringify({
           event_id: eventId,
           label: label || undefined,
-          image_url: imageUrl || undefined,
+          image_url: productType !== "entrance" ? (imageUrl || undefined) : undefined,
           product_type: productType,
           min_amount: priceMode === "fixed" ? fixedAmount : minAmount,
           max_amount: priceMode === "fixed" ? fixedAmount : maxAmount,
@@ -168,6 +179,10 @@ export function QRCreateForm({
               sales_start_at: salesStartAt,
               sales_end_at: salesEndAt,
             }),
+            strip_image_url: stripImageUrl || undefined,
+            bg_color: bgColor,
+            fg_color: fgColor,
+            label_color: labelColor,
           }),
           bypass_validity: bypassValidity,
         }),
@@ -182,44 +197,7 @@ export function QRCreateForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 space-y-6">
 
-        {/* ラベル */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">ラベル <span className="text-pink-500">*</span></label>
-          <Input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="例: DJ ブース用"
-            className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
-        </div>
-
-        {/* QR画像 */}
-        <QRImageUpload
-          eventTitle={eventTitle}
-          artistName={targetCandidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
-          onUploadComplete={setImageUrl}
-        />
-
-        {/* カードプレビュー */}
-        {imageUrl && (
-          <div className="space-y-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">カードプレビュー</p>
-            <div className="max-w-xs mx-auto opacity-90 pointer-events-none">
-              <CheersCard
-                artistName={targetCandidates.find((c) => c.profile_id === recipientId)?.display_name ?? "Artist"}
-                eventTitle={eventTitle}
-                artistAvatar={null}
-                imageUrl={imageUrl}
-                amount={priceMode === "fixed" ? fixedAmount : Math.round((minAmount + maxAmount) / 2)}
-                transactionId="PREVIEW"
-                serialNumber={1}
-              />
-            </div>
-            <p className="text-[9px] text-slate-600 text-center">※ 実際の金額・シリアル番号は異なります</p>
-          </div>
-        )}
-
-        {/* 商品タイプ */}
+        {/* 商品タイプ（先頭） */}
         <div className="space-y-3">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">商品タイプ</label>
           <div className="grid grid-cols-2 gap-2">
@@ -252,6 +230,86 @@ export function QRCreateForm({
             ))}
           </div>
         </div>
+
+        {/* ラベル */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">ラベル <span className="text-pink-500">*</span></label>
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="例: DJ ブース用"
+            className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+          />
+        </div>
+
+        {/* 画像・プレビュー（タイプ別） */}
+        {productType === "entrance" ? (
+          <div className="space-y-6">
+            <StripImageUpload onUploadComplete={setStripImageUrl} />
+
+            {/* カラー設定 */}
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">チケットカラー</label>
+              <div className="grid grid-cols-3 gap-3">
+                {([
+                  { label: "背景色", value: bgColor, set: setBgColor },
+                  { label: "テキスト色", value: fgColor, set: setFgColor },
+                  { label: "ラベル色", value: labelColor, set: setLabelColor },
+                ] as const).map(({ label: lbl, value, set }) => (
+                  <label key={lbl} className="flex flex-col items-center gap-1.5 cursor-pointer">
+                    <div className="relative w-10 h-10 rounded-xl border border-slate-600 overflow-hidden">
+                      <div className="w-full h-full" style={{ backgroundColor: value }} />
+                      <input
+                        type="color"
+                        value={value}
+                        onChange={(e) => set(e.target.value)}
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                      />
+                    </div>
+                    <span className="text-[8px] text-slate-500 font-bold">{lbl}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Walletプレビュー */}
+            <WalletTicketPreview
+              eventTitle={eventTitle}
+              productName={label || "チケット"}
+              startAt={eventStartAt}
+              venue={eventVenue}
+              stripImageUrl={stripImageUrl}
+              bgColor={bgColor}
+              fgColor={fgColor}
+              labelColor={labelColor}
+            />
+          </div>
+        ) : (
+          <>
+            <QRImageUpload
+              eventTitle={eventTitle}
+              artistName={targetCandidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
+              onUploadComplete={setImageUrl}
+            />
+            {imageUrl && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">カードプレビュー</p>
+                <div className="max-w-xs mx-auto opacity-90 pointer-events-none">
+                  <CheersCard
+                    artistName={targetCandidates.find((c) => c.profile_id === recipientId)?.display_name ?? "Artist"}
+                    eventTitle={eventTitle}
+                    artistAvatar={null}
+                    imageUrl={imageUrl}
+                    amount={priceMode === "fixed" ? fixedAmount : Math.round((minAmount + maxAmount) / 2)}
+                    transactionId="PREVIEW"
+                    serialNumber={1}
+                  />
+                </div>
+                <p className="text-[9px] text-slate-600 text-center">※ 実際の金額・シリアル番号は異なります</p>
+              </div>
+            )}
+          </>
+        )}
 
         {/* entrance タイプ：決済タイプ・在庫・販売期間 */}
         {productType === "entrance" && (
@@ -586,7 +644,7 @@ export function QRCreateForm({
 
       <button
         type="submit"
-        disabled={isPending || !label.trim() || !imageUrl || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
+        disabled={isPending || !label.trim() || (productType !== "entrance" && !imageUrl) || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
         className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>QRを作成 <ArrowRight size={18} /></>}

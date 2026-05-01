@@ -71,6 +71,10 @@ export function ImageCropperModal({
   };
 
   const aspectLabel = label ?? (aspect === 1 ? "1:1" : "3:2");
+  // クロップエリアは横長すぎるとモバイルで使いにくいため高さを制限
+  const cropContainerStyle = aspect > 2
+    ? { height: "140px" }
+    : { aspectRatio: String(aspect) };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
@@ -83,7 +87,7 @@ export function ImageCropperModal({
         </div>
 
         {/* クロップエリア */}
-        <div className="relative bg-black" style={{ aspectRatio: String(aspect === 1 ? "1/1" : "3/2") }}>
+        <div className="relative bg-black" style={cropContainerStyle}>
           <Cropper
             image={imageSrc}
             crop={crop}

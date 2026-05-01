@@ -173,7 +173,7 @@ export function DigitalTicket({
 
         {/* QR コード */}
         <div className="flex items-center justify-center py-2">
-          <div className={`p-3 rounded-2xl ${isUsed ? "opacity-30" : ""}`} style={{ background: "#ffffff" }}>
+          <div className="p-3 rounded-2xl" style={{ background: "#ffffff" }}>
             <canvas ref={canvasRef} />
           </div>
         </div>

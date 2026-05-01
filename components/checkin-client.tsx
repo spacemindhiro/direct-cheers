@@ -77,35 +77,42 @@ export function CheckinClient() {
     }
   }, [processing]);
 
-  const startScanner = useCallback(async () => {
-    if (scannerRef.current) return;
-    setScanning(true);
-    const { Html5Qrcode } = await import("html5-qrcode");
-    const scanner = new Html5Qrcode(scannerDivId);
-    try {
-      await scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => { processCheckin(decodedText); },
-        () => {},
-      );
-      scannerRef.current = scanner;
-    } catch {
-      setScanning(false);
-    }
-  }, [processCheckin]);
+  const startScanner = useCallback(() => { setScanning(true); }, []);
 
   const stopScanner = useCallback(() => {
-    if (scannerRef.current) {
-      scannerRef.current.stop().then(() => {
-        scannerRef.current?.clear();
-        scannerRef.current = null;
-      }).catch(() => { scannerRef.current = null; });
+    const s = scannerRef.current;
+    if (s) {
+      s.stop().catch(() => {}).finally(() => { scannerRef.current = null; });
     }
     setScanning(false);
   }, []);
 
-  useEffect(() => { return () => { stopScanner(); }; }, [stopScanner]);
+  // scanning が true になり div が DOM に追加された後にカメラ起動
+  useEffect(() => {
+    if (!scanning) return;
+    let mounted = true;
+    import("html5-qrcode").then(({ Html5Qrcode }) => {
+      if (!mounted || scannerRef.current) return;
+      const scanner = new Html5Qrcode(scannerDivId);
+      scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText: string) => { processCheckin(decodedText); },
+        () => {},
+      ).then(() => {
+        if (mounted) scannerRef.current = scanner;
+      }).catch(() => {
+        if (mounted) setScanning(false);
+      });
+    });
+    return () => {
+      mounted = false;
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+        scannerRef.current = null;
+      }
+    };
+  }, [scanning, processCheckin]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();

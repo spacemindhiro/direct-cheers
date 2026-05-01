@@ -48,6 +48,7 @@ async function DashboardContent() {
     `)
     .eq('sender_profile_id', user!.id)
     .eq('status', 'completed')
+    .neq('transaction_type', 'invitation')
     .order('created_at', { ascending: false })
     .limit(50);
 
@@ -60,6 +61,7 @@ async function DashboardContent() {
     `)
     .eq('sender_email', userEmail)
     .eq('status', 'completed')
+    .neq('transaction_type', 'invitation')
     .order('created_at', { ascending: false })
     .limit(50);
 

@@ -36,15 +36,22 @@ export function CheckinClient() {
   const [processing, setProcessing] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [manualCode, setManualCode] = useState("");
+  const [overlay, setOverlay] = useState<{ status: "success" | "error" | "warn"; result: CheckinResult } | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scannerRef = useRef<any>(null);
   const scannerDivId = "qr-scanner-container";
   const lastScannedRef = useRef<string>("");
   const scanCooldownRef = useRef(false);
+  const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showOverlay = (status: "success" | "error" | "warn", result: CheckinResult) => {
+    if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+    setOverlay({ status, result });
+    overlayTimerRef.current = setTimeout(() => setOverlay(null), 2500);
+  };
 
   const processCheckin = useCallback(async (code: string) => {
     if (scanCooldownRef.current || processing) return;
-    if (code === lastScannedRef.current && Date.now() - Number(lastScannedRef.current) < 3000) return;
     lastScannedRef.current = code;
     scanCooldownRef.current = true;
     setTimeout(() => { scanCooldownRef.current = false; }, 3000);
@@ -57,19 +64,23 @@ export function CheckinClient() {
         body: JSON.stringify({ ticket_code: code }),
       });
       const data: CheckinResult = await res.json();
+      const status = data.ok ? "success" : data.error === "ALREADY_USED" ? "warn" : "error";
+      showOverlay(status, data);
       setLog((prev) => [{
         id: `${Date.now()}-${Math.random()}`,
         time: new Date().toLocaleTimeString("ja-JP"),
         code: code.slice(0, 8) + "...",
         result: data,
-        status: data.ok ? "success" : data.error === "ALREADY_USED" ? "warn" : "error",
+        status,
       }, ...prev.slice(0, 49)]);
     } catch {
+      const data = { error: "通信エラー" };
+      showOverlay("error", data);
       setLog((prev) => [{
         id: `${Date.now()}`,
         time: new Date().toLocaleTimeString("ja-JP"),
         code: code.slice(0, 8) + "...",
-        result: { error: "通信エラー" },
+        result: data,
         status: "error",
       }, ...prev.slice(0, 49)]);
     } finally {
@@ -87,7 +98,6 @@ export function CheckinClient() {
     setScanning(false);
   }, []);
 
-  // scanning が true になり div が DOM に追加された後にカメラ起動
   useEffect(() => {
     if (!scanning) return;
     let mounted = true;
@@ -134,8 +144,9 @@ export function CheckinClient() {
           <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">入場スキャナ</h1>
         </div>
 
-        {latestEntry && (
-          <div className={`rounded-2xl p-4 border transition-all ${
+        {/* スキャン結果サマリー（スキャン停止中に最新結果を表示） */}
+        {!scanning && latestEntry && (
+          <div className={`rounded-2xl p-4 border ${
             latestEntry.status === "success" ? "bg-green-500/10 border-green-500/30" :
             latestEntry.status === "warn"    ? "bg-amber-500/10 border-amber-500/30" :
                                                "bg-red-500/10 border-red-500/30"
@@ -179,8 +190,41 @@ export function CheckinClient() {
               </button>
             </div>
           ) : (
-            <div>
+            <div className="relative">
+              {/* カメラ映像 */}
               <div id={scannerDivId} className="w-full" />
+
+              {/* スキャン結果オーバーレイ */}
+              {overlay && (
+                <div className={`absolute inset-0 flex flex-col items-center justify-center gap-4 transition-all ${
+                  overlay.status === "success" ? "bg-green-500/90" :
+                  overlay.status === "warn"    ? "bg-amber-500/90" :
+                                                 "bg-red-500/90"
+                }`}>
+                  {overlay.status === "success"
+                    ? <CheckCircle size={64} className="text-white" />
+                    : overlay.status === "warn"
+                    ? <AlertCircle size={64} className="text-white" />
+                    : <XCircle size={64} className="text-white" />}
+                  <p className="text-white font-black text-2xl">
+                    {overlay.status === "success" ? "入場OK" :
+                     overlay.status === "warn"    ? "入場済み" :
+                     errorMessage(overlay.result.error)}
+                  </p>
+                  {overlay.result.ok && overlay.result.email && (
+                    <p className="text-white/80 text-sm">{overlay.result.email}</p>
+                  )}
+                  {processing && <Loader2 size={20} className="text-white/60 animate-spin" />}
+                </div>
+              )}
+
+              {/* 処理中インジケーター */}
+              {processing && !overlay && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                  <Loader2 size={40} className="text-white animate-spin" />
+                </div>
+              )}
+
               <div className="p-4">
                 <button type="button" onClick={stopScanner} className="w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-xl font-black text-xs uppercase tracking-widest transition-all">
                   スキャナを停止

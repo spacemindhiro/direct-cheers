@@ -101,7 +101,7 @@ export function CheckinClient() {
       const scanner = new Html5Qrcode(scannerDivId);
       scanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        { fps: 15, qrbox: { width: 300, height: 300 } },
         (decodedText: string) => { processCheckin(decodedText); },
         () => {},
       ).then(() => {

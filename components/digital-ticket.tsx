@@ -46,7 +46,7 @@ export function DigitalTicket({
     // ブラウザ専用ライブラリを動的ロード
     import("qrcode").then(({ default: QRCode }) => {
       QRCode.toCanvas(canvasRef.current!, ticketCode, {
-        width: 180,
+        width: 260,
         margin: 2,
         color: {
           dark: "#000000",

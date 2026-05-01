@@ -36,6 +36,149 @@ function extractFromP12(p12Base64: string, password: string) {
   };
 }
 
+export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer> {
+  const admin = createAdminClient();
+  const { data: ticket, error } = await admin
+    .from("tickets")
+    .select(`
+      ticket_id, ticket_code, status, created_at,
+      product:products!product_id(name, payment_type, min_amount),
+      event:events!event_id(title, venue, start_at)
+    `)
+    .eq("ticket_id", ticketId)
+    .single();
+
+  if (error || !ticket) throw Object.assign(new Error("Not found"), { status: 404 });
+  if (ticket.status === "cancelled") throw Object.assign(new Error("Ticket cancelled"), { status: 410 });
+
+  const p12Base64 = process.env.APPLE_PASS_CERTIFICATE_P12_BASE64;
+  const p12Password = process.env.APPLE_PASS_CERTIFICATE_PASSWORD ?? "";
+  const passTypeId = process.env.APPLE_PASS_TYPE_ID;
+  const teamId = process.env.APPLE_TEAM_ID;
+  const serviceBaseUrl = process.env.APPLE_WALLET_SERVICE_URL;
+  const authToken = process.env.WALLET_AUTH_SECRET;
+
+  if (!p12Base64 || !passTypeId || !teamId) {
+    throw Object.assign(new Error("Apple Wallet設定が不完全です"), { status: 500 });
+  }
+
+  const eventTitle = (ticket.event as any)?.title ?? "Event";
+  const venue = (ticket.event as any)?.venue ?? null;
+  const startAt = (ticket.event as any)?.start_at ?? null;
+  const productName = (ticket.product as any)?.name ?? "Ticket";
+  const amount = (ticket.product as any)?.min_amount ?? 0;
+
+  const fmtDate = startAt
+    ? new Date(startAt).toLocaleString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+
+  const passJson: Record<string, unknown> = {
+    formatVersion: 1,
+    passTypeIdentifier: passTypeId,
+    serialNumber: ticket.ticket_id,
+    teamIdentifier: teamId,
+    organizationName: "direct cheers",
+    description: eventTitle,
+    backgroundColor: "rgb(15, 23, 42)",
+    foregroundColor: "rgb(255, 255, 255)",
+    labelColor: "rgb(148, 163, 184)",
+    logoText: "direct cheers",
+    barcodes: [
+      {
+        message: ticket.ticket_code,
+        format: "PKBarcodeFormatQR",
+        messageEncoding: "iso-8859-1",
+        altText: ticket.ticket_code.slice(0, 8).toUpperCase(),
+      },
+    ],
+    eventTicket: {
+      primaryFields: [
+        { key: "event", label: "EVENT", value: eventTitle },
+      ],
+      secondaryFields: [
+        ...(fmtDate ? [{ key: "date", label: "DATE", value: fmtDate }] : []),
+        ...(venue ? [{ key: "venue", label: "VENUE", value: venue }] : []),
+      ],
+      auxiliaryFields: [
+        { key: "ticket", label: "TICKET", value: productName },
+        { key: "amount", label: "AMOUNT", value: amount === 0 ? "招待" : `¥${amount.toLocaleString("ja-JP")}` },
+      ],
+      backFields: [
+        { key: "ticketid", label: "Ticket ID", value: ticket.ticket_id },
+        { key: "site", label: "direct cheers", value: "https://direct-cheers.com" },
+      ],
+    },
+  };
+
+  if (serviceBaseUrl && authToken) {
+    passJson.webServiceURL = serviceBaseUrl;
+    passJson.authenticationToken = authToken;
+  }
+
+  const logoPath = path.join(process.cwd(), "public", "logo-emblem.png");
+  const logoBuffer = fs.readFileSync(logoPath);
+
+  const indigo = { r: 15, g: 23, b: 42, alpha: 255 };
+  const stripRaw = await sharp({
+    create: { width: 640, height: 426, channels: 4, background: indigo },
+  })
+    .composite([{
+      input: await sharp(logoBuffer)
+        .resize(160, 160, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png()
+        .toBuffer(),
+      gravity: "centre",
+    }])
+    .png()
+    .toBuffer();
+
+  const [icon1x, icon2x, icon3x, logo1x, logo2x, strip1x, strip2x, strip3x] = await Promise.all([
+    sharp(logoBuffer).resize(29, 29).png().toBuffer(),
+    sharp(logoBuffer).resize(58, 58).png().toBuffer(),
+    sharp(logoBuffer).resize(87, 87).png().toBuffer(),
+    sharp(logoBuffer).resize(50, 50).png().toBuffer(),
+    sharp(logoBuffer).resize(100, 100).png().toBuffer(),
+    sharp(stripRaw).resize(320, 213).png().toBuffer(),
+    Promise.resolve(stripRaw),
+    sharp(stripRaw).resize(960, 639).png().toBuffer(),
+  ]);
+
+  const [wwdrPem, { certPem, keyPem }] = await Promise.all([
+    getWWDR(),
+    Promise.resolve(extractFromP12(p12Base64, p12Password)),
+  ]);
+
+  const pass = new PKPass(
+    {
+      "pass.json": Buffer.from(JSON.stringify(passJson)),
+      "icon.png": icon1x,
+      "icon@2x.png": icon2x,
+      "icon@3x.png": icon3x,
+      "logo.png": logo1x,
+      "logo@2x.png": logo2x,
+      "strip.png": strip1x,
+      "strip@2x.png": strip2x,
+      "strip@3x.png": strip3x,
+    },
+    {
+      wwdr: wwdrPem,
+      signerCert: certPem,
+      signerKey: keyPem,
+      signerKeyPassphrase: p12Password,
+    }
+  );
+
+  return pass.getAsBuffer() as unknown as Buffer;
+}
+
 export async function generatePassBuffer(transactionId: string): Promise<Buffer> {
   const admin = createAdminClient();
   const { data: tx, error: txErr } = await admin

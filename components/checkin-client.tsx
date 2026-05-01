@@ -11,6 +11,7 @@ type CheckinResult = {
   event_title?: string;
   product_name?: string;
   email?: string;
+  ticket?: { checked_in_at?: string | null };
 };
 
 type LogEntry = {
@@ -205,7 +206,12 @@ export function CheckinClient() {
                        overlay.status === "warn"    ? "入場済み" :
                        errorMessage(overlay.result.error)}
                     </p>
-                    {overlay.result.email && (
+                    {overlay.status === "warn" && overlay.result.ticket?.checked_in_at && (
+                      <p className="text-white/80 text-xs">
+                        {new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} に入場済み
+                      </p>
+                    )}
+                    {overlay.result.email && overlay.status !== "warn" && (
                       <p className="text-white/80 text-xs truncate">{overlay.result.email}</p>
                     )}
                   </div>
@@ -262,13 +268,18 @@ export function CheckinClient() {
                    entry.status === "warn"    ? <AlertCircle size={12} className="text-amber-400 shrink-0" /> :
                                                 <XCircle size={12} className="text-red-400 shrink-0" />}
                   <span className="text-slate-600 font-mono shrink-0">{entry.time}</span>
-                  <span className={`font-bold ${
+                  <span className={`font-bold shrink-0 ${
                     entry.status === "success" ? "text-green-400" :
                     entry.status === "warn"    ? "text-amber-400" : "text-red-400"
                   }`}>
                     {entry.status === "success" ? "OK" : entry.status === "warn" ? "入場済" : errorMessage(entry.result.error)}
                   </span>
-                  {entry.result.email && <span className="text-slate-500 truncate">{entry.result.email}</span>}
+                  {entry.status === "warn" && entry.result.ticket?.checked_in_at && (
+                    <span className="text-amber-500/70 shrink-0">
+                      {new Date(entry.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}入場
+                    </span>
+                  )}
+                  {entry.result.email && entry.status !== "warn" && <span className="text-slate-500 truncate">{entry.result.email}</span>}
                 </div>
               ))}
             </div>

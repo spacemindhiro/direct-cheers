@@ -15,6 +15,10 @@ type DigitalTicketProps = {
   checkedInAt?: string | null;
   paymentType: "A" | "B" | "C" | null;
   amount: number;
+  stripImageUrl?: string | null;
+  bgColor?: string;
+  fgColor?: string;
+  labelColor?: string;
 };
 
 export function DigitalTicket({
@@ -29,7 +33,12 @@ export function DigitalTicket({
   checkedInAt,
   paymentType,
   amount,
+  stripImageUrl,
+  bgColor = "#0f172a",
+  fgColor = "#ffffff",
+  labelColor = "#94a3b8",
 }: DigitalTicketProps) {
+  const hasCustomDesign = !!(stripImageUrl || bgColor !== "#0f172a" || fgColor !== "#ffffff");
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -80,17 +89,24 @@ export function DigitalTicket({
   return (
     <div
       className={`relative overflow-hidden rounded-3xl border shadow-[0_0_60px_rgba(99,102,241,0.15)] ${
-        isUsed
-          ? "bg-slate-800/60 border-slate-700"
-          : "bg-gradient-to-br from-slate-800 via-slate-900 to-indigo-950/60 border-indigo-500/30"
+        isUsed ? "border-slate-700" : "border-indigo-500/30"
       }`}
+      style={{ backgroundColor: isUsed ? undefined : bgColor }}
     >
-      {/* 背景装飾 */}
-      {!isUsed && (
+      {/* カスタムデザインでない場合の背景グラデーション */}
+      {!isUsed && !hasCustomDesign && (
         <>
           <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-indigo-500/5 -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-violet-600/5 translate-y-1/2 -translate-x-1/2 blur-3xl pointer-events-none" />
         </>
+      )}
+      {isUsed && <div className="absolute inset-0 bg-slate-800/60" />}
+
+      {/* ストリップ画像 */}
+      {stripImageUrl && !isUsed && (
+        <div className="w-full overflow-hidden" style={{ aspectRatio: String(1125 / 294) }}>
+          <img src={stripImageUrl} className="w-full h-full object-cover" alt="" />
+        </div>
       )}
 
       {/* 使用済みオーバーレイ */}
@@ -108,7 +124,7 @@ export function DigitalTicket({
       <div className="relative p-6 space-y-5">
         {/* ヘッダー */}
         <div className="flex items-center justify-between">
-          <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.35em]">
+          <p className="text-[9px] font-black uppercase tracking-[0.35em]" style={{ color: labelColor }}>
             Digital Ticket
           </p>
           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${st.bg}`}>
@@ -119,17 +135,17 @@ export function DigitalTicket({
 
         {/* イベント名・チケット種別 */}
         <div>
-          <p className="text-xl font-black text-white italic uppercase tracking-tighter leading-tight">
+          <p className="text-xl font-black italic uppercase tracking-tighter leading-tight" style={{ color: fgColor }}>
             {eventTitle}
           </p>
-          <p className="text-sm text-indigo-300 font-bold mt-1">{productName}</p>
+          <p className="text-sm font-bold mt-1" style={{ color: labelColor }}>{productName}</p>
         </div>
 
         {/* イベント情報 */}
         <div className="space-y-1.5">
           {startAt && (
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <Calendar size={12} className="text-indigo-400 shrink-0" />
+            <div className="flex items-center gap-2 text-xs" style={{ color: labelColor }}>
+              <Calendar size={12} className="shrink-0" style={{ color: labelColor }} />
               {new Date(startAt).toLocaleString("ja-JP", {
                 year: "numeric",
                 month: "long",
@@ -141,8 +157,8 @@ export function DigitalTicket({
             </div>
           )}
           {eventVenue && (
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <MapPin size={12} className="text-indigo-400 shrink-0" />
+            <div className="flex items-center gap-2 text-xs" style={{ color: labelColor }}>
+              <MapPin size={12} className="shrink-0" style={{ color: labelColor }} />
               {eventVenue}
             </div>
           )}

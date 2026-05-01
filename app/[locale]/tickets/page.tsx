@@ -18,7 +18,10 @@ async function TicketsContent() {
       ticket_id, ticket_code, status, checked_in_at, email, created_at,
       product:products(name, payment_type, min_amount),
       event:events(event_id, title, venue, start_at),
-      transaction:transactions!transaction_id(total_gross_amount)
+      transaction:transactions!transaction_id(
+        total_gross_amount,
+        qr_config:qr_configs!qr_config_id(strip_image_url, bg_color, fg_color, label_color)
+      )
     `)
     .eq("holder_profile_id", user.id)
     .order("created_at", { ascending: false })
@@ -68,6 +71,10 @@ async function TicketsContent() {
               checkedInAt={t.checked_in_at ?? null}
               paymentType={t.product?.payment_type ?? null}
               amount={t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0}
+              stripImageUrl={t.transaction?.qr_config?.strip_image_url ?? null}
+              bgColor={t.transaction?.qr_config?.bg_color ?? undefined}
+              fgColor={t.transaction?.qr_config?.fg_color ?? undefined}
+              labelColor={t.transaction?.qr_config?.label_color ?? undefined}
             />
           ))}
         </div>

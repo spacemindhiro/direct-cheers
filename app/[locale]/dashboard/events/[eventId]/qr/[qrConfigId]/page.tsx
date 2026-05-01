@@ -33,7 +33,7 @@ async function QRDetailContent({
 
   const { data: qr } = await adminClient
     .from("qr_configs")
-    .select("qr_config_id, label, image_url, recipient_profile_id, created_at, event_id, bypass_validity, product_id")
+    .select("qr_config_id, label, image_url, strip_image_url, bg_color, fg_color, label_color, recipient_profile_id, created_at, event_id, bypass_validity, product_id")
     .eq("qr_config_id", qrConfigId)
     .eq("event_id", eventId)
     .is("deleted_at", null)
@@ -43,7 +43,7 @@ async function QRDetailContent({
   const { data: event } = await adminClient
     .from("events")
     .select(`
-      title, organizer_profile_id, agent_id, start_at, end_at,
+      title, organizer_profile_id, agent_id, start_at, end_at, venue,
       organizer:profiles!organizer_profile_id(display_name),
       event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name))
     `)
@@ -217,8 +217,15 @@ async function QRDetailContent({
           qrConfigId={qrConfigId}
           eventId={eventId}
           eventTitle={event.title}
+          eventStartAt={(event as any).start_at ?? null}
+          eventVenue={(event as any).venue ?? null}
+          isEntrance={isEntrance}
           currentLabel={qr.label ?? ""}
           currentImageUrl={(qr as any).image_url ?? null}
+          currentStripImageUrl={(qr as any).strip_image_url ?? null}
+          currentBgColor={(qr as any).bg_color ?? "#0f172a"}
+          currentFgColor={(qr as any).fg_color ?? "#ffffff"}
+          currentLabelColor={(qr as any).label_color ?? "#94a3b8"}
           currentRecipientId={qr.recipient_profile_id ?? ""}
           currentTargets={currentTargets}
           candidates={candidates}

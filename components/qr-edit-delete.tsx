@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Pencil, Trash2, Loader2, Check, X, Plus } from "lucide-react";
 import { QRImageUpload } from "@/components/qr-image-upload";
 import { CheersCard } from "@/components/cheers-card";
+import { StripImageUpload } from "@/components/strip-image-upload";
+import { WalletTicketPreview } from "@/components/wallet-ticket-preview";
 
 type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist" };
 type DistTarget = { profile_id: string; ratio: string };
@@ -14,8 +16,15 @@ export function QREditDelete({
   qrConfigId,
   eventId,
   eventTitle = "",
+  eventStartAt,
+  eventVenue,
+  isEntrance = false,
   currentLabel,
   currentImageUrl,
+  currentStripImageUrl,
+  currentBgColor = "#0f172a",
+  currentFgColor = "#ffffff",
+  currentLabelColor = "#94a3b8",
   currentRecipientId,
   currentTargets,
   candidates,
@@ -23,8 +32,15 @@ export function QREditDelete({
   qrConfigId: string;
   eventId: string;
   eventTitle?: string;
+  eventStartAt?: string | null;
+  eventVenue?: string | null;
+  isEntrance?: boolean;
   currentLabel: string;
   currentImageUrl?: string | null;
+  currentStripImageUrl?: string | null;
+  currentBgColor?: string;
+  currentFgColor?: string;
+  currentLabelColor?: string;
   currentRecipientId: string;
   currentTargets: { profile_id: string; distribution_ratio: number }[];
   candidates: TargetCandidate[];
@@ -36,6 +52,10 @@ export function QREditDelete({
 
   const [label, setLabel] = useState(currentLabel);
   const [imageUrl, setImageUrl] = useState<string | null>(currentImageUrl ?? null);
+  const [stripImageUrl, setStripImageUrl] = useState<string | null>(currentStripImageUrl ?? null);
+  const [bgColor, setBgColor] = useState(currentBgColor);
+  const [fgColor, setFgColor] = useState(currentFgColor);
+  const [labelColor, setLabelColor] = useState(currentLabelColor);
   const [recipientId, setRecipientId] = useState(currentRecipientId);
   const [targets, setTargets] = useState<DistTarget[]>(
     currentTargets.map((t) => ({
@@ -58,7 +78,7 @@ export function QREditDelete({
       setError("ラベルを入力してください");
       return;
     }
-    if (!imageUrl) {
+    if (!isEntrance && !imageUrl) {
       setError("QR画像をアップロードしてください");
       return;
     }
@@ -76,18 +96,27 @@ export function QREditDelete({
     }
     setError(null);
     startTransition(async () => {
+      const body: Record<string, unknown> = {
+        label: label.trim() || null,
+        recipient_profile_id: recipientId,
+        targets: targets.map((t) => ({
+          profile_id: t.profile_id,
+          distribution_ratio: (parseFloat(t.ratio) || 0) / 100,
+        })),
+      };
+      if (isEntrance) {
+        body.strip_image_url = stripImageUrl;
+        body.bg_color = bgColor;
+        body.fg_color = fgColor;
+        body.label_color = labelColor;
+      } else {
+        body.image_url = imageUrl;
+      }
+
       const res = await fetch(`/api/qr/${qrConfigId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          label: label.trim() || null,
-          image_url: imageUrl,
-          recipient_profile_id: recipientId,
-          targets: targets.map((t) => ({
-            profile_id: t.profile_id,
-            distribution_ratio: (parseFloat(t.ratio) || 0) / 100,
-          })),
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -103,6 +132,10 @@ export function QREditDelete({
     setEditing(false);
     setLabel(currentLabel);
     setImageUrl(currentImageUrl ?? null);
+    setStripImageUrl(currentStripImageUrl ?? null);
+    setBgColor(currentBgColor);
+    setFgColor(currentFgColor);
+    setLabelColor(currentLabelColor);
     setRecipientId(currentRecipientId);
     setTargets(
       currentTargets.map((t) => ({
@@ -128,6 +161,11 @@ export function QREditDelete({
 
   const candidateName = (id: string) =>
     candidates.find((c) => c.profile_id === id)?.display_name ?? id;
+
+  const isSaveDisabled = isPending
+    || !label.trim()
+    || (!isEntrance && !imageUrl)
+    || Math.abs(totalRatio - 100) > 0.1;
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 space-y-4">
@@ -159,32 +197,85 @@ export function QREditDelete({
             />
           </div>
 
-          {/* QR画像 */}
-          <QRImageUpload
-            currentUrl={imageUrl}
-            pathPrefix={qrConfigId}
-            eventTitle={eventTitle}
-            artistName={candidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
-            onUploadComplete={setImageUrl}
-          />
+          {isEntrance ? (
+            <>
+              {/* ストリップ画像 */}
+              <StripImageUpload
+                currentUrl={stripImageUrl}
+                pathPrefix={qrConfigId}
+                onUploadComplete={setStripImageUrl}
+              />
 
-          {/* カードプレビュー */}
-          {imageUrl && (
-            <div className="space-y-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">カードプレビュー</p>
-              <div className="max-w-xs mx-auto opacity-90 pointer-events-none">
-                <CheersCard
-                  artistName={candidates.find((c) => c.profile_id === recipientId)?.display_name ?? "Artist"}
+              {/* カラーピッカー */}
+              <div className="space-y-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">券面カラー</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: "背景色", value: bgColor, onChange: setBgColor },
+                    { label: "文字色", value: fgColor, onChange: setFgColor },
+                    { label: "ラベル色", value: labelColor, onChange: setLabelColor },
+                  ].map(({ label: colorLabel, value, onChange }) => (
+                    <div key={colorLabel} className="space-y-1.5">
+                      <p className="text-[10px] text-slate-500">{colorLabel}</p>
+                      <div className="flex items-center gap-2 bg-slate-800 rounded-xl px-3 py-2 border border-slate-700">
+                        <input
+                          type="color"
+                          value={value}
+                          onChange={(e) => onChange(e.target.value)}
+                          className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0"
+                        />
+                        <span className="text-xs font-mono text-slate-400">{value}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Wallet プレビュー */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">チケットプレビュー</p>
+                <WalletTicketPreview
                   eventTitle={eventTitle}
-                  artistAvatar={null}
-                  imageUrl={imageUrl}
-                  amount={1000}
-                  transactionId="PREVIEW"
-                  serialNumber={1}
+                  productName={label.trim() || "入場チケット"}
+                  startAt={eventStartAt ?? null}
+                  venue={eventVenue ?? null}
+                  stripImageUrl={stripImageUrl}
+                  bgColor={bgColor}
+                  fgColor={fgColor}
+                  labelColor={labelColor}
                 />
               </div>
-              <p className="text-[9px] text-slate-600 text-center">※ 実際の金額・シリアル番号は異なります</p>
-            </div>
+            </>
+          ) : (
+            <>
+              {/* QR画像 */}
+              <QRImageUpload
+                currentUrl={imageUrl}
+                pathPrefix={qrConfigId}
+                eventTitle={eventTitle}
+                artistName={candidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
+                onUploadComplete={setImageUrl}
+              />
+
+              {/* カードプレビュー */}
+              {imageUrl && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">カードプレビュー</p>
+                  <div className="max-w-xs mx-auto opacity-90 pointer-events-none">
+                    <CheersCard
+                      artistName={candidates.find((c) => c.profile_id === recipientId)?.display_name ?? "Artist"}
+                      eventTitle={eventTitle}
+                      artistAvatar={null}
+                      imageUrl={imageUrl}
+                      amount={1000}
+                      transactionId="PREVIEW"
+                      serialNumber={1}
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-600 text-center">※ 実際の金額・シリアル番号は異なります</p>
+                </div>
+              )}
+            </>
           )}
 
           {/* 宛先 */}
@@ -273,7 +364,7 @@ export function QREditDelete({
             <button
               type="button"
               onClick={handleSave}
-              disabled={isPending || !label.trim() || !imageUrl || Math.abs(totalRatio - 100) > 0.1}
+              disabled={isSaveDisabled}
               className="flex-1 h-12 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-xl font-black text-sm hover:brightness-110 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isPending ? <Loader2 size={16} className="animate-spin" /> : <><Check size={14} /> 保存</>}
@@ -290,12 +381,41 @@ export function QREditDelete({
         </div>
       ) : (
         <div className="space-y-2">
-          {currentImageUrl && (
-            <img
-              src={currentImageUrl}
-              alt="QR image"
-              className="w-20 h-20 rounded-xl object-cover border border-slate-700"
-            />
+          {isEntrance ? (
+            <>
+              {currentStripImageUrl && (
+                <img
+                  src={currentStripImageUrl}
+                  alt="strip image"
+                  className="w-full rounded-xl object-cover border border-slate-700"
+                  style={{ aspectRatio: String(1125 / 294) }}
+                />
+              )}
+              <div className="flex gap-2">
+                {[
+                  { label: "背景色", value: currentBgColor },
+                  { label: "文字色", value: currentFgColor },
+                  { label: "ラベル色", value: currentLabelColor },
+                ].map(({ label: colorLabel, value }) => (
+                  <div key={colorLabel} className="flex items-center gap-1.5 px-3 py-2 bg-slate-800/50 rounded-xl text-xs">
+                    <span
+                      className="w-3 h-3 rounded-full border border-slate-600 inline-block shrink-0"
+                      style={{ backgroundColor: value }}
+                    />
+                    <span className="text-slate-500">{colorLabel}</span>
+                    <span className="text-slate-400 font-mono">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            currentImageUrl && (
+              <img
+                src={currentImageUrl}
+                alt="QR image"
+                className="w-20 h-20 rounded-xl object-cover border border-slate-700"
+              />
+            )
           )}
           <div className="px-4 py-3 bg-slate-800/50 rounded-xl text-xs">
             <span className="font-black text-slate-400">宛先: </span>

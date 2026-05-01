@@ -33,7 +33,7 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
     event?.agent_id === userId;
   const isRecipient = qr.recipient_profile_id === userId;
 
-  return { qr, supabase, isOrganizer, isAgent, isRecipient, error: null };
+  return { qr, supabase, admin, isOrganizer, isAgent, isRecipient, error: null };
 }
 
 // ラベル・宛先・配分更新
@@ -51,14 +51,27 @@ export async function PATCH(
 
   const canEdit = isOrganizer || isAgent;
 
-  const { label, image_url, recipient_profile_id, targets } = await req.json() as {
+  const {
+    label,
+    image_url,
+    recipient_profile_id,
+    targets,
+    strip_image_url,
+    bg_color,
+    fg_color,
+    label_color,
+  } = await req.json() as {
     label?: string;
     image_url?: string | null;
     recipient_profile_id?: string;
     targets?: { profile_id: string; distribution_ratio: number }[];
+    strip_image_url?: string | null;
+    bg_color?: string;
+    fg_color?: string;
+    label_color?: string;
   };
 
-  // 宛先本人は image_url のみ更新可。それ以外のフィールドは organizer/agent のみ。
+  // 宛先本人は image_url / strip_image_url のみ更新可。それ以外のフィールドは organizer/agent のみ。
   if (!canEdit && !isRecipient) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -72,6 +85,10 @@ export async function PATCH(
   const configUpdates: Record<string, unknown> = {};
   if (label !== undefined) configUpdates.label = label || null;
   if (image_url !== undefined) configUpdates.image_url = image_url;
+  if (strip_image_url !== undefined) configUpdates.strip_image_url = strip_image_url;
+  if (bg_color !== undefined) configUpdates.bg_color = bg_color;
+  if (fg_color !== undefined) configUpdates.fg_color = fg_color;
+  if (label_color !== undefined) configUpdates.label_color = label_color;
   if (recipient_profile_id !== undefined) configUpdates.recipient_profile_id = recipient_profile_id;
 
   if (Object.keys(configUpdates).length > 0) {
@@ -122,8 +139,25 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { qr, supabase: sb, error } = await getQRWithPermission(qrConfigId, user.id);
+  const { qr, supabase: sb, admin, isOrganizer, isAgent, error } = await getQRWithPermission(qrConfigId, user.id);
   if (!qr) return NextResponse.json({ error }, { status: error === "Forbidden" ? 403 : 404 });
+
+  if (!isOrganizer && !isAgent) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // 売上が1件でもある場合は削除不可
+  const { count } = await (admin ?? createAdminClient())
+    .from("transactions")
+    .select("transaction_id", { count: "exact", head: true })
+    .eq("qr_config_id", qrConfigId);
+
+  if (count && count > 0) {
+    return NextResponse.json(
+      { error: "このQRコードにはすでに売上があるため削除できません" },
+      { status: 409 },
+    );
+  }
 
   const { error: deleteError } = await sb
     .from("qr_configs")

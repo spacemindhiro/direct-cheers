@@ -18,7 +18,7 @@ async function CollectionContent() {
 
   const query = `
     transaction_id, total_gross_amount, created_at, sequence_number_in_event,
-    product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name, avatar_url)),
+    product:products!product_id(name, type, artist_id, artist:profiles!artist_id(display_name, avatar_url)),
     qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, event:events!event_id(title))
   `;
 
@@ -28,6 +28,7 @@ async function CollectionContent() {
       .select(query)
       .eq("sender_profile_id", user.id)
       .eq("status", "completed")
+      .neq("transaction_type", "invitation")
       .order("created_at", { ascending: false })
       .limit(100),
     admin
@@ -35,6 +36,7 @@ async function CollectionContent() {
       .select(query)
       .eq("sender_email", userEmail)
       .eq("status", "completed")
+      .neq("transaction_type", "invitation")
       .order("created_at", { ascending: false })
       .limit(100),
   ]);
@@ -43,7 +45,7 @@ async function CollectionContent() {
   const seen = new Set<string>();
   const cards: any[] = [];
   for (const tx of [...(byProfile ?? []), ...(byEmail ?? [])]) {
-    if (!seen.has(tx.transaction_id)) {
+    if (!seen.has(tx.transaction_id) && tx.product?.type !== "entrance") {
       seen.add(tx.transaction_id);
       cards.push(tx);
     }

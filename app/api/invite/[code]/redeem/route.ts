@@ -21,6 +21,13 @@ export async function POST(
     .maybeSingle();
 
   if (!invite) return NextResponse.json({ error: "無効な招待コードです" }, { status: 404 });
+
+  const { data: qrConfig } = await admin
+    .from("qr_configs")
+    .select("product_id")
+    .eq("qr_config_id", invite.qr_config_id)
+    .single();
+
   if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
     return NextResponse.json({ error: "この招待コードは期限切れです" }, { status: 410 });
   }
@@ -78,6 +85,15 @@ export async function POST(
     .update({ nft_serial_number: tx.transaction_id })
     .eq("transaction_id", tx.transaction_id);
 
+  if (qrConfig?.product_id) {
+    await admin.from("tickets").insert({
+      transaction_id: tx.transaction_id,
+      product_id: qrConfig.product_id,
+      event_id: invite.event_id,
+      email: user.email ?? "",
+      holder_profile_id: user.id,
+    });
+  }
 
   return NextResponse.json({ ok: true, transaction_id: tx.transaction_id });
 }

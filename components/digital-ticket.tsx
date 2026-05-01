@@ -13,7 +13,7 @@ type DigitalTicketProps = {
   holderEmail: string;
   status: "valid" | "used" | "cancelled";
   checkedInAt?: string | null;
-  paymentType: "A" | "B" | "C";
+  paymentType: "A" | "B" | "C" | null;
   amount: number;
 };
 
@@ -68,7 +68,7 @@ export function DigitalTicket({
     },
   };
 
-  const paymentTypeLabel = {
+  const paymentTypeLabel: Record<string, string> = {
     A: "5日前確定",
     B: "即時確定",
     C: "当日決済",
@@ -166,17 +166,29 @@ export function DigitalTicket({
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-slate-900/60 rounded-2xl px-4 py-3 border border-slate-700/40">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Amount</p>
-            <p className="text-lg font-black text-white italic tabular-nums mt-0.5">
-              {paymentType === "C" ? `¥${amount.toLocaleString()}` : `¥${amount.toLocaleString()}`}
-            </p>
-            {paymentType === "C" && (
-              <p className="text-[9px] text-amber-400 font-bold mt-0.5">入場時決済</p>
+            {amount === 0 ? (
+              <p className="text-lg font-black text-indigo-300 italic mt-0.5">招待</p>
+            ) : (
+              <>
+                <p className="text-lg font-black text-white italic tabular-nums mt-0.5">
+                  ¥{amount.toLocaleString()}
+                </p>
+                {paymentType === "C" && (
+                  <p className="text-[9px] text-amber-400 font-bold mt-0.5">入場時決済</p>
+                )}
+              </>
             )}
           </div>
           <div className="bg-slate-900/60 rounded-2xl px-4 py-3 border border-slate-700/40">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Plan</p>
-            <p className="text-sm font-black text-indigo-300 mt-0.5">{paymentType}タイプ</p>
-            <p className="text-[9px] text-slate-500">{paymentTypeLabel[paymentType]}</p>
+            {paymentType ? (
+              <>
+                <p className="text-sm font-black text-indigo-300 mt-0.5">{paymentType}タイプ</p>
+                <p className="text-[9px] text-slate-500">{paymentTypeLabel[paymentType]}</p>
+              </>
+            ) : (
+              <p className="text-sm font-black text-indigo-300 mt-0.5">Invitation</p>
+            )}
           </div>
         </div>
 

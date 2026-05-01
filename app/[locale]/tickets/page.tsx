@@ -65,7 +65,7 @@ async function TicketsContent() {
               holderEmail={t.email}
               status={t.status}
               checkedInAt={t.checked_in_at ?? null}
-              paymentType={t.product?.payment_type ?? "B"}
+              paymentType={t.product?.payment_type ?? null}
               amount={t.product?.min_amount ?? 0}
             />
           ))}

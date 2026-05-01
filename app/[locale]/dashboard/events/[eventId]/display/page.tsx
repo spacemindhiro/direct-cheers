@@ -1,13 +1,10 @@
+import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QRBoardDisplay } from "@/components/qr-board-display";
 
-export default async function DisplayPage({
-  params,
-}: {
-  params: Promise<{ eventId: string }>;
-}) {
+async function DisplayContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -33,4 +30,16 @@ export default async function DisplayPage({
   if (!event) notFound();
 
   return <QRBoardDisplay eventId={eventId} eventTitle={event.title} />;
+}
+
+export default function DisplayPage({ params }: { params: Promise<{ eventId: string }> }) {
+  return (
+    <Suspense fallback={
+      <div className="fixed inset-0 bg-slate-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-700 border-t-indigo-400 rounded-full animate-spin" />
+      </div>
+    }>
+      <DisplayContent params={params} />
+    </Suspense>
+  );
 }

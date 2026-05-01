@@ -42,6 +42,7 @@ export async function proxy(request: NextRequest) {
     normalizedPath.startsWith("/concept") ||
     normalizedPath.startsWith("/auth") ||
     normalizedPath.startsWith("/invite") ||
+    normalizedPath.startsWith("/join") ||
     normalizedPath.startsWith("/onboarding") ||
     path.startsWith("/account/"); // アカウント復旧・統合確認（ロケールなし）
 

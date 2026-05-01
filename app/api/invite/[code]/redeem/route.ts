@@ -43,16 +43,36 @@ export async function POST(
     return NextResponse.json({ error: "この招待の定員に達しました" }, { status: 410 });
   }
 
-  // 同じイベントの招待をすでに受け取っていないか確認
+  // 同じQRの招待をすでに受け取っていないか確認
   const { data: alreadyUsed } = await admin
     .from("transactions")
     .select("transaction_id")
     .eq("sender_profile_id", user.id)
     .eq("transaction_type", "invitation")
-    .in("qr_config_id", [invite.qr_config_id])
+    .eq("qr_config_id", invite.qr_config_id)
     .maybeSingle();
 
-  if (alreadyUsed) return NextResponse.json({ error: "すでにこのイベントの招待を受け取っています" }, { status: 409 });
+  if (alreadyUsed) {
+    // トランザクションはあるがticketがない場合（修正前の受取）はチケットだけ作る
+    if (!qrConfig?.product_id) {
+      return NextResponse.json({ error: "すでにこのイベントの招待を受け取っています" }, { status: 409 });
+    }
+    const { data: existingTicket } = await admin
+      .from("tickets")
+      .select("ticket_id")
+      .eq("transaction_id", alreadyUsed.transaction_id)
+      .maybeSingle();
+    if (!existingTicket) {
+      await admin.from("tickets").insert({
+        transaction_id: alreadyUsed.transaction_id,
+        product_id: qrConfig.product_id,
+        event_id: invite.event_id,
+        email: user.email ?? "",
+        holder_profile_id: user.id,
+      });
+    }
+    return NextResponse.json({ ok: true, transaction_id: alreadyUsed.transaction_id });
+  }
 
   // sequence番号
   const { count } = await admin

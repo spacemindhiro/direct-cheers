@@ -218,6 +218,36 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         </Link>
       )}
 
+      {/* QR表示端末コントロール */}
+      {(isOrganizer || isAgent) && ["published", "ongoing"].includes(event.lifecycle_status) && (
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            href={`/dashboard/events/${eventId}/control`}
+            className="flex flex-col gap-3 bg-violet-500/10 border border-violet-500/20 hover:border-violet-500/40 rounded-[1.5rem] p-5 transition-all group"
+          >
+            <div className="w-10 h-10 bg-violet-500/10 rounded-2xl flex items-center justify-center border border-violet-500/20 group-hover:bg-violet-500/20 transition-all">
+              <QrCode size={18} className="text-violet-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Control</p>
+              <p className="font-black text-violet-400 text-sm leading-tight">親機パネル</p>
+            </div>
+          </Link>
+          <Link
+            href={`/dashboard/events/${eventId}/display`}
+            className="flex flex-col gap-3 bg-slate-800/60 border border-slate-700 hover:border-slate-500 rounded-[1.5rem] p-5 transition-all group"
+          >
+            <div className="w-10 h-10 bg-slate-700/50 rounded-2xl flex items-center justify-center border border-slate-600 group-hover:bg-slate-600/50 transition-all">
+              <QrCode size={18} className="text-slate-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Display</p>
+              <p className="font-black text-slate-300 text-sm leading-tight">子機モード</p>
+            </div>
+          </Link>
+        </div>
+      )}
+
       {/* 承認依頼ボタン（オーガナイザー） */}
       {canRequestReview && <EventRequestReviewButton eventId={eventId} />}
 

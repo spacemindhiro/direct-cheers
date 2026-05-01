@@ -58,11 +58,13 @@ export function QRBoardDisplay({
   const [flash, setFlash] = useState(false);
   const [connected, setConnected] = useState(false);
   const [deviceName] = useState(() => {
-    const stored = localStorage.getItem(DEVICE_NAME_KEY);
-    if (stored) return stored;
-    const name = `端末-${getOrCreateDeviceId().slice(0, 4).toUpperCase()}`;
-    localStorage.setItem(DEVICE_NAME_KEY, name);
-    return name;
+    try {
+      const stored = localStorage.getItem(DEVICE_NAME_KEY);
+      if (stored) return stored;
+      const name = `端末-${getOrCreateDeviceId().slice(0, 4).toUpperCase()}`;
+      localStorage.setItem(DEVICE_NAME_KEY, name);
+      return name;
+    } catch { return "端末-????"; }
   });
 
   // ロック解除モーダル
@@ -71,6 +73,7 @@ export function QRBoardDisplay({
   const [unlockPassword, setUnlockPassword] = useState("");
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
+  const [channelError, setChannelError] = useState<string | null>(null);
   const [holdProgress, setHoldProgress] = useState(0); // 0〜100
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -119,6 +122,7 @@ export function QRBoardDisplay({
         channel.track({ role: "display", device_id: deviceId, device_name: deviceName, battery_level: battery, joined_at: new Date().toISOString() });
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         setConnected(false);
+        setChannelError(`接続エラー: ${status}`);
       }
     });
 
@@ -236,9 +240,13 @@ export function QRBoardDisplay({
       ) : (
         <div className="flex flex-col items-center gap-4 text-center px-8 pointer-events-none">
           <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center">
-            <div className="w-8 h-8 border-4 border-slate-700 border-t-indigo-400 rounded-full animate-spin" />
+            {channelError
+              ? <WifiOff size={24} className="text-red-400" />
+              : <div className="w-8 h-8 border-4 border-slate-700 border-t-indigo-400 rounded-full animate-spin" />}
           </div>
-          <p className="text-slate-400 font-bold text-sm">親機からの指示を待機中</p>
+          {channelError
+            ? <p className="text-red-400 font-bold text-sm">{channelError}</p>
+            : <p className="text-slate-400 font-bold text-sm">親機からの指示を待機中</p>}
           <p className="text-slate-600 text-xs">{eventTitle}</p>
           <p className="text-slate-700 text-[10px] font-mono mt-6">{deviceName}</p>
         </div>
@@ -255,7 +263,6 @@ export function QRBoardDisplay({
 
             {/* パスキー */}
             <PasskeySetup
-              email={unlockEmail}
               mode="authenticate"
               buttonLabel="パスキーで解除"
               onSuccess={handleUnlockSuccess}

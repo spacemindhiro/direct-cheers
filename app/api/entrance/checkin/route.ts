@@ -49,6 +49,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "TICKET_NOT_FOUND" }, { status: 404 });
   }
 
+  // ステータスチェックを権限チェックより先に（ALREADY_USEDを確実に返すため）
+  if (ticket.status === "used") {
+    return NextResponse.json({ error: "ALREADY_USED", ticket }, { status: 409 });
+  }
+  if (ticket.status === "cancelled") {
+    return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
+  }
+
   // イベントへのアクセス権チェック
   const ev = ticket.event as any;
   if (
@@ -57,13 +65,6 @@ export async function POST(req: Request) {
     profile?.role !== "admin"
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  if (ticket.status === "used") {
-    return NextResponse.json({ error: "ALREADY_USED", ticket }, { status: 409 });
-  }
-  if (ticket.status === "cancelled") {
-    return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
   }
 
   const prod = ticket.product as any;

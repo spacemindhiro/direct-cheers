@@ -18,9 +18,18 @@ const STORAGE_KEY = (id: string) => `qr-display:${id}`;
 const DEVICE_ID_KEY = "qr-display-device-id";
 const DEVICE_NAME_KEY = "qr-display-device-name";
 
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  // 旧Safari (iPad Air 2等) 向けフォールバック
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
 function getOrCreateDeviceId() {
   let id = localStorage.getItem(DEVICE_ID_KEY);
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem(DEVICE_ID_KEY, id); }
+  if (!id) { id = generateUUID(); localStorage.setItem(DEVICE_ID_KEY, id); }
   return id;
 }
 
@@ -178,8 +187,7 @@ export function QRBoardDisplay({
 
   return (
     <div
-      className="fixed inset-0 flex flex-col items-center justify-center select-none"
-      style={{ backgroundColor: qrState ? "#ffffff" : "#0f172a" }}
+      className="fixed inset-0 flex flex-col items-center justify-center select-none bg-slate-950"
       onTouchStart={handleHoldStart}
       onTouchEnd={handleHoldEnd}
       onMouseDown={handleHoldStart}
@@ -188,8 +196,8 @@ export function QRBoardDisplay({
     >
       {/* フラッシュ演出 */}
       <div
-        className="absolute inset-0 bg-white pointer-events-none transition-opacity duration-150"
-        style={{ opacity: flash ? 1 : 0 }}
+        className="absolute inset-0 pointer-events-none transition-opacity duration-150"
+        style={{ backgroundColor: "#ffffff", opacity: flash ? 0.6 : 0 }}
       />
 
       {/* 長押しプログレス */}
@@ -212,16 +220,16 @@ export function QRBoardDisplay({
       {/* QR表示 */}
       {qrState ? (
         <div className="relative flex flex-col items-center gap-6 px-8 py-10 w-full max-w-sm pointer-events-none">
-          <p className="text-3xl font-black text-slate-900 uppercase tracking-tight text-center leading-tight">
+          <p className="text-3xl font-black text-white uppercase tracking-tight text-center leading-tight">
             {qrState.artist_name || eventTitle}
           </p>
-          <p className="text-base font-bold text-slate-500 text-center">
+          <p className="text-base font-bold text-slate-400 text-center">
             {qrState.label || qrState.product_name}
           </p>
-          <div className="p-5 bg-white rounded-3xl shadow-2xl border border-slate-100">
+          <div className="p-5 bg-white rounded-3xl shadow-2xl">
             <canvas ref={canvasRef} />
           </div>
-          <p className="text-xs text-slate-300 font-mono uppercase tracking-widest">
+          <p className="text-xs text-slate-600 font-mono uppercase tracking-widest">
             {qrState.qr_config_id.slice(0, 8)}
           </p>
         </div>

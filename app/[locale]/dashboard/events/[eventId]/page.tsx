@@ -234,7 +234,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             </div>
           </Link>
           <Link
-            href={`/dashboard/events/${eventId}/display`}
+            href={`/display/${eventId}`}
             className="flex flex-col gap-3 bg-slate-800/60 border border-slate-700 hover:border-slate-500 rounded-[1.5rem] p-5 transition-all group"
           >
             <div className="w-10 h-10 bg-slate-700/50 rounded-2xl flex items-center justify-center border border-slate-600 group-hover:bg-slate-600/50 transition-all">

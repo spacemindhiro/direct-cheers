@@ -203,14 +203,10 @@ export function CheckinClient() {
                   <div className="min-w-0">
                     <p className="text-white font-black text-sm leading-tight">
                       {overlay.status === "success" ? "入場OK" :
-                       overlay.status === "warn"    ? "入場済み" :
-                       errorMessage(overlay.result.error)}
+                       overlay.status === "warn"
+                         ? `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}）` : ""}`
+                         : errorMessage(overlay.result.error)}
                     </p>
-                    {overlay.status === "warn" && overlay.result.ticket?.checked_in_at && (
-                      <p className="text-white/80 text-xs">
-                        {new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} に入場済み
-                      </p>
-                    )}
                     {overlay.result.email && overlay.status !== "warn" && (
                       <p className="text-white/80 text-xs truncate">{overlay.result.email}</p>
                     )}

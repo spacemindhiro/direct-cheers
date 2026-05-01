@@ -45,7 +45,7 @@ async function CollectionContent() {
   const seen = new Set<string>();
   const cards: any[] = [];
   for (const tx of [...(byProfile ?? []), ...(byEmail ?? [])]) {
-    if (!seen.has(tx.transaction_id) && tx.product?.type !== "entrance") {
+    if (!seen.has(tx.transaction_id) && (tx.product as any)?.type !== "entrance") {
       seen.add(tx.transaction_id);
       cards.push(tx);
     }

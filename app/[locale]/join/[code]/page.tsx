@@ -78,7 +78,8 @@ function InvitePage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setPending(false);
     if (error) { setErrorMsg(error.message); return; }
-    await redeem();
+    // セッションクッキーが確実にサーバーに届くようページをリロード
+    window.location.replace(window.location.href);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -160,7 +161,7 @@ function InvitePage() {
       <PasskeySetup
         mode="authenticate"
         buttonLabel="パスキーでログインして受け取る"
-        onSuccess={redeem}
+        onSuccess={() => window.location.replace(window.location.href)}
       />
 
       <div className="flex items-center gap-4">

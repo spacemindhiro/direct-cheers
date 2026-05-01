@@ -167,7 +167,7 @@ export function DigitalTicket({
           <div className="bg-slate-900/60 rounded-2xl px-4 py-3 border border-slate-700/40">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Amount</p>
             {amount === 0 ? (
-              <p className="text-lg font-black text-indigo-300 italic mt-0.5">招待</p>
+              <p className="text-lg font-black text-indigo-300 italic mt-0.5">Invitation</p>
             ) : (
               <>
                 <p className="text-lg font-black text-white italic tabular-nums mt-0.5">

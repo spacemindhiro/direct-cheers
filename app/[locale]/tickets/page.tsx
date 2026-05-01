@@ -17,7 +17,8 @@ async function TicketsContent() {
     .select(`
       ticket_id, ticket_code, status, checked_in_at, email, created_at,
       product:products(name, payment_type, min_amount),
-      event:events(event_id, title, venue, start_at)
+      event:events(event_id, title, venue, start_at),
+      transaction:transactions!transaction_id(total_gross_amount)
     `)
     .eq("holder_profile_id", user.id)
     .order("created_at", { ascending: false })
@@ -66,7 +67,7 @@ async function TicketsContent() {
               status={t.status}
               checkedInAt={t.checked_in_at ?? null}
               paymentType={t.product?.payment_type ?? null}
-              amount={t.product?.min_amount ?? 0}
+              amount={t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0}
             />
           ))}
         </div>

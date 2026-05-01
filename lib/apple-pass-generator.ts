@@ -43,7 +43,8 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
     .select(`
       ticket_id, ticket_code, status, created_at,
       product:products!product_id(name, payment_type, min_amount),
-      event:events!event_id(title, venue, start_at)
+      event:events!event_id(title, venue, start_at),
+      transaction:transactions!transaction_id(total_gross_amount)
     `)
     .eq("ticket_id", ticketId)
     .single();
@@ -66,7 +67,7 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
   const venue = (ticket.event as any)?.venue ?? null;
   const startAt = (ticket.event as any)?.start_at ?? null;
   const productName = (ticket.product as any)?.name ?? "Ticket";
-  const amount = (ticket.product as any)?.min_amount ?? 0;
+  const amount = (ticket.transaction as any)?.total_gross_amount ?? (ticket.product as any)?.min_amount ?? 0;
 
   const fmtDate = startAt
     ? new Date(startAt).toLocaleString("ja-JP", {
@@ -109,7 +110,7 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
       ],
       auxiliaryFields: [
         { key: "ticket", label: "TICKET", value: productName },
-        { key: "amount", label: "AMOUNT", value: amount === 0 ? "招待" : `¥${amount.toLocaleString("ja-JP")}` },
+        { key: "amount", label: "AMOUNT", value: amount === 0 ? "Invitation" : `¥${amount.toLocaleString("ja-JP")}` },
       ],
       backFields: [
         { key: "ticketid", label: "Ticket ID", value: ticket.ticket_id },

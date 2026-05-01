@@ -89,20 +89,14 @@ export function CheckinClient() {
   }, [processing]);
 
   const startScanner = useCallback(() => { setScanning(true); }, []);
-
-  const stopScanner = useCallback(() => {
-    const s = scannerRef.current;
-    if (s) {
-      s.stop().catch(() => {}).finally(() => { scannerRef.current = null; });
-    }
-    setScanning(false);
-  }, []);
+  // stop は useEffect クリーンアップに一本化（2重呼び出し防止）
+  const stopScanner = useCallback(() => { setScanning(false); }, []);
 
   useEffect(() => {
     if (!scanning) return;
     let mounted = true;
     import("html5-qrcode").then(({ Html5Qrcode }) => {
-      if (!mounted || scannerRef.current) return;
+      if (!mounted) return;
       const scanner = new Html5Qrcode(scannerDivId);
       scanner.start(
         { facingMode: "environment" },
@@ -117,10 +111,9 @@ export function CheckinClient() {
     });
     return () => {
       mounted = false;
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
-        scannerRef.current = null;
-      }
+      const s = scannerRef.current;
+      scannerRef.current = null;
+      if (s) s.stop().catch(() => {});
     };
   }, [scanning, processCheckin]);
 
@@ -194,27 +187,29 @@ export function CheckinClient() {
               {/* カメラ映像 */}
               <div id={scannerDivId} className="w-full" />
 
-              {/* スキャン結果オーバーレイ */}
+              {/* スキャン結果バナー（上部10%） */}
               {overlay && (
-                <div className={`absolute inset-0 flex flex-col items-center justify-center gap-4 transition-all ${
-                  overlay.status === "success" ? "bg-green-500/90" :
-                  overlay.status === "warn"    ? "bg-amber-500/90" :
-                                                 "bg-red-500/90"
+                <div className={`absolute top-0 left-0 right-0 flex items-center gap-3 px-4 py-3 ${
+                  overlay.status === "success" ? "bg-green-500/95" :
+                  overlay.status === "warn"    ? "bg-amber-500/95" :
+                                                 "bg-red-500/95"
                 }`}>
                   {overlay.status === "success"
-                    ? <CheckCircle size={64} className="text-white" />
+                    ? <CheckCircle size={22} className="text-white shrink-0" />
                     : overlay.status === "warn"
-                    ? <AlertCircle size={64} className="text-white" />
-                    : <XCircle size={64} className="text-white" />}
-                  <p className="text-white font-black text-2xl">
-                    {overlay.status === "success" ? "入場OK" :
-                     overlay.status === "warn"    ? "入場済み" :
-                     errorMessage(overlay.result.error)}
-                  </p>
-                  {overlay.result.ok && overlay.result.email && (
-                    <p className="text-white/80 text-sm">{overlay.result.email}</p>
-                  )}
-                  {processing && <Loader2 size={20} className="text-white/60 animate-spin" />}
+                    ? <AlertCircle size={22} className="text-white shrink-0" />
+                    : <XCircle size={22} className="text-white shrink-0" />}
+                  <div className="min-w-0">
+                    <p className="text-white font-black text-sm leading-tight">
+                      {overlay.status === "success" ? "入場OK" :
+                       overlay.status === "warn"    ? "入場済み" :
+                       errorMessage(overlay.result.error)}
+                    </p>
+                    {overlay.result.email && (
+                      <p className="text-white/80 text-xs truncate">{overlay.result.email}</p>
+                    )}
+                  </div>
+                  {processing && <Loader2 size={16} className="text-white/70 animate-spin ml-auto shrink-0" />}
                 </div>
               )}
 

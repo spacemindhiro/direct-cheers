@@ -80,20 +80,27 @@ export function CheckinClient() {
   const startScanner = useCallback(async () => {
     if (scannerRef.current) return;
     setScanning(true);
-    const { Html5QrcodeScanner, Html5QrcodeScanType } = await import("html5-qrcode");
-    const scanner = new Html5QrcodeScanner(
-      scannerDivId,
-      { fps: 10, qrbox: { width: 250, height: 250 }, supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA], aspectRatio: 1.0 },
-      false
-    );
-    scanner.render((decodedText) => { processCheckin(decodedText); }, () => {});
-    scannerRef.current = scanner;
+    const { Html5Qrcode } = await import("html5-qrcode");
+    const scanner = new Html5Qrcode(scannerDivId);
+    try {
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => { processCheckin(decodedText); },
+        () => {},
+      );
+      scannerRef.current = scanner;
+    } catch {
+      setScanning(false);
+    }
   }, [processCheckin]);
 
   const stopScanner = useCallback(() => {
     if (scannerRef.current) {
-      scannerRef.current.clear().catch(() => {});
-      scannerRef.current = null;
+      scannerRef.current.stop().then(() => {
+        scannerRef.current?.clear();
+        scannerRef.current = null;
+      }).catch(() => { scannerRef.current = null; });
     }
     setScanning(false);
   }, []);

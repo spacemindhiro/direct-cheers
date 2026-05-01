@@ -47,10 +47,10 @@ export function DigitalTicket({
     import("qrcode").then(({ default: QRCode }) => {
       QRCode.toCanvas(canvasRef.current!, ticketCode, {
         width: 180,
-        margin: 1,
+        margin: 2,
         color: {
-          dark: "#ffffff",
-          light: "#0f172a",
+          dark: "#000000",
+          light: "#ffffff",
         },
       }).catch(console.error);
     });
@@ -173,7 +173,7 @@ export function DigitalTicket({
 
         {/* QR コード */}
         <div className="flex items-center justify-center py-2">
-          <div className={`p-3 rounded-2xl ${isUsed ? "opacity-30" : ""}`} style={{ background: "#0f172a" }}>
+          <div className={`p-3 rounded-2xl ${isUsed ? "opacity-30" : ""}`} style={{ background: "#ffffff" }}>
             <canvas ref={canvasRef} />
           </div>
         </div>

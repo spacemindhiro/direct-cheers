@@ -108,6 +108,7 @@ export function QRBoardDisplay({
     });
 
     channel.on("broadcast", { event: "qr-switch" }, ({ payload }) => {
+      console.log("[display] received qr-switch", payload);
       const next = payload as QRState;
       setQrState(next);
       try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}

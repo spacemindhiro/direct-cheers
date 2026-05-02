@@ -82,7 +82,9 @@ export function QRControlPanel({
     setPushing(true);
     setPushError(null);
     try {
-      const result = await channelRef.current.send({
+      const ch = channelRef.current;
+      console.log("[push] state:", ch.state, "canPush:", ch._canPush?.(), "socket connected:", ch.socket?.isConnected?.());
+      const result = await ch.send({
         type: "broadcast",
         event: "qr-switch",
         payload: {
@@ -93,6 +95,7 @@ export function QRControlPanel({
           artist_name: config.product?.artist?.display_name ?? "",
         },
       });
+      console.log("[push] result:", result);
       if (result === "ok") {
         setActiveConfigId(config.qr_config_id);
       } else {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Calendar, MapPin, CheckCircle, XCircle, Clock } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Calendar, MapPin, CheckCircle, XCircle, Clock, Loader2 } from "lucide-react";
 
 type DigitalTicketProps = {
   ticketId: string;
@@ -19,6 +20,8 @@ type DigitalTicketProps = {
   bgColor?: string;
   fgColor?: string;
   labelColor?: string;
+  reservationId?: string | null;
+  reservationStatus?: string | null;
 };
 
 export function DigitalTicket({
@@ -37,9 +40,38 @@ export function DigitalTicket({
   bgColor = "#0f172a",
   fgColor = "#ffffff",
   labelColor = "#94a3b8",
+  reservationId,
+  reservationStatus,
 }: DigitalTicketProps) {
   const hasCustomDesign = !!(stripImageUrl || bgColor !== "#0f172a" || fgColor !== "#ffffff");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const router = useRouter();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const canCancel =
+    status === "valid" &&
+    paymentType === "A" &&
+    reservationId &&
+    reservationStatus === "reserved";
+
+  const handleCancel = () => {
+    setCancelError(null);
+    startTransition(async () => {
+      const res = await fetch(`/api/entrance/reservations/${reservationId}/cancel`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        setShowConfirm(false);
+        router.refresh();
+      } else {
+        const data = await res.json();
+        setCancelError(data.error ?? "キャンセルに失敗しました");
+        setShowConfirm(false);
+      }
+    });
+  };
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -234,6 +266,48 @@ export function DigitalTicket({
             </svg>
             Apple Wallet に追加
           </a>
+        )}
+
+        {/* キャンセルボタン（Type A / 決済確定前のみ） */}
+        {canCancel && (
+          <div className="space-y-2">
+            {cancelError && (
+              <p className="text-xs text-red-400 font-bold text-center">{cancelError}</p>
+            )}
+            {showConfirm ? (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 space-y-3">
+                <p className="text-xs text-red-300 font-bold text-center">
+                  本当にキャンセルしますか？<br />
+                  <span className="text-slate-400 font-normal">イベント5日前以降はキャンセルできません。</span>
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(false)}
+                    className="flex-1 h-10 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition-colors"
+                  >
+                    戻る
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={isPending}
+                    className="flex-1 h-10 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1"
+                  >
+                    {isPending ? <Loader2 size={14} className="animate-spin" /> : "キャンセルする"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowConfirm(true)}
+                className="w-full h-10 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-bold rounded-2xl transition-colors"
+              >
+                予約をキャンセル
+              </button>
+            )}
+          </div>
         )}
 
         {/* フッター */}

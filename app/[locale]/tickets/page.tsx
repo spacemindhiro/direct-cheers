@@ -16,6 +16,8 @@ async function TicketsContent() {
     .from("tickets")
     .select(`
       ticket_id, ticket_code, status, checked_in_at, email, created_at,
+      reservation_id,
+      reservation:entrance_reservations!reservation_id(status),
       product:products(name, payment_type, min_amount),
       event:events(event_id, title, venue, start_at),
       transaction:transactions!transaction_id(
@@ -75,6 +77,8 @@ async function TicketsContent() {
               bgColor={t.transaction?.qr_config?.bg_color ?? undefined}
               fgColor={t.transaction?.qr_config?.fg_color ?? undefined}
               labelColor={t.transaction?.qr_config?.label_color ?? undefined}
+              reservationId={t.reservation_id ?? null}
+              reservationStatus={(t.reservation as any)?.status ?? null}
             />
           ))}
         </div>

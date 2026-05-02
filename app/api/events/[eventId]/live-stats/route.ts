@@ -129,8 +129,8 @@ export async function GET(
   const totalStripeFee = txList.reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, t.payment_method ?? "card"), 0);
   const totalCardFee = txList.filter((t) => (t.payment_method ?? "card") !== "paypay").reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, "card"), 0);
   const totalPaypayFee = txList.filter((t) => t.payment_method === "paypay").reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, "paypay"), 0);
-  const totalPlatformFee = Math.floor(totalGross * PLATFORM_RATE);
-  const totalNet = txList.reduce((s, t) => s + txNetOf(t.total_gross_amount ?? 0, t.payment_method ?? "card"), 0);
+  const totalPlatformFee = txList.reduce((s, t) => s + Math.floor((t.total_gross_amount ?? 0) * PLATFORM_RATE), 0);
+  const totalNet = totalGross - totalStripeFee - totalPlatformFee;
   const lastTransactionAt = txList[0]?.created_at ?? null;
 
   // 自分の distribution_ratio を取得（qr_config_targets から集計）

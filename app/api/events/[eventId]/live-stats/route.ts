@@ -108,7 +108,7 @@ export async function GET(
   // 売上集計
   const { data: transactions } = await admin
     .from("transactions")
-    .select("transaction_id, total_gross_amount, created_at, qr_config_id, sender_name, sender_comment, payment_method, product:products!product_id(type)")
+    .select("transaction_id, total_gross_amount, stripe_fee, platform_fee, net_amount, created_at, qr_config_id, sender_name, sender_comment, payment_method, product:products!product_id(type)")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed")
     .order("created_at", { ascending: false });
@@ -116,20 +116,14 @@ export async function GET(
   const txList = transactions ?? [];
   const totalGross = txList.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
 
-  // payment_method 別に手数料計算
-  const txFeeOf = (gross: number, method: string) => {
-    const rate = method === "paypay" ? PAYPAY_RATE : STRIPE_RATE;
-    return Math.floor(gross * rate);
-  };
-  // totalNet と一致させるため net_rate 直計算ではなく差し引きで算出
-  const txNetOf = (gross: number, method: string) =>
-    gross - txFeeOf(gross, method) - Math.floor(gross * PLATFORM_RATE);
+  // 明細から積み上げ（この場での再計算なし）
+  const txNetOf = (t: typeof txList[number]) => t.net_amount ?? 0;
 
-  const totalStripeFee = txList.reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, t.payment_method ?? "card"), 0);
-  const totalCardFee = txList.filter((t) => (t.payment_method ?? "card") !== "paypay").reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, "card"), 0);
-  const totalPaypayFee = txList.filter((t) => t.payment_method === "paypay").reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, "paypay"), 0);
-  const totalPlatformFee = txList.reduce((s, t) => s + Math.floor((t.total_gross_amount ?? 0) * PLATFORM_RATE), 0);
-  const totalNet = totalGross - totalStripeFee - totalPlatformFee;
+  const totalStripeFee = txList.reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
+  const totalCardFee = txList.filter((t) => (t.payment_method ?? "card") !== "paypay").reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
+  const totalPaypayFee = txList.filter((t) => t.payment_method === "paypay").reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
+  const totalPlatformFee = txList.reduce((s, t) => s + (t.platform_fee ?? 0), 0);
+  const totalNet = txList.reduce((s, t) => s + (t.net_amount ?? 0), 0);
   const lastTransactionAt = txList[0]?.created_at ?? null;
 
   // 自分の distribution_ratio を取得（qr_config_targets から集計）
@@ -155,7 +149,7 @@ export async function GET(
         const txTargets = myTargets.filter((t) => t.qr_config_id === tx.qr_config_id);
         const ratio = txTargets.reduce((s, t) => s + Number(t.distribution_ratio ?? 0), 0);
         myTargetRatioMap.set(tx.qr_config_id, ratio);
-        const txNet = txNetOf(tx.total_gross_amount ?? 0, tx.payment_method ?? "card");
+        const txNet = txNetOf(tx);
         myProjectedNet += Math.floor(txNet * ratio);
       }
     }
@@ -185,7 +179,7 @@ export async function GET(
       };
       const txForQr = txList.filter((tx) => tx.qr_config_id === target.qr_config_id);
       for (const tx of txForQr) {
-        const txNet = txNetOf(tx.total_gross_amount ?? 0, tx.payment_method ?? "card");
+        const txNet = txNetOf(tx);
         existing.projected_net += Math.floor(txNet * ratio);
       }
       existing.total_ratio += ratio;
@@ -213,7 +207,7 @@ export async function GET(
   const recentTransactions = pagedTxList.map((tx) => {
     const gross = tx.total_gross_amount ?? 0;
     const ratio = myTargetRatioMap.get(tx.qr_config_id) ?? null;
-    const myNet = ratio !== null ? Math.floor(txNetOf(gross, tx.payment_method ?? "card") * ratio) : null;
+    const myNet = ratio !== null ? Math.floor(txNetOf(tx) * ratio) : null;
     return {
       transaction_id: tx.transaction_id,
       total_gross_amount: gross,

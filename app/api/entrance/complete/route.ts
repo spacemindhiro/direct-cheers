@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getFeeConfig } from "@/lib/fee-config";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -135,6 +136,11 @@ async function handleTypeB(admin: ReturnType<typeof import("@/lib/supabase/admin
   }
 
   // transaction を作成
+  const bGross = session.amount_total ?? 0;
+  const bFeeConfig = await getFeeConfig();
+  const bStripeFee = Math.floor(bGross * bFeeConfig.stripe_rate);
+  const bPlatformFee = Math.floor(bGross * bFeeConfig.platform_rate);
+
   const { data: tx } = await admin
     .from("transactions")
     .insert({
@@ -142,10 +148,13 @@ async function handleTypeB(admin: ReturnType<typeof import("@/lib/supabase/admin
       product_id: productId,
       sender_name: meta.holder_name || null,
       status: "completed",
-      total_gross_amount: session.amount_total ?? 0,
+      total_gross_amount: bGross,
       stripe_funds_status: "held_in_platform",
       amount_verified: true,
       amount_mismatch: 0,
+      stripe_fee: bStripeFee,
+      platform_fee: bPlatformFee,
+      net_amount: bGross - bStripeFee - bPlatformFee,
     })
     .select("transaction_id")
     .single();

@@ -37,6 +37,15 @@ Deno.serve(async (_req) => {
 
   const results = { success: 0, failed: 0, skipped: 0 };
 
+  const { data: feeRow } = await supabase
+    .from("platform_config")
+    .select("stripe_rate, platform_rate")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .single();
+  const STRIPE_RATE   = Number(feeRow?.stripe_rate   ?? 0.036);
+  const PLATFORM_RATE = Number(feeRow?.platform_rate ?? 0.10);
+
   for (const r of reservations ?? []) {
     if (!r.stripe_payment_method_id) {
       console.warn("[charge-type-a] no payment_method for reservation:", r.reservation_id);
@@ -68,6 +77,9 @@ Deno.serve(async (_req) => {
       }
 
       // transaction 作成
+      const aStripeFee   = Math.floor(r.charge_amount * STRIPE_RATE);
+      const aPlatformFee = Math.floor(r.charge_amount * PLATFORM_RATE);
+
       const { data: tx, error: txErr } = await supabase
         .from("transactions")
         .insert({
@@ -79,6 +91,9 @@ Deno.serve(async (_req) => {
           stripe_funds_status: "held_in_platform",
           amount_verified: true,
           amount_mismatch: 0,
+          stripe_fee: aStripeFee,
+          platform_fee: aPlatformFee,
+          net_amount: r.charge_amount - aStripeFee - aPlatformFee,
         })
         .select("transaction_id")
         .single();

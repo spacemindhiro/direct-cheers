@@ -66,6 +66,12 @@ export async function POST(req: Request) {
   const productId = meta.product_id || null;
   const qrConfigId = meta.qr_config_id || null;
 
+  const gross = session.amount_total ?? 0;
+  const paymentMethod = (session.payment_method_types?.[0] === "paypay") ? "paypay" : "card";
+  const feeConfig = await getFeeConfig();
+  const stripeFee = Math.floor(gross * (paymentMethod === "paypay" ? feeConfig.paypay_rate : feeConfig.stripe_rate));
+  const platformFee = Math.floor(gross * feeConfig.platform_rate);
+
   const { data: tx, error: txError } = await admin
     .from("transactions")
     .insert({
@@ -75,10 +81,14 @@ export async function POST(req: Request) {
       sender_profile_id: provisionalProfileId,
       status: "completed",
       sender_email: email ?? null,
-      total_gross_amount: session.amount_total ?? 0,
+      total_gross_amount: gross,
       stripe_funds_status: "held_in_platform",
       amount_verified: session.amount_total !== null,
       amount_mismatch: 0,
+      payment_method: paymentMethod,
+      stripe_fee: stripeFee,
+      platform_fee: platformFee,
+      net_amount: gross - stripeFee - platformFee,
     })
     .select("transaction_id")
     .single();
@@ -130,7 +140,7 @@ export async function POST(req: Request) {
         .single();
 
       if (eventRow?.agent_id) {
-        const { agent_fee_rate } = await getFeeConfig();
+        const { agent_fee_rate } = feeConfig;
         const agentFee = Math.floor((session.amount_total ?? 0) * agent_fee_rate);
         if (agentFee > 0) {
           await admin.from("transaction_distributions").insert({

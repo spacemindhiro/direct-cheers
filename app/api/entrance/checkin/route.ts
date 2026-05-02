@@ -9,6 +9,7 @@ import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
+import { getFeeConfig } from "@/lib/fee-config";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -105,6 +106,11 @@ export async function POST(req: Request) {
     }
 
     // transaction 作成
+    const cGross = reservation.charge_amount;
+    const cFeeConfig = await getFeeConfig();
+    const cStripeFee = Math.floor(cGross * cFeeConfig.stripe_rate);
+    const cPlatformFee = Math.floor(cGross * cFeeConfig.platform_rate);
+
     const { data: tx } = await admin
       .from("transactions")
       .insert({
@@ -112,10 +118,13 @@ export async function POST(req: Request) {
         product_id: ticket.product_id,
         sender_name: null,
         status: "completed",
-        total_gross_amount: reservation.charge_amount,
+        total_gross_amount: cGross,
         stripe_funds_status: "held_in_platform",
         amount_verified: true,
         amount_mismatch: 0,
+        stripe_fee: cStripeFee,
+        platform_fee: cPlatformFee,
+        net_amount: cGross - cStripeFee - cPlatformFee,
       })
       .select("transaction_id")
       .single();

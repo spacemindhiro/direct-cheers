@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
+import { getFeeConfig } from "@/lib/fee-config";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -191,6 +192,10 @@ export async function POST(req: Request) {
         }
 
         const paymentMethod = (session.payment_method_types?.[0] === "paypay") ? "paypay" : "card";
+        const gross = session.amount_total ?? 0;
+        const wFeeConfig = await getFeeConfig();
+        const wStripeFee = Math.floor(gross * (paymentMethod === "paypay" ? wFeeConfig.paypay_rate : wFeeConfig.stripe_rate));
+        const wPlatformFee = Math.floor(gross * wFeeConfig.platform_rate);
 
         const { data: newTx } = await admin.from("transactions").insert({
           stripe_payment_intent_id: session.payment_intent as string,
@@ -200,9 +205,12 @@ export async function POST(req: Request) {
           sender_name: meta.nickname || null,
           sender_comment: meta.comment || null,
           status: "completed",
-          total_gross_amount: session.amount_total ?? 0,
+          total_gross_amount: gross,
           stripe_funds_status: "held_in_platform",
           payment_method: paymentMethod,
+          stripe_fee: wStripeFee,
+          platform_fee: wPlatformFee,
+          net_amount: gross - wStripeFee - wPlatformFee,
         }).select("transaction_id").single();
 
         // 購入確認メール（fire-and-forget）

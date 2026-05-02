@@ -45,7 +45,7 @@ Deno.serve(async (_req) => {
     }
 
     try {
-      // Stripe off_session 決済
+      // Stripe off_session オーソリ（キャプチャは開催確認後）
       const paymentIntent = await stripe.paymentIntents.create({
         amount: r.charge_amount,
         currency: "jpy",
@@ -53,6 +53,7 @@ Deno.serve(async (_req) => {
         payment_method: r.stripe_payment_method_id,
         confirm: true,
         off_session: true,
+        capture_method: "manual",
         metadata: {
           reservation_id: r.reservation_id,
           product_id: r.product_id,
@@ -62,7 +63,7 @@ Deno.serve(async (_req) => {
         },
       });
 
-      if (paymentIntent.status !== "succeeded") {
+      if (paymentIntent.status !== "requires_capture") {
         throw new Error(`PaymentIntent status: ${paymentIntent.status}`);
       }
 

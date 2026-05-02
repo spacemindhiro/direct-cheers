@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 // オーガナイザーが中止申請
 export async function POST(
@@ -103,8 +106,65 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const admin = createAdminClient();
+
+  // 中止承認時: オーソリ済み PaymentIntent を void
+  if (approve) {
+    const paymentIntentIds: string[] = [];
+
+    // チアーズ決済: qr_configs 経由
+    const { data: qrConfigs } = await admin
+      .from("qr_configs")
+      .select("qr_config_id")
+      .eq("event_id", eventId)
+      .is("deleted_at", null);
+    if (qrConfigs && qrConfigs.length > 0) {
+      const qrIds = qrConfigs.map((q) => q.qr_config_id);
+      const { data: qrTxs } = await admin
+        .from("transactions")
+        .select("stripe_payment_intent_id")
+        .in("qr_config_id", qrIds)
+        .eq("status", "completed")
+        .not("stripe_payment_intent_id", "is", null);
+      for (const tx of qrTxs ?? []) {
+        if (tx.stripe_payment_intent_id) paymentIntentIds.push(tx.stripe_payment_intent_id);
+      }
+    }
+
+    // 入場チケット決済: tickets 経由（Type A / C）
+    const { data: tickets } = await admin
+      .from("tickets")
+      .select("transaction_id")
+      .eq("event_id", eventId)
+      .not("transaction_id", "is", null);
+    if (tickets && tickets.length > 0) {
+      const txIds = tickets.map((t) => t.transaction_id as string);
+      const { data: entranceTxs } = await admin
+        .from("transactions")
+        .select("stripe_payment_intent_id")
+        .in("transaction_id", txIds)
+        .eq("status", "completed")
+        .not("stripe_payment_intent_id", "is", null);
+      for (const tx of entranceTxs ?? []) {
+        if (tx.stripe_payment_intent_id) paymentIntentIds.push(tx.stripe_payment_intent_id);
+      }
+    }
+
+    // 重複除去してvoid（既にキャプチャ済みはスキップ）
+    const uniqueIds = [...new Set(paymentIntentIds)];
+    for (const piId of uniqueIds) {
+      try {
+        await stripe.paymentIntents.cancel(piId);
+      } catch (err: any) {
+        // already captured / already cancelled は無視
+        if (!err.message?.includes("already been captured") && !err.message?.includes("already canceled")) {
+          console.error(`[cancel] void failed for ${piId}:`, err.message);
+        }
+      }
+    }
+  }
+
   try {
-    const admin = createAdminClient();
     await admin.from("notifications").insert({
       profile_id: eventDetail.organizer_profile_id,
       type: approve ? "event_cancelled" : "event_cancel_rejected",

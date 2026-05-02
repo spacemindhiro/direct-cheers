@@ -91,6 +91,7 @@ export async function POST(req: Request) {
         payment_method: reservation.stripe_payment_method_id,
         confirm: true,
         off_session: true,
+        capture_method: "manual",
         metadata: {
           ticket_id: ticket.ticket_id,
           product_id: ticket.product_id,

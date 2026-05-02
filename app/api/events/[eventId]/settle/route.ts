@@ -205,17 +205,38 @@ export async function POST(
   }
 
   // Payment Intent をキャプチャ（オーソリ → 売上確定）
-  const captureResults: { transaction_id: string; captured: boolean; error?: string }[] = [];
-  for (const tx of transactions) {
-    if (!tx.stripe_payment_intent_id) {
-      captureResults.push({ transaction_id: tx.transaction_id, captured: false, error: "no payment intent" });
-      continue;
+  // チアーズ決済（qr_config 経由）+ 入場チケット決済（Type A/C: tickets 経由）を両方キャプチャ
+  const allPaymentIntentIds = new Set(
+    transactions
+      .map((tx) => tx.stripe_payment_intent_id)
+      .filter((id): id is string => !!id)
+  );
+
+  // 入場チケット決済（qr_config_id を持たない Type A / C）
+  const { data: ticketTxIds } = await admin
+    .from("tickets")
+    .select("transaction_id")
+    .eq("event_id", eventId)
+    .not("transaction_id", "is", null);
+  if (ticketTxIds && ticketTxIds.length > 0) {
+    const { data: entranceTxs } = await admin
+      .from("transactions")
+      .select("stripe_payment_intent_id")
+      .in("transaction_id", ticketTxIds.map((t) => t.transaction_id as string))
+      .eq("status", "completed")
+      .not("stripe_payment_intent_id", "is", null);
+    for (const tx of entranceTxs ?? []) {
+      if (tx.stripe_payment_intent_id) allPaymentIntentIds.add(tx.stripe_payment_intent_id);
     }
+  }
+
+  const captureResults: { pi_id: string; captured: boolean; error?: string }[] = [];
+  for (const piId of allPaymentIntentIds) {
     try {
-      await stripe.paymentIntents.capture(tx.stripe_payment_intent_id);
-      captureResults.push({ transaction_id: tx.transaction_id, captured: true });
+      await stripe.paymentIntents.capture(piId);
+      captureResults.push({ pi_id: piId, captured: true });
     } catch (err: any) {
-      captureResults.push({ transaction_id: tx.transaction_id, captured: false, error: err.message });
+      captureResults.push({ pi_id: piId, captured: false, error: err.message });
     }
   }
 

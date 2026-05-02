@@ -98,11 +98,20 @@ export function QRBoardDisplay({
 
   // Supabase Realtime
   useEffect(() => {
-    const supabase = createClient();
-    const deviceId = getOrCreateDeviceId();
+    addLog("effect start");
+    let supabase;
+    let deviceId;
+    try {
+      supabase = createClient();
+      deviceId = getOrCreateDeviceId();
+      addLog("client ok");
+    } catch (e: any) {
+      addLog(`init err: ${String(e)}`);
+      return;
+    }
 
     // ログイン中のメールを取得（ロック解除用）
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: any) => {
       setUnlockEmail(session?.user?.email ?? "");
     });
 

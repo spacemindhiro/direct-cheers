@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 
 export async function PATCH(
   req: Request,
@@ -22,7 +23,7 @@ export async function PATCH(
 
   const { data: event } = await supabase
     .from("events")
-    .select("event_id, lifecycle_status, organizer_profile_id, agent_id, venue, start_at, end_at")
+    .select("event_id, title, lifecycle_status, organizer_profile_id, agent_id, venue, start_at, end_at")
     .eq("event_id", eventId)
     .single();
 
@@ -135,6 +136,35 @@ export async function PATCH(
   }
 
   const reApprovalRequired = scheduleOrVenueChanged && !["draft", "settled", "cancelled"].includes(event.lifecycle_status);
+
+  // イベント名・会場・日程が変わった場合、Walletパスを更新push（fire-and-forget）
+  const infoChanged = (title !== undefined && title !== event.title) || scheduleOrVenueChanged;
+  if (infoChanged && Object.keys(updates).length > 0) {
+    (async () => {
+      try {
+        const admin2 = createAdminClient();
+        // チアーズ: qr_configs → transactions のシリアル番号
+        const { data: qrConfigs } = await admin2
+          .from("qr_configs").select("qr_config_id").eq("event_id", eventId).is("deleted_at", null);
+        if (qrConfigs && qrConfigs.length > 0) {
+          const { data: txs } = await admin2
+            .from("transactions").select("transaction_id")
+            .in("qr_config_id", qrConfigs.map((q) => q.qr_config_id))
+            .eq("status", "completed");
+          for (const tx of txs ?? []) {
+            pushWalletUpdateBySerial(tx.transaction_id).catch(() => {});
+          }
+        }
+        // 入場チケット: tickets のシリアル番号
+        const { data: tickets } = await admin2
+          .from("tickets").select("ticket_id").eq("event_id", eventId);
+        for (const t of tickets ?? []) {
+          pushWalletUpdateBySerial(t.ticket_id).catch(() => {});
+        }
+      } catch { /* push失敗はサイレント */ }
+    })();
+  }
+
   return NextResponse.json({ ok: true, re_approval_required: reApprovalRequired });
 }
 

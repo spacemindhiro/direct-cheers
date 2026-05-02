@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 
 async function getQRWithPermission(qrConfigId: string, userId: string) {
   const supabase = await createClient();
@@ -124,6 +125,24 @@ export async function PATCH(
     }));
     const { error: targetError } = await sb.from("qr_config_targets").insert(rows);
     if (targetError) return NextResponse.json({ error: targetError.message }, { status: 500 });
+  }
+
+  // 画像・配色・宛先が変わった場合、Walletパスを更新push（fire-and-forget）
+  const visualChanged = image_url !== undefined || strip_image_url !== undefined ||
+    bg_color !== undefined || fg_color !== undefined || label_color !== undefined ||
+    recipient_profile_id !== undefined;
+  if (visualChanged && Object.keys(configUpdates).length > 0) {
+    (async () => {
+      try {
+        const a = createAdminClient();
+        const { data: txs } = await a
+          .from("transactions").select("transaction_id")
+          .eq("qr_config_id", qrConfigId).eq("status", "completed");
+        for (const tx of txs ?? []) {
+          pushWalletUpdateBySerial(tx.transaction_id).catch(() => {});
+        }
+      } catch { /* サイレント */ }
+    })();
   }
 
   return NextResponse.json({ ok: true });

@@ -14,17 +14,8 @@ type Props = {
   onUploadComplete: (url: string | null) => void;
 };
 
-/**
- * 3:2 クロップ済み blob に Wallet 用オーバーレイを合成して返す。
- * - 上部 28%: 暗いグラデーション
- * - イベント名 / アーティスト名を白抜き文字でオーバーレイ
- * - "Direct Cheers" ウォーターマーク（右上）
- */
-async function generateWalletImage(
-  blob: Blob,
-  eventTitle: string,
-  artistName: string,
-): Promise<Blob> {
+// 3:2 クロップ済み blob をリサイズして返す（テキストはHTMLとWalletのJSON側で動的レンダリング）
+async function resizeImage(blob: Blob): Promise<Blob> {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -37,72 +28,19 @@ async function generateWalletImage(
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d")!;
-
-  // 元画像
   ctx.drawImage(image, 0, 0, W, H);
-
-  // 上部グラデーション
-  const overlayH = H * 0.32;
-  const grad = ctx.createLinearGradient(0, 0, 0, overlayH);
-  grad.addColorStop(0, "rgba(0,0,0,0.80)");
-  grad.addColorStop(1, "rgba(0,0,0,0.00)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, overlayH);
-
-  // 右下グラデーション（ブランドカラー補助）
-  const bottomGrad = ctx.createLinearGradient(W, H, W * 0.5, H * 0.7);
-  bottomGrad.addColorStop(0, "rgba(236,72,153,0.25)");
-  bottomGrad.addColorStop(1, "rgba(236,72,153,0.00)");
-  ctx.fillStyle = bottomGrad;
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.textBaseline = "top";
-
-  // "Direct Cheers" ウォーターマーク（右上）
-  ctx.font = "bold 22px system-ui, -apple-system, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.textAlign = "right";
-  ctx.fillText("Direct Cheers", W - 44, 36);
-
-  // イベント名
-  if (eventTitle) {
-    ctx.font = "600 26px system-ui, -apple-system, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.80)";
-    ctx.textAlign = "left";
-    // 長い場合はトリミング
-    let title = eventTitle;
-    while (ctx.measureText(title).width > W - 180 && title.length > 4) {
-      title = title.slice(0, -1);
-    }
-    if (title !== eventTitle) title += "…";
-    ctx.fillText(title, 44, 38);
-  }
-
-  // アーティスト名（大きく）
-  if (artistName) {
-    ctx.font = "900 58px system-ui, -apple-system, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.97)";
-    ctx.textAlign = "left";
-    let name = artistName;
-    while (ctx.measureText(name).width > W - 88 && name.length > 4) {
-      name = name.slice(0, -1);
-    }
-    if (name !== artistName) name += "…";
-    ctx.fillText(name, 44, 80);
-  }
-
   URL.revokeObjectURL(image.src);
 
   return new Promise((resolve, reject) =>
     canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("wallet image failed"))),
+      (b) => (b ? resolve(b) : reject(new Error("image resize failed"))),
       "image/jpeg",
       0.90,
     ),
   );
 }
 
-export function QRImageUpload({ currentUrl, pathPrefix, eventTitle = "", artistName = "", onUploadComplete }: Props) {
+export function QRImageUpload({ currentUrl, pathPrefix, onUploadComplete }: Props) {
   const [rawSrc, setRawSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -123,11 +61,7 @@ export function QRImageUpload({ currentUrl, pathPrefix, eventTitle = "", artistN
     // rawSrc は保持（再クロップ用）
     setUploading(true);
     try {
-      // Wallet合成画像を生成（eventTitle / artistName があれば）
-      const finalBlob =
-        eventTitle || artistName
-          ? await generateWalletImage(blob, eventTitle, artistName)
-          : blob;
+      const finalBlob = await resizeImage(blob);
 
       const supabase = createClient();
       const prefix = pathPrefix ?? crypto.randomUUID();

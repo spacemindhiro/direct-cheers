@@ -1,5 +1,6 @@
 import forge from "node-forge";
 import http2 from "node:http2";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 function extractFromP12(p12Base64: string, password: string) {
   const p12Der = forge.util.createBuffer(
@@ -74,5 +75,22 @@ export async function sendWalletPush(pushToken: string): Promise<void> {
       client.close();
       reject(err);
     });
+  });
+}
+
+// serial_number（ticket_id または transaction_id）に紐づく全デバイスへpush
+export async function pushWalletUpdateBySerial(serialNumber: string): Promise<void> {
+  const admin = createAdminClient();
+  const { data: devices } = await admin
+    .from("wallet_device_registrations")
+    .select("push_token")
+    .eq("serial_number", serialNumber);
+
+  const tokens = [...new Set((devices ?? []).map((d) => d.push_token))];
+  if (tokens.length === 0) return;
+
+  const results = await Promise.allSettled(tokens.map((t) => sendWalletPush(t)));
+  results.forEach((r) => {
+    if (r.status === "rejected") console.error("[wallet/push] failed:", r.reason);
   });
 }

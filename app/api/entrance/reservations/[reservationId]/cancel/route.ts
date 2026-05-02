@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 
 export async function POST(
   _req: Request,
@@ -61,6 +62,9 @@ export async function POST(
     .from("tickets")
     .update({ status: "cancelled" })
     .eq("ticket_id", ticket.ticket_id);
+
+  // Walletパスを更新（fire-and-forget）
+  pushWalletUpdateBySerial(ticket.ticket_id).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { generatePassBuffer } from "@/lib/apple-pass-generator";
+import { generatePassBuffer, generateTicketPassBuffer } from "@/lib/apple-pass-generator";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type Params = { passTypeId: string; serialNumber: string };
 
@@ -16,8 +17,19 @@ export async function GET(
 
   const { serialNumber } = await params;
 
+  // serial_number がチケットIDかトランザクションIDかを判定
+  const admin = createAdminClient();
+  const { data: ticket } = await admin
+    .from("tickets")
+    .select("ticket_id")
+    .eq("ticket_id", serialNumber)
+    .maybeSingle();
+
   try {
-    const buffer = await generatePassBuffer(serialNumber);
+    const buffer = ticket
+      ? await generateTicketPassBuffer(serialNumber)
+      : await generatePassBuffer(serialNumber);
+
     return new NextResponse(buffer as unknown as BodyInit, {
       status: 200,
       headers: {

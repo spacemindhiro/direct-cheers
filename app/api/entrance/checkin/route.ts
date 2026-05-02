@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -144,6 +145,9 @@ export async function POST(req: Request) {
     if (msg.includes("TICKET_CANCELLED")) return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
     return NextResponse.json({ error: checkinError.message }, { status: 500 });
   }
+
+  // Walletパスを更新（fire-and-forget）
+  pushWalletUpdateBySerial(ticket.ticket_id).catch(() => {});
 
   return NextResponse.json({
     ok: true,

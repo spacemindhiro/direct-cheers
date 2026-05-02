@@ -39,6 +39,8 @@ type LiveStats = {
   stripe_rate: number;
   platform_rate: number;
   net_rate: number;
+  paypay_rate: number;
+  paypay_net_rate: number;
   recent_transactions: TxItem[];
   current_page: number;
   total_pages: number;
@@ -224,7 +226,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
             </p>
           </div>
           <p className="text-xs text-slate-500">
-            Stripe {(stats.stripe_rate * 100).toFixed(1)}% ＋ プラットフォーム {(stats.platform_rate * 100).toFixed(0)}% 控除後
+            カード: Stripe {(stats.stripe_rate * 100).toFixed(1)}% ／ PayPay: {(stats.paypay_rate * 100).toFixed(2)}% ＋ プラットフォーム {(stats.platform_rate * 100).toFixed(0)}% 控除後
           </p>
         </div>
 
@@ -240,7 +242,9 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
             </div>
             <div className="border-t border-slate-700 pt-3 space-y-2">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Stripe手数料（{(stats.stripe_rate * 100).toFixed(1)}%）</span>
+                <span className="text-slate-500">
+                  決済手数料（カード {(stats.stripe_rate * 100).toFixed(1)}% ／ PayPay {(stats.paypay_rate * 100).toFixed(2)}%）
+                </span>
                 <span className="text-slate-400 tabular-nums">−{formatJPY(stats.total_stripe_fee)}</span>
               </div>
               <div className="flex justify-between text-xs">
@@ -248,7 +252,9 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
                 <span className="text-slate-400 tabular-nums">−{formatJPY(stats.total_platform_fee)}</span>
               </div>
               <div className="flex justify-between text-sm border-t border-slate-700 pt-2">
-                <span className="font-black text-slate-300">配分可能 Net（{(stats.net_rate * 100).toFixed(1)}%）</span>
+                <span className="font-black text-slate-300">
+                  配分可能 Net（カード {(stats.net_rate * 100).toFixed(1)}% ／ PayPay {(stats.paypay_net_rate * 100).toFixed(2)}%）
+                </span>
                 <span className="font-black text-emerald-400 tabular-nums">{formatJPY(stats.total_net)}</span>
               </div>
             </div>

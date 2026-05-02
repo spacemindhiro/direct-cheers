@@ -33,7 +33,8 @@ export function QRCreateForm({
   eventStartAt,
   eventVenue,
   targets: targetCandidates,
-  feeConfig = { stripe_rate: 0.036, platform_rate: 0.10, net_rate: 0.864 },
+  feeConfig = { stripe_rate: 0.036, platform_rate: 0.10, net_rate: 0.864, paypay_rate: 0.0398, paypay_net_rate: 0.8602 },
+  paypayEnabled = false,
   organizerBalance = 0,
   productTypeConfigs = [],
 }: {
@@ -42,7 +43,8 @@ export function QRCreateForm({
   eventStartAt?: string | null;
   eventVenue?: string | null;
   targets: TargetCandidate[];
-  feeConfig?: { stripe_rate: number; platform_rate: number; net_rate: number };
+  feeConfig?: { stripe_rate: number; platform_rate: number; net_rate: number; paypay_rate?: number; paypay_net_rate?: number };
+  paypayEnabled?: boolean;
   organizerBalance?: number;
   productTypeConfigs?: ProductTypeConfig[];
 }) {
@@ -610,15 +612,42 @@ export function QRCreateForm({
           {/* 手数料インフォ */}
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 space-y-1">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">手数料内訳</p>
-            <div className="flex justify-between text-xs text-slate-400">
-              <span>Stripe 決済手数料</span><span>{(feeConfig.stripe_rate * 100).toFixed(1)}%</span>
-            </div>
-            <div className="flex justify-between text-xs text-slate-400">
-              <span>プラットフォーム利用料</span><span>{(feeConfig.platform_rate * 100).toFixed(1)}%</span>
-            </div>
-            <div className="flex justify-between text-xs font-black text-white border-t border-slate-700 pt-1 mt-1">
-              <span>アーティスト配分</span><span>{(feeConfig.net_rate * 100).toFixed(1)}%</span>
-            </div>
+            {paypayEnabled ? (
+              <>
+                <p className="text-[10px] text-slate-500 mb-1">カード払い</p>
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>決済手数料（Stripe）</span><span>{(feeConfig.stripe_rate * 100).toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>プラットフォーム利用料</span><span>{(feeConfig.platform_rate * 100).toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between text-xs font-black text-white border-t border-slate-700 pt-1 mt-1">
+                  <span>アーティスト配分</span><span>{(feeConfig.net_rate * 100).toFixed(1)}%</span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-2 mb-1">PayPay払い</p>
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>決済手数料（PayPay）</span><span>{((feeConfig.paypay_rate ?? 0.0398) * 100).toFixed(2)}%</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>プラットフォーム利用料</span><span>{(feeConfig.platform_rate * 100).toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between text-xs font-black text-white border-t border-slate-700 pt-1 mt-1">
+                  <span>アーティスト配分</span><span>{((feeConfig.paypay_net_rate ?? 0.8602) * 100).toFixed(2)}%</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>Stripe 決済手数料</span><span>{(feeConfig.stripe_rate * 100).toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-400">
+                  <span>プラットフォーム利用料</span><span>{(feeConfig.platform_rate * 100).toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between text-xs font-black text-white border-t border-slate-700 pt-1 mt-1">
+                  <span>アーティスト配分</span><span>{(feeConfig.net_rate * 100).toFixed(1)}%</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

@@ -22,11 +22,13 @@ export function CheersPaymentForm({
   products,
   recipientName,
   eventTitle,
+  paypayEnabled = false,
 }: {
   qrConfigId: string;
   products: Product[];
   recipientName: string;
   eventTitle: string;
+  paypayEnabled?: boolean;
 }) {
   const selectedProduct = products[0];
   const [amount, setAmount] = useState(products[0]?.min_amount ?? 500);
@@ -199,14 +201,19 @@ export function CheersPaymentForm({
         </button>
         <p className="text-center text-[10px] text-slate-600">Apple Pay / Google Pay / クレジットカード 対応</p>
 
-        <button
-          type="button"
-          disabled={isPending}
-          onClick={() => handleCheckout("paypay")}
-          className="w-full h-14 bg-[#E52E2E] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:brightness-110 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60"
-        >
-          {isPending ? <Loader2 size={18} className="animate-spin" /> : "PayPay で支払う"}
-        </button>
+        {paypayEnabled && (
+          <>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => handleCheckout("paypay")}
+              className="w-full h-14 bg-[#E52E2E] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:brightness-110 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {isPending ? <Loader2 size={18} className="animate-spin" /> : "PayPay で支払う"}
+            </button>
+            <p className="text-center text-[10px] text-slate-600">PayPay 決済手数料 3.98% が適用されます。返金時も手数料は返還されません。</p>
+          </>
+        )}
       </div>
     </div>
   );

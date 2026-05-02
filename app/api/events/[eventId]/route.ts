@@ -41,12 +41,13 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { title, venue, start_at, end_at, artist_ids } = body as {
+  const { title, venue, start_at, end_at, artist_ids, paypay_enabled } = body as {
     title?: string;
     venue?: string;
     start_at?: string;
     end_at?: string;
     artist_ids?: string[];
+    paypay_enabled?: boolean;
   };
 
   // 日程・場所が変わったら draft に戻す（再承認が必要）
@@ -62,6 +63,7 @@ export async function PATCH(
   if (venue !== undefined) updates.venue = venue;
   if (start_at !== undefined) updates.start_at = start_at;
   if (end_at !== undefined) updates.end_at = end_at;
+  if (paypay_enabled !== undefined) updates.paypay_enabled = paypay_enabled;
   if (scheduleOrVenueChanged && !["draft", "settled", "cancelled"].includes(event.lifecycle_status)) {
     updates.lifecycle_status = "draft";
   }

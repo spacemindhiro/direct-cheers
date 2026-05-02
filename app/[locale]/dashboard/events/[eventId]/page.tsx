@@ -11,6 +11,7 @@ import { EventDeleteButton } from "@/components/event-delete-button";
 import { EventCancelButton } from "@/components/event-cancel-button";
 import { EventCancelApproveButton } from "@/components/event-cancel-approve-button";
 import { LiveSalesBoard } from "@/components/live-sales-board";
+import { EventPayPayToggle } from "@/components/event-paypay-toggle";
 
 async function EventDetailContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -31,7 +32,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const { data: event } = await adminClient
     .from("events")
     .select(`
-      event_id, title, venue, start_at, end_at, lifecycle_status, agent_id,
+      event_id, title, venue, start_at, end_at, lifecycle_status, agent_id, paypay_enabled, organizer_profile_id,
       agent:profiles!agent_id(display_name),
       event_artists(
         artist_profile_id,
@@ -246,6 +247,14 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             </div>
           </Link>
         </div>
+      )}
+
+      {/* PayPay設定（オーガナイザー） */}
+      {isOrganizer && !["settled", "cancelled"].includes(event.lifecycle_status) && (
+        <EventPayPayToggle
+          eventId={eventId}
+          enabled={(event as any).paypay_enabled ?? false}
+        />
       )}
 
       {/* 承認依頼ボタン（オーガナイザー） */}

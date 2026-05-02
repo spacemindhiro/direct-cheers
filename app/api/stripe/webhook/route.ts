@@ -190,6 +190,8 @@ export async function POST(req: Request) {
           provisionalProfileId = provisional?.profile_id ?? null;
         }
 
+        const paymentMethod = (session.payment_method_types?.[0] === "paypay") ? "paypay" : "card";
+
         const { data: newTx } = await admin.from("transactions").insert({
           stripe_payment_intent_id: session.payment_intent as string,
           product_id: meta.product_id || null,
@@ -200,6 +202,7 @@ export async function POST(req: Request) {
           status: "completed",
           total_gross_amount: session.amount_total ?? 0,
           stripe_funds_status: "held_in_platform",
+          payment_method: paymentMethod,
         }).select("transaction_id").single();
 
         // 購入確認メール（fire-and-forget）

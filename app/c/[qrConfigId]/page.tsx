@@ -35,7 +35,8 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
         venue,
         start_at,
         end_at,
-        lifecycle_status
+        lifecycle_status,
+        paypay_enabled
       ),
       recipient:profiles!recipient_profile_id (
         display_name,
@@ -185,6 +186,7 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
           products={formProducts}
           recipientName={recipientName}
           eventTitle={event.title}
+          paypayEnabled={event.paypay_enabled ?? false}
         />
 
         <div className="flex items-center justify-center gap-2 text-[10px] text-slate-700 font-bold uppercase tracking-widest">

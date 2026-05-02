@@ -31,7 +31,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
   const { data: event } = await adminForEvent
     .from("events")
     .select(`
-      event_id, title, lifecycle_status, start_at, venue,
+      event_id, title, lifecycle_status, start_at, venue, paypay_enabled,
       organizer_profile_id,
       organizer:profiles!organizer_profile_id(display_name),
       event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name))
@@ -101,6 +101,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
         eventVenue={(event as any).venue ?? null}
         targets={targets}
         feeConfig={feeConfig}
+        paypayEnabled={(event as any).paypay_enabled ?? false}
         organizerBalance={organizerBalance}
         productTypeConfigs={productTypeConfigs ?? []}
       />

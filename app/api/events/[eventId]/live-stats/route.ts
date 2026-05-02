@@ -57,7 +57,8 @@ export async function GET(
   }
 
   // 手数料設定をDBから取得
-  const { stripe_rate: STRIPE_RATE, platform_rate: PLATFORM_RATE, net_rate: NET_RATE } = await getFeeConfig();
+  const feeConfig = await getFeeConfig();
+  const { stripe_rate: STRIPE_RATE, platform_rate: PLATFORM_RATE, net_rate: NET_RATE, paypay_rate: PAYPAY_RATE, paypay_net_rate: PAYPAY_NET_RATE } = feeConfig;
 
   // このイベントの qr_config_ids を取得
   const { data: qrConfigs } = await admin
@@ -96,6 +97,8 @@ export async function GET(
       stripe_rate: STRIPE_RATE,
       platform_rate: PLATFORM_RATE,
       net_rate: NET_RATE,
+      paypay_rate: PAYPAY_RATE,
+      paypay_net_rate: PAYPAY_NET_RATE,
       recent_transactions: [],
     });
   }
@@ -103,16 +106,27 @@ export async function GET(
   // 売上集計
   const { data: transactions } = await admin
     .from("transactions")
-    .select("transaction_id, total_gross_amount, created_at, qr_config_id, sender_name, sender_comment, product:products!product_id(type)")
+    .select("transaction_id, total_gross_amount, created_at, qr_config_id, sender_name, sender_comment, payment_method, product:products!product_id(type)")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed")
     .order("created_at", { ascending: false });
 
   const txList = transactions ?? [];
   const totalGross = txList.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
-  const totalStripeFee = Math.floor(totalGross * STRIPE_RATE);
+
+  // payment_method 別に手数料計算
+  const txNetOf = (gross: number, method: string) => {
+    const netRate = method === "paypay" ? PAYPAY_NET_RATE : NET_RATE;
+    return Math.floor(gross * netRate);
+  };
+  const txFeeOf = (gross: number, method: string) => {
+    const rate = method === "paypay" ? PAYPAY_RATE : STRIPE_RATE;
+    return Math.floor(gross * rate);
+  };
+
+  const totalStripeFee = txList.reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, t.payment_method ?? "card"), 0);
   const totalPlatformFee = Math.floor(totalGross * PLATFORM_RATE);
-  const totalNet = Math.floor(totalGross * NET_RATE);
+  const totalNet = txList.reduce((s, t) => s + txNetOf(t.total_gross_amount ?? 0, t.payment_method ?? "card"), 0);
   const lastTransactionAt = txList[0]?.created_at ?? null;
 
   // 自分の distribution_ratio を取得（qr_config_targets から集計）
@@ -138,7 +152,7 @@ export async function GET(
         const txTargets = myTargets.filter((t) => t.qr_config_id === tx.qr_config_id);
         const ratio = txTargets.reduce((s, t) => s + Number(t.distribution_ratio ?? 0), 0);
         myTargetRatioMap.set(tx.qr_config_id, ratio);
-        const txNet = Math.floor((tx.total_gross_amount ?? 0) * NET_RATE);
+        const txNet = txNetOf(tx.total_gross_amount ?? 0, tx.payment_method ?? "card");
         myProjectedNet += Math.floor(txNet * ratio);
       }
     }
@@ -168,7 +182,7 @@ export async function GET(
       };
       const txForQr = txList.filter((tx) => tx.qr_config_id === target.qr_config_id);
       for (const tx of txForQr) {
-        const txNet = Math.floor((tx.total_gross_amount ?? 0) * NET_RATE);
+        const txNet = txNetOf(tx.total_gross_amount ?? 0, tx.payment_method ?? "card");
         existing.projected_net += Math.floor(txNet * ratio);
       }
       existing.total_ratio += ratio;
@@ -196,7 +210,7 @@ export async function GET(
   const recentTransactions = pagedTxList.map((tx) => {
     const gross = tx.total_gross_amount ?? 0;
     const ratio = myTargetRatioMap.get(tx.qr_config_id) ?? null;
-    const myNet = ratio !== null ? Math.floor(Math.floor(gross * NET_RATE) * ratio) : null;
+    const myNet = ratio !== null ? Math.floor(txNetOf(gross, tx.payment_method ?? "card") * ratio) : null;
     return {
       transaction_id: tx.transaction_id,
       total_gross_amount: gross,
@@ -225,6 +239,8 @@ export async function GET(
     stripe_rate: STRIPE_RATE,
     platform_rate: PLATFORM_RATE,
     net_rate: NET_RATE,
+    paypay_rate: PAYPAY_RATE,
+    paypay_net_rate: PAYPAY_NET_RATE,
     recent_transactions: recentTransactions,
     current_page: page,
     total_pages: totalPages,

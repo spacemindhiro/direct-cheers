@@ -5,6 +5,8 @@ export type FeeConfig = {
   platform_rate: number;  // 例: 0.10
   agent_fee_rate: number; // platform_rate の半分をエージェントへ (例: 0.05)
   net_rate: number;       // 1 - stripe_rate - platform_rate (例: 0.864)
+  paypay_rate: number;    // 例: 0.0398
+  paypay_net_rate: number;// 1 - paypay_rate - platform_rate
 };
 
 const DEFAULT: FeeConfig = {
@@ -12,6 +14,8 @@ const DEFAULT: FeeConfig = {
   platform_rate: 0.10,
   agent_fee_rate: 0.05,
   net_rate: 0.864,
+  paypay_rate: 0.0398,
+  paypay_net_rate: 0.8602,
 };
 
 /** サーバーサイドのみで呼び出すこと */
@@ -20,7 +24,7 @@ export async function getFeeConfig(): Promise<FeeConfig> {
     const admin = createAdminClient();
     const { data } = await admin
       .from("platform_config")
-      .select("stripe_rate, platform_rate")
+      .select("stripe_rate, platform_rate, paypay_rate")
       .order("updated_at", { ascending: false })
       .limit(1)
       .single();
@@ -29,16 +33,24 @@ export async function getFeeConfig(): Promise<FeeConfig> {
 
     const stripe_rate = Number(data.stripe_rate);
     const platform_rate = Number(data.platform_rate);
+    const paypay_rate = Number(data.paypay_rate ?? 0.0398);
     const agent_fee_rate = Math.round(platform_rate / 2 * 10000) / 10000;
     return {
       stripe_rate,
       platform_rate,
       agent_fee_rate,
       net_rate: Math.round((1 - stripe_rate - platform_rate) * 10000) / 10000,
+      paypay_rate,
+      paypay_net_rate: Math.round((1 - paypay_rate - platform_rate) * 10000) / 10000,
     };
   } catch {
     return DEFAULT;
   }
+}
+
+/** payment_method に応じた net_rate を返す */
+export function getNetRate(feeConfig: FeeConfig, paymentMethod: "card" | "paypay"): number {
+  return paymentMethod === "paypay" ? feeConfig.paypay_net_rate : feeConfig.net_rate;
 }
 
 /** 表示用: 0.036 → "3.6%" */

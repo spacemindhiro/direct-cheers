@@ -74,7 +74,10 @@ export function QRBoardDisplay({
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [channelError, setChannelError] = useState<string | null>(null);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
   const [holdProgress, setHoldProgress] = useState(0); // 0〜100
+
+  const addLog = (msg: string) => setDebugLog(prev => [...prev.slice(-4), `${new Date().toLocaleTimeString()} ${msg}`]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -108,7 +111,7 @@ export function QRBoardDisplay({
     });
 
     channel.on("broadcast", { event: "qr-switch" }, ({ payload }) => {
-      console.log("[display] received qr-switch", payload);
+      addLog("受信: qr-switch");
       const next = payload as QRState;
       setQrState(next);
       try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
@@ -117,6 +120,7 @@ export function QRBoardDisplay({
     });
 
     channel.subscribe(async (status) => {
+      addLog(`ch: ${status}`);
       if (status === "SUBSCRIBED") {
         setConnected(true);
         const battery = await getBatteryLevel();
@@ -212,6 +216,15 @@ export function QRBoardDisplay({
             className="h-full bg-indigo-500 transition-none"
             style={{ width: `${holdProgress}%` }}
           />
+        </div>
+      )}
+
+      {/* デバッグログ（一時的） */}
+      {debugLog.length > 0 && (
+        <div className="absolute bottom-8 left-4 z-10 pointer-events-none space-y-0.5">
+          {debugLog.map((l, i) => (
+            <p key={i} className="text-[9px] font-mono text-yellow-400/80">{l}</p>
+          ))}
         </div>
       )}
 

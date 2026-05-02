@@ -90,7 +90,8 @@ export async function POST(req: Request) {
   if (!["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status)) {
     return NextResponse.json({ error: "このイベントではQRを作成できません" }, { status: 400 });
   }
-  if (event.organizer_profile_id !== user.id && event.agent_id !== user.id) {
+  const { data: me } = await supabase.from("profiles").select("role").eq("profile_id", user.id).single();
+  if (event.organizer_profile_id !== user.id && event.agent_id !== user.id && me?.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

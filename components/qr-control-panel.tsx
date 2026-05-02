@@ -46,6 +46,7 @@ export function QRControlPanel({
   const [devices, setDevices] = useState<Device[]>([]);
   const [activeConfigId, setActiveConfigId] = useState<string | null>(null);
   const [pushing, setPushing] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const channelRef = useRef<any>(null);
 
@@ -79,8 +80,9 @@ export function QRControlPanel({
   const pushQR = useCallback(async (config: QRConfig) => {
     if (!channelRef.current || pushing) return;
     setPushing(true);
+    setPushError(null);
     try {
-      await channelRef.current.send({
+      const result = await channelRef.current.send({
         type: "broadcast",
         event: "qr-switch",
         payload: {
@@ -91,7 +93,11 @@ export function QRControlPanel({
           artist_name: config.product?.artist?.display_name ?? "",
         },
       });
-      setActiveConfigId(config.qr_config_id);
+      if (result === "ok") {
+        setActiveConfigId(config.qr_config_id);
+      } else {
+        setPushError(`送信失敗: ${result}`);
+      }
     } finally {
       setPushing(false);
     }
@@ -145,6 +151,9 @@ export function QRControlPanel({
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">
           QRを選んで全台にプッシュ
         </p>
+        {pushError && (
+          <p className="text-xs text-red-400 font-bold bg-red-500/10 rounded-xl px-4 py-3">{pushError}</p>
+        )}
         {qrConfigs.length === 0 ? (
           <p className="text-xs text-slate-600 italic font-bold">このイベントにQRコードがありません</p>
         ) : (

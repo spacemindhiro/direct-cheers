@@ -33,6 +33,16 @@ function getOrCreateDeviceId() {
   return id;
 }
 
+function detectDeviceType(): string {
+  const ua = navigator.userAgent;
+  if (/iPad/.test(ua)) return "iPad";
+  if (/iPhone/.test(ua)) return "iPhone";
+  if (/Android/.test(ua)) return /Mobile/.test(ua) ? "Android" : "Androidタブ";
+  if (/Macintosh/.test(ua)) return "Mac";
+  if (/Windows/.test(ua)) return "Windows";
+  return "端末";
+}
+
 async function getBatteryLevel(): Promise<number | null> {
   try {
     if ("getBattery" in navigator) {
@@ -61,7 +71,8 @@ export function QRBoardDisplay({
     try {
       const stored = localStorage.getItem(DEVICE_NAME_KEY);
       if (stored) return stored;
-      const name = `端末-${getOrCreateDeviceId().slice(0, 4).toUpperCase()}`;
+      const type = detectDeviceType();
+      const name = `${type}-${getOrCreateDeviceId().slice(0, 4).toUpperCase()}`;
       localStorage.setItem(DEVICE_NAME_KEY, name);
       return name;
     } catch { return "端末-????"; }
@@ -74,10 +85,7 @@ export function QRBoardDisplay({
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [channelError, setChannelError] = useState<string | null>(null);
-  const [debugLog, setDebugLog] = useState<string[]>([]);
   const [holdProgress, setHoldProgress] = useState(0); // 0〜100
-
-  const addLog = (msg: string) => setDebugLog(prev => [...prev.slice(-4), `${new Date().toLocaleTimeString()} ${msg}`]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,20 +106,11 @@ export function QRBoardDisplay({
 
   // Supabase Realtime
   useEffect(() => {
-    addLog("effect start");
-    let supabase;
-    let deviceId;
-    try {
-      supabase = createClient();
-      deviceId = getOrCreateDeviceId();
-      addLog("client ok");
-    } catch (e: any) {
-      addLog(`init err: ${String(e)}`);
-      return;
-    }
+    const supabase = createClient();
+    const deviceId = getOrCreateDeviceId();
 
     // ログイン中のメールを取得（ロック解除用）
-    supabase.auth.getSession().then(({ data: { session } }: any) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setUnlockEmail(session?.user?.email ?? "");
     });
 
@@ -120,7 +119,6 @@ export function QRBoardDisplay({
     });
 
     channel.on("broadcast", { event: "qr-switch" }, ({ payload }) => {
-      addLog("受信: qr-switch");
       const next = payload as QRState;
       setQrState(next);
       try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
@@ -129,7 +127,6 @@ export function QRBoardDisplay({
     });
 
     channel.subscribe(async (status) => {
-      addLog(`ch: ${status}`);
       if (status === "SUBSCRIBED") {
         setConnected(true);
         const battery = await getBatteryLevel();
@@ -225,15 +222,6 @@ export function QRBoardDisplay({
             className="h-full bg-indigo-500 transition-none"
             style={{ width: `${holdProgress}%` }}
           />
-        </div>
-      )}
-
-      {/* デバッグログ（一時的） */}
-      {debugLog.length > 0 && (
-        <div className="absolute bottom-8 left-4 z-10 pointer-events-none space-y-0.5">
-          {debugLog.map((l, i) => (
-            <p key={i} className="text-[9px] font-mono text-yellow-400/80">{l}</p>
-          ))}
         </div>
       )}
 

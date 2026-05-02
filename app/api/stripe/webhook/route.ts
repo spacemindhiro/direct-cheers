@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 import { getFeeConfig } from "@/lib/fee-config";
+import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -212,6 +213,18 @@ export async function POST(req: Request) {
           platform_fee: wPlatformFee,
           net_amount: gross - wStripeFee - wPlatformFee,
         }).select("transaction_id").single();
+
+        // QR子機画面へブロードキャスト（fire-and-forget）
+        if (newTx && meta.qr_config_id) {
+          (async () => {
+            const { data: qrc } = await admin
+              .from("qr_configs")
+              .select("event_id")
+              .eq("qr_config_id", meta.qr_config_id)
+              .maybeSingle();
+            if (qrc?.event_id) broadcastCheerNew(qrc.event_id, gross).catch(() => {});
+          })().catch(() => {});
+        }
 
         // 購入確認メール（fire-and-forget）
         if (email && newTx) {

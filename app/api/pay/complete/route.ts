@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 import { getFeeConfig } from "@/lib/fee-config";
+import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -129,6 +130,11 @@ export async function POST(req: Request) {
   }
 
   const product = await getProductInfo(admin, productId);
+
+  // QR子機画面へブロードキャスト（fire-and-forget）
+  if (qrcInfo.eventId) {
+    broadcastCheerNew(qrcInfo.eventId, gross).catch(() => {});
+  }
 
   // エージェント手数料を売上発生時に即時積み上げ
   if (qrcInfo.eventId) {

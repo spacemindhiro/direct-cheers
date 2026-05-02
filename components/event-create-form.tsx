@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { jstLocalToUtcIso } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Loader2, MapPin, Music, Search, X, Plus } from "lucide-react";
 
@@ -72,8 +73,8 @@ export function EventCreateForm({
         body: JSON.stringify({
           title,
           venue,
-          start_at,
-          end_at,
+          start_at: jstLocalToUtcIso(start_at),
+          end_at: jstLocalToUtcIso(end_at),
           artists: selectedArtists.map((a) => ({
             profile_id: a.profile_id,
             invite_message: artistMessages[a.profile_id] || null,

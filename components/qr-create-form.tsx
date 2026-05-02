@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { jstLocalToUtcIso } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Loader2, Plus, Trash2, Info, Hash, Lock } from "lucide-react";
 import { QRImageUpload } from "@/components/qr-image-upload";
@@ -178,8 +179,8 @@ export function QRCreateForm({
             stock_limit: stockLimit ? Number(stockLimit) : null,
             track_inventory: paymentType === "C" ? trackInventoryC : true,
             ...((paymentType === "A" || paymentType === "B") && salesStartAt && salesEndAt && {
-              sales_start_at: salesStartAt,
-              sales_end_at: salesEndAt,
+              sales_start_at: jstLocalToUtcIso(salesStartAt),
+              sales_end_at: jstLocalToUtcIso(salesEndAt),
             }),
             strip_image_url: stripImageUrl || undefined,
             bg_color: bgColor,

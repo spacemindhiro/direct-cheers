@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EventEditForm } from "@/components/event-edit-form";
+import { utcIsoToJstLocal } from "@/lib/utils";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -68,7 +69,7 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
     display_name: (c.artist as any)?.display_name ?? "Unknown",
   }));
 
-  const toLocalDatetime = (iso: string) => iso.slice(0, 16);
+  const toLocalDatetime = utcIsoToJstLocal;
 
   return (
     <div className="space-y-8">

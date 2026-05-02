@@ -117,14 +117,13 @@ export async function GET(
   const totalGross = txList.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
 
   // payment_method 別に手数料計算
-  const txNetOf = (gross: number, method: string) => {
-    const netRate = method === "paypay" ? PAYPAY_NET_RATE : NET_RATE;
-    return Math.floor(gross * netRate);
-  };
   const txFeeOf = (gross: number, method: string) => {
     const rate = method === "paypay" ? PAYPAY_RATE : STRIPE_RATE;
     return Math.floor(gross * rate);
   };
+  // totalNet と一致させるため net_rate 直計算ではなく差し引きで算出
+  const txNetOf = (gross: number, method: string) =>
+    gross - txFeeOf(gross, method) - Math.floor(gross * PLATFORM_RATE);
 
   const totalStripeFee = txList.reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, t.payment_method ?? "card"), 0);
   const totalCardFee = txList.filter((t) => (t.payment_method ?? "card") !== "paypay").reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, "card"), 0);

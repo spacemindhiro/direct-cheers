@@ -85,6 +85,8 @@ export async function GET(
       total_gross: 0,
       transaction_count: 0,
       total_stripe_fee: 0,
+      total_card_fee: 0,
+      total_paypay_fee: 0,
       total_platform_fee: 0,
       total_net: 0,
       my_projected_net: 0,
@@ -125,6 +127,8 @@ export async function GET(
   };
 
   const totalStripeFee = txList.reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, t.payment_method ?? "card"), 0);
+  const totalCardFee = txList.filter((t) => (t.payment_method ?? "card") !== "paypay").reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, "card"), 0);
+  const totalPaypayFee = txList.filter((t) => t.payment_method === "paypay").reduce((s, t) => s + txFeeOf(t.total_gross_amount ?? 0, "paypay"), 0);
   const totalPlatformFee = Math.floor(totalGross * PLATFORM_RATE);
   const totalNet = txList.reduce((s, t) => s + txNetOf(t.total_gross_amount ?? 0, t.payment_method ?? "card"), 0);
   const lastTransactionAt = txList[0]?.created_at ?? null;
@@ -227,6 +231,8 @@ export async function GET(
     total_gross: totalGross,
     transaction_count: txList.length,
     total_stripe_fee: totalStripeFee,
+    total_card_fee: totalCardFee,
+    total_paypay_fee: totalPaypayFee,
     total_platform_fee: totalPlatformFee,
     total_net: totalNet,
     my_projected_net: myProjectedNet,

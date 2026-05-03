@@ -292,6 +292,7 @@ export function QRCreateForm({
             <QRImageUpload
               eventTitle={eventTitle}
               artistName={targetCandidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
+              required
               onUploadComplete={setImageUrl}
             />
             {imageUrl && (

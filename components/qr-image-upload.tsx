@@ -11,6 +11,7 @@ type Props = {
   pathPrefix?: string;
   eventTitle?: string;
   artistName?: string;
+  required?: boolean;
   onUploadComplete: (url: string | null) => void;
 };
 
@@ -40,7 +41,7 @@ async function resizeImage(blob: Blob): Promise<Blob> {
   );
 }
 
-export function QRImageUpload({ currentUrl, pathPrefix, onUploadComplete }: Props) {
+export function QRImageUpload({ currentUrl, pathPrefix, required, onUploadComplete }: Props) {
   const [rawSrc, setRawSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -87,12 +88,14 @@ export function QRImageUpload({ currentUrl, pathPrefix, onUploadComplete }: Prop
   return (
     <div className="space-y-2">
       <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-        QR 画像（任意）
+        QR 画像{required ? <span className="text-pink-500 ml-1">*</span> : "（任意）"}
       </label>
 
       <div
         onClick={handleAreaClick}
-        className="relative w-full max-w-[270px] rounded-2xl overflow-hidden bg-slate-800 border border-slate-700 cursor-pointer hover:border-pink-500/40 transition-colors flex items-center justify-center select-none group"
+        className={`relative w-full max-w-[270px] rounded-2xl overflow-hidden bg-slate-800 cursor-pointer hover:border-pink-500/40 transition-colors flex items-center justify-center select-none group ${
+          required && !displayUrl ? "border-2 border-pink-500/50" : "border border-slate-700"
+        }`}
         style={{ aspectRatio: "3/2" }}
       >
         {uploading ? (

@@ -17,13 +17,19 @@ export async function POST(req: Request) {
   let session: Stripe.Checkout.Session;
   try {
     session = await stripe.checkout.sessions.retrieve(session_id, {
-      expand: ["customer"],
+      expand: ["customer", "payment_intent"],
     });
   } catch (err: any) {
     return NextResponse.json({ error: "Invalid session" }, { status: 400 });
   }
 
-  if (session.payment_status !== "paid") {
+  // manual capture の場合 payment_status は "unpaid" のままなので PaymentIntent で判定
+  const pi = session.payment_intent as Stripe.PaymentIntent | null;
+  const isAuthorized =
+    session.payment_status === "paid" ||
+    pi?.status === "requires_capture";
+
+  if (!isAuthorized) {
     return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
   }
 

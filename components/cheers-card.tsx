@@ -73,6 +73,12 @@ export function CheersCard({
             <div className="relative overflow-hidden" style={{ aspectRatio: "3/2" }}>
               <img src={imageUrl} alt="card image" className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-900/80" />
+              {/* 画像内のテキストより常に最新名を優先表示（ウォレットの logoText 相当） */}
+              <div className="absolute bottom-3 left-4 right-12">
+                <p className="text-base font-black text-white italic uppercase tracking-tight leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)] truncate">
+                  {artistName}
+                </p>
+              </div>
               {serialNumber != null && (
                 <div className="absolute top-3 right-3 text-right">
                   <p className="text-[8px] font-black text-pink-300/70 uppercase tracking-[0.3em] leading-none">Serial No.</p>

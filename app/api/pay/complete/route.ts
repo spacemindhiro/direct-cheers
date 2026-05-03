@@ -249,16 +249,34 @@ async function checkHasPasskey(
   email: string | null,
 ): Promise<boolean> {
   if (!email) return false;
+
+  // provisional_users 経由で profile_id を取得
   const { data: prov } = await admin
     .from("provisional_users")
     .select("profile_id")
     .eq("email", email)
     .maybeSingle();
-  if (!prov?.profile_id) return false;
+
+  const profileId = prov?.profile_id ?? null;
+
+  // provisional に profile_id がない場合は auth users から直接解決
+  let resolvedProfileId = profileId;
+  if (!resolvedProfileId) {
+    try {
+      const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const authUser = users.find((u) => u.email === email);
+      resolvedProfileId = authUser?.id ?? null;
+    } catch {
+      return false;
+    }
+  }
+
+  if (!resolvedProfileId) return false;
+
   const { count } = await admin
     .from("passkey_credentials")
     .select("*", { count: "exact", head: true })
-    .eq("profile_id", prov.profile_id);
+    .eq("profile_id", resolvedProfileId);
   return (count ?? 0) > 0;
 }
 

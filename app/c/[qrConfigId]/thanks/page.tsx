@@ -28,6 +28,7 @@ type PaymentResult = {
   recipient_name: string | null;
   recipient_avatar: string | null;
   is_member: boolean;
+  has_passkey: boolean;
 };
 
 type ThanksData = {

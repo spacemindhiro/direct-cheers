@@ -73,6 +73,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       setStatus("success");
       onSuccess?.();
     } catch (err: any) {
+      if (err.name === "NotAllowedError") { setStatus("idle"); return; }
       setErrorMsg(err.message ?? "エラーが発生しました");
       setStatus("error");
     }
@@ -116,6 +117,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       setStatus("success");
       onSuccess?.();
     } catch (err: any) {
+      if (err.name === "NotAllowedError") { setStatus("idle"); return; }
       setErrorMsg(err.message ?? "エラーが発生しました");
       setStatus("error");
     }

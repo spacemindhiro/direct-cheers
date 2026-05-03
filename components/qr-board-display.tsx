@@ -103,8 +103,10 @@ export function QRBoardDisplay({
   const [cheerCount, setCheerCount] = useState(0);
   const [hearts, setHearts]         = useState<FloatingHeart[]>([]);
   const [surgeGlow, setSurgeGlow]   = useState(false);
-  const recentCheersRef = useRef<number[]>([]);
-  const surgeTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recentCheersRef    = useRef<number[]>([]);
+  const surgeTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRealtimeRef    = useRef<number>(0);    // last Realtime cheer timestamp
+  const lastPolledCountRef = useRef<number>(0);    // server count at last poll
 
   const canvasRef      = useRef<HTMLCanvasElement>(null);
   const holdTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -130,8 +132,9 @@ export function QRBoardDisplay({
   }, []);
 
   // チア受信ハンドラ
-  const onCheerNew = useCallback(() => {
+  const onCheerNew = useCallback((fromRealtime = true) => {
     const now = Date.now();
+    if (fromRealtime) lastRealtimeRef.current = now;
     recentCheersRef.current = [
       ...recentCheersRef.current.filter((t) => now - t < SURGE_WINDOW_MS),
       now,
@@ -160,13 +163,41 @@ export function QRBoardDisplay({
     });
   }, [qrState?.qr_url]);
 
-  // 初期チア数取得
+  // 初期チア数取得 + ポーリングフォールバック（Realtimeが届かない場合の保険）
   useEffect(() => {
-    fetch(`/api/events/${eventId}/display-stats`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.count != null) setCheerCount(d.count); })
-      .catch(() => {});
-  }, [eventId]);
+    const fetchCount = (isInitial: boolean) =>
+      fetch(`/api/events/${eventId}/display-stats`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((d: { count: number } | null) => {
+          if (d?.count == null) return;
+          const serverCount = d.count;
+          if (isInitial) {
+            setCheerCount(serverCount);
+            lastPolledCountRef.current = serverCount;
+            return;
+          }
+          const diff = serverCount - lastPolledCountRef.current;
+          lastPolledCountRef.current = serverCount;
+          if (diff <= 0) return;
+
+          // Realtimeが直近10秒以内に届いていれば重複防止でスキップ
+          const realtimeLag = Date.now() - lastRealtimeRef.current;
+          if (realtimeLag < 10_000) {
+            // Realtimeは動いている → カウントだけ補正
+            setCheerCount((cur) => Math.max(cur, serverCount));
+          } else {
+            // Realtimeが止まっている → ポーリングでハートを出す（最大5件）
+            for (let i = 0; i < Math.min(diff, 5); i++) {
+              setTimeout(() => onCheerNew(false), i * 300);
+            }
+          }
+        })
+        .catch(() => {});
+
+    fetchCount(true);
+    const interval = setInterval(() => fetchCount(false), 15_000);
+    return () => clearInterval(interval);
+  }, [eventId, onCheerNew]);
 
   // Supabase Realtime
   useEffect(() => {

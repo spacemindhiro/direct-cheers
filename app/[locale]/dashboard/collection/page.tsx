@@ -18,7 +18,7 @@ async function CollectionContent() {
 
   const query = `
     transaction_id, total_gross_amount, created_at, sequence_number_in_event,
-    product:products!product_id(name, type, artist_id, artist:profiles!artist_id(display_name, avatar_url)),
+    product:products!product_id(name, type, artist_id),
     qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, event:events!event_id(title))
   `;
 
@@ -67,12 +67,14 @@ async function CollectionContent() {
       .map((t) => [t.qr_config_id, t])
   );
 
-  // 宛先名を一括取得
+  // 宛先名・アーティスト名を一括取得（ウォレットと同様に常に profiles を直接クエリ）
   const recipientIds = [...new Set(cards.map((c) => c.qr_config?.recipient_profile_id).filter(Boolean))];
-  const { data: recipientProfiles } = recipientIds.length > 0
-    ? await admin.from("profiles").select("profile_id, display_name, avatar_url").in("profile_id", recipientIds)
+  const artistIds    = [...new Set(cards.map((c) => (c.product as any)?.artist_id).filter(Boolean))];
+  const allProfileIds = [...new Set([...recipientIds, ...artistIds])];
+  const { data: profileRows } = allProfileIds.length > 0
+    ? await admin.from("profiles").select("profile_id, display_name, avatar_url").in("profile_id", allProfileIds)
     : { data: [] };
-  const recipientMap = new Map((recipientProfiles ?? []).map((p) => [p.profile_id, p]));
+  const profileMap = new Map((profileRows ?? []).map((p) => [p.profile_id, p]));
 
   return (
     <div className="space-y-8 pb-20">
@@ -110,9 +112,11 @@ async function CollectionContent() {
             const qrConfigId = tx.qr_config?.qr_config_id;
             const thanks = thanksMap.get(qrConfigId) ?? null;
             const recipientProfileId = tx.qr_config?.recipient_profile_id;
-            const recipient = recipientMap.get(recipientProfileId);
-            const displayName = recipient?.display_name ?? (tx.product?.artist as any)?.display_name ?? "Artist";
-            const displayAvatar = recipient?.avatar_url ?? (tx.product?.artist as any)?.avatar_url ?? null;
+            const artistId = (tx.product as any)?.artist_id;
+            const recipient = profileMap.get(recipientProfileId);
+            const artist    = profileMap.get(artistId);
+            const displayName   = recipient?.display_name ?? artist?.display_name ?? "Artist";
+            const displayAvatar = recipient?.avatar_url   ?? artist?.avatar_url   ?? null;
             return (
               <div key={tx.transaction_id} className="space-y-2">
                 {thanks && (

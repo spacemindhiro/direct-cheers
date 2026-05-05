@@ -129,11 +129,13 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
         <CheckCircle2 size={20} className="text-green-400 shrink-0" />
         <div>
           <p className="text-sm font-black text-green-400">
-            {mode === "register" ? "パスキー登録完了！" : "認証成功！"}
+            {mode === "register" ? "パスキー登録完了！" : "パスキー認証成功！"}
           </p>
-          <p className="text-xs text-slate-500 mt-0.5">
-            次回からこのデバイスで顔認証・指紋認証でログインできます
-          </p>
+          {mode === "register" && (
+            <p className="text-xs text-slate-500 mt-0.5">
+              次回からこのデバイスで顔認証・指紋認証でログインできます
+            </p>
+          )}
         </div>
       </div>
     );

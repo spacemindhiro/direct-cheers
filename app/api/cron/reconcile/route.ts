@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try {
   const admin = createAdminClient();
   const now = new Date();
 
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
   const yesterdayEnd = new Date(todayJST.getTime() - jstOffset);
   const targetDate = new Date(yesterdayStart.getTime() + jstOffset).toISOString().slice(0, 10);
 
-  // 昨日の未照合 transactions を取得（distributions + qr_config → event も一緒に）
+  // 昨日の未照合 transactions を取得（stripe_payment_intent_id が null のものは照合不可なので除外）
   const { data: transactions, error: txErr } = await admin
     .from("transactions")
     .select(`
@@ -37,6 +38,8 @@ export async function GET(req: Request) {
     `)
     .eq("status", "completed")
     .is("reconciled_at", null)
+    .not("stripe_payment_intent_id", "is", null)
+    .neq("transaction_type", "invitation")
     .gte("created_at", yesterdayStart.toISOString())
     .lt("created_at", yesterdayEnd.toISOString());
 
@@ -51,6 +54,7 @@ export async function GET(req: Request) {
   let errors = 0;
 
   for (const tx of targets) {
+    if (!tx.stripe_payment_intent_id) continue;
     try {
       // Stripe PaymentIntent を取得（balance_transaction を展開して実際の手数料を取得）
       const pi = await stripe.paymentIntents.retrieve(tx.stripe_payment_intent_id, {
@@ -143,7 +147,7 @@ export async function GET(req: Request) {
   }
 
   // ログを記録
-  await admin.from("reconciliation_logs").insert({
+  const { error: logErr } = await admin.from("reconciliation_logs").insert({
     run_at: now.toISOString(),
     target_date: targetDate,
     total_checked: targets.length,
@@ -152,6 +156,9 @@ export async function GET(req: Request) {
     total_errors: errors,
     summary: null,
   });
+  if (logErr) {
+    console.error("[reconcile] log insert error:", logErr.message);
+  }
 
   if (mismatched > 0) {
     console.error(`[reconcile] GROSS MISMATCH: ${mismatched} transactions — investigate immediately`);
@@ -169,4 +176,8 @@ export async function GET(req: Request) {
     mismatched,
     errors,
   });
+  } catch (err: any) {
+    console.error("[reconcile] unhandled error:", err?.message ?? err);
+    return NextResponse.json({ error: err?.message ?? "unexpected error" }, { status: 500 });
+  }
 }

@@ -4,8 +4,6 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { MailCheck, ArrowRight, RefreshCw, CheckCircle2 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-
 function SignUpSuccessContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get('email');
@@ -20,18 +18,16 @@ function SignUpSuccessContent() {
     if (!decodedEmail) return;
     startTransition(async () => {
       setResendError(null);
-      const supabase = createClient();
       const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
       if (redirectTo) callbackUrl.searchParams.set('redirect', redirectTo);
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: decodedEmail,
-        options: {
-          emailRedirectTo: callbackUrl.toString(),
-        },
+      const res = await fetch('/api/auth/resend-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: decodedEmail, callbackUrl: callbackUrl.toString() }),
       });
-      if (error) {
-        setResendError('再送に失敗しました。しばらく待ってから再度お試しください。');
+      const data = await res.json();
+      if (!res.ok) {
+        setResendError(data.error ?? '再送に失敗しました。しばらく待ってから再度お試しください。');
       } else {
         setResent(true);
       }

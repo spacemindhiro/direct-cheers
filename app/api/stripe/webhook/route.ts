@@ -25,6 +25,21 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
+  // ──────────────────────────────────────────────────────────
+  // イベント ID レベルの冪等性チェック
+  // どのイベントタイプでも Stripe は二重配信することがある。
+  // 処理済み event.id が来たら即 200 を返してリトライを止める。
+  // ──────────────────────────────────────────────────────────
+  const { data: alreadyProcessed } = await admin
+    .from("webhook_processed_events")
+    .select("id")
+    .eq("stripe_event_id", event.id)
+    .maybeSingle();
+
+  if (alreadyProcessed) {
+    return NextResponse.json({ received: true });
+  }
+
   try {
     switch (event.type) {
 
@@ -63,7 +78,7 @@ export async function POST(req: Request) {
               title: "Stripeから追加情報の提出が求められています",
               body: `口座機能に制限がかかっています。Stripeダッシュボードで確認・対応してください。${due.length > 0 ? `（必要項目: ${due.join(", ")}）` : ""}`,
               metadata: { stripe_account_id: account.id, currently_due: due },
-            }).throwOnError();
+            });
           }
 
           if (!isRestricted && targetProfile.stripe_restricted) {
@@ -73,14 +88,15 @@ export async function POST(req: Request) {
               title: "Stripeの機能制限が解除されました",
               body: "口座機能が回復しました。",
               metadata: { stripe_account_id: account.id },
-            }).throwOnError();
+            });
           }
         }
         break;
       }
 
       // ──────────────────────────────────────────────────────
-      // チャージバック（紛争）通知 → アトミックに残高凍結 + debt_claim 作成
+      // チャージバック（紛争）通知
+      // handle_chargeback RPC が DB レベルの冪等チェック込み
       // ──────────────────────────────────────────────────────
       case "charge.dispute.created": {
         const dispute = event.data.object as Stripe.Dispute;
@@ -111,8 +127,6 @@ export async function POST(req: Request) {
 
         const primaryProfileId = (dists ?? [])[0]?.profile_id ?? null;
 
-        // distributions 凍結 + profiles 凍結 + debt_claim をアトミックに実行
-        // 冪等チェック込み（同一 tx の debt_claim が既存なら何もしない）
         const { error: chargebackErr } = await admin.rpc("handle_chargeback", {
           p_transaction_id:     tx.transaction_id,
           p_claim_amount:       tx.total_gross_amount ?? 0,
@@ -123,25 +137,19 @@ export async function POST(req: Request) {
 
         if (chargebackErr) throw chargebackErr;
 
-        console.log(`[webhook] chargeback processed: dispute=${dispute.id} tx=${tx.transaction_id}`);
+        console.log(`[webhook] chargeback: dispute=${dispute.id} tx=${tx.transaction_id}`);
         break;
       }
 
       // ──────────────────────────────────────────────────────
-      // Cheers 決済完了（/api/pay/complete が先行して処理するが
+      // Cheers 決済完了（/api/pay/complete が先行処理するが
       // フロントが死んだ場合のフォールバック）
+      // complete_cheers_payment RPC が ON CONFLICT DO NOTHING で二重書き込みを防ぐ
       // ──────────────────────────────────────────────────────
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // すでに /api/pay/complete で処理済みの場合はスキップ
-        const { data: existing } = await admin
-          .from("transactions")
-          .select("transaction_id")
-          .eq("stripe_payment_intent_id", session.payment_intent as string)
-          .maybeSingle();
-
-        if (existing || session.payment_status !== "paid") break;
+        if (session.payment_status !== "paid") break;
 
         const meta = session.metadata ?? {};
         const email =
@@ -162,7 +170,7 @@ export async function POST(req: Request) {
         const wPlatformFee = Math.floor(gross * wFeeConfig.platform_rate);
 
         // provisional_users + transactions をアトミックに書き込む
-        // ON CONFLICT DO NOTHING（二重配信に対する DB レベルの冪等）
+        // ON CONFLICT DO NOTHING → 空セット = /api/pay/complete 処理済み
         const { data: rpcRows, error: rpcErr } = await admin.rpc("complete_cheers_payment", {
           p_stripe_payment_intent_id: session.payment_intent as string,
           p_product_id:               meta.product_id || null,
@@ -180,9 +188,8 @@ export async function POST(req: Request) {
 
         if (rpcErr) throw rpcErr;
 
-        // 空セット = すでに処理済み（ON CONFLICT DO NOTHING が発動）
         const rows = rpcRows as any[] | null;
-        if (!rows || rows.length === 0) break;
+        if (!rows || rows.length === 0) break; // 処理済み（/api/pay/complete が先に書いた）
 
         const newTxId: string = rows[0].out_transaction_id;
 
@@ -235,6 +242,14 @@ export async function POST(req: Request) {
         break;
     }
 
+    // 処理成功 → event.id を記録（次回同一 ID が来たら即 200 を返す）
+    // 競合（同時二重配信）は無視してよい（先勝ち）
+    (async () => {
+      await admin
+        .from("webhook_processed_events")
+        .insert({ stripe_event_id: event.id, event_type: event.type });
+    })().catch(() => {});
+
     return NextResponse.json({ received: true });
 
   } catch (err: any) {
@@ -242,16 +257,16 @@ export async function POST(req: Request) {
     console.error(`[webhook] ERROR event=${event.type} stripe_event=${event.id}:`, errMsg);
 
     // ロールバック証跡を別トランザクションで記録（ベストエフォート）
-    const piId = extractPaymentIntentId(event);
-    const amountJpy = extractAmount(event);
-    admin.from("webhook_failure_logs").insert({
-      stripe_event_id:   event.id,
-      event_type:        event.type,
-      payment_intent_id: piId,
-      amount_jpy:        amountJpy,
-      error_detail:      errMsg,
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    });
+    // 注意: ここでは webhook_processed_events には記録しない → Stripe がリトライする
+    (async () => {
+      await admin.from("webhook_failure_logs").insert({
+        stripe_event_id:   event.id,
+        event_type:        event.type,
+        payment_intent_id: extractPaymentIntentId(event),
+        amount_jpy:        extractAmount(event),
+        error_detail:      errMsg,
+      });
+    })().catch(() => {});
 
     // 500 を返して Stripe にリトライさせる
     return NextResponse.json({ error: errMsg }, { status: 500 });

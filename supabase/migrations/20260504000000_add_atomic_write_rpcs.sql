@@ -432,6 +432,7 @@ CREATE OR REPLACE FUNCTION create_qr_bundle(
   p_max_amount           INTEGER,
   p_artist_id            UUID,
   p_product_name         TEXT,
+  p_targets              JSONB,  -- [{profile_id: uuid, distribution_ratio: numeric}]
   p_payment_type         TEXT    DEFAULT 'A',
   p_stock_limit          INTEGER DEFAULT NULL,
   p_track_inventory      BOOLEAN DEFAULT TRUE,
@@ -442,8 +443,7 @@ CREATE OR REPLACE FUNCTION create_qr_bundle(
   p_fg_color             TEXT    DEFAULT '#ffffff',
   p_label_color          TEXT    DEFAULT '#94a3b8',
   p_sales_start_at       TIMESTAMPTZ DEFAULT NULL,
-  p_sales_end_at         TIMESTAMPTZ DEFAULT NULL,
-  p_targets              JSONB   -- [{profile_id: uuid, distribution_ratio: numeric}]
+  p_sales_end_at         TIMESTAMPTZ DEFAULT NULL
 ) RETURNS TABLE(out_qr_config_id UUID, out_product_id UUID)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public

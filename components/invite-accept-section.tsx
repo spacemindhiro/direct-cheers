@@ -13,7 +13,10 @@ async function checkIsMember(email: string): Promise<boolean> {
   if (data?.profile_id) return true;
   try {
     const { data: users } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    return users.users.some((u) => u.email === email);
+    const authUser = users?.users?.find((u) => u.email === email);
+    // メール確認済みのユーザーのみ既存会員として扱う
+    // 未確認の場合はサインアップ扱いにして再度確認メールを送らせる
+    return !!(authUser?.email_confirmed_at);
   } catch {
     return false;
   }

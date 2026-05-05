@@ -7,7 +7,7 @@
  * 処理:
  * 1. get_pending_charge_reservations(5) で対象予約を取得
  * 2. 各予約に対し Stripe PaymentIntent で off_session 決済
- * 3. 成功: transaction + ticket を発行、reservation を 'charged' に更新
+ * 3. 成功: transaction + ticket + reservation をアトミックに更新
  * 4. 失敗: reservation を 'card_error' に更新、ユーザーへメール通知
  */
 
@@ -26,7 +26,6 @@ const stripe   = new Stripe(STRIPE_KEY);
 Deno.serve(async (_req) => {
   console.log("[charge-type-a] started");
 
-  // 5日前の予約を取得
   const { data: reservations, error: fetchErr } = await supabase
     .rpc("get_pending_charge_reservations", { p_days_before: 5 });
 
@@ -76,61 +75,23 @@ Deno.serve(async (_req) => {
         throw new Error(`PaymentIntent status: ${paymentIntent.status}`);
       }
 
-      // transaction 作成
+      // transactions + tickets + entrance_reservations をアトミックに書き込む
       const aStripeFee   = Math.floor(r.charge_amount * STRIPE_RATE);
       const aPlatformFee = Math.floor(r.charge_amount * PLATFORM_RATE);
 
-      const { data: tx, error: txErr } = await supabase
-        .from("transactions")
-        .insert({
-          stripe_payment_intent_id: paymentIntent.id,
-          product_id: r.product_id,
-          sender_name: null,
-          status: "completed",
-          total_gross_amount: r.charge_amount,
-          stripe_funds_status: "held_in_platform",
-          amount_verified: true,
-          amount_mismatch: 0,
-          stripe_fee: aStripeFee,
-          platform_fee: aPlatformFee,
-          net_amount: r.charge_amount - aStripeFee - aPlatformFee,
-        })
-        .select("transaction_id")
-        .single();
+      const { error: rpcError } = await supabase.rpc("complete_entrance_typea_charge", {
+        p_stripe_payment_intent_id: paymentIntent.id,
+        p_product_id:               r.product_id,
+        p_event_id:                 r.event_id,
+        p_email:                    r.email,
+        p_gross:                    r.charge_amount,
+        p_stripe_fee:               aStripeFee,
+        p_platform_fee:             aPlatformFee,
+        p_net_amount:               r.charge_amount - aStripeFee - aPlatformFee,
+        p_reservation_id:           r.reservation_id,
+      });
 
-      if (txErr) throw new Error(`Transaction insert: ${txErr.message}`);
-
-      // provisional_users → profile_id
-      const { data: provisional } = await supabase
-        .from("provisional_users")
-        .select("profile_id")
-        .eq("email", r.email)
-        .maybeSingle();
-
-      // ticket 発行
-      const { data: ticket } = await supabase
-        .from("tickets")
-        .insert({
-          transaction_id: tx!.transaction_id,
-          reservation_id: r.reservation_id,
-          product_id: r.product_id,
-          event_id: r.event_id,
-          email: r.email,
-          holder_profile_id: provisional?.profile_id ?? null,
-          status: "valid",
-        })
-        .select("ticket_id")
-        .single();
-
-      // reservation を 'charged' に更新
-      await supabase
-        .from("entrance_reservations")
-        .update({
-          status: "charged",
-          charged_at: new Date().toISOString(),
-          transaction_id: tx!.transaction_id,
-        })
-        .eq("reservation_id", r.reservation_id);
+      if (rpcError) throw new Error(`complete_entrance_typea_charge: ${rpcError.message}`);
 
       results.success++;
       console.log("[charge-type-a] charged:", r.reservation_id);
@@ -154,7 +115,6 @@ Deno.serve(async (_req) => {
 
       console.error("[charge-type-a] charge failed:", r.reservation_id, errMessage);
 
-      // reservation を 'card_error' に更新
       await supabase
         .from("entrance_reservations")
         .update({
@@ -168,7 +128,6 @@ Deno.serve(async (_req) => {
 
       results.failed++;
 
-      // エラーメール
       await sendMail({
         to: r.email,
         subject: `【重要】${r.event_title} のチケット決済に失敗しました`,

@@ -58,7 +58,6 @@ export async function POST(req: Request) {
     paymentMethodId = si.payment_method as string | undefined;
   }
   if (!paymentMethodId) {
-    // setup_intent_id から取得
     const si = await stripe.setupIntents.retrieve(reservation.stripe_setup_intent_id);
     paymentMethodId = si.payment_method as string | undefined;
   }
@@ -72,38 +71,47 @@ export async function POST(req: Request) {
     customer: reservation.stripe_customer_id,
   });
 
-  // reservation を reserved に更新
-  await admin
-    .from("entrance_reservations")
-    .update({
-      status: "reserved",
-      stripe_payment_method_id: paymentMethodId,
-    })
-    .eq("reservation_id", reservation.reservation_id);
-
   const paymentType = (reservation.product as any).payment_type as "A" | "B" | "C";
 
-  // タイプC: 予約時点でチケット発行（チェックイン時に決済するため）
-  let ticket = null;
-  if (paymentType === "C") {
-    ticket = await issueTicket(admin, {
-      reservationId: reservation.reservation_id,
-      productId: reservation.product_id,
-      eventId: reservation.event_id,
-      email: reservation.email,
-      transactionId: null,
-    });
+  // タイプA: reservation を reserved に更新するだけ（チケット発行なし）
+  if (paymentType === "A") {
+    await admin
+      .from("entrance_reservations")
+      .update({
+        status: "reserved",
+        stripe_payment_method_id: paymentMethodId,
+      })
+      .eq("reservation_id", reservation.reservation_id);
+
+    return NextResponse.json({ ok: true, ticket_id: null, ticket_code: null, payment_type: "A" });
   }
 
+  // タイプC: reservation update + tickets insert をアトミックに実行
+  const { data: rpcRows, error: rpcError } = await admin.rpc("complete_entrance_typec_reserve", {
+    p_reservation_id:    reservation.reservation_id,
+    p_payment_method_id: paymentMethodId,
+    p_product_id:        reservation.product_id,
+    p_event_id:          reservation.event_id,
+    p_email:             reservation.email,
+  });
+
+  if (rpcError) {
+    return NextResponse.json({ error: rpcError.message }, { status: 500 });
+  }
+
+  const row = (rpcRows as any[])[0];
   return NextResponse.json({
     ok: true,
-    ticket_id: ticket?.ticket_id ?? null,
-    ticket_code: ticket?.ticket_code ?? null,
-    payment_type: paymentType,
+    ticket_id:   row?.out_ticket_id   ?? null,
+    ticket_code: row?.out_ticket_code ?? null,
+    payment_type: "C",
   });
 }
 
-async function handleTypeB(admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>, sessionId: string) {
+async function handleTypeB(
+  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
+  sessionId: string
+) {
   let session: Stripe.Checkout.Session;
   try {
     session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -135,83 +143,34 @@ async function handleTypeB(admin: ReturnType<typeof import("@/lib/supabase/admin
     return NextResponse.json({ ok: true, ticket_id: existingTicket.ticket_id, ticket_code: existingTicket.ticket_code });
   }
 
-  // transaction を作成
   const bGross = session.amount_total ?? 0;
   const bFeeConfig = await getFeeConfig();
   const bStripeFee = Math.floor(bGross * bFeeConfig.stripe_rate);
   const bPlatformFee = Math.floor(bGross * bFeeConfig.platform_rate);
+  const stripeCustomerId = typeof session.customer === "string" ? session.customer : null;
 
-  const { data: tx } = await admin
-    .from("transactions")
-    .insert({
-      stripe_payment_intent_id: session.payment_intent as string,
-      product_id: productId,
-      sender_name: meta.holder_name || null,
-      status: "completed",
-      total_gross_amount: bGross,
-      stripe_funds_status: "held_in_platform",
-      amount_verified: true,
-      amount_mismatch: 0,
-      stripe_fee: bStripeFee,
-      platform_fee: bPlatformFee,
-      net_amount: bGross - bStripeFee - bPlatformFee,
-    })
-    .select("transaction_id")
-    .single();
-
-  const ticket = await issueTicket(admin, {
-    reservationId: null,
-    productId,
-    eventId,
-    email,
-    transactionId: tx?.transaction_id ?? null,
+  // provisional_users + transactions + tickets をアトミックに書き込む
+  const { data: rpcRows, error: rpcError } = await admin.rpc("complete_entrance_typeb", {
+    p_stripe_payment_intent_id: session.payment_intent as string,
+    p_product_id:               productId,
+    p_event_id:                 eventId,
+    p_email:                    email,
+    p_stripe_customer_id:       stripeCustomerId,
+    p_gross:                    bGross,
+    p_stripe_fee:               bStripeFee,
+    p_platform_fee:             bPlatformFee,
+    p_net_amount:               bGross - bStripeFee - bPlatformFee,
+    p_holder_name:              meta.holder_name || null,
   });
 
-  // provisional_users 更新
-  if (email) {
-    const stripeCustomerId = typeof session.customer === "string" ? session.customer : null;
-    await admin
-      .from("provisional_users")
-      .upsert({ email, stripe_customer_id: stripeCustomerId ?? undefined }, { onConflict: "email" });
+  if (rpcError) {
+    return NextResponse.json({ error: rpcError.message }, { status: 500 });
   }
 
+  const row = (rpcRows as any[])[0];
   return NextResponse.json({
     ok: true,
-    ticket_id: ticket?.ticket_id ?? null,
-    ticket_code: ticket?.ticket_code ?? null,
+    ticket_id:   row?.out_ticket_id   ?? null,
+    ticket_code: row?.out_ticket_code ?? null,
   });
-}
-
-async function issueTicket(
-  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
-  opts: {
-    reservationId: string | null;
-    productId: string;
-    eventId: string;
-    email: string;
-    transactionId: string | null;
-  }
-) {
-  // provisional_users → profile_id
-  const { data: provisional } = await admin
-    .from("provisional_users")
-    .select("profile_id")
-    .eq("email", opts.email)
-    .maybeSingle();
-
-  const { data: ticket } = await admin
-    .from("tickets")
-    .insert({
-      transaction_id: opts.transactionId,
-      reservation_id: opts.reservationId,
-      product_id: opts.productId,
-      event_id: opts.eventId,
-      email: opts.email,
-      holder_profile_id: provisional?.profile_id ?? null,
-      status: "valid",
-    })
-    .select("ticket_id, ticket_code")
-    .single();
-
-  return ticket;
 }

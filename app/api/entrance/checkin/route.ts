@@ -105,41 +105,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "PAYMENT_FAILED", detail: err.message }, { status: 402 });
     }
 
-    // transaction 作成
+    // transactions + entrance_reservations + tickets をアトミックに書き込む
     const cGross = reservation.charge_amount;
     const cFeeConfig = await getFeeConfig();
     const cStripeFee = Math.floor(cGross * cFeeConfig.stripe_rate);
     const cPlatformFee = Math.floor(cGross * cFeeConfig.platform_rate);
 
-    const { data: tx } = await admin
-      .from("transactions")
-      .insert({
-        stripe_payment_intent_id: paymentIntent.id,
-        product_id: ticket.product_id,
-        sender_name: null,
-        status: "completed",
-        total_gross_amount: cGross,
-        stripe_funds_status: "held_in_platform",
-        amount_verified: true,
-        amount_mismatch: 0,
-        stripe_fee: cStripeFee,
-        platform_fee: cPlatformFee,
-        net_amount: cGross - cStripeFee - cPlatformFee,
-      })
-      .select("transaction_id")
-      .single();
+    const { error: rpcError } = await admin.rpc("complete_entrance_typec_checkin", {
+      p_stripe_payment_intent_id: paymentIntent.id,
+      p_product_id:               ticket.product_id,
+      p_gross:                    cGross,
+      p_stripe_fee:               cStripeFee,
+      p_platform_fee:             cPlatformFee,
+      p_net_amount:               cGross - cStripeFee - cPlatformFee,
+      p_reservation_id:           ticket.reservation_id as string,
+      p_ticket_id:                ticket.ticket_id,
+    });
 
-    // reservation を charged に更新
-    await admin
-      .from("entrance_reservations")
-      .update({ status: "charged", charged_at: new Date().toISOString(), transaction_id: tx?.transaction_id ?? null })
-      .eq("reservation_id", ticket.reservation_id as string);
-
-    // ticket に transaction_id をセット
-    await admin
-      .from("tickets")
-      .update({ transaction_id: tx?.transaction_id ?? null })
-      .eq("ticket_id", ticket.ticket_id);
+    if (rpcError) {
+      console.error("[checkin] complete_entrance_typec_checkin error:", rpcError.message);
+      return NextResponse.json({ error: rpcError.message }, { status: 500 });
+    }
   }
 
   // チェックイン処理（RPC）

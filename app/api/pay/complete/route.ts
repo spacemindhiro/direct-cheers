@@ -59,17 +59,6 @@ export async function POST(req: Request) {
     return buildResponse(email, existing, product, qrcInfo, isMember, hasPasskey);
   }
 
-  // provisional_users に email を upsert
-  let provisionalProfileId: string | null = null;
-  if (email) {
-    const { data: provisional } = await admin
-      .from("provisional_users")
-      .upsert({ email, stripe_customer_id: stripeCustomerId }, { onConflict: "email" })
-      .select("provisional_id, profile_id")
-      .single();
-    provisionalProfileId = provisional?.profile_id ?? null;
-  }
-
   const productId = meta.product_id || null;
   const qrConfigId = meta.qr_config_id || null;
 
@@ -79,33 +68,49 @@ export async function POST(req: Request) {
   const stripeFee = Math.floor(gross * (paymentMethod === "paypay" ? feeConfig.paypay_rate : feeConfig.stripe_rate));
   const platformFee = Math.floor(gross * feeConfig.platform_rate);
 
-  const { data: tx, error: txError } = await admin
-    .from("transactions")
-    .insert({
-      stripe_payment_intent_id: session.payment_intent as string,
-      product_id: productId,
-      qr_config_id: qrConfigId,
-      sender_profile_id: provisionalProfileId,
-      status: "completed",
-      sender_email: email ?? null,
-      total_gross_amount: gross,
-      stripe_funds_status: "held_in_platform",
-      amount_verified: session.amount_total !== null,
-      amount_mismatch: 0,
-      payment_method: paymentMethod,
-      stripe_fee: stripeFee,
-      platform_fee: platformFee,
-      net_amount: gross - stripeFee - platformFee,
-    })
-    .select("transaction_id")
-    .single();
+  // qrcInfo とエージェント情報を RPC 呼び出し前に取得（agent_fee 計算に必要）
+  const qrcInfo = await getQrConfigInfo(admin, qrConfigId);
 
-  if (txError) {
-    return NextResponse.json({ error: txError.message }, { status: 500 });
+  let agentId: string | null = null;
+  let agentFee = 0;
+  if (qrcInfo.eventId) {
+    const { data: eventRow } = await admin
+      .from("events")
+      .select("agent_id")
+      .eq("event_id", qrcInfo.eventId)
+      .single();
+    agentId = eventRow?.agent_id ?? null;
+    if (agentId) {
+      agentFee = Math.floor(gross * feeConfig.agent_fee_rate);
+    }
   }
 
-  const [qrcInfo, isMember, hasPasskey] = await Promise.all([
-    getQrConfigInfo(admin, qrConfigId),
+  // provisional_users + transactions + distributions をアトミックに書き込む
+  const { data: rpcRows, error: rpcError } = await admin.rpc("complete_cheers_payment", {
+    p_stripe_payment_intent_id: session.payment_intent as string,
+    p_product_id:               productId,
+    p_qr_config_id:             qrConfigId,
+    p_email:                    email ?? null,
+    p_stripe_customer_id:       stripeCustomerId,
+    p_gross:                    gross,
+    p_stripe_fee:               stripeFee,
+    p_platform_fee:             platformFee,
+    p_net_amount:               gross - stripeFee - platformFee,
+    p_payment_method:           paymentMethod,
+    p_sender_name:              meta.nickname || null,
+    p_sender_comment:           meta.comment || null,
+    p_event_id:                 qrcInfo.eventId ?? null,
+    p_agent_id:                 agentId,
+    p_agent_fee:                agentFee,
+  });
+
+  if (rpcError) {
+    return NextResponse.json({ error: rpcError.message }, { status: 500 });
+  }
+
+  const transactionId: string = (rpcRows as any[])[0].out_transaction_id;
+
+  const [isMember, hasPasskey] = await Promise.all([
     checkIsMember(admin, email ?? null),
     checkHasPasskey(admin, email ?? null),
   ]);
@@ -124,7 +129,7 @@ export async function POST(req: Request) {
         artistId = product?.artist_id ?? null;
       }
       const { data: seqData } = await admin.rpc("assign_serial_number", {
-        p_transaction_id: tx.transaction_id,
+        p_transaction_id: transactionId,
         p_event_id: qrcInfo.eventId,
         p_artist_id: artistId,
         p_qr_config_id: qrConfigId,
@@ -142,38 +147,10 @@ export async function POST(req: Request) {
     broadcastCheerNew(qrcInfo.eventId, gross).catch(() => {});
   }
 
-  // エージェント手数料を売上発生時に即時積み上げ
-  if (qrcInfo.eventId) {
-    try {
-      const { data: eventRow } = await admin
-        .from("events")
-        .select("agent_id")
-        .eq("event_id", qrcInfo.eventId)
-        .single();
-
-      if (eventRow?.agent_id) {
-        const { agent_fee_rate } = feeConfig;
-        const agentFee = Math.floor((session.amount_total ?? 0) * agent_fee_rate);
-        if (agentFee > 0) {
-          await admin.from("transaction_distributions").insert({
-            transaction_id: tx.transaction_id,
-            event_id: qrcInfo.eventId,
-            profile_id: eventRow.agent_id,
-            distribution_role: "agent",
-            actual_amount: agentFee,
-            distribution_status: "accrued",
-          });
-        }
-      }
-    } catch (err) {
-      console.error("[pay/complete] agent fee distribution failed:", err);
-    }
-  }
-
   const response = buildResponse(
     email,
     {
-      transaction_id: tx.transaction_id,
+      transaction_id: transactionId,
       product_id: productId,
       total_gross_amount: session.amount_total ?? 0,
       sequence_number_in_event: serialNumber,
@@ -198,7 +175,7 @@ export async function POST(req: Request) {
       amount: session.amount_total ?? 0,
       recipientName: qrcInfo.recipientName,
       eventTitle: product.event_title as string | null,
-      transactionId: tx.transaction_id,
+      transactionId: transactionId,
     }).catch((err) => console.error("[pay/complete] メール送信失敗:", err));
   }
 

@@ -25,147 +25,124 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  switch (event.type) {
-    // Stripe Connect オンボーディング完了
-    case "account.updated": {
-      const account = event.data.object as Stripe.Account;
+  try {
+    switch (event.type) {
 
-      // charges_enabled になったタイミングで pending_terms へ
-      if (account.charges_enabled) {
-        await admin
+      // ──────────────────────────────────────────────────────
+      // Stripe Connect オンボーディング完了
+      // ──────────────────────────────────────────────────────
+      case "account.updated": {
+        const account = event.data.object as Stripe.Account;
+
+        if (account.charges_enabled) {
+          await admin
+            .from("profiles")
+            .update({ status: "pending_terms" })
+            .eq("stripe_connect_id", account.id)
+            .eq("status", "pending_onboarding");
+        }
+
+        const isRestricted = !account.charges_enabled || !account.payouts_enabled;
+        const { data: targetProfile } = await admin
           .from("profiles")
-          .update({ status: "pending_terms" })
+          .select("profile_id, display_name, stripe_restricted")
           .eq("stripe_connect_id", account.id)
-          .eq("status", "pending_onboarding");
-      }
+          .maybeSingle();
 
-      // 機能制限の検出・解除
-      const isRestricted = !account.charges_enabled || !account.payouts_enabled;
-      const { data: targetProfile } = await admin
-        .from("profiles")
-        .select("profile_id, display_name, stripe_restricted")
-        .eq("stripe_connect_id", account.id)
-        .maybeSingle();
+        if (targetProfile) {
+          await admin
+            .from("profiles")
+            .update({ stripe_restricted: isRestricted })
+            .eq("profile_id", targetProfile.profile_id);
 
-      if (targetProfile) {
-        await admin
-          .from("profiles")
-          .update({ stripe_restricted: isRestricted })
-          .eq("profile_id", targetProfile.profile_id);
-
-        // 新たに制限がかかった場合のみ本人に通知
-        if (isRestricted && !targetProfile.stripe_restricted) {
-          const due = account.requirements?.currently_due ?? [];
-          try {
+          if (isRestricted && !targetProfile.stripe_restricted) {
+            const due = account.requirements?.currently_due ?? [];
             await admin.from("notifications").insert({
               profile_id: targetProfile.profile_id,
               type: "stripe_restricted",
               title: "Stripeから追加情報の提出が求められています",
               body: `口座機能に制限がかかっています。Stripeダッシュボードで確認・対応してください。${due.length > 0 ? `（必要項目: ${due.join(", ")}）` : ""}`,
               metadata: { stripe_account_id: account.id, currently_due: due },
-            });
-          } catch { /* notifications テーブルがなければスキップ */ }
-          console.log(`[webhook] stripe_restricted: account=${account.id} profile=${targetProfile.profile_id} due=${due.join(",")}`);
-        }
+            }).throwOnError();
+          }
 
-        // 制限が解除された場合も通知
-        if (!isRestricted && targetProfile.stripe_restricted) {
-          try {
+          if (!isRestricted && targetProfile.stripe_restricted) {
             await admin.from("notifications").insert({
               profile_id: targetProfile.profile_id,
               type: "stripe_restriction_lifted",
               title: "Stripeの機能制限が解除されました",
               body: "口座機能が回復しました。",
               metadata: { stripe_account_id: account.id },
-            });
-          } catch { /* スキップ */ }
-          console.log(`[webhook] stripe_restriction_lifted: account=${account.id} profile=${targetProfile.profile_id}`);
+            }).throwOnError();
+          }
         }
+        break;
       }
-      break;
-    }
 
-    // チャージバック（紛争）通知 → 残高凍結 + debt_claim 作成
-    case "charge.dispute.created": {
-      const dispute = event.data.object as Stripe.Dispute;
-      const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
-      if (!chargeId) break;
+      // ──────────────────────────────────────────────────────
+      // チャージバック（紛争）通知 → アトミックに残高凍結 + debt_claim 作成
+      // ──────────────────────────────────────────────────────
+      case "charge.dispute.created": {
+        const dispute = event.data.object as Stripe.Dispute;
+        const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+        if (!chargeId) break;
 
-      // charge → payment_intent を取得
-      const charge = await stripe.charges.retrieve(chargeId);
-      const paymentIntentId =
-        typeof charge.payment_intent === "string"
-          ? charge.payment_intent
-          : (charge.payment_intent as Stripe.PaymentIntent)?.id ?? null;
+        const charge = await stripe.charges.retrieve(chargeId);
+        const paymentIntentId =
+          typeof charge.payment_intent === "string"
+            ? charge.payment_intent
+            : (charge.payment_intent as Stripe.PaymentIntent)?.id ?? null;
 
-      if (!paymentIntentId) break;
+        if (!paymentIntentId) break;
 
-      // transaction を検索
-      const { data: tx } = await admin
-        .from("transactions")
-        .select("transaction_id, qr_config_id, total_gross_amount")
-        .eq("stripe_payment_intent_id", paymentIntentId)
-        .maybeSingle();
+        const { data: tx } = await admin
+          .from("transactions")
+          .select("transaction_id, total_gross_amount")
+          .eq("stripe_payment_intent_id", paymentIntentId)
+          .maybeSingle();
 
-      if (!tx) break;
+        if (!tx) break;
 
-      // 関連する distributions を取得してプロファイル特定
-      const { data: dists } = await admin
-        .from("transaction_distributions")
-        .select("transaction_distribution_id, profile_id")
-        .eq("transaction_id", tx.transaction_id)
-        .eq("distribution_status", "accrued");
-
-      const affectedProfileIds = [...new Set((dists ?? []).map((d) => d.profile_id))];
-
-      // distributions を凍結
-      if ((dists ?? []).length > 0) {
-        await admin
+        const { data: dists } = await admin
           .from("transaction_distributions")
-          .update({ is_frozen: true })
-          .eq("transaction_id", tx.transaction_id);
+          .select("profile_id")
+          .eq("transaction_id", tx.transaction_id)
+          .eq("distribution_status", "accrued");
+
+        const primaryProfileId = (dists ?? [])[0]?.profile_id ?? null;
+
+        // distributions 凍結 + profiles 凍結 + debt_claim をアトミックに実行
+        // 冪等チェック込み（同一 tx の debt_claim が既存なら何もしない）
+        const { error: chargebackErr } = await admin.rpc("handle_chargeback", {
+          p_transaction_id:     tx.transaction_id,
+          p_claim_amount:       tx.total_gross_amount ?? 0,
+          p_stripe_dispute_fee: 1500,
+          p_dispute_id:         dispute.id,
+          p_primary_profile_id: primaryProfileId,
+        });
+
+        if (chargebackErr) throw chargebackErr;
+
+        console.log(`[webhook] chargeback processed: dispute=${dispute.id} tx=${tx.transaction_id}`);
+        break;
       }
 
-      // profiles の balance_frozen + chargeback_count を更新
-      for (const profileId of affectedProfileIds) {
-        await admin
-          .from("profiles")
-          .update({
-            balance_frozen: true,
-            balance_frozen_at: new Date().toISOString(),
-          })
-          .eq("profile_id", profileId);
+      // ──────────────────────────────────────────────────────
+      // Cheers 決済完了（/api/pay/complete が先行して処理するが
+      // フロントが死んだ場合のフォールバック）
+      // ──────────────────────────────────────────────────────
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
 
-        await admin.rpc("increment_chargeback_count", { target_profile_id: profileId });
-      }
+        // すでに /api/pay/complete で処理済みの場合はスキップ
+        const { data: existing } = await admin
+          .from("transactions")
+          .select("transaction_id")
+          .eq("stripe_payment_intent_id", session.payment_intent as string)
+          .maybeSingle();
 
-      // debt_claim を作成（紛争手数料 Stripe は $15 ≒ ¥2000 程度、一旦 1500 固定）
-      await admin.from("debt_claims").insert({
-        profile_id: affectedProfileIds[0] ?? null,
-        original_transaction_id: tx.transaction_id,
-        claim_amount: tx.total_gross_amount ?? 0,
-        stripe_dispute_fee: 1500,
-        recovered_amount: 0,
-        status: "active",
-        description: `Stripe dispute: ${dispute.id}`,
-      });
+        if (existing || session.payment_status !== "paid") break;
 
-      console.log(`[webhook] chargeback: dispute=${dispute.id} tx=${tx.transaction_id} profiles=${affectedProfileIds.join(",")}`);
-      break;
-    }
-
-    // Cheers 決済完了（冪等処理）
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-
-      // すでに /api/pay/complete で処理済みの場合は何もしない
-      const { data: existing } = await admin
-        .from("transactions")
-        .select("transaction_id")
-        .eq("stripe_payment_intent_id", session.payment_intent as string)
-        .maybeSingle();
-
-      if (!existing && session.payment_status === "paid") {
         const meta = session.metadata ?? {};
         const email =
           session.customer_email ??
@@ -178,44 +155,39 @@ export async function POST(req: Request) {
             ? session.customer
             : (session.customer as Stripe.Customer)?.id ?? null;
 
-        // provisional_user upsert
-        let provisionalProfileId: string | null = null;
-        if (email) {
-          const { data: provisional } = await admin
-            .from("provisional_users")
-            .upsert(
-              { email, stripe_customer_id: stripeCustomerId },
-              { onConflict: "email" }
-            )
-            .select("provisional_id, profile_id")
-            .single();
-          provisionalProfileId = provisional?.profile_id ?? null;
-        }
-
         const paymentMethod = (session.payment_method_types?.[0] === "paypay") ? "paypay" : "card";
         const gross = session.amount_total ?? 0;
         const wFeeConfig = await getFeeConfig();
         const wStripeFee = Math.floor(gross * (paymentMethod === "paypay" ? wFeeConfig.paypay_rate : wFeeConfig.stripe_rate));
         const wPlatformFee = Math.floor(gross * wFeeConfig.platform_rate);
 
-        const { data: newTx } = await admin.from("transactions").insert({
-          stripe_payment_intent_id: session.payment_intent as string,
-          product_id: meta.product_id || null,
-          qr_config_id: meta.qr_config_id || null,
-          sender_profile_id: provisionalProfileId,
-          sender_name: meta.nickname || null,
-          sender_comment: meta.comment || null,
-          status: "completed",
-          total_gross_amount: gross,
-          stripe_funds_status: "held_in_platform",
-          payment_method: paymentMethod,
-          stripe_fee: wStripeFee,
-          platform_fee: wPlatformFee,
-          net_amount: gross - wStripeFee - wPlatformFee,
-        }).select("transaction_id").single();
+        // provisional_users + transactions をアトミックに書き込む
+        // ON CONFLICT DO NOTHING（二重配信に対する DB レベルの冪等）
+        const { data: rpcRows, error: rpcErr } = await admin.rpc("complete_cheers_payment", {
+          p_stripe_payment_intent_id: session.payment_intent as string,
+          p_product_id:               meta.product_id || null,
+          p_qr_config_id:             meta.qr_config_id || null,
+          p_email:                    email ?? null,
+          p_stripe_customer_id:       stripeCustomerId,
+          p_gross:                    gross,
+          p_stripe_fee:               wStripeFee,
+          p_platform_fee:             wPlatformFee,
+          p_net_amount:               gross - wStripeFee - wPlatformFee,
+          p_payment_method:           paymentMethod,
+          p_sender_name:              meta.nickname || null,
+          p_sender_comment:           meta.comment || null,
+        });
 
-        // QR子機画面へブロードキャスト（fire-and-forget）
-        if (newTx && meta.qr_config_id) {
+        if (rpcErr) throw rpcErr;
+
+        // 空セット = すでに処理済み（ON CONFLICT DO NOTHING が発動）
+        const rows = rpcRows as any[] | null;
+        if (!rows || rows.length === 0) break;
+
+        const newTxId: string = rows[0].out_transaction_id;
+
+        // QR 子機画面へブロードキャスト（fire-and-forget）
+        if (meta.qr_config_id) {
           (async () => {
             const { data: qrc } = await admin
               .from("qr_configs")
@@ -227,41 +199,73 @@ export async function POST(req: Request) {
         }
 
         // 購入確認メール（fire-and-forget）
-        if (email && newTx) {
-          let recipientName: string | null = null;
-          let eventTitle: string | null = null;
-          if (meta.qr_config_id) {
-            const { data: qrc } = await admin
-              .from("qr_configs")
-              .select("recipient_profile_id, event:events!event_id(title)")
-              .eq("qr_config_id", meta.qr_config_id)
-              .single();
-            eventTitle = (qrc?.event as any)?.title ?? null;
-            if (qrc?.recipient_profile_id) {
-              const { data: rp } = await admin
-                .from("profiles")
-                .select("display_name")
-                .eq("profile_id", qrc.recipient_profile_id)
+        if (email) {
+          (async () => {
+            let recipientName: string | null = null;
+            let eventTitle: string | null = null;
+            if (meta.qr_config_id) {
+              const { data: qrc } = await admin
+                .from("qr_configs")
+                .select("recipient_profile_id, event:events!event_id(title)")
+                .eq("qr_config_id", meta.qr_config_id)
                 .single();
-              recipientName = rp?.display_name ?? null;
+              eventTitle = (qrc?.event as any)?.title ?? null;
+              if (qrc?.recipient_profile_id) {
+                const { data: rp } = await admin
+                  .from("profiles")
+                  .select("display_name")
+                  .eq("profile_id", qrc.recipient_profile_id)
+                  .single();
+                recipientName = rp?.display_name ?? null;
+              }
             }
-          }
-          sendPurchaseReceipt({
-            to: email,
-            amount: session.amount_total ?? 0,
-            recipientName,
-            eventTitle,
-            transactionId: newTx.transaction_id,
-          }).catch((err) => console.error("[webhook] メール送信失敗:", err));
+            await sendPurchaseReceipt({
+              to: email,
+              amount: gross,
+              recipientName,
+              eventTitle,
+              transactionId: newTxId,
+            });
+          })().catch((err) => console.error("[webhook] メール送信失敗:", err));
         }
+        break;
       }
-      break;
+
+      default:
+        break;
     }
 
-    default:
-      // 未処理イベントは無視
-      break;
-  }
+    return NextResponse.json({ received: true });
 
-  return NextResponse.json({ received: true });
+  } catch (err: any) {
+    const errMsg: string = err?.message ?? String(err);
+    console.error(`[webhook] ERROR event=${event.type} stripe_event=${event.id}:`, errMsg);
+
+    // ロールバック証跡を別トランザクションで記録（ベストエフォート）
+    const piId = extractPaymentIntentId(event);
+    const amountJpy = extractAmount(event);
+    admin.from("webhook_failure_logs").insert({
+      stripe_event_id:   event.id,
+      event_type:        event.type,
+      payment_intent_id: piId,
+      amount_jpy:        amountJpy,
+      error_detail:      errMsg,
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    });
+
+    // 500 を返して Stripe にリトライさせる
+    return NextResponse.json({ error: errMsg }, { status: 500 });
+  }
+}
+
+function extractPaymentIntentId(event: Stripe.Event): string | null {
+  const obj = event.data.object as any;
+  if (typeof obj?.payment_intent === "string") return obj.payment_intent;
+  if (typeof obj?.payment_intent?.id === "string") return obj.payment_intent.id;
+  return null;
+}
+
+function extractAmount(event: Stripe.Event): number | null {
+  const obj = event.data.object as any;
+  return obj?.amount_total ?? obj?.amount ?? null;
 }

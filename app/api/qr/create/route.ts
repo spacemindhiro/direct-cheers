@@ -122,82 +122,44 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "配分比率の合計を100%にしてください" }, { status: 400 });
   }
 
-  // product 作成（artist_id は配分先が複数の場合もあるため null 許容）
-  const productInsert: Record<string, unknown> = {
-    event_id,
-    artist_id: targets.length === 1 ? targets[0].profile_id : null,
-    name: label ?? `${range.label} チア`,
-    type: product_type,
-    min_amount,
-    max_amount,
-  };
-  if (product_type === "entrance") {
-    productInsert.payment_type = payment_type;
-    productInsert.stock_limit = stock_limit ?? null;
-    productInsert.track_inventory = track_inventory;
-    if ((payment_type === "A" || payment_type === "B") && sales_start_at && sales_end_at) {
-      productInsert.sales_start_at = sales_start_at;
-      productInsert.sales_end_at = sales_end_at;
-    }
-  }
+  const artistId = targets.length === 1 ? targets[0].profile_id : null;
+  const productName = label ?? `${range.label} チア`;
 
-  // 権限チェック済みのため adminClient でRLSをバイパスしてinsert
+  // products + qr_configs + qr_config_targets をアトミックに作成
   const adminClient = createAdminClient();
+  const { data: rpcRows, error: rpcError } = await adminClient.rpc("create_qr_bundle", {
+    p_event_id:             event_id,
+    p_creator_profile_id:   user.id,
+    p_recipient_profile_id: recipient_profile_id,
+    p_label:                label ?? null,
+    p_is_personal:          is_personal,
+    p_image_url:            image_url,
+    p_product_type:         product_type,
+    p_min_amount:           min_amount,
+    p_max_amount:           max_amount,
+    p_artist_id:            artistId,
+    p_product_name:         productName,
+    p_payment_type:         payment_type,
+    p_stock_limit:          stock_limit,
+    p_track_inventory:      track_inventory,
+    p_serial_scope:         serial_scope,
+    p_bypass_validity:      bypass_validity,
+    p_strip_image_url:      strip_image_url,
+    p_bg_color:             bg_color,
+    p_fg_color:             fg_color,
+    p_label_color:          label_color,
+    p_sales_start_at:       sales_start_at,
+    p_sales_end_at:         sales_end_at,
+    p_targets:              JSON.stringify(targets),
+  });
 
-  const { data: product, error: productError } = await adminClient
-    .from("products")
-    .insert(productInsert)
-    .select("product_id")
-    .single();
-
-  if (productError) {
-    return NextResponse.json({ error: productError.message }, { status: 500 });
+  if (rpcError) {
+    return NextResponse.json({ error: rpcError.message }, { status: 500 });
   }
 
-  // qr_config 作成
-  const { data: qrConfig, error: qrError } = await adminClient
-    .from("qr_configs")
-    .insert({
-      event_id,
-      creator_profile_id: user.id,
-      recipient_profile_id,
-      label: label ?? null,
-      is_personal,
-      image_url: image_url ?? null,
-      product_id: product.product_id,
-      serial_scope,
-      bypass_validity,
-      ...(product_type === "entrance" && {
-        strip_image_url: strip_image_url ?? null,
-        bg_color,
-        fg_color,
-        label_color,
-      }),
-    })
-    .select("qr_config_id")
-    .single();
-
-  if (qrError) {
-    return NextResponse.json({ error: qrError.message }, { status: 500 });
-  }
-
-  // qr_config_targets 作成
-  const targetRows = targets.map((t) => ({
-    qr_config_id: qrConfig.qr_config_id,
-    profile_id: t.profile_id,
-    distribution_ratio: t.distribution_ratio,
-  }));
-
-  const { error: targetError } = await adminClient
-    .from("qr_config_targets")
-    .insert(targetRows);
-
-  if (targetError) {
-    return NextResponse.json({ error: targetError.message }, { status: 500 });
-  }
-
+  const row = (rpcRows as any[])[0];
   return NextResponse.json({
-    qr_config_id: qrConfig.qr_config_id,
-    product_id: product.product_id,
+    qr_config_id: row.out_qr_config_id,
+    product_id:   row.out_product_id,
   });
 }

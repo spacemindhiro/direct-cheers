@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 function SignUpSuccessContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get('email');
+  const redirectTo = searchParams.get('redirect');
   const decodedEmail = email ? decodeURIComponent(email) : null;
 
   const [resent, setResent] = useState(false);
@@ -20,11 +21,13 @@ function SignUpSuccessContent() {
     startTransition(async () => {
       setResendError(null);
       const supabase = createClient();
+      const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+      if (redirectTo) callbackUrl.searchParams.set('redirect', redirectTo);
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: decodedEmail,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: callbackUrl.toString(),
         },
       });
       if (error) {
@@ -108,7 +111,7 @@ function SignUpSuccessContent() {
 
         {/* メアド変更 */}
         <Link
-          href="/auth/sign-up"
+          href={redirectTo ? `/auth/sign-up?redirect=${encodeURIComponent(redirectTo)}` : '/auth/sign-up'}
           className="w-full h-14 bg-slate-900 border border-slate-700 hover:border-pink-500/50 text-slate-400 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
         >
           <PenLine size={16} /> メールアドレスを変更する

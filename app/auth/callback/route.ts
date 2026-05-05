@@ -10,28 +10,25 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
+  const errRedirect = (msg: string) =>
+    NextResponse.redirect(`${origin}/auth/error?error=${encodeURIComponent(msg)}`);
+
   // token_hash 方式（OTP）の処理
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash });
-    if (error) {
-      return NextResponse.redirect(`${origin}/auth/error`);
-    }
-    // recovery はパスワード再設定へ
+    if (error) return errRedirect(`verifyOtp: ${error.message}`);
     if (type === 'recovery') {
       return NextResponse.redirect(`${origin}/auth/update-password`);
     }
-    // それ以外はセッション確立後のフローへ（下のユーザーチェックに fallthrough）
   } else if (code) {
     // PKCE code 方式の処理
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      return NextResponse.redirect(`${origin}/auth/error`);
-    }
+    if (error) return errRedirect(`exchangeCode: ${error.message}`);
     if (type === 'recovery') {
       return NextResponse.redirect(`${origin}/auth/update-password`);
     }
   } else {
-    return NextResponse.redirect(`${origin}/auth/error`);
+    return errRedirect(`no_code: params=${[...new URL(request.url).searchParams.entries()].map(([k,v])=>`${k}=${v}`).join('&')}`);
   }
 
   // セッション確立済み → ユーザー・プロフィール確認

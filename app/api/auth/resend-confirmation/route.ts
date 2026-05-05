@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
   // 確認リンクを生成
   const { data, error } = await admin.auth.admin.generateLink({
-    type: "signup",
+    type: "magiclink",
     email,
     options: {
       redirectTo: callbackUrl ?? `${SITE_URL}/auth/callback`,

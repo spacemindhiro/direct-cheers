@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { MailCheck, ArrowRight, RefreshCw, PenLine, CheckCircle2 } from 'lucide-react';
+import { MailCheck, ArrowRight, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 function SignUpSuccessContent() {
@@ -108,14 +108,6 @@ function SignUpSuccessContent() {
         {resendError && (
           <p className="text-xs text-red-400 text-center">{resendError}</p>
         )}
-
-        {/* メアド変更 */}
-        <Link
-          href={redirectTo ? `/auth/sign-up?redirect=${encodeURIComponent(redirectTo)}` : '/auth/sign-up'}
-          className="w-full h-14 bg-slate-900 border border-slate-700 hover:border-pink-500/50 text-slate-400 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
-        >
-          <PenLine size={16} /> メールアドレスを変更する
-        </Link>
 
         <Link
           href="/auth/login"

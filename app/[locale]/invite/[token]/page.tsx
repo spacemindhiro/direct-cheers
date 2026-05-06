@@ -46,6 +46,15 @@ async function InviteContent({
     .is("deleted_at", null)
     .single();
 
+  // 初回アクセス時に viewed_at を記録
+  if (invitation && !invitation.status?.startsWith("accepted")) {
+    await admin
+      .from("invitations")
+      .update({ viewed_at: new Date().toISOString() })
+      .eq("token", token)
+      .is("viewed_at", null);
+  }
+
   if (!invitation) {
     return <InviteErrorPage message="招待リンクが見つかりません。" />;
   }

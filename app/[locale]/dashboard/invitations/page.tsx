@@ -1,33 +1,11 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { InviteCreateForm } from "@/components/invite-create-form";
-import { Loader2, Users, Clock, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
+import { InvitationsList, type InvitationRow } from "@/components/invitations-list";
+import { Loader2, Users, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-
-const ROLE_LABELS: Record<string, string> = {
-  agent: "エージェント",
-  organizer: "オーガナイザー",
-  artist: "アーティスト / DJ",
-};
-
-const STATUS_CONFIG: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
-  pending: {
-    label: "待機中",
-    className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
-    icon: <Clock size={12} />,
-  },
-  accepted: {
-    label: "承諾済み",
-    className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    icon: <CheckCircle size={12} />,
-  },
-  expired: {
-    label: "期限切れ",
-    className: "text-slate-500 bg-slate-800 border-slate-700",
-    icon: <XCircle size={12} />,
-  },
-};
 
 async function InvitationsContent() {
   const supabase = await createClient();
@@ -51,10 +29,27 @@ async function InvitationsContent() {
 
   const { data: invitations } = await supabase
     .from("invitations")
-    .select("invitation_id, target_role, target_email, status, expires_at, created_at")
+    .select(`
+      invitation_id,
+      token,
+      target_role,
+      target_email,
+      status,
+      is_sent,
+      viewed_at,
+      expires_at,
+      created_at,
+      accepted_by:profiles!accepted_by_profile_id(display_name)
+    `)
     .eq("invited_by_profile_id", user.id)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
+
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "localhost:3000";
+  const protocol = host.startsWith("localhost") ? "http" : "https";
+  const origin = `${protocol}://${host}`;
 
   return (
     <div className="space-y-10">
@@ -83,48 +78,10 @@ async function InvitationsContent() {
         <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
           <Users size={14} className="text-pink-500" /> 発行済み招待
         </h2>
-
-        {!invitations || invitations.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 text-center">
-            <p className="text-slate-600 text-sm font-bold italic uppercase tracking-wider">
-              No invitations yet.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {invitations.map((inv) => {
-              const statusConfig = STATUS_CONFIG[inv.status] ?? STATUS_CONFIG.expired;
-              const isExpiredByDate =
-                inv.status === "pending" && new Date(inv.expires_at) < new Date();
-              const effectiveConfig = isExpiredByDate
-                ? STATUS_CONFIG.expired
-                : statusConfig;
-
-              return (
-                <div
-                  key={inv.invitation_id}
-                  className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-6 py-4 flex items-center justify-between gap-4"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <p className="text-sm font-bold text-white">
-                      {ROLE_LABELS[inv.target_role] ?? inv.target_role}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {inv.target_email ?? "メールなし"} ·{" "}
-                      {new Date(inv.created_at).toLocaleDateString("ja-JP")}
-                    </p>
-                  </div>
-                  <span
-                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${effectiveConfig.className}`}
-                  >
-                    {effectiveConfig.icon}
-                    {isExpiredByDate ? "期限切れ" : effectiveConfig.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <InvitationsList
+          initialInvitations={(invitations ?? []) as unknown as InvitationRow[]}
+          origin={origin}
+        />
       </div>
     </div>
   );

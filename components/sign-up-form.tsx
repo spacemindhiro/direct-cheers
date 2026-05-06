@@ -36,7 +36,8 @@ export function SignUpForm({
     startTransition(async () => {
       setError(null);
       const supabase = createClient();
-      // メール認証後の callback に redirect 先を渡す
+      // emailRedirectTo は PKCE フロー用（token_hash テンプレートでは使われない）
+      // redirect 先は user_metadata にも保存し token_hash フローでも復元できるようにする
       const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
       if (redirectTo) callbackUrl.searchParams.set("redirect", redirectTo);
       const { error } = await supabase.auth.signUp({
@@ -44,6 +45,7 @@ export function SignUpForm({
         password,
         options: {
           emailRedirectTo: callbackUrl.toString(),
+          data: redirectTo ? { post_auth_redirect: redirectTo } : {},
         },
       });
       if (error) {

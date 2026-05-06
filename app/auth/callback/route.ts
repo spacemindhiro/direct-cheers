@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const token_hash = searchParams.get('token_hash');
-  const redirect = searchParams.get('redirect');
+  let redirect = searchParams.get('redirect');
   const type = searchParams.get('type') as 'signup' | 'recovery' | 'email' | 'invite' | null;
 
   const supabase = await createClient();
@@ -21,12 +21,20 @@ export async function GET(request: Request) {
     if (error) return errRedirect(`verifyOtp: ${error.message}`);
     if (type === 'recovery') return NextResponse.redirect(`${origin}/auth/update-password`);
     authUser = data.user;
+    // token_hash フロー（クロスブラウザ対応）: redirect を user_metadata から補完
+    if (!redirect && authUser?.user_metadata?.post_auth_redirect) {
+      redirect = authUser.user_metadata.post_auth_redirect as string;
+    }
   } else if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) return errRedirect(`exchangeCode: ${error.message}`);
     if (type === 'recovery') return NextResponse.redirect(`${origin}/auth/update-password`);
     authUser = data.user;
   } else {
+    const errorCode = searchParams.get('error_code');
+    if (errorCode === 'otp_expired') {
+      return NextResponse.redirect(`${origin}/auth/error?error=otp_expired`);
+    }
     return errRedirect(
       `no_code: params=${[...new URL(request.url).searchParams.entries()]
         .map(([k, v]) => `${k}=${v}`)

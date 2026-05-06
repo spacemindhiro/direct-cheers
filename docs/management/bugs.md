@@ -114,3 +114,6 @@ No.,指摘箇所,指摘内容,修正方針,状態
 113,招待出す方の画面,招待履歴として発行済み招待ってエリアがあるけど機能していない。,発行済み招待には、招待リンクを作ったものが一覧化されるようにして、手動削除できるようにする。招待後のステータスも表示する。メールからリンク踏んだか、プロファイル設定終わって、通常ログイン可能な状態になったか。付与したロールは何か。リンクを送るのは手動だから、送付済みかどうかのチェックボックスを置いてあげる。送付済みをチェックするメモとして。
 114,招待の受取り時,エージェントとして招待済みだが認証完了していないメアドに、オーガナイザーとして招待を出してみた。そうすると、新規登録して招待を受けるってなって、サインアップをして、メアド認証でメアドリンクはオーガナイザーだと開けた。でもそこからログインして、招待を受け取るボタンを押したら「エラーが発生しました。」とでて動かなくなる。,なんとかせい。
 115,イベント作成ボタン,オーガナイザーが招待受けて、ダッシュボードまできたが、イベント管理からイベント作成ボタンを押すと、ダッシュボードに戻ってしまう。,イベント作成機能どこいった？直せ。
+116,イベント作成後のイベント詳細画面,まだpaypayがoffなのに着金予測にpaypay手数料が表示されている。,paypayがoffの場合は非表示でよい
+117,招待メール,109の原因が出た。Sorry, something went wrong.Code error: no_code:params=error=access_denied&error_code=otp_expired&error_description=Email link is invalid or has expired&redirect=/invite/f7716fd1-0bcf-49fd-bb1d-42fe7af4acea,直して。そして以前動いてたのになぜ壊れているか説明せよ。修正するたびに別の場所が壊れてたらテストが終えられない。
+118,招待メールからのサインアップ認証,招待からのサインアップで、メールアドレス認証でメールのリンクを踏んだらこのメッセージが出て動かない。Sorry, something went wrong.Code error: exchangeCode: PKCE code verifier not found in storage. This can happen if the auth flow was initiated in a different browser or device, or if the storage was cleared. For SSR frameworks (Next.js, SvelteKit, etc.), use @supabase/ssr on both the server and client to store the code verifier in cookies.,直せ。そして以前動いてたのになぜ壊れているか説明せよ。修正するたびに別の場所が壊れてたらテストが終えられない。

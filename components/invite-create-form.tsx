@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Link2, Copy, Check, Loader2, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -27,6 +28,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function InviteCreateForm({ myRole }: { myRole: string }) {
   const options = ROLE_OPTIONS[myRole];
+  const router = useRouter();
   const [targetRole, setTargetRole] = useState(options?.canInvite[0] ?? "");
   const [targetEmail, setTargetEmail] = useState("");
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
@@ -63,6 +65,7 @@ export function InviteCreateForm({ myRole }: { myRole: string }) {
       const url = `${window.location.origin}/invite/${data.token}`;
       setGeneratedLink(url);
       setTargetEmail("");
+      router.refresh();
     });
   };
 

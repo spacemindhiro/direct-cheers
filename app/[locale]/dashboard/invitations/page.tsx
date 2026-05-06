@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { InviteCreateForm } from "@/components/invite-create-form";
 import { InvitationsList, type InvitationRow } from "@/components/invitations-list";
 import { Loader2, Users, ArrowLeft } from "lucide-react";
@@ -27,7 +28,9 @@ async function InvitationsContent() {
 
   if (!canInvite) redirect("/dashboard");
 
-  const { data: invitations } = await supabase
+  // admin クライアントで取得（RLS を回避し、新カラムがなくてもフォールバック）
+  const admin = createAdminClient();
+  const { data: invitations, error: invError } = await admin
     .from("invitations")
     .select(`
       invitation_id,
@@ -45,6 +48,26 @@ async function InvitationsContent() {
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
+
+  // migration 未適用時は is_sent/viewed_at なしでフォールバック
+  let rows: InvitationRow[] = [];
+  if (invError) {
+    const { data: fallback } = await admin
+      .from("invitations")
+      .select("invitation_id, token, target_role, target_email, status, expires_at, created_at")
+      .eq("invited_by_profile_id", user.id)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    rows = (fallback ?? []).map((r: any) => ({
+      ...r,
+      is_sent: false,
+      viewed_at: null,
+      accepted_by: null,
+    }));
+  } else {
+    rows = (invitations ?? []) as unknown as InvitationRow[];
+  }
 
   const headersList = await headers();
   const host = headersList.get("host") ?? "localhost:3000";
@@ -79,7 +102,7 @@ async function InvitationsContent() {
           <Users size={14} className="text-pink-500" /> 発行済み招待
         </h2>
         <InvitationsList
-          initialInvitations={(invitations ?? []) as unknown as InvitationRow[]}
+          initialInvitations={rows}
           origin={origin}
         />
       </div>

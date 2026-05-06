@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -13,54 +14,51 @@ export async function GET(request: Request) {
   const errRedirect = (msg: string) =>
     NextResponse.redirect(`${origin}/auth/error?error=${encodeURIComponent(msg)}`);
 
-  // token_hash 方式（OTP）の処理
+  let authUser: { id: string; user_metadata?: Record<string, unknown> } | null = null;
+
   if (token_hash && type) {
-    const { error } = await supabase.auth.verifyOtp({ type, token_hash });
+    const { data, error } = await supabase.auth.verifyOtp({ type, token_hash });
     if (error) return errRedirect(`verifyOtp: ${error.message}`);
-    if (type === 'recovery') {
-      return NextResponse.redirect(`${origin}/auth/update-password`);
-    }
+    if (type === 'recovery') return NextResponse.redirect(`${origin}/auth/update-password`);
+    authUser = data.user;
   } else if (code) {
-    // PKCE code 方式の処理
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) return errRedirect(`exchangeCode: ${error.message}`);
-    if (type === 'recovery') {
-      return NextResponse.redirect(`${origin}/auth/update-password`);
-    }
+    if (type === 'recovery') return NextResponse.redirect(`${origin}/auth/update-password`);
+    authUser = data.user;
   } else {
-    return errRedirect(`no_code: params=${[...new URL(request.url).searchParams.entries()].map(([k,v])=>`${k}=${v}`).join('&')}`);
+    return errRedirect(
+      `no_code: params=${[...new URL(request.url).searchParams.entries()]
+        .map(([k, v]) => `${k}=${v}`)
+        .join('&')}`
+    );
   }
 
-  // セッション確立済み → ユーザー・プロフィール確認
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.redirect(`${origin}/auth/error`);
+  if (!authUser) {
+    return errRedirect('no_user_after_exchange');
   }
 
-  const { data: profile } = await supabase
+  // exchangeCodeForSession 直後は同一リクエスト内でクッキーが読めないため admin クライアントでプロフィール確認
+  const admin = createAdminClient();
+  const { data: profile } = await admin
     .from('profiles')
     .select('profile_id')
-    .eq('profile_id', user.id)
+    .eq('profile_id', authUser.id)
     .maybeSingle();
 
   if (profile) {
     return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
   }
 
-  // 招待ユーザー（skip_onboarding）はファンプロフィールを自動作成してダッシュボードへ
-  if (user.user_metadata?.skip_onboarding) {
-    const { createAdminClient } = await import('@/lib/supabase/admin');
-    const adminForCallback = createAdminClient();
-    await adminForCallback.from('profiles').insert({
-      profile_id: user.id,
-      role: 'fan',
+  if (authUser.user_metadata?.skip_onboarding) {
+    await admin.from('profiles').insert({
+      profile_id: authUser.id,
+      role: 'user',
       status: 'active',
     });
     return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
   }
 
-  // 通常新規ユーザー → passkey-setup → onboarding
   const onboarding = redirect
     ? `/onboarding/profile?redirect=${encodeURIComponent(redirect)}`
     : '/onboarding/profile';

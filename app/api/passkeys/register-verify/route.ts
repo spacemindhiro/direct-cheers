@@ -99,11 +99,14 @@ export async function POST(req: Request) {
       .eq("profile_id", authUserId)
       .maybeSingle();
     if (!existingProfile) {
-      await admin.from("profiles").insert({
+      const { error: profileErr } = await admin.from("profiles").insert({
         profile_id: authUserId,
         role: "user",
         status: "pending_onboarding",
       });
+      if (profileErr) {
+        return NextResponse.json({ error: `profile insert failed: ${profileErr.message}` }, { status: 500 });
+      }
     }
   } else {
     // 新規 auth ユーザーを作成（既存の場合は既存ユーザーを使用）

@@ -9,7 +9,7 @@ import type { InvitationRow } from "@/components/invitations-list";
 const ROLE_OPTIONS: Record<string, { label: string; canInvite: string[] }> = {
   admin: {
     label: "管理者",
-    canInvite: ["agent", "organizer", "artist"],
+    canInvite: ["agent"],
   },
   agent: {
     label: "エージェント",

@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 // 招待権限マトリクス
 const PERMISSION_MATRIX: Record<string, string[]> = {
-  admin: ["agent", "organizer", "artist"],
+  admin: ["agent"],
   agent: ["organizer", "artist"],
   organizer: ["artist"],
 };

@@ -62,6 +62,17 @@ function ProfileSetupForm() {
 
       if (insertError) {
         setError(insertError.message);
+        return;
+      }
+
+      const { data: existingPasskeys } = await supabase
+        .from('passkey_credentials')
+        .select('credential_id')
+        .eq('profile_id', user.id)
+        .limit(1);
+
+      if (existingPasskeys && existingPasskeys.length > 0) {
+        router.push(redirectTo ?? '/dashboard');
       } else {
         setUserEmail(user.email ?? null);
         setProfileDone(true);

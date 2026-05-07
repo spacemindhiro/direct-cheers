@@ -76,7 +76,9 @@ export default function DashboardLayout({
       }>
         <DashboardNav />
       </Suspense>
-      <DashboardBreadcrumb />
+      <Suspense fallback={null}>
+        <DashboardBreadcrumb />
+      </Suspense>
       <main className="max-w-5xl mx-auto px-6 py-10">
         {children}
       </main>

@@ -25,7 +25,7 @@ const PRODUCT_TYPE_FALLBACK = [
 ];
 
 type ProductTypeConfig = { type: string; label: string; min_amount: number; max_amount: number; is_enabled: boolean };
-type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist" };
+type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist"; status?: string };
 type DistTarget = { profile_id: string; ratio: string };
 
 export function QRCreateForm({
@@ -533,7 +533,7 @@ export function QRCreateForm({
                 >
                   {targetCandidates.map((c) => (
                     <option key={c.profile_id} value={c.profile_id}>
-                      {c.display_name}{c.role === "organizer" ? "（主催者）" : ""}
+                      {c.display_name}{c.role === "organizer" ? "（主催者）" : c.status === "pending" ? "（交渉中）" : ""}
                     </option>
                   ))}
                 </select>

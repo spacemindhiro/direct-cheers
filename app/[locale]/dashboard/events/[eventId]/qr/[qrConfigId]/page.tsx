@@ -60,19 +60,21 @@ async function QRDetailContent({
   const isRecipient = qr.recipient_profile_id === user.id;
   const canEdit = isOrganizer || isAgent;
 
-  // 配分対象候補: オーガナイザー + 出演確定アーティスト
+  // 配分対象候補: オーガナイザー + 出演依頼済みアーティスト（rejected/deleted以外）
   const candidates = [
     {
       profile_id: event.organizer_profile_id,
       display_name: (event.organizer as any)?.display_name ?? "オーガナイザー",
       role: "organizer" as const,
+      status: "confirmed" as const,
     },
     ...(event.event_artists ?? [])
-      .filter((ea: any) => ea.status === "confirmed" && ea.deleted_at === null)
+      .filter((ea: any) => ea.status !== "rejected" && ea.deleted_at === null)
       .map((ea: any) => ({
         profile_id: ea.artist_profile_id,
         display_name: ea.artist?.display_name ?? "Unknown",
         role: "artist" as const,
+        status: ea.status as string,
       })),
   ];
 

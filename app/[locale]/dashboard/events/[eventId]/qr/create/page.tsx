@@ -44,19 +44,21 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
     redirect(`/dashboard/events/${eventId}`);
   }
 
-  // 配分対象候補: オーガナイザー自身 + 出演確定アーティストのみ（pendingは除外）
+  // 配分対象候補: オーガナイザー自身 + 出演依頼済みアーティスト（rejected/deleted以外）
   const targets = [
     {
       profile_id: event.organizer_profile_id,
       display_name: (event.organizer as any)?.display_name ?? "オーガナイザー",
       role: "organizer" as const,
+      status: "confirmed" as const,
     },
     ...(event.event_artists ?? [])
-      .filter((ea: any) => ea.status === "confirmed" && ea.deleted_at === null)
+      .filter((ea: any) => ea.status !== "rejected" && ea.deleted_at === null)
       .map((ea: any) => ({
         profile_id: ea.artist_profile_id,
         display_name: ea.artist?.display_name ?? "—",
         role: "artist" as const,
+        status: ea.status as string,
       })),
   ];
 

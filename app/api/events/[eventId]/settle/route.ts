@@ -60,6 +60,23 @@ export async function POST(
   if (existingSummary?.is_approved_for_payout)
     return NextResponse.json({ error: "Already approved" }, { status: 400 });
 
+  // オーガナイザーの Stripe Connect ID（未確定アーティスト分の集約先）
+  const { data: organizerProfile } = await admin
+    .from("profiles")
+    .select("stripe_connect_id")
+    .eq("profile_id", event.organizer_profile_id)
+    .single();
+  const organizerConnectId = organizerProfile?.stripe_connect_id ?? null;
+
+  // 確定済みアーティスト（出演承認済みのみ分配対象）
+  const { data: confirmedArtists } = await admin
+    .from("event_artists")
+    .select("artist_profile_id")
+    .eq("event_id", eventId)
+    .eq("status", "confirmed")
+    .is("deleted_at", null);
+  const confirmedArtistIds = new Set((confirmedArtists ?? []).map((ea) => ea.artist_profile_id));
+
   // このイベントに紐づく qr_configs を取得
   const { data: qrConfigs } = await admin
     .from("qr_configs")
@@ -129,20 +146,31 @@ export async function POST(
         ? profileRole
         : "artist";
 
+      // アーティストが未確定（pending/rejected）の場合はオーガナイザーに集約
+      const isUnconfirmedArtist =
+        profileRole === "artist" && !confirmedArtistIds.has(target.profile_id);
+      const effectiveProfileId = isUnconfirmedArtist
+        ? event.organizer_profile_id
+        : target.profile_id;
+      const effectiveRole = isUnconfirmedArtist ? "organizer" : distRole;
+      const effectiveConnectId = isUnconfirmedArtist
+        ? organizerConnectId
+        : ((target.profile as any)?.stripe_connect_id ?? null);
+
       distributionRows.push({
         transaction_id: tx.transaction_id,
         event_id: eventId,
-        profile_id: target.profile_id,
-        distribution_role: distRole,
+        profile_id: effectiveProfileId,
+        distribution_role: effectiveRole,
         actual_amount: amount,
         distribution_status: "accrued",
       });
 
-      const existing = profileAmounts.get(target.profile_id);
-      profileAmounts.set(target.profile_id, {
+      const existing = profileAmounts.get(effectiveProfileId);
+      profileAmounts.set(effectiveProfileId, {
         amount: (existing?.amount ?? 0) + amount,
-        role: distRole,
-        stripe_connect_id: (target.profile as any)?.stripe_connect_id ?? null,
+        role: effectiveRole,
+        stripe_connect_id: existing?.stripe_connect_id ?? effectiveConnectId,
       });
     }
   }

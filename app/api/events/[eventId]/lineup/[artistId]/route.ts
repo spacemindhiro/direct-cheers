@@ -50,6 +50,24 @@ export async function POST(
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // 拒否時: このイベントのQR配分からアーティストを除外
+  if (action === "reject") {
+    const { data: eventQrs } = await admin
+      .from("qr_configs")
+      .select("qr_config_id")
+      .eq("event_id", eventId)
+      .is("deleted_at", null);
+    const qrIds = (eventQrs ?? []).map((q) => q.qr_config_id);
+    if (qrIds.length > 0) {
+      await admin
+        .from("qr_config_targets")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("profile_id", artistId)
+        .in("qr_config_id", qrIds)
+        .is("deleted_at", null);
+    }
+  }
+
   // 承認時: コネクションがなければ作成
   if (action === "accept") {
     const { data: event } = await admin

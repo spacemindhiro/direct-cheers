@@ -9,7 +9,7 @@ import { CheersCard } from "@/components/cheers-card";
 import { StripImageUpload } from "@/components/strip-image-upload";
 import { WalletTicketPreview } from "@/components/wallet-ticket-preview";
 
-type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist" };
+type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist"; status?: string };
 type DistTarget = { profile_id: string; ratio: string };
 
 export function QREditDelete({
@@ -291,7 +291,7 @@ export function QREditDelete({
             >
               {candidates.map((c) => (
                 <option key={c.profile_id} value={c.profile_id}>
-                  {c.display_name}{c.role === "organizer" ? "（主催者）" : ""}
+                  {c.display_name}{c.role === "organizer" ? "（主催者）" : c.status === "pending" ? "（交渉中）" : ""}
                 </option>
               ))}
             </select>
@@ -322,7 +322,7 @@ export function QREditDelete({
                   >
                     {candidates.map((c) => (
                       <option key={c.profile_id} value={c.profile_id}>
-                        {c.display_name}{c.role === "organizer" ? "（主催者）" : ""}
+                        {c.display_name}{c.role === "organizer" ? "（主催者）" : c.status === "pending" ? "（交渉中）" : ""}
                       </option>
                     ))}
                   </select>

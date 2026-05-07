@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { createSignUpClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -35,7 +35,7 @@ export function SignUpForm({
 
     startTransition(async () => {
       setError(null);
-      const supabase = createClient();
+      const supabase = createSignUpClient();
       // emailRedirectTo は PKCE フロー用（token_hash テンプレートでは使われない）
       // redirect 先は user_metadata にも保存し token_hash フローでも復元できるようにする
       const callbackUrl = new URL(`${window.location.origin}/auth/callback`);

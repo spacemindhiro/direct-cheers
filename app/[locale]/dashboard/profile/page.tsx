@@ -368,6 +368,7 @@ export default function ProfileEditPage() {
       } else {
         // DB から再フェッチして profile state を確実に同期（stripeReady 再評価）
         await fetchAndApplyProfile(supabase, user.id);
+        router.refresh();
         toast.success('プロファイルを更新しました');
       }
     });

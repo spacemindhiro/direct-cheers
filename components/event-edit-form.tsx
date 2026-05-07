@@ -6,7 +6,7 @@ import { jstLocalToUtcIso } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Loader2, Search, X, Plus } from "lucide-react";
 
-type Artist = { profile_id: string; display_name: string };
+type Artist = { profile_id: string; display_name: string; status?: string };
 
 type EventEditFormProps = {
   eventId: string;
@@ -179,6 +179,16 @@ export function EventEditForm({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-pink-500/15 border border-pink-500/40 text-pink-300"
                 >
                   {a.display_name}
+                  {a.status === "pending" && (
+                    <span className="text-[9px] font-black text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded px-1.5 py-0.5 uppercase tracking-widest">
+                      交渉中
+                    </span>
+                  )}
+                  {a.status === "confirmed" && (
+                    <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 uppercase tracking-widest">
+                      承諾済
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => toggleArtist(a)}

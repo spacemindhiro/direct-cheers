@@ -40,7 +40,7 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
 
   const admin = createAdminClient();
 
-  // 現在の出演アーティスト（出演確定のみ）
+  // 現在の出演アーティスト（rejected 以外）
   const { data: eventArtists } = await admin
     .from("event_artists")
     .select("artist_profile_id, status, artist:profiles!artist_profile_id(display_name)")
@@ -48,13 +48,11 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
     .is("deleted_at", null)
     .neq("status", "rejected");
 
-  // 確定済みのみ編集対象に含める
-  const currentArtists = (eventArtists ?? [])
-    .filter((ea: any) => ea.status === "confirmed")
-    .map((ea: any) => ({
-      profile_id: ea.artist_profile_id,
-      display_name: (ea.artist as any)?.display_name ?? "Unknown",
-    }));
+  const currentArtists = (eventArtists ?? []).map((ea: any) => ({
+    profile_id: ea.artist_profile_id,
+    display_name: (ea.artist as any)?.display_name ?? "Unknown",
+    status: ea.status as string,
+  }));
 
   // コネクション済みアーティスト
   const { data: connections } = await admin

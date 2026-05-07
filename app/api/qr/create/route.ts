@@ -150,7 +150,7 @@ export async function POST(req: Request) {
     p_label_color:          label_color,
     p_sales_start_at:       sales_start_at,
     p_sales_end_at:         sales_end_at,
-    p_targets:              JSON.stringify(targets),
+    p_targets:              targets,
   });
 
   if (rpcError) {

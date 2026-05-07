@@ -67,9 +67,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
   }
 
-  const onboarding = redirect
+  const dest = redirect
     ? `/onboarding/profile?redirect=${encodeURIComponent(redirect)}`
     : '/onboarding/profile';
-  const dest = `/auth/passkey-setup?redirect=${encodeURIComponent(onboarding)}`;
   return NextResponse.redirect(`${origin}${dest}`);
 }

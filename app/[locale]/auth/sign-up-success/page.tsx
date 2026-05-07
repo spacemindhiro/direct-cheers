@@ -19,7 +19,7 @@ function SignUpSuccessContent() {
     startTransition(async () => {
       setResendError(null);
       const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
-      if (redirectTo) callbackUrl.searchParams.set('redirect', redirectTo);
+      callbackUrl.searchParams.set('redirect', redirectTo ?? '/dashboard');
       const res = await fetch('/api/auth/resend-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

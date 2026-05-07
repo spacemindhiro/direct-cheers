@@ -1,5 +1,6 @@
--- create_qr_bundle の products insert で entrance 以外のとき payment_type に NULL を
--- 明示していたため NOT NULL 制約違反が発生していた。'A' をデフォルト値として使う。
+-- create_qr_bundle の qr_configs insert で entrance 以外のとき
+-- bg_color/fg_color/label_color に NULL を明示挿入していたため NOT NULL 制約違反。
+-- 色はすべての商品タイプで共通のデザインプロパティなので常にパラメータ値を使う。
 CREATE OR REPLACE FUNCTION create_qr_bundle(
   p_event_id             UUID,
   p_creator_profile_id   UUID,
@@ -32,6 +33,8 @@ DECLARE
   v_product_id    UUID;
   v_qr_config_id  UUID;
 BEGIN
+  -- products insert
+  -- payment_type: entrance のみ意味を持つが NOT NULL のため entrance 以外は 'A' を入れる
   INSERT INTO products (
     event_id,
     artist_id,
@@ -59,6 +62,8 @@ BEGIN
   )
   RETURNING product_id INTO v_product_id;
 
+  -- qr_configs insert
+  -- bg_color/fg_color/label_color は NOT NULL のため常にパラメータ値を使う（デフォルト値あり）
   INSERT INTO qr_configs (
     event_id,
     creator_profile_id,

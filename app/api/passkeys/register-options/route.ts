@@ -63,12 +63,26 @@ export async function POST(req: Request) {
     },
   });
 
-  // チャレンジを保存（profile_id はまだないかもしれないのでnull許容）
-  await admin.from("passkey_challenges").insert({
+  // profiles に実レコードがある場合のみ profile_id を使う（FK制約対策）
+  // passkey-setup は onboarding 前に来るため auth.users にいても profiles がない場合がある
+  let profileIdForChallenge: string | null = null;
+  if (resolvedProfileId) {
+    const { data: profileRow } = await admin
+      .from("profiles")
+      .select("profile_id")
+      .eq("profile_id", resolvedProfileId)
+      .maybeSingle();
+    if (profileRow) profileIdForChallenge = resolvedProfileId;
+  }
+
+  const { error: challengeErr } = await admin.from("passkey_challenges").insert({
     challenge: options.challenge,
-    profile_id: resolvedProfileId ?? null,
+    profile_id: profileIdForChallenge,
     purpose: "registration",
   });
+  if (challengeErr) {
+    return NextResponse.json({ error: challengeErr.message }, { status: 500 });
+  }
 
   // email を challenge と紐づけるため metadata を返す側で渡す
   // challenge 自体に email を含めず、サーバー側で保持

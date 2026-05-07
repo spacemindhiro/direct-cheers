@@ -92,6 +92,19 @@ export async function POST(req: Request) {
   let authUserId: string;
   if (resolvedProfileId) {
     authUserId = resolvedProfileId;
+    // auth.users にはいるが profiles がない場合（onboarding 前の passkey 登録）は profile を作成
+    const { data: existingProfile } = await admin
+      .from("profiles")
+      .select("profile_id")
+      .eq("profile_id", authUserId)
+      .maybeSingle();
+    if (!existingProfile) {
+      await admin.from("profiles").insert({
+        profile_id: authUserId,
+        role: "user",
+        status: "pending_onboarding",
+      });
+    }
   } else {
     // 新規 auth ユーザーを作成（既存の場合は既存ユーザーを使用）
     const { data: newUser, error: createErr } = await admin.auth.admin.createUser({

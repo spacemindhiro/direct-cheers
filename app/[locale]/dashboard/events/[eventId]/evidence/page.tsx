@@ -3,7 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EvidenceUploadForm } from "@/components/evidence-upload-form";
-import { Loader2, ArrowLeft, Calendar, MapPin, CheckCircle2 } from "lucide-react";
+import { Loader2, Calendar, MapPin, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
 async function EvidencePageContent({
@@ -41,13 +41,7 @@ async function EvidencePageContent({
       <div className="max-w-xl mx-auto px-6 py-10 space-y-8">
 
         <div className="space-y-1">
-          <Link
-            href={`/dashboard/events/${eventId}`}
-            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4"
-          >
-            <ArrowLeft size={12} /> イベント詳細に戻る
-          </Link>
-          <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Evidence</p>
+<p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Evidence</p>
           <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
             エビデンス提出
           </h1>

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ArrowLeft, Loader2, User, MapPin, Building2, ExternalLink } from "lucide-react";
+import { Loader2, User, MapPin, Building2, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import Stripe from "stripe";
 import { AdminConnectReview } from "@/components/admin-connect-review";
@@ -84,13 +84,7 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
     <div className="space-y-6">
       {/* ヘッダー */}
       <div className="space-y-1">
-        <Link
-          href="/dashboard/admin/connect-review"
-          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
-        >
-          <ArrowLeft size={12} /> 審査一覧に戻る
-        </Link>
-        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.4em]">Admin / Connect Review</p>
+<p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.4em]">Admin / Connect Review</p>
         <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">
           {profile.display_name ?? "—"}
         </h1>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Fingerprint, Trash2, Pencil, Check, X, PlusCircle, Loader2, ShieldCheck, Cloud, ArrowLeft } from "lucide-react";
+import { Fingerprint, Trash2, Pencil, Check, X, PlusCircle, Loader2, ShieldCheck, Cloud } from "lucide-react";
 import Link from "next/link";
 import { PasskeySetup } from "@/components/passkey-setup";
 import { createBrowserClient } from "@supabase/ssr";
@@ -97,13 +97,7 @@ export default function PasskeysPage() {
   return (
     <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
       <div>
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
-        >
-          <ArrowLeft size={12} /> ダッシュボードに戻る
-        </Link>
-        <h1 className="text-xl font-black text-white">パスキー管理</h1>
+<h1 className="text-xl font-black text-white">パスキー管理</h1>
         <p className="text-xs text-slate-500 mt-1">登録済みデバイスの確認・削除・追加</p>
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import {
   Clock,
   CheckCircle,
@@ -155,17 +155,15 @@ function InvitationItem({
 }
 
 export function InvitationsList({
-  initialInvitations,
+  invitations,
   origin,
+  onDelete,
 }: {
-  initialInvitations: InvitationRow[];
+  invitations: InvitationRow[];
   origin: string;
+  onDelete: (id: string) => void;
 }) {
-  const [invitations, setInvitations] = useState(initialInvitations);
-
-  const handleDelete = (id: string) => {
-    setInvitations((prev) => prev.filter((i) => i.invitation_id !== id));
-  };
+  const handleDelete = onDelete;
 
   if (invitations.length === 0) {
     return (

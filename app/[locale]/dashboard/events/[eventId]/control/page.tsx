@@ -3,7 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QRControlPanel } from "@/components/qr-control-panel";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
 async function ControlContent({ params }: { params: Promise<{ eventId: string }> }) {
@@ -55,13 +55,7 @@ async function ControlContent({ params }: { params: Promise<{ eventId: string }>
 
   return (
     <div className="max-w-md mx-auto px-4 py-8">
-      <Link
-        href={`/dashboard/events/${eventId}`}
-        className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-6 transition-colors"
-      >
-        <ArrowLeft size={12} /> イベントに戻る
-      </Link>
-      <QRControlPanel
+<QRControlPanel
         eventId={eventId}
         eventTitle={event.title}
         qrConfigs={(qrConfigs ?? []) as any}

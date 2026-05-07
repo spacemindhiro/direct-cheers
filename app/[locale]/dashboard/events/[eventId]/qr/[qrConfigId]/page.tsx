@@ -7,7 +7,7 @@ import { QREditDelete } from "@/components/qr-edit-delete";
 import { QRThanksEditor } from "@/components/qr-thanks-editor";
 import { QRRecipientImageEdit } from "@/components/qr-recipient-image-edit";
 import { QRInviteIssuer } from "@/components/qr-invite-issuer";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
 async function QRDetailContent({
@@ -117,13 +117,7 @@ async function QRDetailContent({
   return (
     <div className="space-y-8">
       <div className="space-y-1">
-        <Link
-          href={`/dashboard/events/${eventId}`}
-          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
-        >
-          <ArrowLeft size={12} /> イベントに戻る
-        </Link>
-        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">QR Code</p>
+<p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">QR Code</p>
         <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
           {qr.label ?? "QRコード"}
         </h1>

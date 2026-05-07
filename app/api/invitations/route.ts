@@ -65,12 +65,12 @@ export async function POST(req: Request) {
       target_role,
       target_email: target_email ?? null,
     })
-    .select("token")
+    .select("invitation_id, token, target_role, target_email, status, is_sent, viewed_at, expires_at, created_at")
     .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ token: invitation.token });
+  return NextResponse.json({ ...invitation, accepted_by: null });
 }

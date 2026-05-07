@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, ArrowLeft, Pencil, CheckCircle2, ScanLine } from "lucide-react";
+import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, Pencil, CheckCircle2, ScanLine } from "lucide-react";
 import { EventEndButton } from "@/components/event-end-button";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
@@ -107,13 +107,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   return (
     <div className="space-y-8">
       <div className="space-y-1">
-        <Link
-          href="/dashboard/events"
-          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
-        >
-          <ArrowLeft size={12} /> イベント一覧に戻る
-        </Link>
-        <div className="flex items-start justify-between gap-4">
+<div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Event</p>
             <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">{event.title}</h1>

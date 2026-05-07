@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Link2, Copy, Check, Loader2, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import type { InvitationRow } from "@/components/invitations-list";
 
 const ROLE_OPTIONS: Record<string, { label: string; canInvite: string[] }> = {
   admin: {
@@ -26,7 +27,7 @@ const ROLE_LABELS: Record<string, string> = {
   artist: "アーティスト / DJ",
 };
 
-export function InviteCreateForm({ myRole }: { myRole: string }) {
+export function InviteCreateForm({ myRole, onAdd }: { myRole: string; onAdd?: (inv: InvitationRow) => void }) {
   const options = ROLE_OPTIONS[myRole];
   const router = useRouter();
   const [targetRole, setTargetRole] = useState(options?.canInvite[0] ?? "");
@@ -65,7 +66,7 @@ export function InviteCreateForm({ myRole }: { myRole: string }) {
       const url = `${window.location.origin}/invite/${data.token}`;
       setGeneratedLink(url);
       setTargetEmail("");
-      router.refresh();
+      onAdd?.(data as InvitationRow);
     });
   };
 

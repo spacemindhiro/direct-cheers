@@ -3,9 +3,9 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { InviteCreateForm } from "@/components/invite-create-form";
-import { InvitationsList, type InvitationRow } from "@/components/invitations-list";
-import { Loader2, Users, ArrowLeft } from "lucide-react";
+import { InvitationsSection } from "@/components/invitations-section";
+import { type InvitationRow } from "@/components/invitations-list";
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
 async function InvitationsContent() {
@@ -77,13 +77,7 @@ async function InvitationsContent() {
   return (
     <div className="space-y-10">
       <div className="space-y-1">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
-        >
-          <ArrowLeft size={12} /> ダッシュボードに戻る
-        </Link>
-        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">
+<p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">
           Invitations
         </p>
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
@@ -94,18 +88,11 @@ async function InvitationsContent() {
         </p>
       </div>
 
-      <InviteCreateForm myRole={profile.role} />
-
-      {/* 発行済み招待一覧 */}
-      <div className="space-y-4">
-        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-          <Users size={14} className="text-pink-500" /> 発行済み招待
-        </h2>
-        <InvitationsList
-          initialInvitations={rows}
-          origin={origin}
-        />
-      </div>
+      <InvitationsSection
+        myRole={profile.role}
+        initialInvitations={rows}
+        origin={origin}
+      />
     </div>
   );
 }

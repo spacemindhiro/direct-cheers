@@ -6,7 +6,7 @@ import { PayoutForm } from "@/components/payout-form";
 import { PayoutBypassButton } from "@/components/payout-bypass-button";
 import { getFeeConfig } from "@/lib/fee-config";
 import {
-  Loader2, Wallet, Clock, Lock, AlertTriangle, ArrowLeft,
+  Loader2, Wallet, Clock, Lock, AlertTriangle,
   CheckCircle2, RefreshCw, CalendarClock, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
@@ -183,10 +183,7 @@ async function PayoutContent() {
       <div className="max-w-xl mx-auto px-6 py-10 space-y-8">
 
         <div className="space-y-1">
-          <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4">
-            <ArrowLeft size={12} /> ダッシュボードへ
-          </Link>
-          <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Payout</p>
+<p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Payout</p>
           <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">出金管理</h1>
         </div>
 

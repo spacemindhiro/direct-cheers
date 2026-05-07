@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { LogoutButton } from '@/components/logout-button';
 import { Loader2, UserCircle } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
+import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
 
 async function DashboardNav() {
   const supabase = await createClient();
@@ -75,6 +76,7 @@ export default function DashboardLayout({
       }>
         <DashboardNav />
       </Suspense>
+      <DashboardBreadcrumb />
       <main className="max-w-5xl mx-auto px-6 py-10">
         {children}
       </main>

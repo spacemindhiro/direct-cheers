@@ -414,10 +414,7 @@ export default function ProfileEditPage() {
 
       {/* ヘッダー */}
       <div className="flex items-center gap-4">
-        <Link href="/dashboard" className="w-10 h-10 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-600 transition-all">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
+<div>
           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Settings</p>
           <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">Profile</h1>
         </div>

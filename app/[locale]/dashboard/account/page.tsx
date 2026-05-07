@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Merge, CheckCircle2, Loader2, ChevronRight, ArrowLeft, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Mail, Merge, CheckCircle2, Loader2, ChevronRight, KeyRound, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -59,13 +59,7 @@ export default function AccountPage() {
   return (
     <div className="max-w-lg mx-auto px-4 py-8 space-y-8">
       <div>
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors"
-        >
-          <ArrowLeft size={12} /> ダッシュボードに戻る
-        </Link>
-        <h1 className="text-xl font-black text-white">アカウント管理</h1>
+<h1 className="text-xl font-black text-white">アカウント管理</h1>
         <p className="text-xs text-slate-500 mt-1">別メールアドレスの応援履歴をまとめる</p>
       </div>
 

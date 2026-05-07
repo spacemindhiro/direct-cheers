@@ -101,6 +101,7 @@ export async function POST(req: Request) {
     if (!existingProfile) {
       const { error: profileErr } = await admin.from("profiles").insert({
         profile_id: authUserId,
+        display_name: email,
         role: "user",
         status: "pending_onboarding",
       });

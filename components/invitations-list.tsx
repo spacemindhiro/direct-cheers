@@ -96,9 +96,12 @@ function InvitationItem({
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 space-y-0.5">
           <p className="text-sm font-bold text-white">
-            {ROLE_LABELS[inv.target_role] ?? inv.target_role}
+            {inv.accepted_by?.display_name || (ROLE_LABELS[inv.target_role] ?? inv.target_role)}
           </p>
           <p className="text-xs text-slate-500 truncate">
+            {inv.accepted_by?.display_name && (
+              <span className="text-slate-400 font-bold mr-1">{ROLE_LABELS[inv.target_role] ?? inv.target_role} ·</span>
+            )}
             {inv.target_email ?? "メールなし"} ·{" "}
             {new Date(inv.created_at).toLocaleDateString("ja-JP")}
           </p>

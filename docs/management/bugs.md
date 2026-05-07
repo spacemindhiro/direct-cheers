@@ -118,4 +118,4 @@ No.,指摘箇所,指摘内容,修正方針,状態
 117,招待メール,109の原因が出た。Sorry, something went wrong.Code error: no_code:params=error=access_denied&error_code=otp_expired&error_description=Email link is invalid or has expired&redirect=/invite/f7716fd1-0bcf-49fd-bb1d-42fe7af4acea,直して。そして以前動いてたのになぜ壊れているか説明せよ。修正するたびに別の場所が壊れてたらテストが終えられない。
 118,招待メールからのサインアップ認証,招待からのサインアップで、メールアドレス認証でメールのリンクを踏んだらこのメッセージが出て動かない。Sorry, something went wrong.Code error: exchangeCode: PKCE code verifier not found in storage. This can happen if the auth flow was initiated in a different browser or device, or if the storage was cleared. For SSR frameworks (Next.js, SvelteKit, etc.), use @supabase/ssr on both the server and client to store the code verifier in cookies.,直せ。そして以前動いてたのになぜ壊れているか説明せよ。修正するたびに別の場所が壊れてたらテストが終えられない。
 119,全般,各ページの一個前の画面に戻るナビゲーションが使いにくい。,パンくずリスト形式でダッシュボードから今のページまでの階層を並べて、任意の階層に行けるようにすること。
-120,
+120,プロフィール編集画面,アバター画像をアップして保存をしてもヘッダーのアバター画像が更新されない。,プロフィールの保存がされたら、アバター画像が変わっているかもしれないんだから、ヘッダーも再描画せよ。

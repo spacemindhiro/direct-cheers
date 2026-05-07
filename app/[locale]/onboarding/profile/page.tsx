@@ -53,12 +53,12 @@ function ProfileSetupForm() {
 
       const { error: insertError } = await supabase
         .from('profiles')
-        .insert({
+        .upsert({
           profile_id: user.id,
           display_name: displayName,
           role: 'user',
           social_links: socialLinks,
-        });
+        }, { onConflict: 'profile_id' });
 
       if (insertError) {
         setError(insertError.message);

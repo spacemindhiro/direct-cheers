@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { InviteLoginPrompt, InviteAcceptButton } from "./invite-accept-client";
+import { InviteLoginPrompt, InviteAutoAccept } from "./invite-accept-client";
 
 async function checkIsMember(email: string): Promise<boolean> {
   const admin = createAdminClient();
@@ -50,5 +50,5 @@ export async function InviteAcceptSection({
     redirect(`/onboarding/profile?redirect=/invite/${token}`);
   }
 
-  return <InviteAcceptButton token={token} />;
+  return <InviteAutoAccept token={token} />;
 }

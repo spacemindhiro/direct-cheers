@@ -61,6 +61,7 @@ export async function PATCH(
     bg_color,
     fg_color,
     label_color,
+    amount_step,
   } = await req.json() as {
     label?: string;
     image_url?: string | null;
@@ -70,6 +71,7 @@ export async function PATCH(
     bg_color?: string;
     fg_color?: string;
     label_color?: string;
+    amount_step?: 100 | 500 | 1000;
   };
 
   // 宛先本人は image_url / strip_image_url のみ更新可。それ以外のフィールドは organizer/agent のみ。
@@ -91,6 +93,7 @@ export async function PATCH(
   if (fg_color !== undefined) configUpdates.fg_color = fg_color;
   if (label_color !== undefined) configUpdates.label_color = label_color;
   if (recipient_profile_id !== undefined) configUpdates.recipient_profile_id = recipient_profile_id;
+  if (amount_step !== undefined) configUpdates.amount_step = amount_step;
 
   if (Object.keys(configUpdates).length > 0) {
     const { error: configError } = await sb

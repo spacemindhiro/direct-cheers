@@ -66,6 +66,7 @@ export function QRCreateForm({
   const [fixedAmount, setFixedAmount] = useState(currentConfig?.min_amount ?? 500);
   const [minAmount, setMinAmount] = useState(currentConfig?.min_amount ?? 500);
   const [maxAmount, setMaxAmount] = useState(currentConfig?.max_amount ?? 3000);
+  const [amountStep, setAmountStep] = useState<100 | 500 | 1000>(100);
   const [label, setLabel] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [recipientId, setRecipientId] = useState(targetCandidates[0]?.profile_id ?? "");
@@ -109,6 +110,16 @@ export function QRCreateForm({
     setFixedAmount(cfg.min_amount);
     setMinAmount(cfg.min_amount);
     setMaxAmount(cfg.max_amount);
+  };
+
+  const handleStepChange = (s: 100 | 500 | 1000) => {
+    setAmountStep(s);
+    const cfgMin = currentConfig?.min_amount ?? 500;
+    const cfgMax = currentConfig?.max_amount ?? 3000;
+    const snappedMin = Math.max(cfgMin, Math.round(minAmount / s) * s);
+    const snappedMax = Math.min(cfgMax, Math.round(maxAmount / s) * s);
+    setMinAmount(snappedMin);
+    setMaxAmount(snappedMax <= snappedMin ? Math.min(snappedMin + s, cfgMax) : snappedMax);
   };
 
   // エントランスはワンプライス固定
@@ -168,6 +179,7 @@ export function QRCreateForm({
           product_type: productType,
           min_amount: priceMode === "fixed" ? fixedAmount : minAmount,
           max_amount: priceMode === "fixed" ? fixedAmount : maxAmount,
+          amount_step: priceMode === "range" ? amountStep : 100,
           recipient_profile_id: recipientId,
           targets: targets.map((t) => ({
             profile_id: t.profile_id,
@@ -477,31 +489,69 @@ export function QRCreateForm({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
+              {/* スライド単位 */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">最低金額</label>
-                <div className="relative">
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold pointer-events-none">¥</span>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    value={fmtAmt(minAmount)}
-                    onChange={(e) => setMinAmount(parseAmt(e.target.value))}
-                    className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl pl-9 pr-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">スライド単位</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([100, 500, 1000] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => handleStepChange(s)}
+                      className={`py-2 rounded-xl text-center text-xs font-black transition-all border ${
+                        amountStep === s
+                          ? "bg-pink-500/20 border-pink-500/50 text-white"
+                          : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      ¥{s.toLocaleString()}単位
+                    </button>
+                  ))}
                 </div>
               </div>
+              {/* 最低金額スライダー */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">最高金額</label>
-                <div className="relative">
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold pointer-events-none">¥</span>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    value={fmtAmt(maxAmount)}
-                    onChange={(e) => setMaxAmount(parseAmt(e.target.value))}
-                    className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl pl-9 pr-5 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">最低金額</label>
+                  <span className="text-sm font-black text-white">¥{minAmount.toLocaleString()}</span>
+                </div>
+                <input
+                  type="range"
+                  min={currentConfig?.min_amount ?? 500}
+                  max={(currentConfig?.max_amount ?? 3000) - amountStep}
+                  step={amountStep}
+                  value={minAmount}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setMinAmount(v);
+                    if (v >= maxAmount) setMaxAmount(Math.min(v + amountStep, currentConfig?.max_amount ?? 3000));
+                  }}
+                  className="w-full accent-pink-500"
+                />
+              </div>
+              {/* 最高金額スライダー */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">最高金額</label>
+                  <span className="text-sm font-black text-white">¥{maxAmount.toLocaleString()}</span>
+                </div>
+                <input
+                  type="range"
+                  min={(currentConfig?.min_amount ?? 500) + amountStep}
+                  max={currentConfig?.max_amount ?? 3000}
+                  step={amountStep}
+                  value={maxAmount}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setMaxAmount(v);
+                    if (v <= minAmount) setMinAmount(Math.max(v - amountStep, currentConfig?.min_amount ?? 500));
+                  }}
+                  className="w-full accent-pink-500"
+                />
+                <div className="flex justify-between text-[10px] text-slate-600 font-bold">
+                  <span>¥{(currentConfig?.min_amount ?? 500).toLocaleString()}</span>
+                  <span>¥{(currentConfig?.max_amount ?? 3000).toLocaleString()}</span>
                 </div>
               </div>
             </div>

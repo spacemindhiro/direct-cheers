@@ -54,6 +54,7 @@ export async function POST(req: Request) {
     bg_color = "#0f172a",
     fg_color = "#ffffff",
     label_color = "#94a3b8",
+    amount_step = 100,
   } = body as {
     event_id: string;
     label?: string;
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
     bg_color?: string;
     fg_color?: string;
     label_color?: string;
+    amount_step?: 100 | 500 | 1000;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -151,6 +153,7 @@ export async function POST(req: Request) {
     p_sales_start_at:       sales_start_at,
     p_sales_end_at:         sales_end_at,
     p_targets:              targets,
+    p_amount_step:          amount_step,
   });
 
   if (rpcError) {

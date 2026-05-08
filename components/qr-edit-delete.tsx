@@ -28,6 +28,7 @@ export function QREditDelete({
   currentRecipientId,
   currentTargets,
   candidates,
+  currentAmountStep = 100,
 }: {
   qrConfigId: string;
   eventId: string;
@@ -44,6 +45,7 @@ export function QREditDelete({
   currentRecipientId: string;
   currentTargets: { profile_id: string; distribution_ratio: number }[];
   candidates: TargetCandidate[];
+  currentAmountStep?: 100 | 500 | 1000;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -57,6 +59,7 @@ export function QREditDelete({
   const [fgColor, setFgColor] = useState(currentFgColor);
   const [labelColor, setLabelColor] = useState(currentLabelColor);
   const [recipientId, setRecipientId] = useState(currentRecipientId);
+  const [amountStep, setAmountStep] = useState<100 | 500 | 1000>(currentAmountStep);
   const [targets, setTargets] = useState<DistTarget[]>(
     currentTargets.map((t) => ({
       profile_id: t.profile_id,
@@ -111,6 +114,7 @@ export function QREditDelete({
         body.label_color = labelColor;
       } else {
         body.image_url = imageUrl;
+        body.amount_step = amountStep;
       }
 
       const res = await fetch(`/api/qr/${qrConfigId}`, {
@@ -276,6 +280,29 @@ export function QREditDelete({
                 </div>
               )}
             </>
+          )}
+
+          {/* スライド単位（非 entrance のみ） */}
+          {!isEntrance && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">スライド単位</label>
+              <div className="grid grid-cols-3 gap-2">
+                {([100, 500, 1000] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setAmountStep(s)}
+                    className={`py-2 rounded-xl text-center text-xs font-black transition-all border ${
+                      amountStep === s
+                        ? "bg-pink-500/20 border-pink-500/50 text-white"
+                        : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                    }`}
+                  >
+                    ¥{s.toLocaleString()}単位
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* 宛先 */}

@@ -29,6 +29,7 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
       image_url,
       product_id,
       bypass_validity,
+      amount_step,
       event:events!event_id (
         event_id,
         title,
@@ -122,12 +123,14 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
   const recipientAvatar = recipient?.avatar_url ?? null;
   const qrImageUrl = (qr as any).image_url as string | null;
 
+  const qrAmountStep = ((qr as any).amount_step as number) ?? 100;
   const formProducts = products.map((p: any) => ({
     product_id: p.product_id,
     name: p.name,
     type: p.type,
     min_amount: p.min_amount,
     max_amount: p.max_amount,
+    amount_step: qrAmountStep,
   }));
 
   return (

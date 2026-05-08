@@ -11,6 +11,7 @@ type Product = {
   type: string;
   min_amount: number;
   max_amount: number;
+  amount_step?: number;
 };
 
 function saveEmailCookie(email: string) {
@@ -152,7 +153,7 @@ export function CheersPaymentForm({
               type="range"
               min={selectedProduct.min_amount}
               max={selectedProduct.max_amount}
-              step={100}
+              step={selectedProduct.amount_step ?? 100}
               value={amount}
               onChange={(e) => setAmount(Number(e.target.value))}
               className="w-full accent-pink-500"

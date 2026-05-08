@@ -119,6 +119,8 @@ export function CheersPaymentForm({
               <Loader2 size={16} className="animate-spin" />
             ) : pendingMethod === "paypay" ? (
               "PayPay で支払う"
+            ) : selectedProduct?.type === "entrance" ? (
+              <>¥{amount.toLocaleString()} を購入する</>
             ) : (
               <><Heart size={16} className="fill-current" />¥{amount.toLocaleString()} を応援する</>
             )}
@@ -193,6 +195,8 @@ export function CheersPaymentForm({
         >
           {isPending ? (
             <Loader2 size={20} className="animate-spin" />
+          ) : selectedProduct?.type === "entrance" ? (
+            <>¥{amount.toLocaleString()} を購入する</>
           ) : (
             <>
               <Heart size={20} className="fill-current" />
@@ -212,7 +216,6 @@ export function CheersPaymentForm({
             >
               {isPending ? <Loader2 size={18} className="animate-spin" /> : "PayPay で支払う"}
             </button>
-            <p className="text-center text-[10px] text-slate-600">PayPay 決済手数料 3.98% が適用されます。返金時も手数料は返還されません。</p>
           </>
         )}
       </div>

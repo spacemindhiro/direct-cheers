@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendConnectReviewRequestEmail } from "@/lib/email/notification";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -63,6 +64,17 @@ export async function POST() {
           body: `${fullProfile?.display_name ?? roleLabel} がStripe審査を通過しました。口座開設審査を行ってください。`,
           metadata: { subject_profile_id: user.id, subject_role: fullProfile?.role },
         });
+
+        const { data: adminAuth } = await admin.auth.admin.getUserById(notifyProfileId);
+        const adminEmail = adminAuth.user?.email;
+        if (adminEmail) {
+          sendConnectReviewRequestEmail({
+            to: adminEmail,
+            applicantName: fullProfile?.display_name ?? roleLabel,
+            applicantRole: roleLabel,
+            profileId: user.id,
+          }).catch(() => {});
+        }
       } catch { /* notifications テーブルがなければスキップ */ }
     }
 

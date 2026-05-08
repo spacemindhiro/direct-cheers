@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEvidenceRejectedEmail } from "@/lib/email/notification";
 
 export async function POST(
   req: Request,
@@ -64,6 +65,20 @@ export async function POST(
     body: `「${event.title}」のエビデンスが差し戻されました。\n\n【差戻しコメント】\n${comment.trim()}`,
     metadata: { event_id: eventId, rejected_by: user.id, comment: comment.trim() },
   });
+
+  // メール送信（fire-and-forget）
+  try {
+    const { data: authUser } = await admin.auth.admin.getUserById(event.organizer_profile_id);
+    const email = authUser.user?.email;
+    if (email) {
+      sendEvidenceRejectedEmail({
+        to: email,
+        eventId,
+        eventTitle: event.title,
+        reason: comment.trim(),
+      }).catch(() => {});
+    }
+  } catch { /* メール失敗はサイレントに */ }
 
   return NextResponse.json({ success: true });
 }

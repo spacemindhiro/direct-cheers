@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEvidenceSubmittedEmail } from "@/lib/email/notification";
 
 export async function POST(
   req: Request,
@@ -88,6 +89,17 @@ export async function POST(
         body: `「${event.title}」の開催証跡が提出されました。精算管理から確認してください。`,
         metadata: { event_id: eventId, submitted_by: user.id, organizer_name: organizer?.display_name ?? null },
       });
+
+      const { data: adminAuth } = await admin.auth.admin.getUserById(adminId);
+      const adminEmail = adminAuth.user?.email;
+      if (adminEmail) {
+        sendEvidenceSubmittedEmail({
+          to: adminEmail,
+          eventId,
+          eventTitle: event.title,
+          organizerName: organizer?.display_name ?? "オーガナイザー",
+        }).catch(() => {});
+      }
     }
   } catch { /* 通知失敗は無視 */ }
 

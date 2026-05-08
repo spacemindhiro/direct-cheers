@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendCancellationRequestEmail } from "@/lib/email/notification";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -52,6 +53,37 @@ export async function POST(
     .eq("event_id", eventId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // 承認が必要な中止申請の場合のみエージェント/adminへメール
+  if (!isDraft) {
+    try {
+      const admin = createAdminClient();
+      const { data: organizer } = await admin
+        .from("profiles").select("display_name").eq("profile_id", user.id).single();
+      const { data: eventDetail } = await admin
+        .from("events").select("title, agent_id, organizer_profile_id").eq("event_id", eventId).single();
+
+      // エージェントが自分 or 未設定の場合は admin に通知
+      const isSelf = eventDetail?.agent_id === eventDetail?.organizer_profile_id;
+      let notifyId: string | null = (!isSelf && eventDetail?.agent_id) ? eventDetail.agent_id : null;
+      if (!notifyId) {
+        const { data: admins } = await admin.from("profiles").select("profile_id").eq("role", "admin").limit(1);
+        notifyId = admins?.[0]?.profile_id ?? null;
+      }
+      if (notifyId) {
+        const { data: authUser } = await admin.auth.admin.getUserById(notifyId);
+        const email = authUser.user?.email;
+        if (email) {
+          sendCancellationRequestEmail({
+            to: email,
+            eventId,
+            eventTitle: eventDetail?.title ?? "",
+            organizerName: organizer?.display_name ?? "オーガナイザー",
+          }).catch(() => {});
+        }
+      }
+    } catch { /* メール失敗はサイレントに */ }
+  }
 
   return NextResponse.json({ ok: true, immediate: isDraft });
 }

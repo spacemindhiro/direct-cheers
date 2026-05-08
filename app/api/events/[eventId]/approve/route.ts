@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEventApprovedEmail } from "@/lib/email/notification";
 
 export async function POST(
   _req: Request,
@@ -65,7 +66,7 @@ export async function POST(
 
   const admin = createAdminClient();
 
-  // オーガナイザーへ承認通知
+  // オーガナイザーへ承認通知 + メール
   try {
     await admin.from("notifications").insert({
       profile_id: eventDetail.organizer_profile_id,
@@ -74,6 +75,12 @@ export async function POST(
       body: `「${eventDetail.title}」がエージェントに承認され、公開されました。`,
       metadata: { event_id: eventId },
     });
+
+    const { data: authUser } = await admin.auth.admin.getUserById(eventDetail.organizer_profile_id);
+    const email = authUser.user?.email;
+    if (email) {
+      sendEventApprovedEmail({ to: email, eventId, eventTitle: eventDetail.title }).catch(() => {});
+    }
   } catch { /* 通知失敗はサイレントに */ }
 
   // フォロワーへの通知キュー（new_event / artist_appearing）

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendLineupResponseEmail } from "@/lib/email/notification";
 
 // POST: アーティストが出演依頼に承認 or 辞退
 export async function POST(
@@ -114,6 +115,18 @@ export async function POST(
           : `${artist?.display_name ?? "アーティスト"} が「${event.title}」への出演を辞退しました。`,
         metadata: { event_id: eventId, artist_id: artistId },
       });
+
+      const { data: authUser } = await admin.auth.admin.getUserById(event.organizer_profile_id);
+      const email = authUser.user?.email;
+      if (email) {
+        sendLineupResponseEmail({
+          to: email,
+          eventId,
+          eventTitle: event.title,
+          artistName: artist?.display_name ?? "アーティスト",
+          accepted: action === "accept",
+        }).catch(() => {});
+      }
     }
   } catch { /* notifications テーブルがなければスキップ */ }
 

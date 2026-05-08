@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendLineupInviteEmail } from "@/lib/email/notification";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -98,6 +99,21 @@ export async function POST(req: Request) {
         metadata: { event_id: event.event_id, organizer_id: user.id },
       }));
       await admin.from("notifications").insert(notifs);
+
+      // メール送信（fire-and-forget）
+      for (const a of artistList) {
+        const { data: authUser } = await admin.auth.admin.getUserById(a.profile_id);
+        const email = authUser.user?.email;
+        if (email) {
+          sendLineupInviteEmail({
+            to: email,
+            eventId: event.event_id,
+            eventTitle: title,
+            organizerName: organizer?.display_name ?? "オーガナイザー",
+            artistName: "",
+          }).catch(() => {});
+        }
+      }
     } catch { /* notifications テーブルがなければスキップ */ }
   }
 

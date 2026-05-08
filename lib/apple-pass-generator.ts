@@ -213,7 +213,7 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
   const { data: tx, error: txErr } = await admin
     .from("transactions")
     .select(`
-      transaction_id, total_gross_amount, created_at, sequence_number_in_event,
+      transaction_id, total_gross_amount, created_at, sequence_number_in_event, sender_name, sender_comment,
       product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
       qr_config:qr_configs!qr_config_id(
         qr_config_id, event_id, image_url, recipient_profile_id,
@@ -284,7 +284,9 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
         { key: "date", label: "DATE", value: txDate },
       ],
       backFields: [
-        ...(thanksMessage ? [{ key: "thanks", label: "メッセージ", value: thanksMessage }] : []),
+        ...(tx.sender_name ? [{ key: "sender", label: "FROM", value: tx.sender_name }] : []),
+        ...(tx.sender_comment ? [{ key: "message", label: "メッセージ", value: tx.sender_comment }] : []),
+        ...(thanksMessage ? [{ key: "thanks", label: "アーティストより", value: thanksMessage }] : []),
         ...(thanksLinkUrl ? [{ key: "benefit", label: "特典リンク", value: thanksLinkUrl }] : []),
         ...(thanksMediaUrl ? [{ key: "media", label: "特典メディア", value: thanksMediaUrl }] : []),
         { key: "txid", label: "Transaction ID", value: tx.transaction_id },

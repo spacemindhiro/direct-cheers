@@ -17,7 +17,7 @@ async function CollectionContent() {
   const userEmail = user.email!;
 
   const query = `
-    transaction_id, total_gross_amount, created_at, sequence_number_in_event,
+    transaction_id, total_gross_amount, created_at, sequence_number_in_event, sender_name, sender_comment,
     product:products!product_id(name, type, artist_id),
     qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, event:events!event_id(title))
   `;
@@ -130,6 +130,8 @@ async function CollectionContent() {
                   transactionId={tx.transaction_id}
                   serialNumber={tx.sequence_number_in_event ?? null}
                   paidAt={tx.created_at}
+                  nickname={tx.sender_name ?? null}
+                  comment={tx.sender_comment ?? null}
                   thanks={thanks ? {
                     thanks_message: thanks.thanks_message,
                     thanks_link_url: thanks.thanks_link_url,

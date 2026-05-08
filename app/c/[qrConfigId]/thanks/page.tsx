@@ -232,6 +232,8 @@ function ThanksContent() {
           serialNumber={result.serial_number}
           thanks={thanks}
           imageUrl={result.qr_image_url}
+          nickname={msgSent ? (msgNickname || null) : null}
+          comment={msgSent ? (msgComment || null) : null}
         />
 
         {/* メッセージ送信（message タイプのみ） */}

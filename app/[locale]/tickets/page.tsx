@@ -90,11 +90,7 @@ async function TicketsContent() {
               fgColor={t.transaction?.qr_config?.fg_color ?? undefined}
               labelColor={t.transaction?.qr_config?.label_color ?? undefined}
               reservationId={t.reservation_id ?? null}
-              reservationStatus={
-                Array.isArray(t.reservation)
-                  ? (t.reservation[0] as any)?.status ?? null
-                  : (t.reservation as any)?.status ?? null
-              }
+              reservationStatus={Array.isArray(t.reservation) ? (t.reservation[0] as any)?.status ?? null : (t.reservation as any)?.status ?? null}
             />
           ))}
         </div>

@@ -44,41 +44,38 @@ export function cardErrorEmail(opts: {
   eventTitle: string;
   productName: string;
   errorMessage: string;
-  retryDeadline: string;
-  updateCardUrl?: string;
+  repurchaseUrl: string;
 }) {
   return `
 <!DOCTYPE html>
 <html lang="ja">
-<head><meta charset="UTF-8"><title>カードエラーのお知らせ</title></head>
+<head><meta charset="UTF-8"><title>チケット無効のお知らせ</title></head>
 <body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;padding:32px;">
   <div style="max-width:480px;margin:0 auto;background:#1e293b;border-radius:16px;padding:32px;border:1px solid #334155;">
     <p style="color:#f472b6;font-weight:900;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;margin:0 0 8px">
       Direct Cheers
     </p>
     <h1 style="color:#ffffff;font-size:22px;font-weight:900;margin:0 0 24px">
-      カード決済に問題が発生しました
+      カード無効のため、チケットがキャンセルされました
     </h1>
     <p style="color:#94a3b8;margin:0 0 16px">
-      以下のイベントチケットの事前カード確認で問題が発生しました。
+      以下のチケットに登録されたカードの状態が無効と確認されたため、チケットを自動キャンセルしました。
     </p>
     <div style="background:#0f172a;border-radius:12px;padding:16px;margin:0 0 24px;border:1px solid #1e293b;">
       <p style="color:#cbd5e1;font-size:14px;font-weight:700;margin:0 0 4px">${opts.eventTitle}</p>
       <p style="color:#64748b;font-size:12px;margin:0">${opts.productName}</p>
     </div>
     <div style="background:#450a0a;border:1px solid #7f1d1d;border-radius:12px;padding:16px;margin:0 0 24px;">
-      <p style="color:#fca5a5;font-size:12px;font-weight:700;margin:0 0 4px">エラー内容</p>
+      <p style="color:#fca5a5;font-size:12px;font-weight:700;margin:0 0 4px">カードエラーの内容</p>
       <p style="color:#fca5a5;font-size:12px;margin:0">${opts.errorMessage}</p>
     </div>
     <p style="color:#94a3b8;font-size:13px;margin:0 0 24px">
-      <strong style="color:#ffffff">${opts.retryDeadline}</strong> までにカード情報を更新してください。
-      期限を過ぎると予約が自動キャンセルされる場合があります。
+      有効なカードで新しくチケットをご購入ください。キャンセルされたチケットは復活しません。
     </p>
-    ${opts.updateCardUrl ? `
-    <a href="${opts.updateCardUrl}"
+    <a href="${opts.repurchaseUrl}"
        style="display:block;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#ffffff;text-decoration:none;text-align:center;padding:14px;border-radius:12px;font-weight:900;font-size:14px;letter-spacing:0.1em;margin:0 0 24px">
-      カード情報を更新する
-    </a>` : ""}
+      別のカードで購入する
+    </a>
     <p style="color:#475569;font-size:11px;margin:0">
       このメールはシステムから自動送信されています。返信はできません。
     </p>
@@ -139,10 +136,10 @@ export function chargeFailedEmail(opts: {
       Direct Cheers
     </p>
     <h1 style="color:#ffffff;font-size:22px;font-weight:900;margin:0 0 24px">
-      チケット自動決済に失敗しました
+      決済失敗のため、チケットがキャンセルされました
     </h1>
     <p style="color:#94a3b8;margin:0 0 16px">
-      以下のチケットの自動決済に失敗しました。
+      以下のチケットの自動決済に失敗したため、チケットを自動キャンセルしました。
     </p>
     <div style="background:#0f172a;border-radius:12px;padding:16px;margin:0 0 24px;border:1px solid #1e293b;">
       <p style="color:#cbd5e1;font-size:14px;font-weight:700;margin:0 0 4px">${opts.eventTitle}</p>
@@ -152,7 +149,7 @@ export function chargeFailedEmail(opts: {
       <p style="color:#fca5a5;font-size:12px;margin:0">${opts.errorMessage}</p>
     </div>
     <p style="color:#94a3b8;font-size:13px;margin:0 0 24px">
-      主催者にご連絡いただくか、別の支払い方法をお試しください。
+      このチケットは無効になりました。別のカードで新しくチケットをご購入ください。一度無効になったチケットは復活しません。
     </p>
     <p style="color:#475569;font-size:11px;margin:0">
       このメールはシステムから自動送信されています。

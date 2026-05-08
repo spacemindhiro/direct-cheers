@@ -128,6 +128,7 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
     product_id: p.product_id,
     name: p.name,
     type: p.type,
+    payment_type: p.payment_type ?? null,
     min_amount: p.min_amount,
     max_amount: p.max_amount,
     amount_step: qrAmountStep,

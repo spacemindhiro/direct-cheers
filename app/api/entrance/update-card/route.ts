@@ -36,6 +36,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Cannot update card for this reservation" }, { status: 409 });
   }
 
+  // チケットがキャンセル済みなら復活不可
+  const { data: ticket } = await admin
+    .from("tickets")
+    .select("status")
+    .eq("reservation_id", reservation_id)
+    .maybeSingle();
+
+  if (ticket?.status === "cancelled") {
+    return NextResponse.json(
+      { error: "このチケットは無効です。別のカードで新しくご購入ください。" },
+      { status: 409 },
+    );
+  }
+
   // 新しい Setup Intent を作成
   const setupIntent = await stripe.setupIntents.create({
     customer: reservation.stripe_customer_id,

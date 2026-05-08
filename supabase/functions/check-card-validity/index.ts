@@ -16,10 +16,11 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import Stripe from "npm:stripe@17";
 import { sendMail, cardErrorEmail } from "../_shared/mailer.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const STRIPE_KEY   = Deno.env.get("STRIPE_SECRET_KEY")!;
-const SITE_URL     = (Deno.env.get("NEXT_PUBLIC_SITE_URL") ?? "https://direct-cheers.jp").replace(/\/$/, "");;
+const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const STRIPE_KEY      = Deno.env.get("STRIPE_SECRET_KEY")!;
+const SITE_URL        = (Deno.env.get("NEXT_PUBLIC_SITE_URL") ?? "https://direct-cheers.jp").replace(/\/$/, "");
+const INTERNAL_SECRET = Deno.env.get("INTERNAL_API_SECRET") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const stripe   = new Stripe(STRIPE_KEY);
@@ -93,28 +94,36 @@ Deno.serve(async (_req) => {
           })
           .eq("reservation_id", r.reservation_id);
 
+        // チケットを無効化
+        const { data: ticketRow } = await supabase
+          .from("tickets")
+          .update({ status: "cancelled" })
+          .eq("reservation_id", r.reservation_id)
+          .select("ticket_id")
+          .single();
+
+        // Apple Wallet 無効化（fire-and-forget）
+        if (ticketRow?.ticket_id && INTERNAL_SECRET) {
+          fetch(`${SITE_URL}/api/internal/wallet-push`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-internal-secret": INTERNAL_SECRET },
+            body: JSON.stringify({ ticket_id: ticketRow.ticket_id }),
+          }).catch(() => {});
+        }
+
         results.expired++;
         console.warn("[check-card-validity] card issue:", r.reservation_id, errorReason);
 
-        // イベント日から5日前の締め切りを計算してメール
-        const retryDeadlineDate = new Date(eventDateApprox.getTime() - 5 * 24 * 60 * 60 * 1000);
-        const retryDeadline = retryDeadlineDate.toLocaleDateString("ja-JP", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
-
-        const updateCardUrl = `${SITE_URL}/reservations?email=${encodeURIComponent(r.email)}&r=${r.reservation_id}`;
+        const repurchaseUrl = `${SITE_URL}/entrance/${r.product_id}`;
 
         await sendMail({
           to: r.email,
-          subject: `【重要】${r.event_title} のカード情報をご確認ください`,
+          subject: `【重要】${r.event_title} のチケットが無効になりました`,
           html: cardErrorEmail({
             eventTitle:  r.event_title,
             productName: r.product_name,
             errorMessage: errorReason,
-            retryDeadline,
-            updateCardUrl,
+            repurchaseUrl,
           }),
         });
 

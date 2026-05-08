@@ -53,7 +53,7 @@ export function DigitalTicket({
   const canCancel =
     status === "valid" &&
     paymentType === "A" &&
-    reservationId &&
+    !!reservationId &&
     reservationStatus === "reserved";
 
   const handleCancel = () => {

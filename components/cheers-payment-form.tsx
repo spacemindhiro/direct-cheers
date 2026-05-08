@@ -1,14 +1,18 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { Heart, Loader2, Mail } from "lucide-react";
+import { Heart, Loader2, Mail, CreditCard, CheckCircle, AlertCircle } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 const CUSTOMER_EMAIL_COOKIE = "dc_ce";
 
 type Product = {
   product_id: string;
   name: string;
   type: string;
+  payment_type?: string | null;
   min_amount: number;
   max_amount: number;
   amount_step?: number;
@@ -16,6 +20,100 @@ type Product = {
 
 function saveEmailCookie(email: string) {
   document.cookie = `${CUSTOMER_EMAIL_COOKIE}=${encodeURIComponent(email)};max-age=${60 * 60 * 24 * 30};path=/;SameSite=Lax`;
+}
+
+// タイプA: SetupIntent（または5日以内はPaymentIntentオーソリ）でカード入力
+function EntranceTypeACardForm({
+  clientSecret,
+  reservationId,
+  isAuth,
+  onSuccess,
+}: {
+  clientSecret: string;
+  reservationId: string;
+  isAuth: boolean;
+  onSuccess: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setLoading(true);
+    setError("");
+
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) return;
+
+    if (isAuth) {
+      // 5日以内: PaymentIntent オーソリ
+      const { paymentIntent, error: stripeError } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card: cardElement },
+      });
+      if (stripeError) {
+        setError(stripeError.message ?? "カード情報の確認に失敗しました");
+        setLoading(false);
+        return;
+      }
+      const res = await fetch("/api/entrance/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservation_id: reservationId, payment_intent_id: paymentIntent?.id }),
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (data.ok) { onSuccess(); } else { setError(data.error ?? "エラーが発生しました"); }
+      return;
+    }
+
+    // 通常パス: SetupIntent
+    const { setupIntent, error: stripeError } = await stripe.confirmCardSetup(clientSecret, {
+      payment_method: { card: cardElement },
+    });
+    if (stripeError) {
+      setError(stripeError.message ?? "カード情報の確認に失敗しました");
+      setLoading(false);
+      return;
+    }
+    const res = await fetch("/api/entrance/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reservation_id: reservationId, payment_method_id: setupIntent?.payment_method as string }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (data.ok) { onSuccess(); } else { setError(data.error ?? "エラーが発生しました"); }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+        <CardElement
+          options={{
+            style: {
+              base: { fontSize: "14px", color: "#e2e8f0", fontFamily: "ui-monospace, monospace", "::placeholder": { color: "#475569" } },
+              invalid: { color: "#f87171" },
+            },
+          }}
+        />
+      </div>
+      {error && (
+        <div className="flex items-center gap-2 text-red-400 text-xs">
+          <AlertCircle size={12} /> {error}
+        </div>
+      )}
+      <button
+        type="submit"
+        disabled={loading || !stripe}
+        className="w-full h-12 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-xl font-black text-sm uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-50 flex items-center justify-center"
+      >
+        {loading ? <Loader2 size={16} className="animate-spin" /> : "カードを保存して予約"}
+      </button>
+    </form>
+  );
 }
 
 export function CheersPaymentForm({
@@ -32,18 +130,49 @@ export function CheersPaymentForm({
   paypayEnabled?: boolean;
 }) {
   const selectedProduct = products[0];
+  const isTypeA = selectedProduct?.type === "entrance" && selectedProduct?.payment_type === "A";
+
   const [amount, setAmount] = useState(products[0]?.min_amount ?? 500);
   const [email, setEmail] = useState("");
-  // メール入力が必要な場合に、どの決済方法で進むか保持
   const [pendingMethod, setPendingMethod] = useState<"card" | "paypay" | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Cookie から返却ユーザーのメールを復元
+  // タイプA用
+  const [setupData, setSetupData] = useState<{
+    clientSecret: string;
+    reservationId: string;
+    isAuth: boolean;
+  } | null>(null);
+  const [entranceDone, setEntranceDone] = useState(false);
+
   useEffect(() => {
     const match = document.cookie.match(new RegExp(`${CUSTOMER_EMAIL_COOKIE}=([^;]+)`));
     if (match) setEmail(decodeURIComponent(match[1]));
   }, []);
 
+  // タイプA: SetupIntentフロー
+  const proceedEntranceTypeA = (confirmedEmail: string) => {
+    startTransition(async () => {
+      const res = await fetch("/api/entrance/reserve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_id: selectedProduct.product_id,
+          customer_email: confirmedEmail,
+          qr_config_id: qrConfigId,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) return; // TODO: エラー表示
+      setSetupData({
+        clientSecret: data.client_secret,
+        reservationId: data.reservation_id,
+        isAuth: !!data.is_auth,
+      });
+    });
+  };
+
+  // 通常Checkoutフロー（B・C・チアーズ）
   const proceedToCheckout = (paymentMethod: "card" | "paypay", confirmedEmail: string) => {
     startTransition(async () => {
       const res = await fetch("/api/pay/cheers", {
@@ -64,11 +193,8 @@ export function CheersPaymentForm({
   };
 
   const handleCheckout = (paymentMethod: "card" | "paypay") => {
-    if (!email) {
-      // メール未取得 → 入力画面を表示
-      setPendingMethod(paymentMethod);
-      return;
-    }
+    if (!email) { setPendingMethod(paymentMethod); return; }
+    if (isTypeA) { proceedEntranceTypeA(email); return; }
     proceedToCheckout(paymentMethod, email);
   };
 
@@ -77,8 +203,49 @@ export function CheersPaymentForm({
     saveEmailCookie(email);
     const method = pendingMethod;
     setPendingMethod(null);
+    if (isTypeA) { proceedEntranceTypeA(email); return; }
     proceedToCheckout(method, email);
   };
+
+  // タイプA 完了
+  if (entranceDone) {
+    return (
+      <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-6 text-center space-y-3">
+        <CheckCircle size={32} className="text-green-400 mx-auto" />
+        <p className="text-lg font-black text-white">予約完了！</p>
+        <p className="text-xs text-slate-400">カードを保存しました。イベント5日前に自動決済・チケット発行されます</p>
+        <a
+          href="/tickets"
+          className="inline-block mt-2 text-xs font-bold text-indigo-400 hover:text-indigo-300 underline"
+        >
+          チケットを確認する →
+        </a>
+      </div>
+    );
+  }
+
+  // タイプA: カード入力ステップ
+  if (isTypeA && setupData) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <CreditCard size={14} className="text-pink-500" />
+            <p className="text-sm font-black text-white">カード情報を入力</p>
+          </div>
+          <p className="text-xs text-slate-500">イベント5日前に自動決済されます</p>
+          <Elements stripe={stripePromise} options={{ clientSecret: setupData.clientSecret }}>
+            <EntranceTypeACardForm
+              clientSecret={setupData.clientSecret}
+              reservationId={setupData.reservationId}
+              isAuth={setupData.isAuth}
+              onSuccess={() => setEntranceDone(true)}
+            />
+          </Elements>
+        </div>
+      </div>
+    );
+  }
 
   // メール入力画面
   if (pendingMethod !== null) {
@@ -206,7 +373,7 @@ export function CheersPaymentForm({
         </button>
         <p className="text-center text-[10px] text-slate-600">Apple Pay / Google Pay / クレジットカード 対応</p>
 
-        {paypayEnabled && (
+        {paypayEnabled && !isTypeA && (
           <>
             <button
               type="button"

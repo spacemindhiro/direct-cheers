@@ -19,6 +19,7 @@ const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const STRIPE_KEY      = Deno.env.get("STRIPE_SECRET_KEY")!;
 const SITE_URL        = (Deno.env.get("NEXT_PUBLIC_SITE_URL") ?? "https://direct-cheers.jp").replace(/\/$/, "");
+const INTERNAL_SECRET = Deno.env.get("INTERNAL_API_SECRET") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const stripe   = new Stripe(STRIPE_KEY);
@@ -126,11 +127,28 @@ Deno.serve(async (_req) => {
         })
         .eq("reservation_id", r.reservation_id);
 
+      // チケットを無効化
+      const { data: ticketRow } = await supabase
+        .from("tickets")
+        .update({ status: "cancelled" })
+        .eq("reservation_id", r.reservation_id)
+        .select("ticket_id")
+        .single();
+
+      // Apple Wallet 無効化（fire-and-forget）
+      if (ticketRow?.ticket_id && INTERNAL_SECRET) {
+        fetch(`${SITE_URL}/api/internal/wallet-push`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-internal-secret": INTERNAL_SECRET },
+          body: JSON.stringify({ ticket_id: ticketRow.ticket_id }),
+        }).catch(() => {});
+      }
+
       results.failed++;
 
       await sendMail({
         to: r.email,
-        subject: `【重要】${r.event_title} のチケット決済に失敗しました`,
+        subject: `【重要】${r.event_title} のチケットが無効になりました`,
         html: chargeFailedEmail({
           eventTitle: r.event_title,
           productName: r.product_name,

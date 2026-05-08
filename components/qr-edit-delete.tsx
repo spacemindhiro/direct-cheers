@@ -29,6 +29,10 @@ export function QREditDelete({
   currentTargets,
   candidates,
   currentAmountStep = 100,
+  productTypeLabel = "",
+  isRange = false,
+  minAmount = 0,
+  maxAmount = 0,
 }: {
   qrConfigId: string;
   eventId: string;
@@ -46,6 +50,10 @@ export function QREditDelete({
   currentTargets: { profile_id: string; distribution_ratio: number }[];
   candidates: TargetCandidate[];
   currentAmountStep?: 100 | 500 | 1000;
+  productTypeLabel?: string;
+  isRange?: boolean;
+  minAmount?: number;
+  maxAmount?: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -282,8 +290,8 @@ export function QREditDelete({
             </>
           )}
 
-          {/* スライド単位（非 entrance のみ） */}
-          {!isEntrance && (
+          {/* スライド単位（レンジ指定の非 entrance のみ） */}
+          {!isEntrance && isRange && (
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">スライド単位</label>
               <div className="grid grid-cols-3 gap-2">
@@ -408,6 +416,31 @@ export function QREditDelete({
         </div>
       ) : (
         <div className="space-y-2">
+          {/* 商品タイプ・価格情報 */}
+          {productTypeLabel && (
+            <div className="px-4 py-3 bg-slate-800/50 rounded-xl space-y-1.5">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">商品情報</p>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">タイプ</span>
+                <span className="font-bold text-slate-200">{productTypeLabel}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">金額</span>
+                <span className="font-bold text-slate-200">
+                  {isRange
+                    ? `¥${minAmount.toLocaleString("ja-JP")} 〜 ¥${maxAmount.toLocaleString("ja-JP")}`
+                    : `¥${minAmount.toLocaleString("ja-JP")} 固定`}
+                </span>
+              </div>
+              {isRange && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">スライド単位</span>
+                  <span className="font-bold text-slate-200">¥{currentAmountStep.toLocaleString("ja-JP")}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {isEntrance ? (
             <>
               {currentStripImageUrl && (

@@ -94,10 +94,11 @@ async function QRDetailContent({
   const productId = (qr as any).product_id as string | null;
   let validityInfo: { label: string; from: string; to: string } | null = null;
   let isEntrance = false;
+  let productInfo: { typeLabel: string; isRange: boolean; minAmount: number; maxAmount: number } | null = null;
   if (productId && event) {
     const { data: product } = await adminClient
       .from("products")
-      .select("type, payment_type, sales_start_at, sales_end_at")
+      .select("type, payment_type, sales_start_at, sales_end_at, name, min_amount, max_amount")
       .eq("product_id", productId)
       .single();
     if (product) {
@@ -110,6 +111,12 @@ async function QRDetailContent({
         const endPlus3h = new Date(new Date((event as any).end_at).getTime() + 3 * 60 * 60 * 1000).toISOString();
         validityInfo = { label: "決済有効期間", from: fmt((event as any).start_at), to: fmt(endPlus3h) };
       }
+      productInfo = {
+        typeLabel: { standard: "スタンダード", message: "メッセージ", entrance: "エントランス", custom: "カスタム" }[product.type] ?? product.type,
+        isRange: (product.min_amount ?? 0) !== (product.max_amount ?? 0),
+        minAmount: product.min_amount ?? 0,
+        maxAmount: product.max_amount ?? 0,
+      };
     }
   }
 
@@ -226,6 +233,10 @@ async function QRDetailContent({
           currentTargets={currentTargets}
           candidates={candidates}
           currentAmountStep={((qr as any).amount_step ?? 100) as 100 | 500 | 1000}
+          productTypeLabel={productInfo?.typeLabel ?? ""}
+          isRange={productInfo?.isRange ?? false}
+          minAmount={productInfo?.minAmount ?? 0}
+          maxAmount={productInfo?.maxAmount ?? 0}
         />
       )}
 

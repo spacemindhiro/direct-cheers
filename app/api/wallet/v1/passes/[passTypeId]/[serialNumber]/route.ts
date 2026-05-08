@@ -35,6 +35,7 @@ export async function GET(
       headers: {
         "Content-Type": "application/vnd.apple.pkpass",
         "Last-Modified": new Date().toUTCString(),
+        "Cache-Control": "no-store",
       },
     });
   } catch (err: any) {

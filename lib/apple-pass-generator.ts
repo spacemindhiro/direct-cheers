@@ -147,7 +147,7 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
   // strip画像: アップロード済みなら取得、なければ背景色+ロゴのフォールバック
   let strip3xRaw: Buffer;
   if (stripImageUrl) {
-    const imgRes = await fetch(stripImageUrl);
+    const imgRes = await fetch(stripImageUrl, { cache: "no-store" });
     const imgBuf = Buffer.from(await imgRes.arrayBuffer());
     strip3xRaw = await sharp(imgBuf).resize(1125, 294, { fit: "cover", position: "centre" }).png().toBuffer();
   } else {
@@ -306,7 +306,7 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
   const qrImageUrl = (tx.qr_config as any)?.image_url as string | null | undefined;
   let strip2xRaw: Buffer;
   if (qrImageUrl) {
-    const imgRes = await fetch(qrImageUrl);
+    const imgRes = await fetch(qrImageUrl, { cache: "no-store" });
     const imgBuf = Buffer.from(await imgRes.arrayBuffer());
     strip2xRaw = await sharp(imgBuf)
       .resize(640, 426, { fit: "cover", position: "centre" })
@@ -336,7 +336,7 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
   const makeLogoBuffer = async (size: number): Promise<Buffer> => {
     if (recipientAvatarUrl) {
       try {
-        const res = await fetch(recipientAvatarUrl);
+        const res = await fetch(recipientAvatarUrl, { cache: "no-store" });
         if (res.ok) {
           const buf = Buffer.from(await res.arrayBuffer());
           return await sharp(buf).resize(size, size, { fit: "cover", position: "centre" }).png().toBuffer();

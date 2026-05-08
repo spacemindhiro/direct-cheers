@@ -142,9 +142,13 @@ export async function PATCH(
           .from("transactions").select("transaction_id")
           .eq("qr_config_id", qrConfigId).eq("status", "completed");
         for (const tx of txs ?? []) {
-          pushWalletUpdateBySerial(tx.transaction_id).catch(() => {});
+          pushWalletUpdateBySerial(tx.transaction_id).catch((err) =>
+            console.error("[qr/patch] wallet push failed:", tx.transaction_id, err)
+          );
         }
-      } catch { /* サイレント */ }
+      } catch (err) {
+        console.error("[qr/patch] wallet push error:", err);
+      }
     })();
   }
 

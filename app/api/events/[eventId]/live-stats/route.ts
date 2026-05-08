@@ -73,7 +73,7 @@ export async function GET(
   );
   // メッセージ閲覧可否：宛先が自分のQRのみ（adminは全て可）
   const qrCanReadMessageSet = new Set<string>(
-    isAdmin || isAgent
+    isAdmin || isAgent || isOrganizer
       ? qrConfigIds
       : (qrConfigs ?? [])
           .filter((q) => (q as any).recipient_profile_id === user.id)

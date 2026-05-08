@@ -154,18 +154,28 @@ export async function POST(req: Request) {
   // エントランスタイプならチケット発行
   let ticketId: string | null = null;
   if (product.product_type === "entrance" && qrcInfo.eventId && productId) {
-    const { data: pu } = await admin
-      .from("provisional_users")
-      .select("profile_id")
-      .eq("email", email ?? "")
-      .maybeSingle();
+    let holderProfileId: string | null = null;
+    if (email) {
+      const { data: pu } = await admin
+        .from("provisional_users")
+        .select("profile_id")
+        .eq("email", email)
+        .maybeSingle();
+      holderProfileId = pu?.profile_id ?? null;
+      if (!holderProfileId) {
+        try {
+          const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          holderProfileId = users.find((u) => u.email === email)?.id ?? null;
+        } catch { /* ignore */ }
+      }
+    }
     const { data: t } = await admin
       .from("tickets")
       .insert({
         product_id: productId,
         event_id: qrcInfo.eventId,
         email: email ?? null,
-        holder_profile_id: pu?.profile_id ?? null,
+        holder_profile_id: holderProfileId,
         transaction_id: transactionId,
         status: "valid",
       })

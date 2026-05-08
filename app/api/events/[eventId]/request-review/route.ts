@@ -89,7 +89,9 @@ export async function POST(
         organizerName,
       });
     }
-  } catch { /* 通知失敗はサイレントに */ }
+  } catch (err) {
+    console.error("[request-review] notification/email error:", err);
+  }
 
   return NextResponse.json({ success: true });
 }

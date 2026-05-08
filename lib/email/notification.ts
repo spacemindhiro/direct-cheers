@@ -16,6 +16,10 @@ function resend() {
 async function send(to: string | string[], subject: string, html: string) {
   const toList = Array.isArray(to) ? to : [to];
   if (toList.length === 0) return;
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("[email] RESEND_API_KEY not set — skipping:", subject);
+    return;
+  }
   await resend().emails.send({ from: FROM, to: toList, subject, html });
 }
 

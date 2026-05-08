@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 
 export async function POST(req: Request) {
   const { transaction_id, nickname, comment } = await req.json() as {
@@ -27,6 +28,11 @@ export async function POST(req: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // ウォレット登録済みデバイスに push（fire-and-forget）
+  pushWalletUpdateBySerial(transaction_id).catch((err) =>
+    console.error("[pay/message] wallet push failed:", err)
+  );
 
   return NextResponse.json({ ok: true });
 }

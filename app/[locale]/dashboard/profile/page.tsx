@@ -362,9 +362,14 @@ export default function ProfileEditPage() {
         updates.organization_name = organizationName.trim() || null;
       }
 
-      const { error } = await supabase.from('profiles').update(updates).eq('profile_id', user.id);
-      if (error) {
-        toast.error('保存に失敗しました');
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? '保存に失敗しました');
       } else {
         // DB から再フェッチして profile state を確実に同期（stripeReady 再評価）
         await fetchAndApplyProfile(supabase, user.id);

@@ -90,12 +90,20 @@ export async function POST(req: Request) {
       })
       .eq("reservation_id", reservation.reservation_id);
 
-    // provisional_users から profile_id を取得
+    // provisional_users から profile_id を取得（なければ auth users から解決）
     const { data: pu } = await admin
       .from("provisional_users")
       .select("profile_id")
       .eq("email", reservation.email)
       .maybeSingle();
+
+    let holderProfileId = pu?.profile_id ?? null;
+    if (!holderProfileId) {
+      try {
+        const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        holderProfileId = users.find((u) => u.email === reservation.email)?.id ?? null;
+      } catch { /* ignore */ }
+    }
 
     const { data: ticket } = await admin
       .from("tickets")
@@ -104,7 +112,7 @@ export async function POST(req: Request) {
         product_id: reservation.product_id,
         event_id: reservation.event_id,
         email: reservation.email,
-        holder_profile_id: pu?.profile_id ?? null,
+        holder_profile_id: holderProfileId,
         status: "valid",
       })
       .select("ticket_id, ticket_code")

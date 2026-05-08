@@ -12,24 +12,36 @@ async function TicketsContent() {
   if (!user) redirect("/auth/login");
 
   const admin = createAdminClient();
-  const { data: tickets } = await admin
-    .from("tickets")
-    .select(`
-      ticket_id, ticket_code, status, checked_in_at, email, created_at,
-      reservation_id,
-      reservation:entrance_reservations!reservation_id(status),
-      product:products(name, payment_type, min_amount),
-      event:events(event_id, title, venue, start_at),
-      transaction:transactions!transaction_id(
-        total_gross_amount,
-        qr_config:qr_configs!qr_config_id(strip_image_url, bg_color, fg_color, label_color)
-      )
-    `)
-    .eq("holder_profile_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const selectQuery = `
+    ticket_id, ticket_code, status, checked_in_at, email, created_at,
+    reservation_id,
+    reservation:entrance_reservations(status),
+    product:products(name, payment_type, min_amount),
+    event:events(event_id, title, venue, start_at),
+    transaction:transactions!transaction_id(
+      total_gross_amount,
+      qr_config:qr_configs!qr_config_id(strip_image_url, bg_color, fg_color, label_color)
+    )
+  `;
 
-  const list = tickets ?? [];
+  const [byProfile, byEmail] = await Promise.all([
+    admin.from("tickets").select(selectQuery)
+      .eq("holder_profile_id", user.id)
+      .order("created_at", { ascending: false }).limit(50),
+    user.email
+      ? admin.from("tickets").select(selectQuery)
+          .eq("email", user.email)
+          .is("holder_profile_id", null)
+          .order("created_at", { ascending: false }).limit(50)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const seen = new Set<string>();
+  const list = [...(byProfile.data ?? []), ...(byEmail.data ?? [])].filter((t: any) => {
+    if (seen.has(t.ticket_id)) return false;
+    seen.add(t.ticket_id);
+    return true;
+  });
 
   return (
     <div className="space-y-8 pb-20">
@@ -78,7 +90,11 @@ async function TicketsContent() {
               fgColor={t.transaction?.qr_config?.fg_color ?? undefined}
               labelColor={t.transaction?.qr_config?.label_color ?? undefined}
               reservationId={t.reservation_id ?? null}
-              reservationStatus={(t.reservation as any)?.status ?? null}
+              reservationStatus={
+                Array.isArray(t.reservation)
+                  ? (t.reservation[0] as any)?.status ?? null
+                  : (t.reservation as any)?.status ?? null
+              }
             />
           ))}
         </div>

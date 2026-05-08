@@ -66,16 +66,16 @@ function ThanksContent() {
       .catch(() => {});
   }, []);
 
-  // ホーム画面アイコンから起動した場合（スタンドアロンモード）かつ
-  // session_id がない（決済完了直後ではなく古いURLからの起動）はダッシュボードへ
+  // スタンドアロンモード（ホーム画面アイコンからの起動）はダッシュボードへ
+  // 決済完了フローは必ず Safari 内で行われるため、スタンドアロン時は常にリダイレクト
   useEffect(() => {
     const isStandalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       (window.navigator as any).standalone === true;
-    if (isStandalone && !sessionId) {
+    if (isStandalone) {
       window.location.replace("/dashboard");
     }
-  }, [sessionId]);
+  }, []);
 
   useEffect(() => {
     if (!sessionId) {

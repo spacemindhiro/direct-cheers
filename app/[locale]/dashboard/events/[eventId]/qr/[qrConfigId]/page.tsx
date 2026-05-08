@@ -112,7 +112,7 @@ async function QRDetailContent({
         validityInfo = { label: "決済有効期間", from: fmt((event as any).start_at), to: fmt(endPlus3h) };
       }
       productInfo = {
-        typeLabel: { standard: "スタンダード", message: "メッセージ", entrance: "エントランス", custom: "カスタム" }[product.type] ?? product.type,
+        typeLabel: ({ standard: "スタンダード", message: "メッセージ", entrance: "エントランス", custom: "カスタム" } as Record<string, string>)[product.type as string] ?? (product.type as string),
         isRange: (product.min_amount ?? 0) !== (product.max_amount ?? 0),
         minAmount: product.min_amount ?? 0,
         maxAmount: product.max_amount ?? 0,

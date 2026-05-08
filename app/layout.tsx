@@ -11,6 +11,10 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Direct Cheers",
+    startupImage: "/logo-emblem.png",
+  },
+  icons: {
+    apple: "/logo-emblem.png",
   },
 };
 

@@ -66,6 +66,17 @@ function ThanksContent() {
       .catch(() => {});
   }, []);
 
+  // ホーム画面アイコンから起動した場合（スタンドアロンモード）かつ
+  // session_id がない（決済完了直後ではなく古いURLからの起動）はダッシュボードへ
+  useEffect(() => {
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
+    if (isStandalone && !sessionId) {
+      window.location.replace("/dashboard");
+    }
+  }, [sessionId]);
+
   useEffect(() => {
     if (!sessionId) {
       setError("セッションIDがありません");

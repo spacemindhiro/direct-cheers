@@ -78,7 +78,9 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     qrConfigs = qrConfigs.filter((qr) => myQrIds.has(qr.qr_config_id));
   }
   const canRequestReview = isOrganizer && event.lifecycle_status === "draft";
-  const canApprove = isAgent && event.lifecycle_status === "review_requested";
+  const isSelfOrganized = event.agent_id === event.organizer_profile_id;
+  const canApprove = isAgent && event.lifecycle_status === "review_requested" &&
+    (!isSelfOrganized || profile?.role === "admin");
   const canCreateQR = (isOrganizer || isAgent) &&
     ["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status);
   const hasEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";

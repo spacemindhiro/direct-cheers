@@ -39,6 +39,11 @@ export async function POST(
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
+  // セルフ承認ガード: organizer 本人が agent を兼ねている場合は admin のみ承認可
+  if (event.agent_id === event.organizer_profile_id && profile?.role !== "admin") {
+    return NextResponse.json({ error: "自身が主催するイベントは管理者のみ承認できます" }, { status: 403 });
+  }
+
   if (profile?.role === "agent" && event.agent_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

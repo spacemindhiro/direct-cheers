@@ -204,6 +204,7 @@ export default function ProfileEditPage() {
     }
   };
 
+  const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -285,6 +286,7 @@ export default function ProfileEditPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/auth/login'); return; }
+      setEmail(user.email ?? '');
       await fetchAndApplyProfile(supabase, user.id);
 
       const { data: inv } = await supabase
@@ -453,6 +455,16 @@ export default function ProfileEditPage() {
         {/* ── 基本情報（全ロール） ── */}
         <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-5">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">基本情報</p>
+
+          {/* メールアドレス（読み取り専用） */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
+              <User size={11} className="text-slate-500" /> ログインID（メールアドレス）
+            </label>
+            <div className="w-full h-12 bg-slate-950/30 border border-slate-800 rounded-2xl px-5 flex items-center text-sm text-slate-400 select-all">
+              {email}
+            </div>
+          </div>
 
           <Field label="表示名" icon={<User size={11} className="text-pink-500" />}>
             <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}

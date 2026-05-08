@@ -17,10 +17,12 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
   const body = await req.json() as {
-    // タイプA/C
+    // タイプA/C (SetupIntentパス)
     reservation_id?: string;
     setup_intent_id?: string;
     payment_method_id?: string;
+    // タイプA (5日以内 PaymentIntentパス)
+    payment_intent_id?: string;
     // タイプB
     session_id?: string;
   };
@@ -30,6 +32,11 @@ export async function POST(req: Request) {
   // ----- タイプB: Checkout Session 完了 -----
   if (body.session_id) {
     return handleTypeB(admin, body.session_id);
+  }
+
+  // ----- タイプA 5日以内: PaymentIntent オーソリ完了 -----
+  if (body.payment_intent_id && body.reservation_id) {
+    return handleTypeAAuth(admin, body.reservation_id, body.payment_intent_id);
   }
 
   // ----- タイプA/C: Setup Intent 完了 -----
@@ -73,7 +80,7 @@ export async function POST(req: Request) {
 
   const paymentType = (reservation.product as any).payment_type as "A" | "B" | "C";
 
-  // タイプA: reservation を reserved に更新するだけ（チケット発行なし）
+  // タイプA: reservation を reserved に更新 + チケット即時発行
   if (paymentType === "A") {
     await admin
       .from("entrance_reservations")
@@ -83,7 +90,32 @@ export async function POST(req: Request) {
       })
       .eq("reservation_id", reservation.reservation_id);
 
-    return NextResponse.json({ ok: true, ticket_id: null, ticket_code: null, payment_type: "A" });
+    // provisional_users から profile_id を取得
+    const { data: pu } = await admin
+      .from("provisional_users")
+      .select("profile_id")
+      .eq("email", reservation.email)
+      .maybeSingle();
+
+    const { data: ticket } = await admin
+      .from("tickets")
+      .insert({
+        reservation_id: reservation.reservation_id,
+        product_id: reservation.product_id,
+        event_id: reservation.event_id,
+        email: reservation.email,
+        holder_profile_id: pu?.profile_id ?? null,
+        status: "valid",
+      })
+      .select("ticket_id, ticket_code")
+      .single();
+
+    return NextResponse.json({
+      ok: true,
+      ticket_id: ticket?.ticket_id ?? null,
+      ticket_code: ticket?.ticket_code ?? null,
+      payment_type: "A",
+    });
   }
 
   // タイプC: reservation update + tickets insert をアトミックに実行
@@ -172,5 +204,67 @@ async function handleTypeB(
     ok: true,
     ticket_id:   row?.out_ticket_id   ?? null,
     ticket_code: row?.out_ticket_code ?? null,
+  });
+}
+
+async function handleTypeAAuth(
+  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
+  reservationId: string,
+  paymentIntentId: string,
+) {
+  const { data: reservation } = await admin
+    .from("entrance_reservations")
+    .select("reservation_id, product_id, event_id, email, charge_amount, status")
+    .eq("reservation_id", reservationId)
+    .single();
+
+  if (!reservation) {
+    return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
+  }
+  if (reservation.status !== "pending") {
+    return NextResponse.json({ error: "Already processed" }, { status: 409 });
+  }
+
+  // PaymentIntent の状態を確認
+  const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+  if (pi.status !== "requires_capture") {
+    return NextResponse.json({ error: `Unexpected PaymentIntent status: ${pi.status}` }, { status: 400 });
+  }
+
+  const feeConfig = await getFeeConfig();
+  const gross = reservation.charge_amount;
+  const stripeFee   = Math.floor(gross * feeConfig.stripe_rate);
+  const platformFee = Math.floor(gross * feeConfig.platform_rate);
+
+  // transaction + ticket をアトミックに作成
+  const { data: rpcRows, error: rpcError } = await admin.rpc("complete_entrance_typea_charge", {
+    p_stripe_payment_intent_id: paymentIntentId,
+    p_product_id:               reservation.product_id,
+    p_event_id:                 reservation.event_id,
+    p_email:                    reservation.email,
+    p_gross:                    gross,
+    p_stripe_fee:               stripeFee,
+    p_platform_fee:             platformFee,
+    p_net_amount:               gross - stripeFee - platformFee,
+    p_reservation_id:           reservationId,
+  });
+
+  if (rpcError) {
+    return NextResponse.json({ error: rpcError.message }, { status: 500 });
+  }
+
+  const row = (rpcRows as any[])[0];
+  // ticket_code を取得
+  const { data: ticketRow } = await admin
+    .from("tickets")
+    .select("ticket_id, ticket_code")
+    .eq("ticket_id", row?.out_ticket_id)
+    .maybeSingle();
+
+  return NextResponse.json({
+    ok: true,
+    ticket_id:   ticketRow?.ticket_id   ?? null,
+    ticket_code: ticketRow?.ticket_code ?? null,
+    payment_type: "A",
   });
 }

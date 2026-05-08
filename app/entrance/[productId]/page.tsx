@@ -50,11 +50,13 @@ function CheckoutFormAC({
   product,
   clientSecret,
   reservationId,
+  isAuth,
   onComplete,
 }: {
   product: Product;
   clientSecret: string;
   reservationId: string;
+  isAuth: boolean;
   onComplete: (ticketCode: string) => void;
 }) {
   const stripe = useStripe();
@@ -72,6 +74,39 @@ function CheckoutFormAC({
     const cardElement = elements.getElement(CardElement);
     if (!cardElement) return;
 
+    if (isAuth) {
+      // 5日以内: PaymentIntent オーソリ
+      const { paymentIntent, error: stripeError } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card: cardElement },
+      });
+
+      if (stripeError) {
+        setError(stripeError.message ?? "カード情報の確認に失敗しました");
+        setLoading(false);
+        return;
+      }
+
+      const res = await fetch("/api/entrance/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reservation_id: reservationId,
+          payment_intent_id: paymentIntent?.id,
+        }),
+      });
+
+      const data = await res.json();
+      setLoading(false);
+
+      if (data.ok) {
+        onComplete(data.ticket_code ?? "");
+      } else {
+        setError(data.error ?? "エラーが発生しました");
+      }
+      return;
+    }
+
+    // 通常パス: SetupIntent（5日以上先）
     const { setupIntent, error: stripeError } = await stripe.confirmCardSetup(clientSecret, {
       payment_method: { card: cardElement },
     });
@@ -82,7 +117,6 @@ function CheckoutFormAC({
       return;
     }
 
-    // バックエンドに完了を通知
     const res = await fetch("/api/entrance/complete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -95,10 +129,8 @@ function CheckoutFormAC({
     const data = await res.json();
     setLoading(false);
 
-    if (data.ok && data.ticket_code) {
-      onComplete(data.ticket_code);
-    } else if (data.ok) {
-      onComplete(""); // タイプA: チケット未発行（決済後に発行）
+    if (data.ok) {
+      onComplete(data.ticket_code ?? "");
     } else {
       setError(data.error ?? "エラーが発生しました");
     }
@@ -156,6 +188,7 @@ function EntrancePageContent() {
     clientSecret: string;
     reservationId: string;
     type: "A" | "B" | "C";
+    isAuth: boolean;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -214,6 +247,7 @@ function EntrancePageContent() {
       clientSecret: data.client_secret,
       reservationId: data.reservation_id,
       type: data.type,
+      isAuth: !!data.is_auth,
     });
     setStep("card");
   };
@@ -376,6 +410,7 @@ function EntrancePageContent() {
                   product={product}
                   clientSecret={setupData.clientSecret}
                   reservationId={setupData.reservationId}
+                  isAuth={setupData.isAuth}
                   onComplete={handleCardComplete}
                 />
               </Elements>
@@ -389,8 +424,10 @@ function EntrancePageContent() {
                 {product.payment_type === "C" ? "予約完了！" : product.payment_type === "A" ? "予約完了！" : "購入完了！"}
               </p>
               <p className="text-sm text-slate-400">
-                {product.payment_type === "A"
-                  ? "イベント5日前に自動で決済され、チケットが届きます"
+                {product.payment_type === "A" && setupData?.isAuth
+                  ? "カードのオーソリ完了。チケットが発行されました。請求はイベント開催確認後に行われます"
+                  : product.payment_type === "A"
+                  ? "カードを保存しました。イベント5日前に自動決済・チケット発行されます"
                   : product.payment_type === "C"
                   ? "当日入場時にチェックインしてください"
                   : "チケットがウォレットに保存されました"}

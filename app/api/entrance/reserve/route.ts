@@ -97,7 +97,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ type: "B", url: session.url });
   }
 
-  // ----- タイプA/C: Setup Intent（カード保存） -----
+  // ----- タイプA/C: カード入力（SetupIntent or 5日以内はPaymentIntent直接オーソリ） -----
 
   // Stripe Customer を作成 or 取得
   let stripeCustomerId: string;
@@ -116,12 +116,66 @@ export async function POST(req: Request) {
       metadata: { event_id: eventId, product_id },
     });
     stripeCustomerId = customer.id;
-    // provisional_users に保存
     await admin
       .from("provisional_users")
       .upsert({ email: customer_email, stripe_customer_id: stripeCustomerId }, { onConflict: "email" });
   }
 
+  // イベントまで5日以内かつタイプAなら即時オーソリパス
+  const daysUntilEvent = event?.start_at
+    ? (new Date(event.start_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    : Infinity;
+  const useAuthPath = paymentType === "A" && daysUntilEvent <= 5;
+
+  if (useAuthPath) {
+    // PaymentIntent(capture_method:manual) で即時オーソリ
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "jpy",
+      customer: stripeCustomerId,
+      capture_method: "manual",
+      payment_method_types: ["card"],
+      metadata: {
+        product_id,
+        event_id: eventId,
+        payment_type: "A",
+        holder_name: holder_name ?? "",
+        charge_amount: String(amount),
+      },
+    });
+
+    const { data: reservation, error: resErr } = await admin
+      .from("entrance_reservations")
+      .insert({
+        product_id,
+        event_id: eventId,
+        stripe_payment_intent_id: paymentIntent.id,
+        stripe_customer_id: stripeCustomerId,
+        email: customer_email,
+        holder_name: holder_name ?? null,
+        charge_amount: amount,
+        status: "pending",
+      })
+      .select("reservation_id")
+      .single();
+
+    if (resErr) {
+      return NextResponse.json({ error: resErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      type: paymentType,
+      is_auth: true,
+      client_secret: paymentIntent.client_secret,
+      reservation_id: reservation!.reservation_id,
+      amount,
+      event_title: event?.title ?? "",
+      product_name: (product as any).name,
+      start_at: event?.start_at ?? null,
+    });
+  }
+
+  // 通常パス: SetupIntent（カード保存 → cron で5日前にオーソリ）
   const setupIntent = await stripe.setupIntents.create({
     customer: stripeCustomerId,
     payment_method_types: ["card"],
@@ -135,7 +189,6 @@ export async function POST(req: Request) {
     },
   });
 
-  // entrance_reservations に仮登録（pending）
   const { data: reservation, error: resErr } = await admin
     .from("entrance_reservations")
     .insert({
@@ -157,6 +210,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     type: paymentType,
+    is_auth: false,
     client_secret: setupIntent.client_secret,
     reservation_id: reservation!.reservation_id,
     amount,

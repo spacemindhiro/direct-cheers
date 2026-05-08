@@ -133,6 +133,7 @@ export async function POST(req: Request) {
       // profiles レコードを作成（fan ロール）
       const { error: profileErr } = await admin.from("profiles").insert({
         profile_id: authUserId,
+        display_name: email,
         role: "fan",
         status: "active",
       });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useParams } from "next/navigation";
+import { useSearchParams, useParams, useRouter } from "next/navigation";
 import { CheersCard } from "@/components/cheers-card";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
 import { FollowButton } from "@/components/follow-button";
@@ -48,6 +48,7 @@ function ThanksContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
 
+  const router = useRouter();
   const [result, setResult] = useState<PaymentResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -64,17 +65,6 @@ function ThanksContent() {
     import("@/components/passkey-setup")
       .then(m => setPasskeySetup(() => m.PasskeySetup))
       .catch(() => {});
-  }, []);
-
-  // スタンドアロンモード（ホーム画面アイコンからの起動）はダッシュボードへ
-  // 決済完了フローは必ず Safari 内で行われるため、スタンドアロン時は常にリダイレクト
-  useEffect(() => {
-    const isStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as any).standalone === true;
-    if (isStandalone) {
-      window.location.replace("/dashboard");
-    }
   }, []);
 
   useEffect(() => {
@@ -353,7 +343,7 @@ function ThanksContent() {
                   {PasskeySetup && <PasskeySetup
                     email={email}
                     mode="authenticate"
-                    onSuccess={() => setPasskeyDone(true)}
+                    onSuccess={() => { setPasskeyDone(true); router.push("/dashboard?pwa=1"); }}
                     buttonLabel="パスキーでログイン"
                   />}
                   <Link
@@ -375,7 +365,7 @@ function ThanksContent() {
                     email={email}
                     mode="register"
                     deviceName={getDeviceLabel()}
-                    onSuccess={() => setPasskeyDone(true)}
+                    onSuccess={() => { setPasskeyDone(true); router.push("/dashboard?pwa=1"); }}
                     buttonLabel="パスキーでアカウント作成"
                   />}
                 </>

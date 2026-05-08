@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Plus, X, Share, MoreVertical, Smartphone } from 'lucide-react';
 
 type Platform = 'android' | 'ios' | 'other';
@@ -20,6 +21,8 @@ function isInStandaloneMode(): boolean {
 }
 
 export function AddToHomeScreen() {
+  const searchParams = useSearchParams();
+  const pwaForced = searchParams.get('pwa') === '1';
   const [platform, setPlatform] = useState<Platform>('other');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showBanner, setShowBanner] = useState(false);
@@ -28,9 +31,11 @@ export function AddToHomeScreen() {
   useEffect(() => {
     // ホーム画面から起動済みなら表示しない
     if (isInStandaloneMode()) return;
-    // 一度「後で」を押したら24時間表示しない
-    const dismissed = localStorage.getItem('a2hs_dismissed');
-    if (dismissed && Date.now() - Number(dismissed) < 24 * 60 * 60 * 1000) return;
+    // ?pwa=1 以外は24時間以内に「後で」を押していたら表示しない
+    if (!pwaForced) {
+      const dismissed = localStorage.getItem('a2hs_dismissed');
+      if (dismissed && Date.now() - Number(dismissed) < 24 * 60 * 60 * 1000) return;
+    }
 
     const p = detectPlatform();
     setPlatform(p);

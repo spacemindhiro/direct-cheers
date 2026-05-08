@@ -308,7 +308,9 @@ async function DashboardContent() {
     <div className="space-y-10">
 
       {/* ホーム画面追加バナー */}
-      <AddToHomeScreen />
+      <Suspense fallback={null}>
+        <AddToHomeScreen />
+      </Suspense>
 
       {/* エージェント向け: 承認依頼通知バナー */}
       {approvalRequestedNotifications.length > 0 && (

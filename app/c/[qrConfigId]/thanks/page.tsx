@@ -13,6 +13,7 @@ const CUSTOMER_EMAIL_COOKIE = "dc_ce";
 
 type PaymentResult = {
   transaction_id: string;
+  ticket_id: string | null;
   email: string | null;
   amount: number;
   artist_name: string | null;
@@ -171,11 +172,13 @@ function ThanksContent() {
             Payment Complete
           </p>
           <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
-            応援ありがとう！
+            {result.product_type === "entrance" ? "ご購入ありがとうございます" : "応援ありがとう！"}
           </h1>
-          <p className="text-sm text-slate-400">
-            {result.recipient_name ?? result.artist_name ?? "アーティスト"} へのCheersが届きました
-          </p>
+          {result.product_type !== "entrance" && (
+            <p className="text-sm text-slate-400">
+              {result.recipient_name ?? result.artist_name ?? "アーティスト"} へのCheersが届きました
+            </p>
+          )}
           {email && (
             <p className="text-xs text-slate-500 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 inline-block">
               {email}
@@ -204,9 +207,13 @@ function ThanksContent() {
         )}
 
         {/* Apple Wallet ボタン（iOS/macOS のみ） */}
-        {isAppleDevice() && (
+        {isAppleDevice() && (result.product_type !== "entrance" || result.ticket_id) && (
           <a
-            href={`/api/wallet/pass/${result.transaction_id}`}
+            href={
+              result.product_type === "entrance"
+                ? `/api/wallet/ticket/${result.ticket_id}`
+                : `/api/wallet/pass/${result.transaction_id}`
+            }
             className="flex items-center gap-3 w-full h-14 bg-black border border-white/20 rounded-2xl px-5 hover:border-white/40 transition-all"
           >
             <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white shrink-0">
@@ -376,8 +383,8 @@ function ThanksContent() {
           </div>
         )}
 
-        {/* アーティストフォロー */}
-        {result.artist_id && result.artist_name && (
+        {/* アーティストフォロー（ログイン済みのみ） */}
+        {passkeyDone && result.artist_id && result.artist_name && (
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-slate-800" />
@@ -406,7 +413,7 @@ function ThanksContent() {
             className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-400 text-xs font-bold transition-colors"
           >
             <ArrowLeft size={14} />
-            もう一度応援する
+            {result.product_type === "entrance" ? "QRページに戻る" : "もう一度応援する"}
           </Link>
         </div>
       </div>

@@ -56,7 +56,16 @@ export async function POST(req: Request) {
       checkIsMember(admin, email ?? null),
       checkHasPasskey(admin, email ?? null),
     ]);
-    return buildResponse(email, existing, product, qrcInfo, isMember, hasPasskey);
+    let existingTicketId: string | null = null;
+    if (product.product_type === "entrance") {
+      const { data: t } = await admin
+        .from("tickets")
+        .select("ticket_id")
+        .eq("transaction_id", existing.transaction_id)
+        .maybeSingle();
+      existingTicketId = t?.ticket_id ?? null;
+    }
+    return buildResponse(email, existing, product, qrcInfo, isMember, hasPasskey, existingTicketId);
   }
 
   const productId = meta.product_id || null;
@@ -142,6 +151,29 @@ export async function POST(req: Request) {
 
   const product = await getProductInfo(admin, productId);
 
+  // エントランスタイプならチケット発行
+  let ticketId: string | null = null;
+  if (product.product_type === "entrance" && qrcInfo.eventId && productId) {
+    const { data: pu } = await admin
+      .from("provisional_users")
+      .select("profile_id")
+      .eq("email", email ?? "")
+      .maybeSingle();
+    const { data: t } = await admin
+      .from("tickets")
+      .insert({
+        product_id: productId,
+        event_id: qrcInfo.eventId,
+        email: email ?? null,
+        holder_profile_id: pu?.profile_id ?? null,
+        transaction_id: transactionId,
+        status: "valid",
+      })
+      .select("ticket_id")
+      .single();
+    ticketId = t?.ticket_id ?? null;
+  }
+
   // QR子機画面へブロードキャスト（fire-and-forget）
   if (qrcInfo.eventId) {
     broadcastCheerNew(qrcInfo.eventId, gross).catch(() => {});
@@ -160,6 +192,7 @@ export async function POST(req: Request) {
     qrcInfo,
     isMember,
     hasPasskey,
+    ticketId,
   );
 
   if (email) {
@@ -291,9 +324,11 @@ function buildResponse(
   qrcInfo: QrConfigInfo,
   isMember: boolean,
   hasPasskey: boolean = false,
+  ticketId: string | null = null,
 ): NextResponse {
   return NextResponse.json({
     transaction_id: tx.transaction_id,
+    ticket_id: ticketId,
     email,
     amount: tx.total_gross_amount,
     serial_number: tx.sequence_number_in_event,

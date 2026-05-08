@@ -19,11 +19,24 @@ export async function POST(req: Request) {
       .eq("email", email)
       .maybeSingle();
 
-    if (provisional?.profile_id) {
+    let profileId = provisional?.profile_id ?? null;
+
+    // provisional に profile_id がない場合は auth users から直接解決
+    if (!profileId) {
+      try {
+        const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const authUser = users.find((u) => u.email === email);
+        profileId = authUser?.id ?? null;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (profileId) {
       const { data: creds } = await admin
         .from("passkey_credentials")
         .select("credential_id, transports")
-        .eq("profile_id", provisional.profile_id);
+        .eq("profile_id", profileId);
 
       if (creds) {
         allowCredentials = creds.map((c) => ({

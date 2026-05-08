@@ -281,31 +281,37 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
       </div>
 
       {/* 配分先内訳 */}
-      {stats.distributions.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-            <Zap size={11} className="text-pink-500" /> 配分先内訳
-          </p>
+      {stats.distributions.length > 0 && (() => {
+        const totalDistNet = stats.distributions.reduce((s, d) => s + d.projected_net, 0);
+        return (
           <div className="space-y-2">
-            {stats.distributions.map((d) => (
-              <div
-                key={d.profile_id}
-                className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-3 flex items-center justify-between"
-              >
-                <div>
-                  <p className="text-sm font-black text-white">{d.display_name ?? "—"}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    {ROLE_LABEL[d.role] ?? d.role} · {Math.round(d.ratio * 100)}%
-                  </p>
-                </div>
-                <p className="text-lg font-black text-emerald-400 tabular-nums">
-                  {formatJPY(d.projected_net)}
-                </p>
-              </div>
-            ))}
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+              <Zap size={11} className="text-pink-500" /> 配分先内訳
+            </p>
+            <div className="space-y-2">
+              {stats.distributions.map((d) => {
+                const share = totalDistNet > 0 ? Math.round((d.projected_net / totalDistNet) * 100) : 0;
+                return (
+                  <div
+                    key={d.profile_id}
+                    className="bg-slate-900 border border-slate-800 rounded-2xl px-5 py-3 flex items-center justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-black text-white">{d.display_name ?? "—"}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        {ROLE_LABEL[d.role] ?? d.role}{totalDistNet > 0 ? ` · ${share}%` : ""}
+                      </p>
+                    </div>
+                    <p className="text-lg font-black text-emerald-400 tabular-nums">
+                      {formatJPY(d.projected_net)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 決済掲示板（タブ切替） */}
       {stats.recent_transactions.length > 0 && (() => {

@@ -162,6 +162,9 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
 
   if (!stats) return null;
 
+  // 配分可能 Net は内訳の積み上げで表示（gross × rate の丸め誤差を排除）
+  const totalDistNet = stats.distributions.reduce((s, d) => s + d.projected_net, 0);
+
   return (
     <div className="space-y-4">
       {/* チャリーントースト */}
@@ -257,7 +260,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
               </div>
               <div className="flex justify-between text-sm border-t border-slate-700 pt-2">
                 <span className="font-black text-slate-300">配分可能 Net</span>
-                <span className="font-black text-emerald-400 tabular-nums">{formatJPY(stats.total_net)}</span>
+                <span className="font-black text-emerald-400 tabular-nums">{formatJPY(totalDistNet)}</span>
               </div>
             </div>
           </div>
@@ -282,7 +285,6 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
 
       {/* 配分先内訳 */}
       {stats.distributions.length > 0 && (() => {
-        const totalDistNet = stats.distributions.reduce((s, d) => s + d.projected_net, 0);
         return (
           <div className="space-y-2">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">

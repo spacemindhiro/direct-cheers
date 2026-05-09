@@ -79,11 +79,18 @@ async function DashboardContent() {
 
   const totalCheersAmount = (cheersHistory ?? []).reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
 
-  // オーガナイザー / アーティスト向け: 自分が関わるイベントの累計着金予測
+  // オーガナイザー / アーティスト / エージェント向け: 自分が関わるイベントの累計着金予測
   let projectedNet = 0;
-  if (['organizer', 'artist', 'agent'].includes(profile?.role ?? '')) {
-    const { net_rate: NET_RATE } = await getFeeConfig();
-
+  if (profile?.role === 'agent') {
+    // エージェントは qr_config_targets に入らないため transaction_distributions から積み上げる
+    const { data: agentDists } = await admin
+      .from('transaction_distributions')
+      .select('actual_amount')
+      .eq('profile_id', user!.id)
+      .eq('distribution_role', 'agent')
+      .neq('distribution_status', 'voided');
+    projectedNet = (agentDists ?? []).reduce((s, d) => s + (d.actual_amount ?? 0), 0);
+  } else if (['organizer', 'artist'].includes(profile?.role ?? '')) {
     const { data: myDists } = await admin
       .from('qr_config_targets')
       .select('distribution_ratio, qr_config_id')
@@ -94,7 +101,7 @@ async function DashboardContent() {
       const qrIds = myDists.map((d) => d.qr_config_id);
       const { data: txs } = await admin
         .from('transactions')
-        .select('total_gross_amount, qr_config_id')
+        .select('net_amount, qr_config_id')
         .in('qr_config_id', qrIds)
         .eq('status', 'completed');
 
@@ -102,7 +109,7 @@ async function DashboardContent() {
         const ratio = myDists
           .filter((d) => d.qr_config_id === tx.qr_config_id)
           .reduce((s, d) => s + Number(d.distribution_ratio ?? 0), 0);
-        projectedNet += Math.floor(Math.floor((tx.total_gross_amount ?? 0) * NET_RATE) * ratio);
+        projectedNet += Math.floor((tx.net_amount ?? 0) * ratio);
       }
     }
   }

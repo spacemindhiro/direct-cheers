@@ -17,7 +17,7 @@ export async function sendPurchaseReceipt(params: PurchaseReceiptParams): Promis
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   if (productType === "entrance") {
-    const ticketUrl = `${SITE_URL}/tickets`;
+    const ticketUrl = `${SITE_URL}/auth/passkey-setup?email=${encodeURIComponent(to)}&redirect=/tickets`;
     const eventLine = eventTitle
       ? `<p style="color:#cbd5e1;font-size:14px;font-weight:700;margin:0 0 8px">${eventTitle}</p>`
       : "";
@@ -59,7 +59,7 @@ export async function sendPurchaseReceipt(params: PurchaseReceiptParams): Promis
   }
 
   // チアカード購入メール
-  const collectionUrl = `${SITE_URL}/dashboard/collection`;
+  const collectionUrl = `${SITE_URL}/auth/passkey-setup?email=${encodeURIComponent(to)}&redirect=/dashboard/collection`;
   const toLine = recipientName ? `<strong>${recipientName}</strong> への` : "";
   const eventLine = eventTitle
     ? `<p style="color:#64748b;font-size:13px;margin:0">イベント：${eventTitle}</p>`

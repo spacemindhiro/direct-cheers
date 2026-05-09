@@ -169,6 +169,25 @@ export async function POST(req: Request) {
         const wStripeFee = Math.floor(gross * (paymentMethod === "paypay" ? wFeeConfig.paypay_rate : wFeeConfig.stripe_rate));
         const wPlatformFee = Math.floor(gross * wFeeConfig.platform_rate);
 
+        // qr_config からイベント・エージェント情報を取得
+        let wEventId: string | null = null;
+        let wAgentId: string | null = null;
+        let wAgentFee = 0;
+        if (meta.qr_config_id) {
+          const { data: qrc } = await admin
+            .from("qr_configs")
+            .select("event_id, event:events!event_id(agent_id, distribution_configs(agent_fee_rate))")
+            .eq("qr_config_id", meta.qr_config_id)
+            .maybeSingle();
+          wEventId = qrc?.event_id ?? null;
+          const ev = qrc?.event as any;
+          wAgentId = ev?.agent_id ?? null;
+          if (wAgentId) {
+            const agentFeeRate = Number((ev?.distribution_configs as any[])?.[0]?.agent_fee_rate ?? wFeeConfig.agent_fee_rate);
+            wAgentFee = Math.floor((gross - wStripeFee) * agentFeeRate);
+          }
+        }
+
         // provisional_users + transactions をアトミックに書き込む
         // ON CONFLICT DO NOTHING → 空セット = /api/pay/complete 処理済み
         const { data: rpcRows, error: rpcErr } = await admin.rpc("complete_cheers_payment", {
@@ -184,6 +203,9 @@ export async function POST(req: Request) {
           p_payment_method:           paymentMethod,
           p_sender_name:              meta.nickname || null,
           p_sender_comment:           meta.comment || null,
+          p_event_id:                 wEventId,
+          p_agent_id:                 wAgentId,
+          p_agent_fee:                wAgentFee,
         });
 
         if (rpcErr) throw rpcErr;

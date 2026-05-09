@@ -81,15 +81,47 @@ async function DashboardContent() {
 
   // オーガナイザー / アーティスト / エージェント向け: 自分が関わるイベントの累計着金予測
   let projectedNet = 0;
+  const feeConfig = await getFeeConfig();
+
   if (profile?.role === 'agent') {
-    // エージェントは qr_config_targets に入らないため transaction_distributions から積み上げる
-    const { data: agentDists } = await admin
-      .from('transaction_distributions')
-      .select('actual_amount')
-      .eq('profile_id', user!.id)
-      .eq('distribution_role', 'agent')
-      .neq('distribution_status', 'voided');
-    projectedNet = (agentDists ?? []).reduce((s, d) => s + (d.actual_amount ?? 0), 0);
+    // エージェントは distribution_configs.agent_fee_rate × (gross - stripe_fee) で計算
+    // webhookが先行した場合 transaction_distributions に行が存在しないケースがあるため直接計算
+    const { data: agentEvents } = await admin
+      .from('events')
+      .select('event_id')
+      .eq('agent_id', user!.id)
+      .is('deleted_at', null);
+
+    if (agentEvents && agentEvents.length > 0) {
+      const eventIds = agentEvents.map((e) => e.event_id);
+
+      const [{ data: distConfigs }, { data: qrConfigs }] = await Promise.all([
+        admin.from('distribution_configs').select('event_id, agent_fee_rate').in('event_id', eventIds),
+        admin.from('qr_configs').select('qr_config_id, event_id').in('event_id', eventIds).is('deleted_at', null),
+      ]);
+
+      const agentFeeRateMap = new Map((distConfigs ?? []).map((d) => [d.event_id, Number(d.agent_fee_rate)]));
+      const qrToEventMap = new Map((qrConfigs ?? []).map((q) => [q.qr_config_id, q.event_id]));
+      const qrIds = (qrConfigs ?? []).map((q) => q.qr_config_id);
+
+      if (qrIds.length > 0) {
+        const { data: txs } = await admin
+          .from('transactions')
+          .select('total_gross_amount, qr_config_id, payment_method')
+          .in('qr_config_id', qrIds)
+          .eq('status', 'completed');
+
+        for (const tx of txs ?? []) {
+          const eventId = qrToEventMap.get(tx.qr_config_id);
+          const agentFeeRate = eventId ? (agentFeeRateMap.get(eventId) ?? feeConfig.agent_fee_rate) : feeConfig.agent_fee_rate;
+          const gross = tx.total_gross_amount ?? 0;
+          const stripeFee = tx.payment_method === 'paypay'
+            ? Math.floor(gross * feeConfig.paypay_rate)
+            : Math.floor(gross * feeConfig.stripe_rate);
+          projectedNet += Math.floor((gross - stripeFee) * agentFeeRate);
+        }
+      }
+    }
   } else if (['organizer', 'artist'].includes(profile?.role ?? '')) {
     const { data: myDists } = await admin
       .from('qr_config_targets')
@@ -101,7 +133,7 @@ async function DashboardContent() {
       const qrIds = myDists.map((d) => d.qr_config_id);
       const { data: txs } = await admin
         .from('transactions')
-        .select('net_amount, qr_config_id')
+        .select('total_gross_amount, qr_config_id, payment_method')
         .in('qr_config_id', qrIds)
         .eq('status', 'completed');
 
@@ -109,7 +141,12 @@ async function DashboardContent() {
         const ratio = myDists
           .filter((d) => d.qr_config_id === tx.qr_config_id)
           .reduce((s, d) => s + Number(d.distribution_ratio ?? 0), 0);
-        projectedNet += Math.floor((tx.net_amount ?? 0) * ratio);
+        const gross = tx.total_gross_amount ?? 0;
+        const stripeFee = tx.payment_method === 'paypay'
+          ? Math.floor(gross * feeConfig.paypay_rate)
+          : Math.floor(gross * feeConfig.stripe_rate);
+        const platformFee = Math.floor(gross * feeConfig.platform_rate);
+        projectedNet += Math.floor((gross - stripeFee - platformFee) * ratio);
       }
     }
   }

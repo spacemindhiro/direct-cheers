@@ -232,13 +232,15 @@ export async function POST(req: Request) {
           (async () => {
             let recipientName: string | null = null;
             let eventTitle: string | null = null;
+            let productType: string | null = null;
             if (meta.qr_config_id) {
               const { data: qrc } = await admin
                 .from("qr_configs")
-                .select("recipient_profile_id, event:events!event_id(title)")
+                .select("recipient_profile_id, event:events!event_id(title), product:products!product_id(type)")
                 .eq("qr_config_id", meta.qr_config_id)
                 .single();
               eventTitle = (qrc?.event as any)?.title ?? null;
+              productType = (qrc?.product as any)?.type ?? null;
               if (qrc?.recipient_profile_id) {
                 const { data: rp } = await admin
                   .from("profiles")
@@ -247,6 +249,14 @@ export async function POST(req: Request) {
                   .single();
                 recipientName = rp?.display_name ?? null;
               }
+            } else if (meta.product_id) {
+              const { data: p } = await admin
+                .from("products")
+                .select("type, event:events!event_id(title)")
+                .eq("product_id", meta.product_id)
+                .single();
+              productType = p?.type ?? null;
+              eventTitle = (p?.event as any)?.title ?? null;
             }
             await sendPurchaseReceipt({
               to: email,
@@ -254,6 +264,7 @@ export async function POST(req: Request) {
               recipientName,
               eventTitle,
               transactionId: newTxId,
+              productType,
             });
           })().catch((err) => console.error("[webhook] メール送信失敗:", err));
         }

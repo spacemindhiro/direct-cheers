@@ -219,6 +219,8 @@ export async function POST(req: Request) {
       recipientName: qrcInfo.recipientName,
       eventTitle: product.event_title as string | null,
       transactionId: transactionId,
+      productType: product.product_type as string | null,
+      ticketId,
     }).catch((err) => console.error("[pay/complete] メール送信失敗:", err));
   }
 

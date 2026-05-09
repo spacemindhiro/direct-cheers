@@ -108,7 +108,7 @@ export async function GET(
   // 売上集計
   const { data: transactions } = await admin
     .from("transactions")
-    .select("transaction_id, total_gross_amount, created_at, qr_config_id, sender_name, sender_comment, payment_method, product:products!product_id(type)")
+    .select("transaction_id, total_gross_amount, stripe_fee, platform_fee, net_amount, created_at, qr_config_id, sender_name, sender_comment, payment_method, product:products!product_id(type)")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed")
     .order("created_at", { ascending: false });
@@ -116,24 +116,14 @@ export async function GET(
   const txList = transactions ?? [];
   const totalGross = txList.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
 
-  // 手数料・netを gross × rate から明細積み上げで算出（保存値のデフォルト0に依存しない）
-  const txStripeFeeOf = (t: typeof txList[number]) => {
-    const gross = t.total_gross_amount ?? 0;
-    return t.payment_method === "paypay"
-      ? Math.floor(gross * PAYPAY_RATE)
-      : Math.floor(gross * STRIPE_RATE);
-  };
-  const txPlatformFeeOf = (t: typeof txList[number]) =>
-    Math.floor((t.total_gross_amount ?? 0) * PLATFORM_RATE);
-  const txNetOf = (t: typeof txList[number]) => {
-    const gross = t.total_gross_amount ?? 0;
-    return gross - txStripeFeeOf(t) - txPlatformFeeOf(t);
-  };
+  // 明細の保存値をそのまま集計（再計算しない）
+  const txNetOf = (t: typeof txList[number]) => t.net_amount ?? 0;
 
-  const totalCardFee = txList.filter((t) => t.payment_method !== "paypay").reduce((s, t) => s + txStripeFeeOf(t), 0);
-  const totalPaypayFee = txList.filter((t) => t.payment_method === "paypay").reduce((s, t) => s + txStripeFeeOf(t), 0);
-  const totalStripeFee = totalCardFee + totalPaypayFee;
-  const totalNet = txList.reduce((s, t) => s + txNetOf(t), 0);
+  const totalStripeFee = txList.reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
+  const totalCardFee = txList.filter((t) => (t.payment_method ?? "card") !== "paypay").reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
+  const totalPaypayFee = txList.filter((t) => t.payment_method === "paypay").reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
+  const totalPlatformFee = txList.reduce((s, t) => s + (t.platform_fee ?? 0), 0);
+  const totalNet = txList.reduce((s, t) => s + (t.net_amount ?? 0), 0);
   const lastTransactionAt = txList[0]?.created_at ?? null;
 
   // 自分の distribution_ratio を取得（qr_config_targets から集計）
@@ -206,12 +196,6 @@ export async function GET(
     })).sort((a, b) => b.projected_net - a.projected_net);
   }
 
-  // 配分先合計から逆算したプラットフォーム手数料（端数はplatformが吸収し縦計を合わせる）
-  const distributableNet = distributions.length > 0
-    ? distributions.reduce((s, d) => s + d.projected_net, 0)
-    : totalNet;
-  const totalPlatformFee = totalGross - totalCardFee - totalPaypayFee - distributableNet;
-
   // アーティストは自分の配分に含まれるトランザクションのみ
   const filteredTxList = isArtist
     ? txList.filter((tx) => (myTargetRatioMap.get(tx.qr_config_id) ?? 0) > 0)
@@ -243,7 +227,7 @@ export async function GET(
     total_card_fee: totalCardFee,
     total_paypay_fee: totalPaypayFee,
     total_platform_fee: totalPlatformFee,
-    total_net: distributableNet,
+    total_net: totalNet,
     my_projected_net: myProjectedNet,
     my_distribution_ratio: myDistributionRatio,
     last_transaction_at: lastTransactionAt,

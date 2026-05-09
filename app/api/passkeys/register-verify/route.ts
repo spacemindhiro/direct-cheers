@@ -130,11 +130,10 @@ export async function POST(req: Request) {
     } else {
       authUserId = newUser.user.id;
 
-      // profiles レコードを作成（fan ロール）
       const { error: profileErr } = await admin.from("profiles").insert({
         profile_id: authUserId,
         display_name: email,
-        role: "fan",
+        role: "user",
         status: "active",
       });
       if (profileErr) {

@@ -184,7 +184,7 @@ export async function POST(req: Request) {
           wAgentId = ev?.agent_id ?? null;
           if (wAgentId) {
             const agentFeeRate = Number((ev?.distribution_configs as any[])?.[0]?.agent_fee_rate ?? wFeeConfig.agent_fee_rate);
-            wAgentFee = Math.floor((gross - wStripeFee) * agentFeeRate);
+            wAgentFee = Math.floor(wPlatformFee * (agentFeeRate / wFeeConfig.platform_rate));
           }
         }
 

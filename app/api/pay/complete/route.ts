@@ -90,7 +90,7 @@ export async function POST(req: Request) {
       .single();
     agentId = eventRow?.agent_id ?? null;
     if (agentId) {
-      agentFee = Math.floor(gross * feeConfig.agent_fee_rate);
+      agentFee = Math.floor(platformFee * (feeConfig.agent_fee_rate / feeConfig.platform_rate));
     }
   }
 

@@ -26,7 +26,6 @@ export async function GET(
 
   const role = profile?.role ?? "fan";
 
-  // イベント取得（アクセス権確認）
   const { data: event } = await admin
     .from("events")
     .select("event_id, title, organizer_profile_id, start_at, end_at, lifecycle_status")
@@ -35,12 +34,10 @@ export async function GET(
 
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // アクセス権チェック
   const isAdmin = role === "admin";
   const isOrganizer = role === "organizer" && event.organizer_profile_id === user.id;
-  const isAgent = role === "agent"; // エージェントは全イベント閲覧可
+  const isAgent = role === "agent";
 
-  // アーティストは event_artists に登録されているか確認
   let isArtist = false;
   if (role === "artist") {
     const { data: ea } = await admin
@@ -56,11 +53,9 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 手数料設定をDBから取得
   const feeConfig = await getFeeConfig();
   const { stripe_rate: STRIPE_RATE, platform_rate: PLATFORM_RATE, net_rate: NET_RATE, paypay_rate: PAYPAY_RATE, paypay_net_rate: PAYPAY_NET_RATE } = feeConfig;
 
-  // このイベントの qr_config_ids を取得
   const { data: qrConfigs } = await admin
     .from("qr_configs")
     .select("qr_config_id, recipient_profile_id, recipient:profiles!recipient_profile_id(display_name)")
@@ -71,7 +66,6 @@ export async function GET(
   const qrRecipientMap = new Map<string, string | null>(
     (qrConfigs ?? []).map((q) => [q.qr_config_id, (q.recipient as any)?.display_name ?? null])
   );
-  // メッセージ閲覧可否：宛先が自分のQRのみ（adminは全て可）
   const qrCanReadMessageSet = new Set<string>(
     isAdmin || isAgent || isOrganizer
       ? qrConfigIds
@@ -105,7 +99,7 @@ export async function GET(
     });
   }
 
-  // 売上集計
+  // 明細取得（保存値をそのまま集計するためのソース）
   const { data: transactions } = await admin
     .from("transactions")
     .select("transaction_id, total_gross_amount, stripe_fee, platform_fee, net_amount, created_at, qr_config_id, sender_name, sender_comment, payment_method, product:products!product_id(type)")
@@ -114,11 +108,10 @@ export async function GET(
     .order("created_at", { ascending: false });
 
   const txList = transactions ?? [];
+  const txIds = txList.map((t) => t.transaction_id);
+
+  // 保存値を足し算だけで集計（再計算禁止）
   const totalGross = txList.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
-
-  // 明細の保存値をそのまま集計（再計算しない）
-  const txNetOf = (t: typeof txList[number]) => t.net_amount ?? 0;
-
   const totalStripeFee = txList.reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
   const totalCardFee = txList.filter((t) => (t.payment_method ?? "card") !== "paypay").reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
   const totalPaypayFee = txList.filter((t) => t.payment_method === "paypay").reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
@@ -126,99 +119,99 @@ export async function GET(
   const totalNet = txList.reduce((s, t) => s + (t.net_amount ?? 0), 0);
   const lastTransactionAt = txList[0]?.created_at ?? null;
 
-  // 自分の distribution_ratio を取得（qr_config_targets から集計）
-  let myDistributionRatio: number | null = null;
-  let myProjectedNet = 0;
-
-  // qr_config_id → 自分の ratio マップ（アーティストのフィルタにも使う）
-  const myTargetRatioMap = new Map<string, number>();
-
-  if (!isAdmin) {
-    const { data: myTargets } = await admin
-      .from("qr_config_targets")
-      .select("qr_config_id, distribution_ratio")
-      .in("qr_config_id", qrConfigIds)
-      .eq("profile_id", user.id)
+  // 配分明細を取得（書き込み時に確定済みの actual_amount を集計するだけ）
+  type DistRow = { transaction_id: string; profile_id: string; actual_amount: number; distribution_role: string };
+  let distRows: DistRow[] = [];
+  if (txIds.length > 0) {
+    const { data: dr } = await admin
+      .from("transaction_distributions")
+      .select("transaction_id, profile_id, actual_amount, distribution_role")
+      .in("transaction_id", txIds)
       .is("deleted_at", null);
-
-    if (myTargets && myTargets.length > 0) {
-      const totalRatio = myTargets.reduce((s, t) => s + Number(t.distribution_ratio ?? 0), 0);
-      myDistributionRatio = totalRatio / qrConfigIds.length;
-
-      for (const tx of txList) {
-        const txTargets = myTargets.filter((t) => t.qr_config_id === tx.qr_config_id);
-        const ratio = txTargets.reduce((s, t) => s + Number(t.distribution_ratio ?? 0), 0);
-        myTargetRatioMap.set(tx.qr_config_id, ratio);
-        const txNet = txNetOf(tx);
-        myProjectedNet += Math.floor(txNet * ratio);
-      }
-    }
-  } else {
-    // admin は全体 net を見る
-    myProjectedNet = totalNet;
+    distRows = (dr ?? []).map((r) => ({
+      transaction_id: r.transaction_id,
+      profile_id: r.profile_id,
+      actual_amount: r.actual_amount ?? 0,
+      distribution_role: r.distribution_role,
+    }));
   }
+
+  // transaction_id → 自分の actual_amount マップ（my_net_amount 表示用）
+  const myDistByTx = new Map<string, number>(
+    distRows
+      .filter((r) => r.profile_id === user.id)
+      .map((r) => [r.transaction_id, r.actual_amount])
+  );
 
   // 全配分先の内訳（admin / organizer / agent 向け）
+  // organizer / artist 行のみ集計（agent は my_projected_net で別表示）
   let distributions: { profile_id: string; display_name: string | null; role: string; projected_net: number; ratio: number }[] = [];
+
   if (isAdmin || isOrganizer || isAgent) {
-    const { data: allTargets } = await admin
-      .from("qr_config_targets")
-      .select("profile_id, distribution_ratio, qr_config_id, profile:profiles!profile_id(display_name, role)")
-      .in("qr_config_id", qrConfigIds)
-      .is("deleted_at", null);
+    const recipientRows = distRows.filter((r) => r.distribution_role === "organizer" || r.distribution_role === "artist");
 
-    const distMap = new Map<string, { display_name: string | null; role: string; projected_net: number; total_ratio: number; count: number }>();
-    for (const target of allTargets ?? []) {
-      const ratio = Number(target.distribution_ratio ?? 0);
-      const existing = distMap.get(target.profile_id) ?? {
-        display_name: (target.profile as any)?.display_name ?? null,
-        role: (target.profile as any)?.role ?? "artist",
-        projected_net: 0,
-        total_ratio: 0,
-        count: 0,
-      };
-      const txForQr = txList.filter((tx) => tx.qr_config_id === target.qr_config_id);
-      for (const tx of txForQr) {
-        const txNet = txNetOf(tx);
-        existing.projected_net += Math.floor(txNet * ratio);
+    if (recipientRows.length > 0) {
+      const profileIds = [...new Set(recipientRows.map((r) => r.profile_id))];
+      const { data: profilesData } = await admin
+        .from("profiles")
+        .select("profile_id, display_name, role")
+        .in("profile_id", profileIds);
+      const profileMap = new Map((profilesData ?? []).map((p) => [p.profile_id, p]));
+
+      const distMap = new Map<string, { display_name: string | null; role: string; projected_net: number }>();
+      for (const r of recipientRows) {
+        const e = distMap.get(r.profile_id) ?? {
+          display_name: profileMap.get(r.profile_id)?.display_name ?? null,
+          role: profileMap.get(r.profile_id)?.role ?? r.distribution_role,
+          projected_net: 0,
+        };
+        e.projected_net += r.actual_amount;
+        distMap.set(r.profile_id, e);
       }
-      existing.total_ratio += ratio;
-      existing.count += 1;
-      distMap.set(target.profile_id, existing);
-    }
 
-    distributions = Array.from(distMap.entries()).map(([profile_id, d]) => ({
-      profile_id,
-      display_name: d.display_name,
-      role: d.role,
-      projected_net: d.projected_net,
-      ratio: qrConfigIds.length > 0 ? d.total_ratio / qrConfigIds.length : 0,
-    })).sort((a, b) => b.projected_net - a.projected_net);
+      distributions = Array.from(distMap.entries()).map(([profile_id, d]) => ({
+        profile_id,
+        display_name: d.display_name,
+        role: d.role,
+        projected_net: d.projected_net,
+        ratio: totalNet > 0 ? d.projected_net / totalNet : 0,
+      })).sort((a, b) => b.projected_net - a.projected_net);
+    }
   }
 
-  // アーティストは自分の配分に含まれるトランザクションのみ
+  // 自分の着金予定額
+  let myProjectedNet = 0;
+  let myDistributionRatio: number | null = null;
+
+  if (isAdmin) {
+    myProjectedNet = totalNet;
+  } else {
+    myProjectedNet = distRows
+      .filter((r) => r.profile_id === user.id)
+      .reduce((s, r) => s + r.actual_amount, 0);
+    if (totalNet > 0 && myProjectedNet > 0) {
+      myDistributionRatio = myProjectedNet / totalNet;
+    }
+  }
+
+  // アーティストは自分の配分行がある明細のみ表示
   const filteredTxList = isArtist
-    ? txList.filter((tx) => (myTargetRatioMap.get(tx.qr_config_id) ?? 0) > 0)
+    ? txList.filter((tx) => myDistByTx.has(tx.transaction_id))
     : txList;
 
   const totalPages = Math.max(1, Math.ceil(filteredTxList.length / PAGE_SIZE));
   const pagedTxList = filteredTxList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const recentTransactions = pagedTxList.map((tx) => {
-    const gross = tx.total_gross_amount ?? 0;
-    const ratio = myTargetRatioMap.get(tx.qr_config_id) ?? null;
-    const myNet = ratio !== null ? Math.floor(txNetOf(tx) * ratio) : null;
-    return {
-      transaction_id: tx.transaction_id,
-      total_gross_amount: gross,
-      created_at: tx.created_at,
-      sender_name: tx.sender_name ?? null,
-      sender_comment: qrCanReadMessageSet.has(tx.qr_config_id) ? (tx.sender_comment ?? null) : null,
-      product_type: (tx.product as any)?.type ?? null,
-      recipient_name: qrRecipientMap.get(tx.qr_config_id) ?? null,
-      my_net_amount: myNet,
-    };
-  });
+  const recentTransactions = pagedTxList.map((tx) => ({
+    transaction_id: tx.transaction_id,
+    total_gross_amount: tx.total_gross_amount ?? 0,
+    created_at: tx.created_at,
+    sender_name: tx.sender_name ?? null,
+    sender_comment: qrCanReadMessageSet.has(tx.qr_config_id) ? (tx.sender_comment ?? null) : null,
+    product_type: (tx.product as any)?.type ?? null,
+    recipient_name: qrRecipientMap.get(tx.qr_config_id) ?? null,
+    my_net_amount: myDistByTx.get(tx.transaction_id) ?? null,
+  }));
 
   return NextResponse.json({
     total_gross: totalGross,

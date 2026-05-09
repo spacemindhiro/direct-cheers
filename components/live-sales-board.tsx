@@ -282,6 +282,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
 
       {/* 配分先内訳 */}
       {stats.distributions.length > 0 && (() => {
+        const totalDistNet = stats.distributions.reduce((s, d) => s + d.projected_net, 0);
         return (
           <div className="space-y-2">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">

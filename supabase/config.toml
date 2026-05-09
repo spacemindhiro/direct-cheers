@@ -382,15 +382,6 @@ deno_version = 2
 # Edge Functions スケジュール設定
 # ==========================================
 
-# タイプA: 5日前自動決済 (毎日 0:00 JST = 15:00 UTC)
-[functions.charge-type-a]
-enabled = true
-schedule = "0 15 * * *"
-
-# 10日前カード有効性チェック (毎日 0:30 JST = 15:30 UTC)
-[functions.check-card-validity]
-enabled = true
-schedule = "30 15 * * *"
 
 [analytics]
 enabled = true

@@ -8,7 +8,7 @@ export async function GET(
     name: "Direct Cheers",
     short_name: "Direct Cheers",
     id: `/c/${qrConfigId}/`,
-    scope: "/c/",
+    scope: "/",
     start_url: `/c/${qrConfigId}/`,
     display: "standalone",
     background_color: "#020617",

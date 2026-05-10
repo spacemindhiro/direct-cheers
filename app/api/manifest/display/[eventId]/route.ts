@@ -8,7 +8,7 @@ export async function GET(
     name: "Direct Cheers Display",
     short_name: "DC Display",
     id: `/display/${eventId}/`,
-    scope: "/display/",
+    scope: "/",
     start_url: `/display/${eventId}/`,
     display: "standalone",
     background_color: "#020617",

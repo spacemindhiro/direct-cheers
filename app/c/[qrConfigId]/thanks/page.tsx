@@ -44,6 +44,12 @@ function emailFromCookie(): string {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
+function isStandalone(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(display-mode: standalone)").matches
+    || (window.navigator as any).standalone === true;
+}
+
 function ThanksContent() {
   const params = useParams<{ qrConfigId: string }>();
   const searchParams = useSearchParams();
@@ -352,7 +358,14 @@ function ThanksContent() {
                   {PasskeySetup && <PasskeySetup
                     email={email}
                     mode="authenticate"
-                    onSuccess={() => { setPasskeyDone(true); router.push("/dashboard?pwa=1"); }}
+                    onSuccess={() => {
+                    setPasskeyDone(true);
+                    if (isStandalone()) {
+                      router.replace(`/c/${params.qrConfigId}`);
+                    } else {
+                      router.push("/dashboard?pwa=1");
+                    }
+                  }}
                     buttonLabel="パスキーでログイン"
                   />}
                   <Link
@@ -374,7 +387,14 @@ function ThanksContent() {
                     email={email}
                     mode="register"
                     deviceName={getDeviceLabel()}
-                    onSuccess={() => { setPasskeyDone(true); router.push("/dashboard?pwa=1"); }}
+                    onSuccess={() => {
+                    setPasskeyDone(true);
+                    if (isStandalone()) {
+                      router.replace(`/c/${params.qrConfigId}`);
+                    } else {
+                      router.push("/dashboard?pwa=1");
+                    }
+                  }}
                     buttonLabel="パスキーでアカウント作成"
                   />}
                 </>

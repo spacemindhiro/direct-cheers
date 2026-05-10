@@ -1,8 +1,16 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QRBoardDisplay } from "@/components/qr-board-display";
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ locale: string; eventId: string }> }
+): Promise<Metadata> {
+  const { eventId } = await params;
+  return { manifest: `/api/manifest/display/${eventId}` };
+}
 
 async function DisplayContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;

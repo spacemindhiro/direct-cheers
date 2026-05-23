@@ -91,6 +91,16 @@ export default function BankSetupPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/auth/login'); return; }
 
+      // 規約同意チェック
+      const termsRes = await fetch('/api/terms/status');
+      if (termsRes.ok) {
+        const termsData = await termsRes.json();
+        if (!termsData.allAgreed) {
+          router.replace('/dashboard/terms?next=/dashboard/profile/bank-setup');
+          return;
+        }
+      }
+
       const { data } = await supabase
         .from('profiles')
         .select(`

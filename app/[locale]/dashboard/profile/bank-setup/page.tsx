@@ -91,11 +91,12 @@ export default function BankSetupPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/auth/login'); return; }
 
-      // 規約同意チェック
+      // artistのみ規約同意をbank-setup前にチェック
+      // organizer/agentはbank-setup → 面談 → admin承認の順なのでここではチェックしない
       const termsRes = await fetch('/api/terms/status');
       if (termsRes.ok) {
         const termsData = await termsRes.json();
-        if (!termsData.allAgreed) {
+        if (termsData.role === 'artist' && !termsData.allAgreed) {
           router.replace('/dashboard/terms?next=/dashboard/profile/bank-setup');
           return;
         }

@@ -2,10 +2,11 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import Link from "next/link";
 import { AdminApproveButton } from "@/components/admin-approve-button";
 import { AdminConnectReview } from "@/components/admin-connect-review";
 import { AdminTermsConfirmButton } from "@/components/admin-terms-confirm-button";
-import { Loader2, Users, CreditCard } from "lucide-react";
+import { Loader2, Users, CreditCard, PenLine } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   agent: "エージェント",
@@ -159,7 +160,15 @@ async function AdminUsersContent() {
                       {statusConfig.label}
                     </span>
                     {termsStatusMap.get(u.profile_id)?.needsConfirmation && (
-                      <AdminTermsConfirmButton profileId={u.profile_id} />
+                      <>
+                        <Link
+                          href={`/admin/terms/sign/${u.profile_id}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/30 hover:bg-indigo-500/20 rounded-xl text-[10px] font-black text-indigo-400 uppercase tracking-widest transition-colors"
+                        >
+                          <PenLine size={11} /> 調印式を開始
+                        </Link>
+                        <AdminTermsConfirmButton profileId={u.profile_id} />
+                      </>
                     )}
                     {u.status === "pending_interview" && (
                       <AdminApproveButton profileId={u.profile_id} />

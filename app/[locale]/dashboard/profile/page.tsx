@@ -116,6 +116,7 @@ export default function ProfileEditPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
   const [inviter, setInviter] = useState<{ display_name: string | null; profile_id: string } | null>(null);
+  const [signedDoc, setSignedDoc] = useState<{ id: string; signed_at: string } | null>(null);
   const router = useRouter();
 
   const applyProfileData = (data: Profile) => {
@@ -171,6 +172,10 @@ export default function ProfileEditPage() {
         const inviterData = inv.inviter as unknown as { display_name: string | null };
         setInviter({ display_name: inviterData?.display_name ?? null, profile_id: inv.invited_by_profile_id });
       }
+
+      fetch('/api/profile/signed-document')
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data?.document) setSignedDoc(data.document); });
 
       setIsLoading(false);
     };
@@ -488,6 +493,30 @@ export default function ProfileEditPage() {
             )}
           </div>
         )}
+
+        {/* ── 署名済み利用規約同意書 ── */}
+        {signedDoc && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-4">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2">
+              <FileText size={11} className="text-indigo-400" /> 利用規約同意書
+            </p>
+            <div className="flex items-center justify-between px-4 py-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
+              <div>
+                <p className="text-xs font-black text-indigo-300">調印済み文書</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  {new Date(signedDoc.signed_at).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+              <Link
+                href={`/dashboard/documents/${signedDoc.id}`}
+                className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest transition-colors flex items-center gap-1"
+              >
+                確認する <ChevronRight size={12} />
+              </Link>
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* 保存ボタン */}

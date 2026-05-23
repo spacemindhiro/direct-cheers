@@ -29,6 +29,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Users
             </Link>
             <Link
+              href="/admin/documents"
+              className="text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
+            >
+              Documents
+            </Link>
+            <Link
               href="/admin/reconcile"
               className="text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
             >

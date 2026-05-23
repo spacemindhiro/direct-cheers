@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TERMS_VERSIONS, getRequiredTermsTypes, type TermsType } from '@/lib/terms';
 
+// base は デジタル同意だけで完了
+// organizer / agent は デジタル同意 + admin確認の両方が必要
+const REQUIRES_CONFIRMATION: TermsType[] = ['organizer', 'agent'];
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -21,18 +25,47 @@ export async function GET() {
 
   const { data: agreements } = await admin
     .from('terms_agreements')
-    .select('terms_type, version')
+    .select('terms_type, version, agreed_at, confirmed_at')
     .eq('profile_id', user.id);
 
-  const agreedMap = new Map(
-    (agreements ?? []).map((a) => [`${a.terms_type}:${a.version}`, true])
-  );
-
-  const status: Record<TermsType, { required: boolean; agreed: boolean; version: string }> = {
-    base:       { required: required.includes('base'),       agreed: agreedMap.has(`base:${TERMS_VERSIONS.base}`),       version: TERMS_VERSIONS.base },
-    organizer:  { required: required.includes('organizer'),  agreed: agreedMap.has(`organizer:${TERMS_VERSIONS.organizer}`),  version: TERMS_VERSIONS.organizer },
-    agent:      { required: required.includes('agent'),      agreed: agreedMap.has(`agent:${TERMS_VERSIONS.agent}`),      version: TERMS_VERSIONS.agent },
+  type AgreementRecord = {
+    digitallySigned: boolean;
+    confirmed: boolean;
   };
+  const agreementMap = new Map<string, AgreementRecord>();
+  for (const a of agreements ?? []) {
+    const key = `${a.terms_type}:${a.version}`;
+    agreementMap.set(key, {
+      digitallySigned: !!a.agreed_at,
+      confirmed: !!a.confirmed_at,
+    });
+  }
+
+  const status: Record<TermsType, {
+    required: boolean;
+    digitallySigned: boolean;
+    confirmed: boolean;
+    agreed: boolean;  // 完了条件を満たしているか
+    needsConfirmation: boolean;
+    version: string;
+  }> = {} as never;
+
+  for (const t of ['base', 'organizer', 'agent'] as TermsType[]) {
+    const key = `${t}:${TERMS_VERSIONS[t]}`;
+    const rec = agreementMap.get(key);
+    const digitallySigned = rec?.digitallySigned ?? false;
+    const confirmed = rec?.confirmed ?? false;
+    const needsConfirmation = REQUIRES_CONFIRMATION.includes(t);
+    const agreed = digitallySigned && (!needsConfirmation || confirmed);
+    status[t] = {
+      required: required.includes(t),
+      digitallySigned,
+      confirmed,
+      agreed,
+      needsConfirmation,
+      version: TERMS_VERSIONS[t],
+    };
+  }
 
   const allAgreed = required.every((t) => status[t].agreed);
 

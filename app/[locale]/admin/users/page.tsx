@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminApproveButton } from "@/components/admin-approve-button";
 import { AdminConnectReview } from "@/components/admin-connect-review";
+import { AdminTermsConfirmButton } from "@/components/admin-terms-confirm-button";
 import { Loader2, Users, CreditCard } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -69,11 +70,23 @@ async function AdminUsersContent() {
     .order("created_at", { ascending: false })
     .limit(20);
 
-  // 規約同意済みユーザーのIDセット
+  // 規約同意状況（organizer/agent は confirmed_at も必要）
   const { data: agreements } = await admin
     .from("terms_agreements")
-    .select("profile_id, agreed_at");
-  const agreedProfileIds = new Set((agreements ?? []).map((a) => a.profile_id));
+    .select("profile_id, terms_type, agreed_at, confirmed_at");
+
+  // profile_id ごとに: デジタル同意済み / 面談承認待ち / 完了
+  type TermsStatusSummary = { digitallySigned: boolean; needsConfirmation: boolean; confirmed: boolean };
+  const termsStatusMap = new Map<string, TermsStatusSummary>();
+  for (const a of agreements ?? []) {
+    const prev = termsStatusMap.get(a.profile_id) ?? { digitallySigned: false, needsConfirmation: false, confirmed: false };
+    const requiresConfirm = a.terms_type === 'organizer' || a.terms_type === 'agent';
+    termsStatusMap.set(a.profile_id, {
+      digitallySigned: prev.digitallySigned || !!a.agreed_at,
+      needsConfirmation: prev.needsConfirmation || (requiresConfirm && !!a.agreed_at && !a.confirmed_at),
+      confirmed: prev.confirmed || (requiresConfirm && !!a.confirmed_at),
+    });
+  }
 
   // Stripe Connect審査待ち（verification_status=pending）
   const { data: connectPending } = await admin
@@ -121,7 +134,6 @@ async function AdminUsersContent() {
           <div className="space-y-3">
             {pendingUsers.map((u) => {
               const statusConfig = STATUS_CONFIG[u.status] ?? STATUS_CONFIG.pending_onboarding;
-              const hasAgreed = agreedProfileIds.has(u.profile_id);
               return (
                 <div
                   key={u.profile_id}
@@ -133,16 +145,22 @@ async function AdminUsersContent() {
                       {ROLE_LABELS[u.role] ?? u.role} ·{" "}
                       {new Date(u.created_at).toLocaleDateString("ja-JP")}
                     </p>
-                    <p className={`text-[10px] font-black uppercase tracking-widest ${hasAgreed ? "text-emerald-400" : "text-slate-600"}`}>
-                      {hasAgreed ? "✓ 規約同意済み" : "規約未同意"}
-                    </p>
+                    {(() => {
+                      const ts = termsStatusMap.get(u.profile_id);
+                      if (!ts?.digitallySigned) return <p className="text-[10px] font-black text-slate-600">規約未同意</p>;
+                      if (ts.needsConfirmation) return <p className="text-[10px] font-black text-amber-400">デジタル同意済 — 面談承認待ち</p>;
+                      return <p className="text-[10px] font-black text-emerald-400">✓ 規約同意完了</p>;
+                    })()}
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex flex-col items-end gap-2 shrink-0">
                     <span
                       className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${statusConfig.className}`}
                     >
                       {statusConfig.label}
                     </span>
+                    {termsStatusMap.get(u.profile_id)?.needsConfirmation && (
+                      <AdminTermsConfirmButton profileId={u.profile_id} />
+                    )}
                     {u.status === "pending_interview" && (
                       <AdminApproveButton profileId={u.profile_id} />
                     )}

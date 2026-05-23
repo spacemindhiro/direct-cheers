@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const AUTH_EXPIRE_DAYS = 7;
-const WARN_DAYS_BEFORE = 2; // 期限2日前から警告
+const WARN_DAYS_BEFORE = 2;
 
-export async function POST(req: Request) {
+export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -12,7 +12,6 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const now = new Date();
 
-  // 未精算で終了済みのイベントを取得
   const { data: events } = await admin
     .from("events")
     .select("event_id, title, start_at, agent_id")
@@ -28,7 +27,6 @@ export async function POST(req: Request) {
 
     if (daysLeft > WARN_DAYS_BEFORE) continue;
 
-    // 売上があるか確認
     const { data: qrConfigs } = await admin
       .from("qr_configs").select("qr_config_id").eq("event_id", event.event_id).is("deleted_at", null);
     const qrIds = (qrConfigs ?? []).map((q) => q.qr_config_id);
@@ -42,22 +40,23 @@ export async function POST(req: Request) {
 
     if (!count || count === 0) continue;
 
-    // 同じ通知が既に存在するか確認（重複防止）
+    // 重複防止: 同イベントの auth_expiring 通知が既存かチェック
     const { count: existing } = await admin
       .from("notifications")
       .select("notification_id", { count: "exact", head: true })
       .eq("profile_id", event.agent_id)
       .eq("type", "auth_expiring")
-      .contains("payload", { event_id: event.event_id });
+      .contains("metadata", { event_id: event.event_id });
 
     if (existing && existing > 0) continue;
 
     await admin.from("notifications").insert({
       profile_id: event.agent_id,
       type: "auth_expiring",
-      payload: {
+      title: "オーソリ期限が迫っています",
+      body: `「${event.title}」の売上オーソリ期限まで残り ${daysLeft} 日です。精算を実行してください。`,
+      metadata: {
         event_id: event.event_id,
-        title: event.title,
         expires_at: expiresAt.toISOString(),
         days_left: daysLeft,
       },

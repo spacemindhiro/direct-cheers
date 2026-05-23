@@ -25,10 +25,10 @@ async function DashboardNav() {
     .eq('profile_id', user.id);
 
   const unreadCount = (convParticipants ?? []).filter((cp) => {
-    const conv = cp.conversations as { updated_at: string } | null;
-    if (!conv) return false;
+    const updatedAt = (cp.conversations as unknown as { updated_at: string } | null)?.updated_at;
+    if (!updatedAt) return false;
     if (!cp.last_read_at) return true;
-    return new Date(conv.updated_at) > new Date(cp.last_read_at);
+    return new Date(updatedAt) > new Date(cp.last_read_at);
   }).length;
 
   if (!profile) redirect('/onboarding/profile');

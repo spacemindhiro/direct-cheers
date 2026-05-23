@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   if (!followee) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   // フォロー可能ロールのチェック（artist / organizer のみフォロー対象）
-  if (!["artist", "organizer"].includes(followee.role)) {
+  if (!["artist", "organizer", "agent"].includes(followee.role)) {
     return NextResponse.json(
       { error: "アーティストまたはオーガナイザーのみフォローできます" },
       { status: 400 }

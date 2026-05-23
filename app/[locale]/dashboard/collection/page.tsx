@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersCard } from "@/components/cheers-card";
+import { FollowButton } from "@/components/follow-button";
 import { Loader2, Layers } from "lucide-react";
-import Link from "next/link";
 
 async function CollectionContent() {
   const supabase = await createClient();
@@ -19,7 +19,7 @@ async function CollectionContent() {
   const query = `
     transaction_id, total_gross_amount, created_at, sequence_number_in_event, sender_name, sender_comment,
     product:products!product_id(name, type, artist_id),
-    qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, event:events!event_id(title))
+    qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, event:events!event_id(title, organizer_profile_id))
   `;
 
   const [{ data: byProfile }, { data: byEmail }] = await Promise.all([
@@ -67,19 +67,22 @@ async function CollectionContent() {
       .map((t) => [t.qr_config_id, t])
   );
 
-  // 宛先名・アーティスト名を一括取得（ウォレットと同様に常に profiles を直接クエリ）
-  const recipientIds = [...new Set(cards.map((c) => c.qr_config?.recipient_profile_id).filter(Boolean))];
-  const artistIds    = [...new Set(cards.map((c) => (c.product as any)?.artist_id).filter(Boolean))];
-  const allProfileIds = [...new Set([...recipientIds, ...artistIds])];
+  // 宛先・アーティスト・オーガナイザーを一括取得
+  const recipientIds  = [...new Set(cards.map((c) => c.qr_config?.recipient_profile_id).filter(Boolean))];
+  const artistIds     = [...new Set(cards.map((c) => (c.product as any)?.artist_id).filter(Boolean))];
+  const organizerIds  = [...new Set(cards.map((c) => (c.qr_config?.event as any)?.organizer_profile_id).filter(Boolean))];
+  const allProfileIds = [...new Set([...recipientIds, ...artistIds, ...organizerIds])];
   const { data: profileRows } = allProfileIds.length > 0
-    ? await admin.from("profiles").select("profile_id, display_name, avatar_url").in("profile_id", allProfileIds)
+    ? await admin.from("profiles")
+        .select("profile_id, display_name, avatar_url, artist_name, organizer_name")
+        .in("profile_id", allProfileIds)
     : { data: [] };
-  const profileMap = new Map((profileRows ?? []).map((p) => [p.profile_id, p]));
+  const profileMap = new Map((profileRows ?? []).map((p) => [p.profile_id, p as any]));
 
   return (
     <div className="space-y-8 pb-20">
       <div className="space-y-1">
-<p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">
+        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">
           Collection
         </p>
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
@@ -103,14 +106,27 @@ async function CollectionContent() {
       ) : (
         <div className="space-y-8">
           {cards.map((tx: any) => {
-            const qrConfigId = tx.qr_config?.qr_config_id;
-            const thanks = thanksMap.get(qrConfigId) ?? null;
-            const recipientProfileId = tx.qr_config?.recipient_profile_id;
-            const artistId = (tx.product as any)?.artist_id;
-            const recipient = profileMap.get(recipientProfileId);
-            const artist    = profileMap.get(artistId);
-            const displayName   = recipient?.display_name ?? artist?.display_name ?? "Artist";
-            const displayAvatar = recipient?.avatar_url   ?? artist?.avatar_url   ?? null;
+            const qrConfigId       = tx.qr_config?.qr_config_id;
+            const thanks           = thanksMap.get(qrConfigId) ?? null;
+            const recipientId      = tx.qr_config?.recipient_profile_id as string | undefined;
+            const artistId         = (tx.product as any)?.artist_id as string | undefined;
+            const organizerProfileId = (tx.qr_config?.event as any)?.organizer_profile_id as string | undefined;
+
+            const recipient = recipientId ? profileMap.get(recipientId) : null;
+            const artist    = artistId    ? profileMap.get(artistId)    : null;
+            const organizer = organizerProfileId ? profileMap.get(organizerProfileId) : null;
+
+            const displayName   = recipient?.artist_name ?? recipient?.display_name ?? artist?.artist_name ?? artist?.display_name ?? "Artist";
+            const displayAvatar = recipient?.avatar_url ?? artist?.avatar_url ?? null;
+
+            // フォロー対象の決定
+            const artistFolloweeId   = recipientId ?? artistId;
+            const artistFolloweeName = recipient?.artist_name ?? recipient?.display_name ?? artist?.artist_name ?? artist?.display_name ?? null;
+            const organizerName      = organizer?.organizer_name ?? organizer?.display_name ?? null;
+            // 宛先がオーガナイザー本人の場合はアーティストボタンを出さない
+            const showArtistFollow   = !!(artistFolloweeId && artistFolloweeId !== organizerProfileId && artistFolloweeName);
+            const showOrganizerFollow = !!(organizerProfileId && organizerName);
+
             return (
               <div key={tx.transaction_id} className="space-y-2">
                 {thanks && (
@@ -148,6 +164,34 @@ async function CollectionContent() {
                     </svg>
                     Apple Wallet に追加
                   </a>
+
+                  {(showOrganizerFollow || showArtistFollow) && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {showOrganizerFollow && (
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest px-1">主催者</span>
+                          <FollowButton
+                            followeeId={organizerProfileId!}
+                            followeeName={organizerName!}
+                            followeeRole="organizer"
+                            size="sm"
+                          />
+                        </div>
+                      )}
+                      {showArtistFollow && (
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest px-1">アーティスト</span>
+                          <FollowButton
+                            followeeId={artistFolloweeId!}
+                            followeeName={artistFolloweeName!}
+                            followeeRole="artist"
+                            size="sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <p className="text-[10px] text-slate-600 text-right">
                     {new Date(tx.created_at).toLocaleDateString("ja-JP", {
                       year: "numeric",

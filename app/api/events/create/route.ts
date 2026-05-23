@@ -75,12 +75,38 @@ export async function POST(req: Request) {
       status: "pending",
       invite_message: a.invite_message ?? null,
     }));
-    const { error: artistError } = await supabase
+    const { data: insertedArtists, error: artistError } = await supabase
       .from("event_artists")
-      .insert(artistRows);
+      .insert(artistRows)
+      .select("event_artist_id, artist_profile_id, invite_message");
     if (artistError) {
       return NextResponse.json({ error: artistError.message }, { status: 500 });
     }
+
+    // 各アーティストごとにメッセージスレッドを作成
+    try {
+      const admin = createAdminClient();
+      for (const ea of insertedArtists ?? []) {
+        const { data: conv } = await admin
+          .from("conversations")
+          .insert({ type: "booking", event_artist_id: ea.event_artist_id })
+          .select("conversation_id")
+          .single();
+        if (!conv) continue;
+        await admin.from("conversation_participants").insert([
+          { conversation_id: conv.conversation_id, profile_id: user.id },
+          { conversation_id: conv.conversation_id, profile_id: ea.artist_profile_id },
+        ]);
+        if (ea.invite_message?.trim()) {
+          await admin.from("messages").insert({
+            conversation_id: conv.conversation_id,
+            sender_profile_id: user.id,
+            body: ea.invite_message.trim(),
+            message_type: "text",
+          });
+        }
+      }
+    } catch { /* メッセージング失敗は非致死的 */ }
 
     // 各アーティストへ出演依頼通知
     try {

@@ -91,6 +91,26 @@ export async function POST(
     }
   }
 
+  // メッセージスレッドにシステムメッセージを投稿
+  try {
+    const systemBody = action === "accept"
+      ? "✅ 出演を承認しました。"
+      : "❌ 出演を辞退しました。";
+    const { data: conv } = await admin
+      .from("conversations")
+      .select("conversation_id")
+      .eq("event_artist_id", row.event_artist_id)
+      .maybeSingle();
+    if (conv) {
+      await admin.from("messages").insert({
+        conversation_id: conv.conversation_id,
+        sender_profile_id: artistId,
+        body: systemBody,
+        message_type: "system",
+      });
+    }
+  } catch { /* 非致死的 */ }
+
   // オーガナイザーへ通知
   try {
     const { data: event } = await admin

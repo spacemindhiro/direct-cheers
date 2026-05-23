@@ -108,7 +108,27 @@ export async function PATCH(
         performance_order: (currentArtists?.length ?? 0) + i + 1,
         status: "pending",
       }));
-      await supabase.from("event_artists").insert(rows);
+      const { data: insertedEAs } = await supabase
+        .from("event_artists")
+        .insert(rows)
+        .select("event_artist_id, artist_profile_id");
+
+      // 新規アーティストごとにメッセージスレッドを作成
+      try {
+        const admin = createAdminClient();
+        for (const ea of insertedEAs ?? []) {
+          const { data: conv } = await admin
+            .from("conversations")
+            .insert({ type: "booking", event_artist_id: ea.event_artist_id })
+            .select("conversation_id")
+            .single();
+          if (!conv) continue;
+          await admin.from("conversation_participants").insert([
+            { conversation_id: conv.conversation_id, profile_id: event.organizer_profile_id },
+            { conversation_id: conv.conversation_id, profile_id: ea.artist_profile_id },
+          ]);
+        }
+      } catch { /* 非致死的 */ }
 
       // 新規アーティストへ通知
       try {

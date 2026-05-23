@@ -1,8 +1,10 @@
+import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { ConversationThread } from './conversation-thread';
+import { Loader2 } from 'lucide-react';
 
-export default async function ConversationPage({
+async function ConversationPageContent({
   params,
 }: {
   params: Promise<{ conversationId: string }>;
@@ -13,4 +15,20 @@ export default async function ConversationPage({
 
   const { conversationId } = await params;
   return <ConversationThread conversationId={conversationId} />;
+}
+
+export default function ConversationPage({
+  params,
+}: {
+  params: Promise<{ conversationId: string }>;
+}) {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="animate-spin text-slate-600" size={28} />
+      </div>
+    }>
+      <ConversationPageContent params={params} />
+    </Suspense>
+  );
 }

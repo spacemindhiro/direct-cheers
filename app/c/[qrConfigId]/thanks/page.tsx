@@ -403,8 +403,8 @@ function ThanksContent() {
           </div>
         )}
 
-        {/* アーティストフォロー（ログイン済みのみ） */}
-        {passkeyDone && result.artist_id && result.artist_name && (
+        {/* アーティストフォロー */}
+        {result.artist_id && result.artist_name && (
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-slate-800" />
@@ -416,12 +416,21 @@ function ThanksContent() {
                 <p className="text-sm font-black text-white">{result.artist_name}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">次のライブ情報をお届けします</p>
               </div>
-              <FollowButton
-                followeeId={result.artist_id}
-                followeeName={result.artist_name}
-                followeeRole="artist"
-                size="sm"
-              />
+              {passkeyDone ? (
+                <FollowButton
+                  followeeId={result.artist_id}
+                  followeeName={result.artist_name}
+                  followeeRole="artist"
+                  size="sm"
+                />
+              ) : (
+                <Link
+                  href="/auth/login?redirect=/dashboard/collection"
+                  className="h-9 px-4 text-[11px] flex items-center gap-1.5 bg-gradient-to-r from-pink-600 to-pink-500 text-white font-black uppercase tracking-widest rounded-2xl hover:brightness-110 transition-all shrink-0"
+                >
+                  ログインしてフォロー
+                </Link>
+              )}
             </div>
           </div>
         )}

@@ -52,7 +52,8 @@ export async function GET() {
 
   const otherMap = new Map<string, { profile_id: string; display_name: string | null; avatar_url: string | null }>();
   for (const o of others ?? []) {
-    const p = o.profile as { display_name: string | null; avatar_url: string | null } | null;
+    const pRaw = o.profile as unknown;
+    const p = (Array.isArray(pRaw) ? pRaw[0] : pRaw) as { display_name: string | null; avatar_url: string | null } | null;
     otherMap.set(o.conversation_id, {
       profile_id: o.profile_id,
       display_name: p?.display_name ?? null,
@@ -69,13 +70,15 @@ export async function GET() {
   for (const r of rows ?? []) lastReadMap.set(r.conversation_id, r.last_read_at);
 
   const result = (rows ?? []).map((r) => {
-    const conv = r.conversation as {
+    type ConvShape = {
       conversation_id: string;
       type: string;
       updated_at: string;
       event_artist_id: string | null;
       event_artist: { event_id: string; event: { title: string } | null } | null;
-    } | null;
+    };
+    const convRaw = r.conversation as unknown;
+    const conv = (Array.isArray(convRaw) ? convRaw[0] : convRaw) as ConvShape | null;
 
     if (!conv) return null;
 

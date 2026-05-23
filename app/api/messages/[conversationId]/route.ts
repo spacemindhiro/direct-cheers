@@ -44,10 +44,13 @@ export async function GET(_req: Request, { params }: Params) {
     .neq("profile_id", user.id);
 
   const other = others?.[0];
+  const profile = other?.profile as { display_name: string | null; avatar_url: string | null } | unknown[] | null;
+  const profileObj = Array.isArray(profile) ? (profile[0] as { display_name: string | null; avatar_url: string | null } | undefined) : profile;
   const otherProfile = other
     ? {
         profile_id: other.profile_id,
-        ...(other.profile as { display_name: string | null; avatar_url: string | null } | null),
+        display_name: profileObj?.display_name ?? null,
+        avatar_url: profileObj?.avatar_url ?? null,
       }
     : null;
 

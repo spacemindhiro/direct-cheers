@@ -214,7 +214,7 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
     .from("transactions")
     .select(`
       transaction_id, total_gross_amount, created_at, sequence_number_in_event, sender_name, sender_comment,
-      product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+      product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name, artist_name)),
       qr_config:qr_configs!qr_config_id(
         qr_config_id, event_id, image_url, recipient_profile_id,
         event:events!event_id(title)
@@ -237,7 +237,8 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
     throw Object.assign(new Error("Apple Wallet設定が不完全です"), { status: 500 });
   }
 
-  const artistName = (tx.product as any)?.artist?.display_name ?? "Artist";
+  const artistRaw = (tx.product as any)?.artist;
+  const artistName = artistRaw?.artist_name ?? artistRaw?.display_name ?? "Artist";
   const eventTitle = (tx.qr_config as any)?.event?.title ?? "";
   const amount = tx.total_gross_amount ?? 0;
   const serialNumber = tx.sequence_number_in_event ?? 0;
@@ -248,8 +249,8 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
   let recipientName = artistName;
   let recipientAvatarUrl: string | null = null;
   if (recipientProfileId) {
-    const { data: rp } = await admin.from("profiles").select("display_name, avatar_url").eq("profile_id", recipientProfileId).single();
-    if (rp?.display_name) recipientName = rp.display_name;
+    const { data: rp } = await admin.from("profiles").select("display_name, artist_name, avatar_url").eq("profile_id", recipientProfileId).single();
+    if (rp?.artist_name ?? rp?.display_name) recipientName = rp?.artist_name ?? rp?.display_name ?? recipientName;
     if (rp?.avatar_url) recipientAvatarUrl = rp.avatar_url;
   }
 

@@ -25,6 +25,8 @@ type Profile = {
   credit_name: string | null;
   genre: string | null;
   organization_name: string | null;
+  artist_name: string | null;
+  organizer_name: string | null;
 };
 
 const roleLabel: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -72,6 +74,8 @@ export default function ProfileEditPage() {
   const [creditName, setCreditName] = useState('');
   const [genre, setGenre] = useState('');
   const [organizationName, setOrganizationName] = useState('');
+  const [artistName, setArtistName] = useState('');
+  const [organizerName, setOrganizerName] = useState('');
 
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -126,6 +130,8 @@ export default function ProfileEditPage() {
     setCreditName(data.credit_name ?? '');
     setGenre(data.genre ?? '');
     setOrganizationName(data.organization_name ?? '');
+    setArtistName(data.artist_name ?? '');
+    setOrganizerName(data.organizer_name ?? '');
   };
 
   const fetchAndApplyProfile = async (supabase: ReturnType<typeof createClient>, userId: string) => {
@@ -139,7 +145,7 @@ export default function ProfileEditPage() {
 
     const { data: extData } = await supabase
       .from('profiles')
-      .select('bio, affiliation, credit_name, genre, organization_name')
+      .select('bio, affiliation, credit_name, genre, organization_name, artist_name, organizer_name')
       .eq('profile_id', userId)
       .single();
 
@@ -199,9 +205,14 @@ export default function ProfileEditPage() {
         updates.affiliation  = affiliation.trim() || null;
         updates.credit_name  = creditName.trim() || null;
         updates.genre        = genre.trim() || null;
+        updates.artist_name  = artistName.trim() || null;
       }
       if (role === 'organizer' || role === 'agent') {
-        updates.organization_name = organizationName.trim() || null;
+        updates.organization_name  = organizationName.trim() || null;
+        updates.organizer_name     = organizerName.trim() || null;
+      }
+      if (role === 'agent' || role === 'admin') {
+        updates.artist_name = artistName.trim() || null;
       }
 
       const res = await fetch('/api/profile', {
@@ -361,10 +372,15 @@ export default function ProfileEditPage() {
         {isArtist && (
           <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">アーティスト情報</p>
+            <Field label="アーティスト名（DJ名）" icon={<Mic2 size={11} className="text-pink-500" />} optional
+              hint="ラインナップや通知・Walletに表示される名前。未入力なら表示名を使用">
+              <input type="text" value={artistName} onChange={(e) => setArtistName(e.target.value)}
+                placeholder="例: DJ TARO" className={inputClass} />
+            </Field>
             <Field label="クレジット表記" icon={<Tag size={11} className="text-pink-500" />} optional
               hint="フライヤーやレシートに表示される正式クレジット名">
               <input type="text" value={creditName} onChange={(e) => setCreditName(e.target.value)}
-                placeholder="例: DJ TARO / Taro Yamamoto" className={inputClass} />
+                placeholder="例: Taro Yamamoto" className={inputClass} />
             </Field>
             <Field label="所属団体" icon={<Building2 size={11} className="text-pink-500" />} optional>
               <input type="text" value={affiliation} onChange={(e) => setAffiliation(e.target.value)}
@@ -387,6 +403,11 @@ export default function ProfileEditPage() {
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
               {isOrganizer ? 'オーガナイザー情報' : 'エージェント情報'}
             </p>
+            <Field label="主催者名" icon={<CalendarDays size={11} className="text-pink-500" />} optional
+              hint="イベント主催者として表示される名前。未入力なら表示名を使用">
+              <input type="text" value={organizerName} onChange={(e) => setOrganizerName(e.target.value)}
+                placeholder="例: TARO EVENTS" className={inputClass} />
+            </Field>
             <Field label="活動団体名" icon={<Building2 size={11} className="text-pink-500" />} optional>
               <input type="text" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)}
                 placeholder="例: XYZ PRODUCTION / RESIDENT COLLECTIVE" className={inputClass} />
@@ -394,6 +415,18 @@ export default function ProfileEditPage() {
             <Field label="紹介文" icon={<FileText size={11} className="text-pink-500" />} optional>
               <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={4}
                 placeholder="活動内容や実績を入力してください" className={textareaClass} />
+            </Field>
+          </div>
+        )}
+
+        {/* ── エージェント: アーティスト名（自身がDJとしても活動する場合） ── */}
+        {isAgent && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-5">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">DJとして出演する場合</p>
+            <Field label="アーティスト名（DJ名）" icon={<Mic2 size={11} className="text-pink-500" />} optional
+              hint="ラインナップや通知・Walletに表示される名前。未入力なら表示名を使用">
+              <input type="text" value={artistName} onChange={(e) => setArtistName(e.target.value)}
+                placeholder="例: DJ TARO" className={inputClass} />
             </Field>
           </div>
         )}

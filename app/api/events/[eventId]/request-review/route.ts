@@ -50,10 +50,10 @@ export async function POST(
     const admin = createAdminClient();
     const { data: organizer } = await admin
       .from("profiles")
-      .select("display_name")
+      .select("display_name, organizer_name")
       .eq("profile_id", user.id)
       .single();
-    const organizerName = organizer?.display_name ?? "オーガナイザー";
+    const organizerName = organizer?.organizer_name ?? organizer?.display_name ?? "オーガナイザー";
 
     // セルフ承認（agent = organizer）の場合は admin に通知、それ以外はエージェントに通知
     const isSelfOrganized = event.agent_id === user.id;

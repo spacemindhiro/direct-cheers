@@ -140,15 +140,17 @@ export async function PATCH(
           .single();
         const { data: organizer } = await admin
           .from("profiles")
-          .select("display_name")
+          .select("display_name, organizer_name")
           .eq("profile_id", event.organizer_profile_id)
           .single();
+
+        const organizerDisplayName = organizer?.organizer_name ?? organizer?.display_name ?? "オーガナイザー";
 
         const notifs = toAdd.map((artistId) => ({
           profile_id: artistId,
           type: "lineup_invite",
           title: "出演依頼が届いています",
-          body: `${organizer?.display_name ?? "オーガナイザー"} から「${eventData?.title}」への出演依頼が届いています。`,
+          body: `${organizerDisplayName} から「${eventData?.title}」への出演依頼が届いています。`,
           metadata: { event_id: eventId, organizer_id: event.organizer_profile_id },
         }));
         await admin.from("notifications").insert(notifs);
@@ -162,7 +164,7 @@ export async function PATCH(
               to: email,
               eventId,
               eventTitle: eventData?.title ?? "",
-              organizerName: organizer?.display_name ?? "オーガナイザー",
+              organizerName: organizerDisplayName,
               artistName: "",
             }).catch(() => {});
           }

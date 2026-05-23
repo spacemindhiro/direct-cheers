@@ -113,15 +113,17 @@ export async function POST(req: Request) {
       const admin = createAdminClient();
       const { data: organizer } = await admin
         .from("profiles")
-        .select("display_name")
+        .select("display_name, organizer_name")
         .eq("profile_id", user.id)
         .single();
+
+      const organizerDisplayName = organizer?.organizer_name ?? organizer?.display_name ?? "オーガナイザー";
 
       const notifs = artistList.map((a) => ({
         profile_id: a.profile_id,
         type: "lineup_invite",
         title: "出演依頼が届いています",
-        body: `${organizer?.display_name ?? "オーガナイザー"} から「${title}」への出演依頼が届いています。`,
+        body: `${organizerDisplayName} から「${title}」への出演依頼が届いています。`,
         metadata: { event_id: event.event_id, organizer_id: user.id },
       }));
       await admin.from("notifications").insert(notifs);
@@ -135,7 +137,7 @@ export async function POST(req: Request) {
             to: email,
             eventId: event.event_id,
             eventTitle: title,
-            organizerName: organizer?.display_name ?? "オーガナイザー",
+            organizerName: organizerDisplayName,
             artistName: "",
           }).catch(() => {});
         }

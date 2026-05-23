@@ -121,9 +121,11 @@ export async function POST(
 
     const { data: artist } = await admin
       .from("profiles")
-      .select("display_name")
+      .select("display_name, artist_name")
       .eq("profile_id", artistId)
       .single();
+
+    const artistDisplayName = artist?.artist_name ?? artist?.display_name ?? "アーティスト";
 
     if (event?.organizer_profile_id) {
       await admin.from("notifications").insert({
@@ -131,8 +133,8 @@ export async function POST(
         type: action === "accept" ? "lineup_accepted" : "lineup_rejected",
         title: action === "accept" ? "出演依頼が承認されました" : "出演依頼が辞退されました",
         body: action === "accept"
-          ? `${artist?.display_name ?? "アーティスト"} が「${event.title}」への出演を承認しました。`
-          : `${artist?.display_name ?? "アーティスト"} が「${event.title}」への出演を辞退しました。`,
+          ? `${artistDisplayName} が「${event.title}」への出演を承認しました。`
+          : `${artistDisplayName} が「${event.title}」への出演を辞退しました。`,
         metadata: { event_id: eventId, artist_id: artistId },
       });
 
@@ -143,7 +145,7 @@ export async function POST(
           to: email,
           eventId,
           eventTitle: event.title,
-          artistName: artist?.display_name ?? "アーティスト",
+          artistName: artistDisplayName,
           accepted: action === "accept",
         }).catch(() => {});
       }

@@ -59,7 +59,8 @@ export async function POST(
     try {
       const admin = createAdminClient();
       const { data: organizer } = await admin
-        .from("profiles").select("display_name").eq("profile_id", user.id).single();
+        .from("profiles").select("display_name, organizer_name").eq("profile_id", user.id).single();
+      const organizerDisplayName = organizer?.organizer_name ?? organizer?.display_name ?? "オーガナイザー";
       const { data: eventDetail } = await admin
         .from("events").select("title, agent_id, organizer_profile_id").eq("event_id", eventId).single();
 
@@ -78,7 +79,7 @@ export async function POST(
             to: email,
             eventId,
             eventTitle: eventDetail?.title ?? "",
-            organizerName: organizer?.display_name ?? "オーガナイザー",
+            organizerName: organizerDisplayName,
           }).catch(() => {});
         }
       }

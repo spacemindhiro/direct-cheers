@@ -43,28 +43,28 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
   // 現在の出演アーティスト（rejected 以外）
   const { data: eventArtists } = await admin
     .from("event_artists")
-    .select("artist_profile_id, status, artist:profiles!artist_profile_id(display_name)")
+    .select("artist_profile_id, status, artist:profiles!artist_profile_id(display_name, artist_name)")
     .eq("event_id", eventId)
     .is("deleted_at", null)
     .neq("status", "rejected");
 
   const currentArtists = (eventArtists ?? []).map((ea: any) => ({
     profile_id: ea.artist_profile_id,
-    display_name: (ea.artist as any)?.display_name ?? "Unknown",
+    display_name: (ea.artist as any)?.artist_name ?? (ea.artist as any)?.display_name ?? "Unknown",
     status: ea.status as string,
   }));
 
   // コネクション済みアーティスト
   const { data: connections } = await admin
     .from("connections")
-    .select("artist_profile_id, artist:profiles!artist_profile_id(display_name)")
+    .select("artist_profile_id, artist:profiles!artist_profile_id(display_name, artist_name)")
     .eq("organizer_profile_id", event.organizer_profile_id)
     .eq("status", "active")
     .is("deleted_at", null);
 
   const connectedArtists = (connections ?? []).map((c: any) => ({
     profile_id: c.artist_profile_id,
-    display_name: (c.artist as any)?.display_name ?? "Unknown",
+    display_name: (c.artist as any)?.artist_name ?? (c.artist as any)?.display_name ?? "Unknown",
   }));
 
   const toLocalDatetime = utcIsoToJstLocal;

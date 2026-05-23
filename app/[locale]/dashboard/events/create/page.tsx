@@ -25,14 +25,14 @@ async function EventCreateContent() {
   // コネクション済みアーティストを取得
   const { data: connections } = await supabase
     .from("connections")
-    .select("artist_profile_id, artist:profiles!artist_profile_id(display_name)")
+    .select("artist_profile_id, artist:profiles!artist_profile_id(display_name, artist_name)")
     .eq("organizer_profile_id", user.id)
     .eq("status", "active")
     .is("deleted_at", null);
 
   const connectedArtists = (connections ?? []).map((c) => ({
     profile_id: c.artist_profile_id,
-    display_name: (c.artist as any)?.display_name ?? "Unknown",
+    display_name: (c.artist as any)?.artist_name ?? (c.artist as any)?.display_name ?? "Unknown",
   }));
 
   return (

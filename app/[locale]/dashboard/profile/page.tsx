@@ -539,7 +539,7 @@ export default function ProfileEditPage() {
         {platform === 'ios' && (
           <>
             <p className="text-xs text-slate-500 leading-relaxed">
-              アプリのようにすぐ起動できます。Safariで開いている場合は以下の手順で追加できます。
+              アプリのようにすぐ起動できます。まずダッシュボードを開いてから、Safariで以下の手順で追加してください。
             </p>
             <div className="space-y-3">
               <div className="flex items-center gap-3">

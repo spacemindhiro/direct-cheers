@@ -224,7 +224,7 @@ export function FollowButton({
             {/* アーティストからのメッセージ */}
             <div className="mt-3 bg-pink-500/5 border border-pink-500/10 rounded-xl px-3 py-2">
               <p className="text-[11px] text-pink-300 italic leading-relaxed">
-                "フォローありがとう！またライブで会いましょう 🎵"
+                "フォローありがとうございます！"
               </p>
               <p className="text-[9px] text-slate-600 mt-1">— {followeeName}</p>
             </div>

@@ -117,6 +117,7 @@ export default function ProfileEditPage() {
   const [isPending, startTransition] = useTransition();
   const [inviter, setInviter] = useState<{ display_name: string | null; profile_id: string } | null>(null);
   const [signedDoc, setSignedDoc] = useState<{ id: string; signed_at: string } | null>(null);
+  const [platform, setPlatform] = useState<'ios' | 'android' | 'other'>('other');
   const router = useRouter();
 
   const applyProfileData = (data: Profile) => {
@@ -180,6 +181,11 @@ export default function ProfileEditPage() {
       setIsLoading(false);
     };
     init();
+
+    const ua = navigator.userAgent;
+    if (/android/i.test(ua)) setPlatform('android');
+    else if (/iphone|ipad|ipod/i.test(ua)) setPlatform('ios');
+    else setPlatform('other');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
@@ -530,23 +536,53 @@ export default function ProfileEditPage() {
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2">
           <Smartphone size={11} className="text-pink-500" /> ホーム画面に追加
         </p>
-        <p className="text-xs text-slate-500 leading-relaxed">
-          アプリのようにすぐ起動できます。Safariで開いている場合は以下の手順で追加できます。
-        </p>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
-              <Share size={14} className="text-slate-400" />
+        {platform === 'ios' && (
+          <>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              アプリのようにすぐ起動できます。Safariで開いている場合は以下の手順で追加できます。
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
+                  <Share size={14} className="text-slate-400" />
+                </div>
+                <p className="text-xs text-slate-400">1. 画面下の共有ボタン（四角に矢印）をタップ</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
+                  <Plus size={14} className="text-slate-400" />
+                </div>
+                <p className="text-xs text-slate-400">2.「ホーム画面に追加」を選択して完了</p>
+              </div>
             </div>
-            <p className="text-xs text-slate-400">1. 画面下の共有ボタン（四角に矢印）をタップ</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
-              <Plus size={14} className="text-slate-400" />
+          </>
+        )}
+        {platform === 'android' && (
+          <>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              アプリのようにすぐ起動できます。Chromeで開いている場合は以下の手順で追加できます。
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
+                  <span className="text-slate-400 text-xs font-black">⋮</span>
+                </div>
+                <p className="text-xs text-slate-400">1. 右上のメニュー（縦3点）をタップ</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
+                  <Plus size={14} className="text-slate-400" />
+                </div>
+                <p className="text-xs text-slate-400">2.「ホーム画面に追加」または「アプリをインストール」を選択して完了</p>
+              </div>
             </div>
-            <p className="text-xs text-slate-400">2.「ホーム画面に追加」を選択して完了</p>
-          </div>
-        </div>
+          </>
+        )}
+        {platform === 'other' && (
+          <p className="text-xs text-slate-500 leading-relaxed">
+            スマートフォンのブラウザからアクセスすると、ホーム画面に追加してアプリのように使えます。
+          </p>
+        )}
       </div>
 
       {/* アカウント管理（パスワード設定・履歴統合） */}

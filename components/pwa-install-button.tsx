@@ -2,39 +2,31 @@
 
 import { useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
-
-let deferred: BeforeInstallPromptEvent | null = null;
+import type { BeforeInstallPromptEvent } from './sw-register';
 
 export function PwaInstallButton() {
   const [canInstall, setCanInstall] = useState(false);
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      deferred = e as BeforeInstallPromptEvent;
+    // マウント時点でもう捕捉済みなら即表示
+    if ((window as any).__pwaPrompt) {
       setCanInstall(true);
-    };
-    const installed = () => {
-      deferred = null;
+    }
+    // まだなら発火を待つ
+    const handler = () => setCanInstall(true);
+    window.addEventListener('pwa-ready', handler);
+    window.addEventListener('appinstalled', () => {
+      (window as any).__pwaPrompt = null;
       setCanInstall(false);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    window.addEventListener('appinstalled', installed);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
-      window.removeEventListener('appinstalled', installed);
-    };
+    });
+    return () => window.removeEventListener('pwa-ready', handler);
   }, []);
 
   const handleInstall = async () => {
-    if (!deferred) return;
-    await deferred.prompt();
-    deferred = null;
+    const prompt = (window as any).__pwaPrompt as BeforeInstallPromptEvent | null;
+    if (!prompt) return;
+    await prompt.prompt();
+    (window as any).__pwaPrompt = null;
     setCanInstall(false);
   };
 

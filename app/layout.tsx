@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
+import { SwRegister } from "@/components/sw-register";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://direct-cheers.com";
 
@@ -31,14 +32,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: `
-          if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
-          }
-        `}} />
-      </head>
       <body className={`${geistSans.className} antialiased`}>
+        <SwRegister />
         {children}
       </body>
     </html>

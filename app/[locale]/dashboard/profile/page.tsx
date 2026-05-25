@@ -560,7 +560,7 @@ export default function ProfileEditPage() {
         {platform === 'android' && (
           <>
             <p className="text-xs text-slate-500 leading-relaxed">
-              アプリのようにすぐ起動できます。Chromeで開いている場合は以下の手順で追加できます。
+              アプリのようにすぐ起動できます。まずダッシュボードを開いてから、以下の手順で追加してください。
             </p>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
@@ -573,7 +573,7 @@ export default function ProfileEditPage() {
                 <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
                   <Plus size={14} className="text-slate-400" />
                 </div>
-                <p className="text-xs text-slate-400">2.「ホーム画面に追加」または「アプリをインストール」を選択して完了</p>
+                <p className="text-xs text-slate-400">2.「アプリをインストール」を選択して完了</p>
               </div>
             </div>
           </>

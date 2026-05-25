@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { ImageCropperModal } from '@/components/image-cropper-modal';
+import { PwaInstallButton } from '@/components/pwa-install-button';
 
 type Profile = {
   display_name: string;
@@ -560,22 +561,9 @@ export default function ProfileEditPage() {
         {platform === 'android' && (
           <>
             <p className="text-xs text-slate-500 leading-relaxed">
-              アプリのようにすぐ起動できます。まずダッシュボードを開いてから、以下の手順で追加してください。
+              アプリのようにすぐ起動できます。下のボタンからインストールしてください。
             </p>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
-                  <span className="text-slate-400 text-xs font-black">⋮</span>
-                </div>
-                <p className="text-xs text-slate-400">1. 右上のメニュー（縦3点）をタップ</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-slate-800 rounded-xl flex items-center justify-center shrink-0">
-                  <Plus size={14} className="text-slate-400" />
-                </div>
-                <p className="text-xs text-slate-400">2.「アプリをインストール」を選択して完了</p>
-              </div>
-            </div>
+            <PwaInstallButton />
           </>
         )}
         {platform === 'other' && (

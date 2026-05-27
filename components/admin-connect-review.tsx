@@ -65,7 +65,7 @@ export function AdminConnectReview({ users }: { users: PendingUser[] }) {
             }`}
           >
             <Link
-              href={`/dashboard/admin/connect-review/${u.profile_id}`}
+              href={`/admin/connect-review/${u.profile_id}`}
               className="min-w-0 space-y-1.5 flex-1 group"
             >
               <p className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors flex items-center gap-1.5">

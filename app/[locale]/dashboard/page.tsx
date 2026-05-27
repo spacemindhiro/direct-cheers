@@ -360,7 +360,7 @@ async function DashboardContent() {
       {/* admin向け: 口座開設審査待ちバナー */}
       {pendingConnectReviewCount > 0 && (
         <Link
-          href="/dashboard/admin/connect-review"
+          href="/admin/connect-review"
           className="block bg-indigo-500/10 border border-indigo-500/30 hover:border-indigo-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
         >
           <div className="flex items-center justify-between gap-4">
@@ -391,6 +391,32 @@ async function DashboardContent() {
               </div>
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* admin向け: 管理パネルリンク */}
+      {profile?.role === 'admin' && (
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href="/admin/users"
+            className="flex items-center justify-between gap-2 bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-[1.5rem] px-5 py-4 transition-all group"
+          >
+            <div>
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Admin</p>
+              <p className="text-sm font-black text-white">ユーザー管理</p>
+            </div>
+            <span className="text-slate-600 group-hover:text-indigo-400 text-xs font-black transition-colors">→</span>
+          </Link>
+          <Link
+            href="/admin/connect-review"
+            className="flex items-center justify-between gap-2 bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-[1.5rem] px-5 py-4 transition-all group"
+          >
+            <div>
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Admin</p>
+              <p className="text-sm font-black text-white">口座審査</p>
+            </div>
+            <span className="text-slate-600 group-hover:text-indigo-400 text-xs font-black transition-colors">→</span>
+          </Link>
         </div>
       )}
 

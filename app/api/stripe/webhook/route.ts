@@ -165,6 +165,18 @@ export async function POST(req: Request) {
 
         const paymentMethod = (session.payment_method_types?.[0] === "paypay") ? "paypay" : "card";
         const gross = session.amount_total ?? 0;
+
+        // ウォレット種別（apple_pay / google_pay / link）を取得
+        let wWalletType: string | null = null;
+        if (paymentMethod === "card" && typeof session.payment_intent === "string") {
+          try {
+            const wPi = await stripe.paymentIntents.retrieve(session.payment_intent, {
+              expand: ["latest_charge"],
+            });
+            const wCharge = wPi.latest_charge as Stripe.Charge | null;
+            wWalletType = (wCharge?.payment_method_details?.card?.wallet as any)?.type ?? null;
+          } catch { /* wallet_type is optional */ }
+        }
         const wFeeConfig = await getFeeConfig();
         const wStripeFee = Math.floor(gross * (paymentMethod === "paypay" ? wFeeConfig.paypay_rate : wFeeConfig.stripe_rate));
         const wPlatformFee = Math.floor(gross * wFeeConfig.platform_rate);
@@ -206,6 +218,7 @@ export async function POST(req: Request) {
           p_event_id:                 wEventId,
           p_agent_id:                 wAgentId,
           p_agent_fee:                wAgentFee,
+          p_wallet_type:              wWalletType,
         });
 
         if (rpcErr) throw rpcErr;

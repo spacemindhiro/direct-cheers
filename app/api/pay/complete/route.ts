@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   let session: Stripe.Checkout.Session;
   try {
     session = await stripe.checkout.sessions.retrieve(session_id, {
-      expand: ["customer", "payment_intent"],
+      expand: ["customer", "payment_intent", "payment_intent.latest_charge"],
     });
   } catch (err: any) {
     return NextResponse.json({ error: "Invalid session" }, { status: 400 });
@@ -73,6 +73,8 @@ export async function POST(req: Request) {
 
   const gross = session.amount_total ?? 0;
   const paymentMethod = (session.payment_method_types?.[0] === "paypay") ? "paypay" : "card";
+  const latestCharge = pi?.latest_charge as Stripe.Charge | null;
+  const walletType = (latestCharge?.payment_method_details?.card?.wallet as any)?.type ?? null;
   const feeConfig = await getFeeConfig();
   const stripeFee = Math.floor(gross * (paymentMethod === "paypay" ? feeConfig.paypay_rate : feeConfig.stripe_rate));
   const platformFee = Math.floor(gross * feeConfig.platform_rate);
@@ -111,6 +113,7 @@ export async function POST(req: Request) {
     p_event_id:                 qrcInfo.eventId ?? null,
     p_agent_id:                 agentId,
     p_agent_fee:                agentFee,
+    p_wallet_type:              walletType,
   });
 
   if (rpcError) {

@@ -1,13 +1,104 @@
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare } from 'lucide-react';
+import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { ArtistSalesDashboard } from '@/components/artist-sales-dashboard';
 import { LineupInvitations } from '@/components/lineup-invitations';
 import { FollowButton } from '@/components/follow-button';
 import { FollowerHero } from '@/components/follower-hero';
+
+function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D' }) {
+  if (pattern === 'A') {
+    return (
+      <div className="flex items-center gap-4 bg-emerald-500/5 border border-emerald-500/20 rounded-[1.5rem] px-5 py-4">
+        <div className="w-10 h-10 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 shrink-0">
+          <CheckCircle2 size={20} className="text-emerald-400" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Payment Speed</p>
+          <p className="text-sm font-black text-white">スマホ決済セット済み</p>
+          <p className="text-xs text-slate-500 mt-0.5">Apple Pay / Google Pay でワンタッチ決済が使えます</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pattern === 'B') {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-5 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 shrink-0">
+            <CreditCard size={20} className="text-amber-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Payment Speed</p>
+            <p className="text-sm font-black text-white">決済をもっとスピードアップ</p>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Stripe Linkを登録すると、次回からメールアドレスだけでワンタッチ決済できます。カード情報の再入力が不要になります。
+        </p>
+        <a
+          href="https://link.co/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/40 rounded-xl px-4 transition-all"
+        >
+          <span className="text-xs font-black text-white">Stripe Linkについて</span>
+          <ChevronRight size={14} className="text-slate-500" />
+        </a>
+      </div>
+    );
+  }
+
+  if (pattern === 'C') {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-5 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-orange-500/10 rounded-2xl flex items-center justify-center border border-orange-500/20 shrink-0">
+            <AlertTriangle size={20} className="text-orange-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Payment Speed</p>
+            <p className="text-sm font-black text-white">PayPayバックアップを設定しよう</p>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          一部のイベントではPayPayが使用できない場合があります。Stripe Linkを登録しておくと、どの会場でも確実に使えます。
+        </p>
+        <a
+          href="https://link.co/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-orange-500/40 rounded-xl px-4 transition-all"
+        >
+          <span className="text-xs font-black text-white">Stripe Linkを登録する</span>
+          <ChevronRight size={14} className="text-slate-500" />
+        </a>
+      </div>
+    );
+  }
+
+  // Pattern D: no history
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-5 space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 shrink-0">
+          <Smartphone size={20} className="text-indigo-400" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Payment Speed</p>
+          <p className="text-sm font-black text-white">超高速決済を準備しよう</p>
+        </div>
+      </div>
+      <p className="text-xs text-slate-400 leading-relaxed">
+        Apple Pay・Google Pay・Stripe Linkを使うと、イベント当日に数秒でチアを送れます。いまのうちに設定しておきましょう。
+      </p>
+    </div>
+  );
+}
 
 async function DashboardContent() {
   const supabase = await createClient();
@@ -46,6 +137,7 @@ async function DashboardContent() {
       .from('transactions')
       .select(`
         transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
+        payment_method, wallet_type,
         product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
         qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
       `)
@@ -59,6 +151,7 @@ async function DashboardContent() {
       .from('transactions')
       .select(`
         transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
+        payment_method, wallet_type,
         product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
         qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
       `)
@@ -78,6 +171,20 @@ async function DashboardContent() {
     cheersHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     cheersHistory = cheersHistory.slice(0, 20);
     totalCheersAmount = cheersHistory.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+  }
+
+  // 決済最適化パターン判定（一般ユーザー・admin以外）
+  type PaymentPattern = 'A' | 'B' | 'C' | 'D';
+  let paymentPattern: PaymentPattern = 'D';
+  if (!isAdmin && cheersHistory.length > 0) {
+    const latest = cheersHistory[0];
+    if (latest.wallet_type === 'apple_pay' || latest.wallet_type === 'google_pay') {
+      paymentPattern = 'A';
+    } else if (latest.payment_method === 'paypay') {
+      paymentPattern = 'C';
+    } else if (latest.payment_method === 'card') {
+      paymentPattern = 'B';
+    }
   }
 
   // agent / organizer / artist: transaction_distributions の actual_amount を集計するだけ
@@ -546,6 +653,9 @@ async function DashboardContent() {
               </div>
             </div>
           </div>
+
+          {/* 決済スピード最適化セクション */}
+          <PaymentOptimizationSection pattern={paymentPattern} />
 
           <div className="space-y-4">
             <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">

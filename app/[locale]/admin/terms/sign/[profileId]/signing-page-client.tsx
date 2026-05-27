@@ -33,7 +33,7 @@ function TermsText({ types }: { types: TermsType[] }) {
               <div className="space-y-2">
                 {section.paragraphs.map((p, i) => (
                   <p key={i} className="text-base text-slate-400 leading-relaxed">
-                    {i + 1 > 1 ? `${i + 1}．` : ''}{p}
+                    {section.paragraphs.length > 1 ? `${i + 1}．` : ''}{p}
                   </p>
                 ))}
               </div>

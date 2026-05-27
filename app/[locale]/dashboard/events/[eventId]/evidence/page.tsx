@@ -36,6 +36,18 @@ async function EvidencePageContent({
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
 
+  // 全写真の署名付きURL（1時間有効）をまとめて生成
+  const allPaths = (existingEvidences ?? []).flatMap((ev) => ev.photo_paths as string[]);
+  const signedUrlMap = new Map<string, string>();
+  if (allPaths.length > 0) {
+    const { data: signedUrls } = await admin.storage
+      .from("event-evidence")
+      .createSignedUrls(allPaths, 3600);
+    (signedUrls ?? []).forEach((item) => {
+      if (item.signedUrl && item.path) signedUrlMap.set(item.path, item.signedUrl);
+    });
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
       <div className="max-w-xl mx-auto px-6 py-10 space-y-8">
@@ -71,21 +83,42 @@ async function EvidencePageContent({
           <div className="space-y-3">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">提出済みエビデンス</p>
             {existingEvidences!.map((ev) => (
-              <div key={ev.evidence_id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-green-400" />
+              <div key={ev.evidence_id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                {/* ヘッダー */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CheckCircle2 size={14} className="text-green-400 shrink-0" />
                   <p className="text-xs text-slate-400">
-                    {new Date(ev.created_at).toLocaleDateString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    {new Date(ev.created_at).toLocaleString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}提出
                   </p>
                   {ev.attendance_count != null && (
-                    <span className="text-xs text-slate-500">動員: {ev.attendance_count}人</span>
+                    <span className="text-xs font-bold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-2 py-0.5">
+                      動員 {ev.attendance_count}人
+                    </span>
                   )}
                 </div>
+
+                {/* コメント */}
                 {ev.description && (
-                  <p className="text-sm text-slate-300">{ev.description}</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">{ev.description}</p>
                 )}
-                {ev.photo_paths.length > 0 && (
-                  <p className="text-xs text-slate-500">{ev.photo_paths.length}枚の写真</p>
+
+                {/* 写真サムネイル */}
+                {(ev.photo_paths as string[]).length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {(ev.photo_paths as string[]).map((path) => {
+                      const url = signedUrlMap.get(path);
+                      return url ? (
+                        <a key={path} href={url} target="_blank" rel="noopener noreferrer"
+                          className="w-20 h-20 rounded-xl overflow-hidden border border-slate-700 shrink-0 block hover:opacity-80 transition-opacity">
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                        </a>
+                      ) : (
+                        <div key={path} className="w-20 h-20 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                          <span className="text-[10px] text-slate-600">読込中</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             ))}

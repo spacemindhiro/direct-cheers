@@ -131,7 +131,6 @@ export function EvidenceUploadForm({ eventId }: Props) {
         <input
           type="text"
           inputMode="numeric"
-          pattern="[0-9]*"
           value={attendanceCount}
           onChange={(e) => setAttendanceCount(e.target.value.replace(/[^0-9]/g, ""))}
           placeholder="例: 150"

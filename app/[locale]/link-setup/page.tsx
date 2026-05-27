@@ -1,16 +1,26 @@
 import { LinkSetupForm } from "@/components/link-setup-form";
+import { createClient } from "@/lib/supabase/server";
 import { Zap } from "lucide-react";
 import Link from "next/link";
 
-export default function LinkSetupPage() {
+export default async function LinkSetupPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
       <div className="max-w-md mx-auto px-6 py-12 space-y-8">
 
         <div className="space-y-1">
-          <Link href="/dashboard" className="text-[10px] font-black text-slate-600 uppercase tracking-widest hover:text-pink-500 transition-colors">
-            ← ダッシュボード
-          </Link>
+          {user ? (
+            <Link href="/dashboard" className="text-[10px] font-black text-slate-600 uppercase tracking-widest hover:text-pink-500 transition-colors">
+              ← ダッシュボード
+            </Link>
+          ) : (
+            <Link href="/" className="text-[10px] font-black text-slate-600 uppercase tracking-widest hover:text-pink-500 transition-colors">
+              ← トップへ
+            </Link>
+          )}
         </div>
 
         <div className="space-y-3">

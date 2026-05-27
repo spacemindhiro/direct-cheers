@@ -50,14 +50,15 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     e.preventDefault();
+    // ポインターをキャプチャしてブラウザのスクロール横取りを防ぐ
+    canvas.setPointerCapture(e.pointerId);
     isDrawing.current = true;
     lastPos.current = getPos(e, canvas);
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    // Apple Pencil の筆圧対応
     const pressure = (e as PointerEvent).pressure || 0.5;
-    ctx.lineWidth = Math.max(1, pressure * 4);
+    ctx.lineWidth = Math.max(1.5, pressure * 4);
   }, []);
 
   const draw = useCallback((e: PointerEvent) => {
@@ -71,7 +72,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
 
     const pos = getPos(e, canvas);
     const pressure = (e as PointerEvent).pressure || 0.5;
-    ctx.lineWidth = Math.max(1, pressure * 4);
+    ctx.lineWidth = Math.max(1.5, pressure * 4);
 
     ctx.beginPath();
     ctx.moveTo(lastPos.current.x, lastPos.current.y);
@@ -96,12 +97,15 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
     canvas.addEventListener("pointermove", draw, { passive: false });
     canvas.addEventListener("pointerup", stopDrawing);
     canvas.addEventListener("pointerleave", stopDrawing);
+    // iOS が scroll と判定した場合もリセット
+    canvas.addEventListener("pointercancel", stopDrawing);
 
     return () => {
       canvas.removeEventListener("pointerdown", startDrawing);
       canvas.removeEventListener("pointermove", draw);
       canvas.removeEventListener("pointerup", stopDrawing);
       canvas.removeEventListener("pointerleave", stopDrawing);
+      canvas.removeEventListener("pointercancel", stopDrawing);
     };
   }, [startDrawing, draw, stopDrawing]);
 
@@ -116,11 +120,11 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 touch-none" style={{ touchAction: "none" }}>
       <div className="relative">
         <canvas
           ref={canvasRef}
-          className="w-full h-40 bg-slate-950 border border-slate-700 rounded-2xl touch-none cursor-crosshair"
+          className="w-full h-56 bg-slate-950 border border-slate-700 rounded-2xl touch-none cursor-crosshair"
           style={{ touchAction: "none" }}
         />
         {isEmpty && (

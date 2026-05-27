@@ -44,6 +44,7 @@ export async function proxy(request: NextRequest) {
     normalizedPath.startsWith("/invite") ||
     normalizedPath.startsWith("/join") ||
     normalizedPath.startsWith("/onboarding") ||
+    normalizedPath.startsWith("/link-setup") ||
     path.startsWith("/account/"); // アカウント復旧・統合確認（ロケールなし）
 
   // /c/ と /entrance/ は [locale] の外にあるルート — intl middleware を通さない

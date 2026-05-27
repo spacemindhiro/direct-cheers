@@ -89,7 +89,7 @@ export function EvidenceUploadForm({ eventId }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
       {/* 写真アップロード */}
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">写真（最大10枚）</p>
@@ -129,11 +129,12 @@ export function EvidenceUploadForm({ eventId }: Props) {
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">動員数</p>
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={attendanceCount}
-          onChange={(e) => setAttendanceCount(e.target.value)}
+          onChange={(e) => setAttendanceCount(e.target.value.replace(/[^0-9]/g, ""))}
           placeholder="例: 150"
-          min={0}
           className="w-full h-12 bg-slate-800 border border-slate-700 rounded-2xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none"
         />
       </div>

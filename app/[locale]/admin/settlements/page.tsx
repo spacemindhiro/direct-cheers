@@ -7,6 +7,7 @@ import { SettleButton } from "@/components/settle-button";
 import { SettlementDetails, type TxGroup, type DistributionRow } from "@/components/settlement-details";
 import { AdminForcePayoutButton } from "@/components/admin-force-payout-button";
 import { AdminAuthExpiryActions } from "@/components/admin-auth-expiry-actions";
+import { CaptureAllButton } from "@/components/capture-all-button";
 import { Loader2, Calendar, MapPin, ImageIcon, CheckCircle2, Clock, AlertTriangle, ArrowLeft, ExternalLink, Zap } from "lucide-react";
 import Link from "next/link";
 
@@ -309,17 +310,20 @@ async function SettlementsContent() {
                   </div>
                 )}
 
-                {/* 精算済み情報 + 強制出金 */}
+                {/* 精算済み情報 + キャプチャ再実行 + 強制出金 */}
                 {settled && summary && (
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="text-[10px] text-slate-500">
-                      精算済み · {summary.approved_at ? new Date(summary.approved_at).toLocaleDateString("ja-JP") : ""}
-                    </p>
-                    <AdminForcePayoutButton
-                      eventId={event.event_id}
-                      eventTitle={event.title}
-                      alreadyReleased={holdReleasedByEvent.get(event.event_id) ?? false}
-                    />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="text-[10px] text-slate-500">
+                        精算済み · {summary.approved_at ? new Date(summary.approved_at).toLocaleDateString("ja-JP") : ""}
+                      </p>
+                      <AdminForcePayoutButton
+                        eventId={event.event_id}
+                        eventTitle={event.title}
+                        alreadyReleased={holdReleasedByEvent.get(event.event_id) ?? false}
+                      />
+                    </div>
+                    <CaptureAllButton eventId={event.event_id} />
                   </div>
                 )}
 

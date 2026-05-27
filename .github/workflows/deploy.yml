@@ -38,6 +38,7 @@ jobs:
       - name: Link and Push Migrations
         run: |
           supabase link --project-ref $TARGET_PROJECT_ID --password $TARGET_DB_PASSWORD
+          supabase migration repair --status reverted 20260528000000 || true
           supabase db push --password $TARGET_DB_PASSWORD
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

@@ -122,16 +122,13 @@ export async function POST(
     targetsByQr.set(t.qr_config_id, list);
   }
 
-  // profile ごとの合計分配額を集計
+  // profile ごとの合計分配額を集計（Transfer 用）
   const profileAmounts = new Map<string, { amount: number; role: string; stripe_connect_id: string | null }>();
-  const distributionRows: {
-    transaction_id: string;
-    event_id: string;
-    profile_id: string;
-    distribution_role: string;
-    actual_amount: number;
-    distribution_status: string;
-  }[] = [];
+
+  // トランザクションごと・プロフィールごとの確定額（UPDATE/INSERT 用）
+  // key: `${transaction_id}/${profile_id}/${role}`
+  type DistEntry = { txId: string; profileId: string; role: string; amount: number; connectId: string | null };
+  const desiredDists = new Map<string, DistEntry>();
 
   for (const tx of transactions) {
     const net = Math.floor((tx.total_gross_amount ?? 0) * NET_RATE);
@@ -146,7 +143,6 @@ export async function POST(
         ? profileRole
         : "artist";
 
-      // アーティストが未確定（pending/rejected）の場合はオーガナイザーに集約
       const isUnconfirmedArtist =
         profileRole === "artist" && !confirmedArtistIds.has(target.profile_id);
       const effectiveProfileId = isUnconfirmedArtist
@@ -157,23 +153,76 @@ export async function POST(
         ? organizerConnectId
         : ((target.profile as any)?.stripe_connect_id ?? null);
 
-      distributionRows.push({
-        transaction_id: tx.transaction_id,
-        event_id: eventId,
-        profile_id: effectiveProfileId,
-        distribution_role: effectiveRole,
-        actual_amount: amount,
-        distribution_status: "accrued",
+      const key = `${tx.transaction_id}/${effectiveProfileId}/${effectiveRole}`;
+      const prev = desiredDists.get(key);
+      desiredDists.set(key, {
+        txId: tx.transaction_id,
+        profileId: effectiveProfileId,
+        role: effectiveRole,
+        amount: (prev?.amount ?? 0) + amount,
+        connectId: prev?.connectId ?? effectiveConnectId,
       });
 
-      const existing = profileAmounts.get(effectiveProfileId);
+      const existingAmt = profileAmounts.get(effectiveProfileId);
       profileAmounts.set(effectiveProfileId, {
-        amount: (existing?.amount ?? 0) + amount,
+        amount: (existingAmt?.amount ?? 0) + amount,
         role: effectiveRole,
-        stripe_connect_id: existing?.stripe_connect_id ?? effectiveConnectId,
+        stripe_connect_id: existingAmt?.stripe_connect_id ?? effectiveConnectId,
       });
     }
   }
+
+  // 既存の artist/org 分配行を取得（支払時に RPC が作成済み）
+  const txIds = transactions.map((t) => t.transaction_id);
+  const { data: existingArtistOrgDists } = await admin
+    .from("transaction_distributions")
+    .select("transaction_distribution_id, transaction_id, profile_id, distribution_role, actual_amount")
+    .in("transaction_id", txIds)
+    .in("distribution_role", ["artist", "organizer"]);
+
+  const existingMap = new Map<string, string>(); // key → distribution_id
+  for (const d of existingArtistOrgDists ?? []) {
+    const key = `${d.transaction_id}/${d.profile_id}/${d.distribution_role}`;
+    existingMap.set(key, d.transaction_distribution_id);
+  }
+
+  // 既存行を上書き更新（金額が変わった場合のみ）、新規行は INSERT
+  const distInsertRows: {
+    transaction_id: string; event_id: string; profile_id: string;
+    distribution_role: string; actual_amount: number; distribution_status: string;
+  }[] = [];
+
+  for (const [key, entry] of desiredDists.entries()) {
+    const existingId = existingMap.get(key);
+    if (existingId) {
+      await admin
+        .from("transaction_distributions")
+        .update({ actual_amount: entry.amount })
+        .eq("transaction_distribution_id", existingId);
+    } else {
+      distInsertRows.push({
+        transaction_id: entry.txId,
+        event_id: eventId,
+        profile_id: entry.profileId,
+        distribution_role: entry.role,
+        actual_amount: entry.amount,
+        distribution_status: "accrued",
+      });
+    }
+  }
+
+  // 未確定アーティストなど、desired に含まれない既存行は 0 に更新
+  for (const d of existingArtistOrgDists ?? []) {
+    const key = `${d.transaction_id}/${d.profile_id}/${d.distribution_role}`;
+    if (!desiredDists.has(key) && d.actual_amount !== 0) {
+      await admin
+        .from("transaction_distributions")
+        .update({ actual_amount: 0 })
+        .eq("transaction_distribution_id", d.transaction_distribution_id);
+    }
+  }
+
+  const distributionRows = distInsertRows; // agent 追加用に参照を保持
 
   // エージェント手数料 — pay/complete で積み上げ済みのレコードを Transfer 対象に加算し、
   // 未作成（コード変更前の古いトランザクション等）は補完作成する

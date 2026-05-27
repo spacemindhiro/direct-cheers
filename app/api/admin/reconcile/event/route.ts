@@ -47,6 +47,7 @@ export async function POST(req: Request) {
 
   const now = new Date();
   let reconciled = 0;
+  let matched = 0;
   let errors = 0;
   const errorDetails: Array<{ transaction_id: string; stripe_pi_id: string | null; error: string }> = [];
 
@@ -68,12 +69,25 @@ export async function POST(req: Request) {
       const grossDiff = stripeGross - (tx.total_gross_amount ?? 0);
       const grossMatch = grossDiff === 0;
 
+      // requires_capture（未キャプチャ）の場合は amount_received=0 のため照合不可
+      if (pi.status === "requires_capture") {
+        console.warn(`[reconcile] SKIP (requires_capture) tx=${tx.transaction_id} pi=${piId} gross_db=${tx.total_gross_amount}`);
+        continue;
+      }
+
+      console.log(
+        `[reconcile] tx=${tx.transaction_id} pi=${piId}` +
+        ` stripe_gross=${stripeGross} db_gross=${tx.total_gross_amount} diff=${grossDiff} match=${grossMatch}` +
+        ` stripe_fee=${stripeFee} stripe_net=${stripeNet}`
+      );
+
       const dists = ((tx.transaction_distributions ?? []) as any[]).filter(
         (d) => d.distribution_status === "accrued"
       );
       const estimatedNet = dists.reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);
 
       if (stripeNet !== null && estimatedNet > 0 && stripeNet !== estimatedNet) {
+        console.log(`[reconcile] ADJUST_DIST tx=${tx.transaction_id} estimated_net=${estimatedNet} stripe_net=${stripeNet} diff=${stripeNet - estimatedNet}`);
         const organizerProfileId = (tx.qr_config as any)?.event?.organizer_profile_id ?? null;
         const sortedDists = [...dists].sort((a: any, b: any) => {
           if (b.actual_amount !== a.actual_amount) return b.actual_amount - a.actual_amount;
@@ -86,12 +100,17 @@ export async function POST(req: Request) {
           const adjustedAmount = isLast
             ? stripeNet - allocated
             : Math.floor((d.actual_amount / estimatedNet) * stripeNet);
+          console.log(`[reconcile]   dist=${d.transaction_distribution_id} profile=${d.profile_id} before=${d.actual_amount} after=${adjustedAmount}`);
           await admin
             .from("transaction_distributions")
             .update({ actual_amount: adjustedAmount })
             .eq("transaction_distribution_id", d.transaction_distribution_id);
           allocated += adjustedAmount;
         }
+      }
+
+      if (!grossMatch) {
+        console.warn(`[reconcile] MISMATCH tx=${tx.transaction_id} pi=${piId} diff=${grossDiff}`);
       }
 
       await admin
@@ -107,6 +126,7 @@ export async function POST(req: Request) {
         .eq("transaction_id", tx.transaction_id);
 
       reconciled++;
+      if (grossMatch) matched++;
     } catch (err: any) {
       errors++;
       const errMsg: string = err?.message ?? String(err);
@@ -146,7 +166,7 @@ export async function POST(req: Request) {
     run_at: now.toISOString(),
     target_date: now.toISOString().slice(0, 10),
     total_checked: checked,
-    total_matched: reconciled - errors,
+    total_matched: matched,
     total_mismatched: 0,
     total_errors: errors,
     summary: { manual: true, event_id: eventId, event_reconciled: remaining === 0 },

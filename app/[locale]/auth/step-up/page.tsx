@@ -1,13 +1,15 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { StepUpForm } from '@/components/step-up-form';
 
 const STEP_UP_TTL_MS = 480 * 60 * 1000;
 
-export default async function StepUpPage({
+async function StepUpContent({
   searchParams,
 }: {
   searchParams: Promise<{ redirect?: string }>;
@@ -37,6 +39,20 @@ export default async function StepUpPage({
   const hasPasskeys = (count ?? 0) > 0;
 
   return (
+    <StepUpForm
+      email={user.email!}
+      redirectTo={redirectTo}
+      hasPasskeys={hasPasskeys}
+    />
+  );
+}
+
+export default function StepUpPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect?: string }>;
+}) {
+  return (
     <div className="min-h-screen bg-slate-950 font-sans flex flex-col">
       <div className="px-6 py-6">
         <Link href="/" className="inline-flex items-center gap-2 group">
@@ -53,11 +69,13 @@ export default async function StepUpPage({
 
       <div className="flex-1 flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-md">
-          <StepUpForm
-            email={user.email!}
-            redirectTo={redirectTo}
-            hasPasskeys={hasPasskeys}
-          />
+          <Suspense fallback={
+            <div className="flex justify-center py-20">
+              <Loader2 className="animate-spin text-slate-600" size={32} />
+            </div>
+          }>
+            <StepUpContent searchParams={searchParams} />
+          </Suspense>
         </div>
       </div>
     </div>

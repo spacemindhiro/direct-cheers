@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 
 interface SignatureCanvasProps {
@@ -13,101 +13,127 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
+  // レイアウト確定後に canvas の物理サイズを設定
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
 
-    // Retina 対応
-    const dpr = window.devicePixelRatio || 1;
+    const setup = () => {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.scale(dpr, dpr);
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+    };
+
+    setup();
+    const ro = new ResizeObserver(setup);
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, []);
+
+  const getPos = (canvas: HTMLCanvasElement, clientX: number, clientY: number) => {
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  };
 
+  const applyStyle = (canvas: HTMLCanvasElement) => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return ctx;
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-  }, []);
-
-  const getPos = (
-    e: MouseEvent | TouchEvent | PointerEvent,
-    canvas: HTMLCanvasElement,
-  ) => {
-    const rect = canvas.getBoundingClientRect();
-    if ("touches" in e) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
-      };
-    }
-    return { x: (e as MouseEvent).clientX - rect.left, y: (e as MouseEvent).clientY - rect.top };
+    return ctx;
   };
-
-  const startDrawing = useCallback((e: PointerEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    e.preventDefault();
-    // ポインターをキャプチャしてブラウザのスクロール横取りを防ぐ
-    canvas.setPointerCapture(e.pointerId);
-    isDrawing.current = true;
-    lastPos.current = getPos(e, canvas);
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const pressure = (e as PointerEvent).pressure || 0.5;
-    ctx.lineWidth = Math.max(1.5, pressure * 4);
-  }, []);
-
-  const draw = useCallback((e: PointerEvent) => {
-    if (!isDrawing.current) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    e.preventDefault();
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx || !lastPos.current) return;
-
-    const pos = getPos(e, canvas);
-    const pressure = (e as PointerEvent).pressure || 0.5;
-    ctx.lineWidth = Math.max(1.5, pressure * 4);
-
-    ctx.beginPath();
-    ctx.moveTo(lastPos.current.x, lastPos.current.y);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.stroke();
-    lastPos.current = pos;
-
-    setIsEmpty(false);
-    onSignature(canvas.toDataURL("image/png"));
-  }, [onSignature]);
-
-  const stopDrawing = useCallback(() => {
-    isDrawing.current = false;
-    lastPos.current = null;
-  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.addEventListener("pointerdown", startDrawing, { passive: false });
-    canvas.addEventListener("pointermove", draw, { passive: false });
-    canvas.addEventListener("pointerup", stopDrawing);
-    canvas.addEventListener("pointerleave", stopDrawing);
-    // iOS が scroll と判定した場合もリセット
-    canvas.addEventListener("pointercancel", stopDrawing);
+    // ---- touch events（iOS/Android）----
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      isDrawing.current = true;
+      lastPos.current = getPos(canvas, t.clientX, t.clientY);
+      applyStyle(canvas);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (!isDrawing.current || !lastPos.current) return;
+      const t = e.touches[0];
+      const ctx = applyStyle(canvas);
+      if (!ctx) return;
+      const pos = getPos(canvas, t.clientX, t.clientY);
+      ctx.beginPath();
+      ctx.moveTo(lastPos.current.x, lastPos.current.y);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastPos.current = pos;
+      setIsEmpty(false);
+      onSignature(canvas.toDataURL("image/png"));
+    };
+
+    const onTouchEnd = () => {
+      isDrawing.current = false;
+      lastPos.current = null;
+    };
+
+    // ---- mouse events（デスクトップ）----
+    const onMouseDown = (e: MouseEvent) => {
+      isDrawing.current = true;
+      lastPos.current = getPos(canvas, e.clientX, e.clientY);
+      applyStyle(canvas);
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDrawing.current || !lastPos.current) return;
+      const ctx = applyStyle(canvas);
+      if (!ctx) return;
+      const pos = getPos(canvas, e.clientX, e.clientY);
+      ctx.beginPath();
+      ctx.moveTo(lastPos.current.x, lastPos.current.y);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      lastPos.current = pos;
+      setIsEmpty(false);
+      onSignature(canvas.toDataURL("image/png"));
+    };
+
+    const onMouseEnd = () => {
+      isDrawing.current = false;
+      lastPos.current = null;
+    };
+
+    canvas.addEventListener("touchstart",  onTouchStart,  { passive: false });
+    canvas.addEventListener("touchmove",   onTouchMove,   { passive: false });
+    canvas.addEventListener("touchend",    onTouchEnd);
+    canvas.addEventListener("touchcancel", onTouchEnd);
+    canvas.addEventListener("mousedown",   onMouseDown);
+    canvas.addEventListener("mousemove",   onMouseMove);
+    canvas.addEventListener("mouseup",     onMouseEnd);
+    canvas.addEventListener("mouseleave",  onMouseEnd);
 
     return () => {
-      canvas.removeEventListener("pointerdown", startDrawing);
-      canvas.removeEventListener("pointermove", draw);
-      canvas.removeEventListener("pointerup", stopDrawing);
-      canvas.removeEventListener("pointerleave", stopDrawing);
-      canvas.removeEventListener("pointercancel", stopDrawing);
+      canvas.removeEventListener("touchstart",  onTouchStart);
+      canvas.removeEventListener("touchmove",   onTouchMove);
+      canvas.removeEventListener("touchend",    onTouchEnd);
+      canvas.removeEventListener("touchcancel", onTouchEnd);
+      canvas.removeEventListener("mousedown",   onMouseDown);
+      canvas.removeEventListener("mousemove",   onMouseMove);
+      canvas.removeEventListener("mouseup",     onMouseEnd);
+      canvas.removeEventListener("mouseleave",  onMouseEnd);
     };
-  }, [startDrawing, draw, stopDrawing]);
+  }, [onSignature]);
 
   const clear = () => {
     const canvas = canvasRef.current;
@@ -120,11 +146,11 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
   };
 
   return (
-    <div className="space-y-2 touch-none" style={{ touchAction: "none" }}>
+    <div className="space-y-2">
       <div className="relative">
         <canvas
           ref={canvasRef}
-          className="w-full h-56 bg-slate-950 border border-slate-700 rounded-2xl touch-none cursor-crosshair"
+          className="w-full h-56 bg-slate-950 border border-slate-700 rounded-2xl cursor-crosshair"
           style={{ touchAction: "none" }}
         />
         {isEmpty && (

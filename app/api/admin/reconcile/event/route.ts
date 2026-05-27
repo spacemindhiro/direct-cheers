@@ -48,6 +48,7 @@ export async function POST(req: Request) {
   const now = new Date();
   let reconciled = 0;
   let errors = 0;
+  const errorDetails: Array<{ transaction_id: string; stripe_pi_id: string | null; error: string }> = [];
 
   for (const tx of transactions ?? []) {
     try {
@@ -104,9 +105,16 @@ export async function POST(req: Request) {
       reconciled++;
     } catch (err: any) {
       errors++;
+      const errMsg: string = err?.message ?? String(err);
+      console.error("[reconcile] tx error:", tx.transaction_id, tx.stripe_payment_intent_id, errMsg);
+      errorDetails.push({
+        transaction_id: tx.transaction_id,
+        stripe_pi_id: tx.stripe_payment_intent_id,
+        error: errMsg,
+      });
       await admin
         .from("transactions")
-        .update({ reconcile_error: err.message, reconciled_at: now.toISOString() })
+        .update({ reconcile_error: errMsg, reconciled_at: now.toISOString() })
         .eq("transaction_id", tx.transaction_id);
     }
   }
@@ -144,5 +152,6 @@ export async function POST(req: Request) {
     reconciled,
     errors,
     event_reconciled: remaining === 0,
+    errorDetails,
   });
 }

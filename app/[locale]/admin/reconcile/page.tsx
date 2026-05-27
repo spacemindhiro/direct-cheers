@@ -52,7 +52,7 @@ async function ReconcileContent() {
 
   const allQrIds = (qrConfigs ?? []).map((q) => q.qr_config_id);
 
-  const [totalRes, reconciledRes, mismatchRes] = await Promise.all([
+  const [totalRes, reconciledRes, mismatchRes, erroredRes] = await Promise.all([
     admin
       .from("transactions")
       .select("qr_config_id")
@@ -70,6 +70,12 @@ async function ReconcileContent() {
       .in("qr_config_id", allQrIds)
       .eq("status", "completed")
       .eq("amount_verified", false),
+    admin
+      .from("transactions")
+      .select("transaction_id, qr_config_id, stripe_payment_intent_id, reconcile_error")
+      .in("qr_config_id", allQrIds)
+      .eq("status", "completed")
+      .not("reconcile_error", "is", null),
   ]);
 
   // qr_config_id → event_id のマップ
@@ -79,6 +85,7 @@ async function ReconcileContent() {
   const totalByEvent = new Map<string, number>();
   const reconciledByEvent = new Map<string, number>();
   const mismatchByEvent = new Map<string, number>();
+  const errorsByEvent = new Map<string, Array<{ transaction_id: string; stripe_pi_id: string | null; error: string }>>();
 
   for (const tx of totalRes.data ?? []) {
     const eid = eventByQr.get(tx.qr_config_id!) ?? "";
@@ -91,6 +98,16 @@ async function ReconcileContent() {
   for (const tx of mismatchRes.data ?? []) {
     const eid = eventByQr.get(tx.qr_config_id!) ?? "";
     mismatchByEvent.set(eid, (mismatchByEvent.get(eid) ?? 0) + 1);
+  }
+  for (const tx of erroredRes.data ?? []) {
+    const eid = eventByQr.get(tx.qr_config_id!) ?? "";
+    const list = errorsByEvent.get(eid) ?? [];
+    list.push({
+      transaction_id: tx.transaction_id,
+      stripe_pi_id: (tx as any).stripe_payment_intent_id ?? null,
+      error: (tx as any).reconcile_error as string,
+    });
+    errorsByEvent.set(eid, list);
   }
 
   return (
@@ -172,8 +189,9 @@ async function ReconcileContent() {
               const total = totalByEvent.get(event.event_id) ?? 0;
               const reconciled = reconciledByEvent.get(event.event_id) ?? 0;
               const mismatched = mismatchByEvent.get(event.event_id) ?? 0;
+              const txErrors = errorsByEvent.get(event.event_id) ?? [];
               const allDone = event.reconciled_at !== null;
-              const hasError = mismatched > 0;
+              const hasError = mismatched > 0 || txErrors.length > 0;
               const inProgress = total > 0 && reconciled < total;
 
               return (
@@ -217,6 +235,19 @@ async function ReconcileContent() {
                   </div>
                   {!allDone && total > 0 && (
                     <ReconcileButton eventId={event.event_id} pendingCount={total - reconciled} />
+                  )}
+                  {txErrors.length > 0 && (
+                    <div className="border border-red-500/20 bg-red-500/5 rounded-xl p-3 space-y-2">
+                      <p className="text-[9px] font-black text-red-400 uppercase tracking-widest">照合エラー詳細</p>
+                      {txErrors.map((e) => (
+                        <div key={e.transaction_id} className="space-y-0.5">
+                          <p className="text-[10px] font-mono text-slate-400 break-all">
+                            PI: {e.stripe_pi_id ?? "(null)"}
+                          </p>
+                          <p className="text-[10px] text-red-300 break-all">{e.error}</p>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               );

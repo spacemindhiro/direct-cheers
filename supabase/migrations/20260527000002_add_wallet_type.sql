@@ -4,8 +4,17 @@
 
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS wallet_type text NULL;
 
--- complete_cheers_payment RPC に p_wallet_type を追加（DEFAULT NULL で後方互換）
-CREATE OR REPLACE FUNCTION complete_cheers_payment(
+-- CREATE OR REPLACE FUNCTION に引数を追加するとシグネチャが変わり別関数（オーバーロード）が
+-- 生成されてしまう。REVOKE 時に「function name is not unique」で失敗するため、
+-- 旧シグネチャ（15引数）を DROP してから新シグネチャ（16引数）で CREATE する。
+DROP FUNCTION IF EXISTS complete_cheers_payment(
+  TEXT, UUID, UUID, TEXT, TEXT,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  TEXT, TEXT, TEXT,
+  UUID, UUID, BIGINT
+);
+
+CREATE FUNCTION complete_cheers_payment(
   p_stripe_payment_intent_id TEXT,
   p_product_id               UUID,
   p_qr_config_id             UUID,
@@ -110,7 +119,6 @@ BEGIN
   END IF;
 
   -- アーティスト・オーガナイザー配分 insert
-  -- qr_config_targets を参照し、端数ルールに従って各受取人の actual_amount を確定する
   -- 端数ルール: distribution_ratio DESC → ロール優先度(admin>agent>organizer>artist) → created_at ASC
   -- 最後の1人が残額まるごと受け取る
   IF p_qr_config_id IS NOT NULL AND p_event_id IS NOT NULL THEN
@@ -141,7 +149,7 @@ BEGIN
         v_current := v_current + 1;
 
         IF v_current = v_target_count THEN
-          v_amount := p_net_amount - v_allocated;  -- 残額まるごと（端数吸収）
+          v_amount := p_net_amount - v_allocated;
         ELSE
           v_amount := floor(p_net_amount * v_target.distribution_ratio);
         END IF;
@@ -171,5 +179,17 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION complete_cheers_payment FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION complete_cheers_payment TO service_role;
+-- 型リストを明示してあいまいさを排除
+REVOKE EXECUTE ON FUNCTION complete_cheers_payment(
+  TEXT, UUID, UUID, TEXT, TEXT,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  TEXT, TEXT, TEXT,
+  UUID, UUID, BIGINT, TEXT
+) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION complete_cheers_payment(
+  TEXT, UUID, UUID, TEXT, TEXT,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  TEXT, TEXT, TEXT,
+  UUID, UUID, BIGINT, TEXT
+) TO service_role;

@@ -13,7 +13,7 @@ function AppleGooglePayLinks() {
   return (
     <div className="flex gap-2 pt-1">
       <a
-        href="https://support.apple.com/ja-jp/111934"
+        href="https://support.apple.com/ja-jp/108398"
         target="_blank"
         rel="noopener noreferrer"
         className="flex-1 flex items-center justify-center h-8 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 rounded-lg text-[10px] font-black text-slate-400 hover:text-white transition-all"
@@ -21,7 +21,7 @@ function AppleGooglePayLinks() {
         Apple Pay 設定方法
       </a>
       <a
-        href="https://support.google.com/wallet/answer/12059232?hl=ja"
+        href="https://support.google.com/wallet/answer/12060043?hl=ja"
         target="_blank"
         rel="noopener noreferrer"
         className="flex-1 flex items-center justify-center h-8 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 rounded-lg text-[10px] font-black text-slate-400 hover:text-white transition-all"

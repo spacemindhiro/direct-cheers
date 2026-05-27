@@ -53,13 +53,13 @@ async function PayoutContent() {
     .eq("profile_id", user.id)
     .is("deleted_at", null);
 
-  // 配分済み: イベント情報まで展開（金額は formula で再計算）
+  // 配分済み: actual_amount を使用（照合調整済みの金額を反映）
   const { data: dists } = await admin
     .from("transaction_distributions")
     .select(`
-      is_frozen, hold_released, transaction_id,
+      is_frozen, hold_released, transaction_id, actual_amount,
       transaction:transactions!transaction_id(
-        created_at, qr_config_id, total_gross_amount,
+        created_at, qr_config_id, status,
         qr_config:qr_configs!qr_config_id(
           event_id,
           event:events!event_id(event_id, title, lifecycle_status, reconciled_at)
@@ -89,15 +89,17 @@ async function PayoutContent() {
   const distributedTxIds = new Set<string>();
 
   for (const d of dists ?? []) {
-    distributedTxIds.add((d as any).transaction_id);
     const tx = (d as any).transaction;
+    // completedのトランザクションのみ集計（cancelled/failed/requires_captureは除外）
+    if (tx?.status !== "completed") continue;
+
+    distributedTxIds.add((d as any).transaction_id);
     const qrConfig = tx?.qr_config;
     const event = qrConfig?.event;
     const eventId: string = event?.event_id ?? "__unknown__";
     const txDate: string | null = tx?.created_at ?? null;
-    const txTarget = (myTargets ?? []).find((t) => t.qr_config_id === tx?.qr_config_id);
-    const ratio = Number(txTarget?.distribution_ratio ?? 0);
-    const amt = Math.floor(Math.floor((tx?.total_gross_amount ?? 0) * NET_RATE) * ratio);
+    // 照合調整済みの実績額を使用（formula再計算はしない）
+    const amt = (d as any).actual_amount ?? 0;
 
     if (!eventMap.has(eventId)) {
       eventMap.set(eventId, {

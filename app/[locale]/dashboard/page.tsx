@@ -125,11 +125,11 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           <p className="text-sm font-black text-white">使える決済方法</p>
         </div>
       </div>
-      <ul className="text-xs text-slate-400 space-y-1 leading-relaxed">
-        <li>💳 <span className="text-slate-300 font-bold">カード入力</span> — いつでも使えます</li>
-        <li>📱 <span className="text-slate-300 font-bold">Apple Pay / Google Pay</span> — 端末に設定済みならそのまま使えます</li>
-        <li>⚡ <span className="text-slate-300 font-bold">Stripe Link</span> — 事前登録するとワンタッチ決済できます</li>
-        <li>🔴 <span className="text-slate-300 font-bold">PayPay</span> — イベントが対応していれば使えます</li>
+      <ul className="text-xs space-y-1 leading-relaxed">
+        <li className="text-slate-300">📱 <span className="font-bold">Apple Pay / Google Pay</span> — 端末に設定済みならそのまま使えます</li>
+        <li className="text-slate-300">⚡ <span className="font-bold">Stripe Link</span> — 事前登録するとワンタッチ決済できます</li>
+        <li className="text-slate-300">🔴 <span className="font-bold">PayPay</span> — イベントが対応していれば使えます</li>
+        <li className="text-slate-600">💳 <span className="font-bold">カード入力</span> — 毎回手入力が必要で当日は時間がかかります</li>
       </ul>
       <AppleGooglePayLinks />
       <Link

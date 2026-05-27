@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersPaymentForm } from "@/components/cheers-payment-form";
+import { InAppBrowserBanner } from "@/components/in-app-browser-banner";
 import { MapPin, Calendar, Clock, Loader2 } from "lucide-react";
 
 function ValidityMessage({ title, message }: { title: string; message: string }) {
@@ -136,6 +137,8 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-20">
+
+      <InAppBrowserBanner />
 
       {/* ヒーロー */}
       <div className="relative h-[40vh] overflow-hidden">

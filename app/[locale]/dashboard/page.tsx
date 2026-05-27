@@ -35,15 +35,28 @@ function AppleGooglePayLinks() {
 function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D' }) {
   if (pattern === 'A') {
     return (
-      <div className="flex items-center gap-4 bg-emerald-500/5 border border-emerald-500/20 rounded-[1.5rem] px-5 py-4">
-        <div className="w-10 h-10 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 shrink-0">
-          <CheckCircle2 size={20} className="text-emerald-400" />
+      <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-5 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 shrink-0">
+            <CheckCircle2 size={20} className="text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Payment Speed</p>
+            <p className="text-sm font-black text-white">スマホ決済セット済み</p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Payment Speed</p>
-          <p className="text-sm font-black text-white">スマホ決済セット済み</p>
-          <p className="text-xs text-slate-500 mt-0.5">Apple Pay / Google Pay でワンタッチ決済が使えます</p>
-        </div>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Apple Pay / Google Pay でワンタッチ決済が使えます。ただし LINE などのアプリ内ブラウザでは使用できません。Stripe Link も登録しておくとどこでも確実に使えます。
+        </p>
+        <a
+          href="https://link.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-emerald-500/40 rounded-xl px-4 transition-all"
+        >
+          <span className="text-xs font-black text-white">Stripe Linkをバックアップ登録する</span>
+          <ChevronRight size={14} className="text-slate-500" />
+        </a>
       </div>
     );
   }

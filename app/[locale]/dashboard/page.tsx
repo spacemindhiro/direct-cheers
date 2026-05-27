@@ -46,7 +46,7 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           </div>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed">
-          Apple Pay / Google Pay でワンタッチ決済が使えます。ただし LINE などのアプリ内ブラウザでは使用できません。Stripe Link も登録しておくとどこでも確実に使えます。
+          Apple Pay でワンタッチ決済が使えます。ただし LINE などのアプリ内ブラウザでは Apple Pay は使用できません。Stripe Link も登録しておくとどこでも確実に使えます。
         </p>
         <a
           href="https://link.com"

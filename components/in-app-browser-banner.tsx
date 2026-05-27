@@ -53,9 +53,9 @@ export function InAppBrowserBanner() {
             <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Apple Pay / Google Pay</p>
             <p className="text-xs font-bold text-amber-200 leading-relaxed">
               {isNamedApp
-                ? `${appName}内ブラウザではスマホ決済が使えません。`
-                : "このブラウザではスマホ決済が使えない場合があります。"}
-              {" "}SafariまたはChromeで開いてください。
+                ? `${appName}内ブラウザではApple Payが使えません。`
+                : "このブラウザではApple Payが使えません。"}
+              {" "}Safariで開いてください。
             </p>
           </div>
           <button

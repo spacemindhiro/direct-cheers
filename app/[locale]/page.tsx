@@ -2,25 +2,27 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { 
-  Play, 
-  Wallet, 
-  ShieldCheck, 
-  Zap, 
-  ArrowRight, 
-  Award, 
-  Database, 
-  Music, 
+import {
+  Play,
+  Wallet,
+  ShieldCheck,
+  Zap,
+  ArrowRight,
+  Award,
+  Database,
+  Music,
   Smartphone,
-  CheckCircle2, 
-  Construction, 
-  BellDot, 
-  Ticket, 
+  CheckCircle2,
+  Construction,
+  BellDot,
+  Ticket,
   ChevronRight,
-  // Safetyセクション用のアイコンを追加
   UserCheck,
   FileSearch,
-  Lock as LockIcon 
+  Lock as LockIcon,
+  ExternalLink,
+  AlertTriangle,
+  CreditCard,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -328,6 +330,93 @@ export default function LandingPage() {
               安全性に関する詳細ポリシーを見る 
               <ShieldCheck size={14} className="group-hover:rotate-12 transition-transform" />
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* --- Stripe Link 事前準備セクション --- */}
+      <section id="payment-prep" className="py-24 px-6 bg-slate-950 relative overflow-hidden border-b border-slate-900">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[500px] bg-orange-500/5 blur-[120px] rounded-full -z-10" />
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-orange-950/20 border border-orange-500/20 rounded-[3rem] p-8 md:p-14 shadow-[0_0_60px_rgba(249,115,22,0.06)] space-y-10">
+
+            {/* ヘッダー */}
+            <div className="space-y-4">
+              <span className="inline-flex items-center gap-2 text-orange-400 font-black italic tracking-[0.3em] text-[10px] uppercase">
+                <Zap size={12} />
+                Payment Prep
+              </span>
+              <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">
+                イベント現場で<br />
+                <span className="text-orange-400">「1秒決済」</span>するための<br />
+                事前準備
+              </h3>
+            </div>
+
+            {/* Apple/Google Pay説明 */}
+            <div className="flex items-start gap-4 p-5 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
+              <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 shrink-0 mt-0.5">
+                <Smartphone size={18} className="text-emerald-400" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-black text-emerald-400">Apple Pay / Google Pay なら今すぐ使えます</p>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  端末にApple PayやGoogle Payが設定されていれば、現場でQRを読み取るだけでそのまま1秒でチアできます。サインインも事前登録も不要です。
+                </p>
+              </div>
+            </div>
+
+            {/* PayPay警告 + Stripe Link案内 */}
+            <div className="space-y-4">
+              <div className="flex items-start gap-4 p-5 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 shrink-0 mt-0.5">
+                  <AlertTriangle size={18} className="text-amber-400" />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-black text-amber-400">⚠️ 重要なご注意</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    イベントのプランによっては、<span className="text-amber-300 font-bold">PayPayがご利用いただけない会場</span>がございます。
+                    Apple / Google Pay をお持ちでない方や、普段PayPayをご利用の方は、当日現場で慌てないために、いまのうちに対策しておくことを強くお勧めします。
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4 p-5 bg-slate-800/60 border border-slate-700 rounded-2xl">
+                <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 shrink-0 mt-0.5">
+                  <CreditCard size={18} className="text-indigo-400" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-black text-white">Stripe Linkへのカード登録（所要1分）が解決策です</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Stripe Linkにクレジットカードを事前登録しておくと、どの会場でも<span className="text-white font-bold">メールアドレス入力だけの1秒決済</span>が可能になります。
+                    登録は外部サービス（Stripe）での手続きで、当プラットフォームへのサインアップは不要です。
+                  </p>
+                  <div className="flex flex-wrap gap-3 pt-1">
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      <CheckCircle2 size={11} className="text-emerald-500" /> あらゆる会場で使える
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      <CheckCircle2 size={11} className="text-emerald-500" /> カード情報の再入力不要
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      <CheckCircle2 size={11} className="text-emerald-500" /> PayPay不可の会場でも安心
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* CTAボタン */}
+            <a
+              href="https://link.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-3 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white rounded-2xl py-5 font-black text-sm uppercase tracking-wider transition-all hover:scale-[1.02] shadow-xl shadow-orange-500/20 active:scale-[0.98]"
+            >
+              <CreditCard size={18} />
+              Stripe Linkにカードを事前登録（外部サイトへ）
+              <ExternalLink size={14} className="opacity-70" />
+            </a>
           </div>
         </div>
       </section>

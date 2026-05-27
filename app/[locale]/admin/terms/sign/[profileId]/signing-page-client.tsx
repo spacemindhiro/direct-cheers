@@ -19,20 +19,20 @@ type ProfileData = {
 
 function TermsText({ types }: { types: TermsType[] }) {
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       {types.map((t) => (
         <div key={t} className="space-y-6">
-          <p className="text-sm font-black text-indigo-400 uppercase tracking-[0.3em]">
+          <p className="text-base font-black text-indigo-400 uppercase tracking-[0.3em]">
             {TERMS_LABELS[t]}
           </p>
           {TERMS_CONTENT[t].map((section) => (
             <div key={section.article} className="space-y-2">
-              <p className="text-sm font-black text-white">
+              <p className="text-base font-black text-white">
                 {section.article}　{section.title}
               </p>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {section.paragraphs.map((p, i) => (
-                  <p key={i} className="text-sm text-slate-400 leading-relaxed">
+                  <p key={i} className="text-base text-slate-400 leading-relaxed">
                     {i + 1 > 1 ? `${i + 1}．` : ''}{p}
                   </p>
                 ))}
@@ -126,15 +126,15 @@ export function SigningPageClient({ profileId }: { profileId: string }) {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-8 pb-32">
+      <div className="max-w-5xl mx-auto px-8 py-8 space-y-8 pb-32">
 
         {/* 書面タイトル */}
         <div className="text-center space-y-3 py-6 border-b border-slate-800">
-          <p className="text-xs font-black text-slate-500 uppercase tracking-[0.4em]">Direct Cheers</p>
-          <h1 className="text-3xl font-black text-white">利用規約 同意書</h1>
-          <p className="text-sm text-slate-500">{today}</p>
+          <p className="text-sm font-black text-slate-500 uppercase tracking-[0.4em]">Direct Cheers</p>
+          <h1 className="text-4xl font-black text-white">利用規約 同意書</h1>
+          <p className="text-base text-slate-500">{today}</p>
           {profile && (
-            <p className="text-base text-slate-300">
+            <p className="text-lg text-slate-300">
               署名者：<span className="font-black text-white">{profile.display_name}</span>
               　（{profile.role}）
             </p>

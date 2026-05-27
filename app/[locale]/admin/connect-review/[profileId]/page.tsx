@@ -101,18 +101,18 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
         <div className="flex flex-col gap-0.5 pt-1">
           <p className="text-[11px] text-slate-500">
             <span className="text-slate-600 font-bold">登録</span>{" "}
-            {new Date(profile.created_at).toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" })}
+            {new Date(profile.created_at).toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Tokyo" })}
           </p>
           {stripeAccountCreatedAt && (
             <p className="text-[11px] text-slate-500">
               <span className="text-slate-600 font-bold">Stripe申請</span>{" "}
-              {stripeAccountCreatedAt.toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" })}
+              {stripeAccountCreatedAt.toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Tokyo" })}
             </p>
           )}
           {lastSignInAt && (
             <p className="text-[11px] text-slate-500">
               <span className="text-slate-600 font-bold">最終ログイン</span>{" "}
-              {new Date(lastSignInAt).toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" })}
+              {new Date(lastSignInAt).toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Tokyo" })}
             </p>
           )}
         </div>
@@ -216,7 +216,7 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
               <div>
                 <p className="text-sm font-black text-white">署名済み</p>
                 <p className="text-[10px] text-slate-500">
-                  {new Date(signedDoc.signed_at).toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" })}
+                  {new Date(signedDoc.signed_at).toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Tokyo" })}
                 </p>
               </div>
             </div>

@@ -6,6 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { Loader2, ArrowLeft, FileText } from 'lucide-react';
 import { TERMS_LABELS } from '@/lib/terms';
 
+const JST = { timeZone: 'Asia/Tokyo' } as const;
+
 async function DocumentContent({ params }: { params: Promise<{ documentId: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -16,32 +18,24 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
   if (me?.role !== 'admin') redirect('/dashboard');
 
   const { documentId } = await params;
+
   const { data: doc } = await admin
     .from('signed_documents')
-    .select(`
-      id,
-      signed_at,
-      terms_types,
-      terms_version,
-      admin_signature_path,
-      subject_signature_path,
-      profile_id,
-      signed_by,
-      subject:profiles!profile_id(display_name, role),
-      signer:profiles!signed_by(display_name)
-    `)
+    .select('id, signed_at, terms_types, terms_version, admin_signature_path, subject_signature_path, profile_id, signed_by')
     .eq('id', documentId)
     .single();
 
   if (!doc) notFound();
 
-  const [adminSigResult, subjectSigResult] = await Promise.all([
+  const [subjectResult, signerResult, adminSigResult, subjectSigResult] = await Promise.all([
+    admin.from('profiles').select('display_name, role').eq('profile_id', doc.profile_id).single(),
+    admin.from('profiles').select('display_name').eq('profile_id', doc.signed_by).single(),
     admin.storage.from('signed-agreements').createSignedUrl(doc.admin_signature_path, 3600),
     admin.storage.from('signed-agreements').createSignedUrl(doc.subject_signature_path, 3600),
   ]);
 
-  const subject = doc.subject as unknown as { display_name: string | null; role: string } | null;
-  const signer = doc.signer as unknown as { display_name: string | null } | null;
+  const subject = subjectResult.data;
+  const signer  = signerResult.data;
   const signedAt = new Date(doc.signed_at);
 
   return (
@@ -74,9 +68,9 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
           <div className="flex items-start justify-between gap-4">
             <dt className="text-[10px] font-black text-slate-500 uppercase tracking-wider shrink-0">調印日時</dt>
             <dd className="text-sm text-slate-300 text-right">
-              {signedAt.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+              {signedAt.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', ...JST })}
               {' '}
-              {signedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+              {signedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', ...JST })}
             </dd>
           </div>
           <div className="flex items-start justify-between gap-4">

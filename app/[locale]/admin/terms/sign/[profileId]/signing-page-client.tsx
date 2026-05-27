@@ -147,34 +147,31 @@ export function SigningPageClient({ profileId }: { profileId: string }) {
         </div>
 
         {/* 署名セクション */}
-        <div className="space-y-4">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] text-center">Signatures</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <p className="text-sm font-black text-slate-500 uppercase tracking-[0.4em] text-center">Signatures</p>
 
-            {/* 相手の署名 */}
-            <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-4">
-              <div>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">署名者</p>
-                <p className="text-sm font-black text-white mt-0.5">{profile?.display_name ?? '—'}</p>
-                <p className="text-[10px] text-slate-600 mt-0.5">
-                  上記の利用規約を熟読し、全条項に同意します。
-                </p>
-              </div>
-              <SignatureCanvas onSignature={setSubjectSig} />
+          {/* 相手の署名 */}
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-8 space-y-5">
+            <div className="space-y-2">
+              <p className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">署名者</p>
+              <p className="text-xl font-black text-white">{profile?.display_name ?? '—'}</p>
+              <p className="text-base text-slate-300 leading-relaxed">
+                上記の利用規約を熟読し、全条項に同意します。
+              </p>
             </div>
+            <SignatureCanvas onSignature={setSubjectSig} />
+          </div>
 
-            {/* オーナー署名 */}
-            <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-4">
-              <div>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Direct Cheers オーナー</p>
-                <p className="text-sm font-black text-white mt-0.5">確認・承認</p>
-                <p className="text-[10px] text-slate-600 mt-0.5">
-                  面談を実施し、本人確認および規約説明を完了したことを証します。
-                </p>
-              </div>
-              <SignatureCanvas onSignature={setAdminSig} />
+          {/* オーナー署名 */}
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-8 space-y-5">
+            <div className="space-y-2">
+              <p className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Direct Cheers オーナー</p>
+              <p className="text-xl font-black text-white">確認・承認</p>
+              <p className="text-base text-slate-300 leading-relaxed">
+                面談を実施し、本人確認および利用規約の説明を完了したことを証明します。
+              </p>
             </div>
-
+            <SignatureCanvas onSignature={setAdminSig} />
           </div>
         </div>
 

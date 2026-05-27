@@ -130,9 +130,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Session creation failed" }, { status: 500 });
   }
 
-  return NextResponse.json({
+  // パスキーログインはそのままステップアップ認証とみなして dc_stepup をセット
+  const response = NextResponse.json({
     success: true,
     session_token: linkData.properties.hashed_token,
     email: authUser.user.email,
   });
+  response.cookies.set('dc_stepup', Date.now().toString(), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 480 * 60,
+    path: '/',
+  });
+  return response;
 }

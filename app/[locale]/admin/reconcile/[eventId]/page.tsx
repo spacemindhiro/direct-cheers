@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle } from "lucide-react";
 import { ReconcileButton } from "@/components/reconcile-button";
+import { CaptureAllButton } from "@/components/capture-all-button";
 import Link from "next/link";
 
 function fmt(n: number | null) {
@@ -100,13 +101,18 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
         ))}
       </div>
 
-      {/* 照合ボタン */}
-      {needsReconcile && (
-        <ReconcileButton
-          eventId={eventId}
-          pendingCount={pending + errored + mismatched}
-        />
-      )}
+      {/* ボタン群 */}
+      <div className="flex flex-wrap gap-3">
+        {event.lifecycle_status === "settled" && (
+          <CaptureAllButton eventId={eventId} />
+        )}
+        {needsReconcile && (
+          <ReconcileButton
+            eventId={eventId}
+            pendingCount={pending + errored + mismatched}
+          />
+        )}
+      </div>
 
       {/* トランザクション一覧 */}
       <div className="space-y-3">

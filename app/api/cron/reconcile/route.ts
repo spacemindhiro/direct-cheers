@@ -64,25 +64,29 @@ export async function GET(req: Request) {
         expand: ["latest_charge.balance_transaction"],
       });
 
+      // requires_capture（未キャプチャ）は settle 後に再照合するためスキップ
+      if (pi.status === "requires_capture") {
+        console.warn(`[reconcile] SKIP (requires_capture) tx=${tx.transaction_id} pi=${piId}`);
+        continue;
+      }
+
       const charge = pi.latest_charge as Stripe.Charge | null;
       const bt = charge?.balance_transaction as Stripe.BalanceTransaction | null;
 
       const stripeGross = pi.amount_received ?? 0;
       const stripeFee = bt?.fee ?? null;
-      const stripeNet = bt?.net ?? null; // Stripe手数料控除後の実額
+      const stripeNet = bt?.net ?? null;
 
-      // グロス金額チェック（Checkout固定金額なので必ず一致するはず）
       const grossDiff = stripeGross - (tx.total_gross_amount ?? 0);
       const grossMatch = grossDiff === 0;
 
       if (!grossMatch) {
         mismatched++;
-        console.error(`[reconcile] GROSS MISMATCH tx=${tx.transaction_id} expected=${tx.total_gross_amount} actual=${stripeGross}`);
+        console.error(`[reconcile] GROSS MISMATCH tx=${tx.transaction_id} expected=${tx.total_gross_amount} actual=${stripeGross} diff=${grossDiff}`);
       } else {
         matched++;
       }
 
-      // transaction を照合済みに更新
       await admin
         .from("transactions")
         .update({
@@ -98,12 +102,10 @@ export async function GET(req: Request) {
     } catch (err: any) {
       errors++;
       console.error(`[reconcile] tx=${tx.transaction_id} error:`, err.message);
+      // reconciled_at はセットしない → 手動照合で再試行できる状態を維持
       await admin
         .from("transactions")
-        .update({
-          reconcile_error: err.message,
-          reconciled_at: now.toISOString(),
-        })
+        .update({ reconcile_error: err.message })
         .eq("transaction_id", tx.transaction_id);
     }
   }

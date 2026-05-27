@@ -7,30 +7,43 @@ interface SignatureCanvasProps {
   onSignature: (dataUrl: string | null) => void;
 }
 
+type DrawPoint = { x: number; y: number; pressure: number };
+
+// WebKit 拡張: Apple Pencil は touchType === "stylus" を返す
+const isStylus = (t: Touch) => (t as Touch & { touchType?: string }).touchType === "stylus";
+
+const findStylus = (list: TouchList): Touch | null => {
+  for (let i = 0; i < list.length; i++) {
+    if (isStylus(list[i])) return list[i];
+  }
+  return null;
+};
+
 export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
-  const canvasRef  = useRef<HTMLCanvasElement>(null);
-  const isDrawing  = useRef(false);
-  const hasDrawn   = useRef(false);
-  const lastPoint  = useRef<{ x: number; y: number; pressure: number } | null>(null);
-  const lastMid    = useRef<{ x: number; y: number } | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawing = useRef(false);
+  const hasDrawn  = useRef(false);
+  const lastPoint = useRef<DrawPoint | null>(null);
+  const lastMid   = useRef<{ x: number; y: number } | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
-  // ResizeObserver でレイアウト後にキャンバス物理サイズを確定
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const setup = () => {
       const rect = canvas.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width  = rect.width  * dpr;
-      canvas.height = rect.height * dpr;
+      const dpr  = window.devicePixelRatio || 1;
+      const newW = Math.round(rect.width  * dpr);
+      const newH = Math.round(rect.height * dpr);
+      // サイズ未変更ならリセット不要（描画内容を保持する）
+      if (canvas.width === newW && canvas.height === newH) return;
+      canvas.width  = newW;
+      canvas.height = newH;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.scale(dpr, dpr);
     };
-
     setup();
     const ro = new ResizeObserver(setup);
     ro.observe(canvas);
@@ -41,26 +54,20 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const getPoint = (e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      // Apple Pencil 2 は実圧力。それ以外は 0.5 固定で細め。
-      const isPencil = e.pointerType === "pencil";
+    const fromTouch = (touch: Touch): DrawPoint => {
+      const rect  = canvas.getBoundingClientRect();
+      const force = (touch as Touch & { force?: number }).force ?? 0;
       return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-        pressure: isPencil && e.pressure > 0 ? e.pressure : 0.5,
-        isPencil,
+        x:        touch.clientX - rect.left,
+        y:        touch.clientY - rect.top,
+        pressure: force > 0 ? force : 0.5,
       };
     };
 
-    const drawTo = (
-      ctx: CanvasRenderingContext2D,
-      to: { x: number; y: number; pressure: number; isPencil: boolean },
-    ) => {
+    const drawTo = (ctx: CanvasRenderingContext2D, to: DrawPoint) => {
       const from = lastPoint.current!;
       const avgP = (from.pressure + to.pressure) / 2;
-      // Pencil: 圧力に比例 0.5–8px / その他: 2px 固定
-      const w = to.isPencil ? Math.max(0.5, avgP * 8) : 2;
+      const w    = Math.max(0.5, avgP * 8);
 
       ctx.strokeStyle = "#ffffff";
       ctx.fillStyle   = "#ffffff";
@@ -81,7 +88,6 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       }
       ctx.stroke();
 
-      // ギャップを塗りつぶし円で完全に埋める
       ctx.beginPath();
       ctx.arc(mx, my, w / 2, 0, Math.PI * 2);
       ctx.fill();
@@ -90,18 +96,18 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       lastPoint.current = to;
     };
 
-    const onDown = (e: PointerEvent) => {
+    const onTouchStart = (e: TouchEvent) => {
       e.preventDefault();
-      try { canvas.setPointerCapture(e.pointerId); } catch { /**/ }
-      const pt = getPoint(e);
+      const stylus = findStylus(e.changedTouches);
+      if (!stylus) return; // Apple Pencil 以外は無視
+      const pt = fromTouch(stylus);
       isDrawing.current = true;
       lastPoint.current = pt;
       lastMid.current   = null;
 
-      // 最初の接触点を即時描画
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        const w = pt.isPencil ? Math.max(0.5, pt.pressure * 8) : 2;
+        const w = Math.max(0.5, pt.pressure * 8);
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, w / 2, 0, Math.PI * 2);
@@ -109,24 +115,21 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       }
     };
 
-    const onMove = (e: PointerEvent) => {
-      if (!isDrawing.current || !lastPoint.current) return;
+    const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
+      if (!isDrawing.current || !lastPoint.current) return;
+      const stylus = findStylus(e.changedTouches);
+      if (!stylus) return;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-
-      const events: PointerEvent[] =
-        typeof e.getCoalescedEvents === "function"
-          ? (e.getCoalescedEvents() as PointerEvent[])
-          : [e];
-
-      for (const ev of events) {
-        drawTo(ctx, getPoint(ev));
-      }
+      drawTo(ctx, fromTouch(stylus));
       hasDrawn.current = true;
     };
 
-    const onUp = () => {
+    const onTouchEnd = (e: TouchEvent) => {
+      // Apple Pencil が離れた時だけ終了。手のひら等の touchend は無視。
+      const stylus = findStylus(e.changedTouches);
+      if (!stylus) return;
       if (!isDrawing.current) return;
       if (hasDrawn.current) {
         setIsEmpty(false);
@@ -137,22 +140,16 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       lastMid.current   = null;
     };
 
-    const onCancel = () => {
-      isDrawing.current = false;
-      lastPoint.current = null;
-      lastMid.current   = null;
-    };
-
-    canvas.addEventListener("pointerdown",   onDown,   { passive: false });
-    canvas.addEventListener("pointermove",   onMove,   { passive: false });
-    canvas.addEventListener("pointerup",     onUp);
-    canvas.addEventListener("pointercancel", onCancel);
+    canvas.addEventListener("touchstart",  onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove",   onTouchMove,  { passive: false });
+    canvas.addEventListener("touchend",    onTouchEnd);
+    canvas.addEventListener("touchcancel", onTouchEnd);
 
     return () => {
-      canvas.removeEventListener("pointerdown",   onDown);
-      canvas.removeEventListener("pointermove",   onMove);
-      canvas.removeEventListener("pointerup",     onUp);
-      canvas.removeEventListener("pointercancel", onCancel);
+      canvas.removeEventListener("touchstart",  onTouchStart);
+      canvas.removeEventListener("touchmove",   onTouchMove);
+      canvas.removeEventListener("touchend",    onTouchEnd);
+      canvas.removeEventListener("touchcancel", onTouchEnd);
     };
   }, [onSignature]);
 

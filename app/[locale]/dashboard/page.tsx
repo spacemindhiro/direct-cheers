@@ -122,12 +122,15 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
         </div>
         <div>
           <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Payment Speed</p>
-          <p className="text-sm font-black text-white">高速決済を準備しよう</p>
+          <p className="text-sm font-black text-white">使える決済方法</p>
         </div>
       </div>
-      <p className="text-xs text-slate-400 leading-relaxed">
-        Apple Pay / Google Pay が端末に設定済みならそのまま使えます。設定がない場合は Stripe Link にカードを登録しておくとスムーズです。
-      </p>
+      <ul className="text-xs text-slate-400 space-y-1 leading-relaxed">
+        <li>💳 <span className="text-slate-300 font-bold">カード入力</span> — いつでも使えます</li>
+        <li>📱 <span className="text-slate-300 font-bold">Apple Pay / Google Pay</span> — 端末に設定済みならそのまま使えます</li>
+        <li>⚡ <span className="text-slate-300 font-bold">Stripe Link</span> — 事前登録するとワンタッチ決済できます</li>
+        <li>🔴 <span className="text-slate-300 font-bold">PayPay</span> — イベントが対応していれば使えます</li>
+      </ul>
       <AppleGooglePayLinks />
       <Link
         href="/link-setup"

@@ -6,9 +6,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { PasskeySetup } from "@/components/passkey-setup";
-import { Loader2, ArrowRight, Lock, CheckCircle2, Ticket } from "lucide-react";
+import { Loader2, ArrowRight, CheckCircle2, Ticket, Send, MailCheck } from "lucide-react";
 
-type Step = "loading" | "landing" | "email" | "login" | "signup" | "redeeming" | "done" | "error";
+type Step = "loading" | "landing" | "magic_sent" | "redeeming" | "done" | "error";
 
 function InvitePage() {
   const { code } = useParams<{ code: string }>();
@@ -18,13 +18,9 @@ function InvitePage() {
   const [step, setStep] = useState<Step>("loading");
   const [eventInfo, setEventInfo] = useState<{ title: string; start_at: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [pending, setPending] = useState(false);
 
-  // コード情報取得 + ログイン済みなら即引き換え
   useEffect(() => {
     (async () => {
       const [infoRes, { data: { user } }] = await Promise.all([
@@ -63,42 +59,20 @@ function InvitePage() {
     }
   };
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
+  const handleSendMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email) return;
     setPending(true);
-    const res = await fetch(`/api/auth/check-email?email=${encodeURIComponent(email)}`);
-    const { exists } = await res.json();
-    setPending(false);
-    setStep(exists ? "login" : "signup");
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPending(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setPending(false);
-    if (error) { setErrorMsg(error.message); return; }
-    // セッションクッキーが確実にサーバーに届くようページをリロード
-    window.location.replace(window.location.href);
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password !== confirmPassword) { setErrorMsg("パスワードが一致しません"); return; }
-    if (password.length < 8) { setErrorMsg("パスワードは8文字以上で設定してください"); return; }
-    setPending(true);
-    const { error } = await supabase.auth.signUp({
+    const callbackUrl = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(`/join/${code}`)}`;
+    await supabase.auth.signInWithOtp({
       email,
-      password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?redirect=/join/${code}`,
+        emailRedirectTo: callbackUrl,
         data: { skip_onboarding: true },
       },
     });
     setPending(false);
-    if (error) { setErrorMsg(error.message); return; }
-    // メール確認待ち画面へ
-    router.push(`/auth/sign-up-success?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(`/join/${code}`)}`);
+    setStep("magic_sent");
   };
 
   const fmt = (d: string) => new Date(d).toLocaleDateString("ja-JP", {
@@ -137,6 +111,37 @@ function InvitePage() {
     );
   }
 
+  if (step === "magic_sent") {
+    return (
+      <div className="w-full max-w-md space-y-8 text-center">
+        <div className="flex justify-center">
+          <div className="w-16 h-16 bg-pink-500/10 rounded-full flex items-center justify-center border border-pink-500/20 shadow-[0_0_30px_rgba(236,72,153,0.15)]">
+            <MailCheck size={28} className="text-pink-500" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Check Your Email</p>
+          <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter">メールを確認</h2>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 space-y-3">
+          <p className="text-slate-300 text-sm font-bold">ログインリンクを送りました</p>
+          <p className="text-pink-400 font-black text-sm break-all">{email}</p>
+          <p className="text-slate-500 text-xs leading-relaxed">
+            メール内のリンクをタップするとチケットが自動的に受け取られます。<br />
+            届かない場合は迷惑メールフォルダをご確認ください。
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => { setStep("landing"); setEmail(""); }}
+          className="text-xs text-slate-600 hover:text-slate-400 transition-colors font-bold uppercase tracking-widest"
+        >
+          やり直す
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-md space-y-8">
 
@@ -170,94 +175,30 @@ function InvitePage() {
         <div className="flex-1 h-px bg-slate-800" />
       </div>
 
-      {/* メールアドレス入力 */}
-      {step === "landing" || step === "email" ? (
-        <form onSubmit={handleEmailSubmit} className="space-y-4">
-          <Input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="メールアドレスを入力"
-            required
-            className="h-14 bg-slate-900 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
-          <button
-            type="submit"
-            disabled={pending || !email}
-            className="w-full h-14 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
-          >
-            {pending ? <Loader2 size={16} className="animate-spin" /> : <>続ける <ArrowRight size={16} /></>}
-          </button>
-        </form>
-      ) : step === "login" ? (
-        <form onSubmit={handleLogin} className="space-y-4">
-          <p className="text-xs text-slate-400 text-center">登録済みのアカウントでログインしてください</p>
-          <Input
-            type="email"
-            value={email}
-            readOnly
-            className="h-14 bg-slate-900 border-slate-700 rounded-2xl px-5 text-sm text-slate-400 opacity-60"
-          />
-          <Input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="パスワード"
-            required
-            autoFocus
-            className="h-14 bg-slate-900 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
-          {errorMsg && <p className="text-xs text-red-400 font-bold text-center">{errorMsg}</p>}
-          <button
-            type="submit"
-            disabled={pending}
-            className="w-full h-14 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
-          >
-            {pending ? <Loader2 size={16} className="animate-spin" /> : <><Lock size={15} /> ログインして受け取る</>}
-          </button>
-          <button type="button" onClick={() => { setStep("landing"); setErrorMsg(""); }} className="w-full text-xs text-slate-600 hover:text-slate-400 font-bold transition-colors">
-            メールアドレスを変更する
-          </button>
-        </form>
-      ) : step === "signup" ? (
-        <form onSubmit={handleSignUp} className="space-y-4">
-          <p className="text-xs text-slate-400 text-center">アカウントを作成してチケットを受け取ります</p>
-          <Input
-            type="email"
-            value={email}
-            readOnly
-            className="h-14 bg-slate-900 border-slate-700 rounded-2xl px-5 text-sm text-slate-400 opacity-60"
-          />
-          <Input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="パスワード（8文字以上）"
-            required
-            autoFocus
-            className="h-14 bg-slate-900 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
-          <Input
-            type="password"
-            value={confirmPassword}
-            onChange={e => setConfirmPassword(e.target.value)}
-            placeholder="パスワードを再入力"
-            required
-            className="h-14 bg-slate-900 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
-          {errorMsg && <p className="text-xs text-red-400 font-bold text-center">{errorMsg}</p>}
-          <button
-            type="submit"
-            disabled={pending}
-            className="w-full h-14 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
-          >
-            {pending ? <Loader2 size={16} className="animate-spin" /> : <>登録してチケットを受け取る <ArrowRight size={16} /></>}
-          </button>
-          <button type="button" onClick={() => { setStep("landing"); setErrorMsg(""); }} className="w-full text-xs text-slate-600 hover:text-slate-400 font-bold transition-colors">
-            メールアドレスを変更する
-          </button>
-        </form>
-      ) : null}
+      {/* マジックリンク */}
+      <form onSubmit={handleSendMagicLink} className="space-y-4">
+        <Input
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="メールアドレスを入力"
+          required
+          className="h-14 bg-slate-900 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+        />
+        <button
+          type="submit"
+          disabled={pending || !email}
+          className="w-full h-14 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2"
+        >
+          {pending
+            ? <Loader2 size={16} className="animate-spin" />
+            : <><Send size={15} /> ログインリンクを送る</>
+          }
+        </button>
+        <p className="text-[10px] text-slate-600 text-center leading-relaxed">
+          初めての方はこのままアカウント作成。すでにお持ちの方はそのままログインできます。
+        </p>
+      </form>
 
     </div>
   );

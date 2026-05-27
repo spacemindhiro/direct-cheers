@@ -29,10 +29,10 @@ export function InviteLoginPrompt({
         </Link>
       ) : (
         <Link
-          href={`/auth/sign-up?redirect=/invite/${token}${emailParam}`}
+          href={`/auth/login?redirect=/invite/${token}${emailParam}`}
           className="flex w-full h-16 items-center justify-center gap-3 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)]"
         >
-          新規登録して受け取る <ArrowRight size={18} />
+          登録して受け取る <ArrowRight size={18} />
         </Link>
       )}
     </div>

@@ -9,6 +9,29 @@ import { LineupInvitations } from '@/components/lineup-invitations';
 import { FollowButton } from '@/components/follow-button';
 import { FollowerHero } from '@/components/follower-hero';
 
+function AppleGooglePayLinks() {
+  return (
+    <div className="flex gap-2 pt-1">
+      <a
+        href="https://support.apple.com/ja-jp/111934"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex-1 flex items-center justify-center h-8 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 rounded-lg text-[10px] font-black text-slate-400 hover:text-white transition-all"
+      >
+        Apple Pay 設定方法
+      </a>
+      <a
+        href="https://support.google.com/wallet/answer/12059232?hl=ja"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex-1 flex items-center justify-center h-8 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 rounded-lg text-[10px] font-black text-slate-400 hover:text-white transition-all"
+      >
+        Google Pay 設定方法
+      </a>
+    </div>
+  );
+}
+
 function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D' }) {
   if (pattern === 'A') {
     return (
@@ -49,6 +72,7 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
           <ChevronRight size={14} className="text-slate-500" />
         </a>
+        <AppleGooglePayLinks />
       </div>
     );
   }
@@ -77,6 +101,7 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           <span className="text-xs font-black text-white">Stripe Linkを登録する</span>
           <ChevronRight size={14} className="text-slate-500" />
         </a>
+        <AppleGooglePayLinks />
       </div>
     );
   }
@@ -90,21 +115,20 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
         </div>
         <div>
           <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Payment Speed</p>
-          <p className="text-sm font-black text-white">超高速決済を準備しよう</p>
+          <p className="text-sm font-black text-white">初めての決済を試してみよう</p>
         </div>
       </div>
       <p className="text-xs text-slate-400 leading-relaxed">
-        Apple Pay / Google Payが端末に設定済みならそのまま使えます。どの会場でも確実に使えるよう、Stripe Linkにカードを登録しておくのがおすすめです。
+        Stripe Linkはメールアドレスで使える高速決済サービスです。初回決済時にカード情報を入力すると自動登録され、次回からワンタッチで使えます。DEMOで流れを確認してみましょう。
       </p>
-      <a
-        href="https://link.com"
-        target="_blank"
-        rel="noopener noreferrer"
+      <Link
+        href="/demo"
         className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500/40 rounded-xl px-4 transition-all"
       >
-        <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
+        <span className="text-xs font-black text-white">DEMOで決済を体験する</span>
         <ChevronRight size={14} className="text-slate-500" />
-      </a>
+      </Link>
+      <AppleGooglePayLinks />
     </div>
   );
 }

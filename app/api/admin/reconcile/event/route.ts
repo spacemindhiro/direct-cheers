@@ -103,7 +103,11 @@ export async function POST(req: Request) {
           console.log(`[reconcile]   dist=${d.transaction_distribution_id} profile=${d.profile_id} before=${d.actual_amount} after=${adjustedAmount}`);
           await admin
             .from("transaction_distributions")
-            .update({ actual_amount: adjustedAmount })
+            .update({
+              actual_amount: adjustedAmount,
+              // 初回調整時のみ記録（再実行で上書きしない）
+              ...(d.amount_before_reconcile == null ? { amount_before_reconcile: d.actual_amount } : {}),
+            })
             .eq("transaction_distribution_id", d.transaction_distribution_id);
           allocated += adjustedAmount;
         }

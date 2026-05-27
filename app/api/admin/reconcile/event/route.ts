@@ -52,7 +52,11 @@ export async function POST(req: Request) {
 
   for (const tx of transactions ?? []) {
     try {
-      const pi = await stripe.paymentIntents.retrieve(tx.stripe_payment_intent_id, {
+      let piId = tx.stripe_payment_intent_id as string;
+      if (piId?.startsWith("{")) {
+        try { const p = JSON.parse(piId); if (p?.id) piId = p.id; } catch {}
+      }
+      const pi = await stripe.paymentIntents.retrieve(piId, {
         expand: ["latest_charge.balance_transaction"],
       });
       const charge = pi.latest_charge as Stripe.Charge | null;

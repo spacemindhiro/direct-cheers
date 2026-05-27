@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   const { data: existing } = await admin
     .from("transactions")
     .select("transaction_id, product_id, total_gross_amount, sequence_number_in_event, qr_config_id")
-    .eq("stripe_payment_intent_id", session.payment_intent as string)
+    .eq("stripe_payment_intent_id", pi?.id ?? "")
     .maybeSingle();
 
   if (existing) {
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
 
   // provisional_users + transactions + distributions をアトミックに書き込む
   const { data: rpcRows, error: rpcError } = await admin.rpc("complete_cheers_payment", {
-    p_stripe_payment_intent_id: session.payment_intent as string,
+    p_stripe_payment_intent_id: pi?.id ?? "",
     p_product_id:               productId,
     p_qr_config_id:             qrConfigId,
     p_email:                    email ?? null,

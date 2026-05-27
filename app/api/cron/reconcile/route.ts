@@ -56,8 +56,11 @@ export async function GET(req: Request) {
   for (const tx of targets) {
     if (!tx.stripe_payment_intent_id) continue;
     try {
-      // Stripe PaymentIntent を取得（balance_transaction を展開して実際の手数料を取得）
-      const pi = await stripe.paymentIntents.retrieve(tx.stripe_payment_intent_id, {
+      let piId = tx.stripe_payment_intent_id as string;
+      if (piId?.startsWith("{")) {
+        try { const p = JSON.parse(piId); if (p?.id) piId = p.id; } catch {}
+      }
+      const pi = await stripe.paymentIntents.retrieve(piId, {
         expand: ["latest_charge.balance_transaction"],
       });
 

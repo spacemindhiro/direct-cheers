@@ -37,9 +37,9 @@ export async function POST(req: Request) {
   const { data: transactions } = await admin
     .from("transactions")
     .select(`
-      transaction_id, stripe_payment_intent_id, total_gross_amount, qr_config_id,
+      transaction_id, stripe_payment_intent_id, total_gross_amount, platform_fee, qr_config_id,
       qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(organizer_profile_id)),
-      transaction_distributions(transaction_distribution_id, profile_id, actual_amount, distribution_status)
+      transaction_distributions(transaction_distribution_id, profile_id, distribution_role, actual_amount, amount_before_reconcile, distribution_status)
     `)
     .in("qr_config_id", qrIds)
     .eq("status", "completed")
@@ -81,15 +81,27 @@ export async function POST(req: Request) {
         ` stripe_fee=${stripeFee} stripe_net=${stripeNet}`
       );
 
-      const dists = ((tx.transaction_distributions ?? []) as any[]).filter(
+      const allAccruedDists = ((tx.transaction_distributions ?? []) as any[]).filter(
         (d) => d.distribution_status === "accrued"
       );
-      const estimatedNet = dists.reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);
+      // agent は platform_fee から払う固定額 → スケール対象外
+      const agentDists = allAccruedDists.filter((d: any) => d.distribution_role === "agent");
+      const artistOrgDists = allAccruedDists.filter((d: any) => d.distribution_role !== "agent");
 
-      if (stripeNet !== null && estimatedNet > 0 && stripeNet !== estimatedNet) {
-        console.log(`[reconcile] ADJUST_DIST tx=${tx.transaction_id} estimated_net=${estimatedNet} stripe_net=${stripeNet} diff=${stripeNet - estimatedNet}`);
+      // artist/org の調整ターゲット = stripe_net - platform_fee（platformが取る固定額を除いた残り）
+      const platformFee = (tx as any).platform_fee ?? 0;
+      const artistOrgTarget = stripeNet !== null ? stripeNet - platformFee : null;
+      const artistOrgEstimated = artistOrgDists.reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);
+
+      if (artistOrgTarget !== null && artistOrgEstimated > 0 && artistOrgTarget !== artistOrgEstimated) {
+        const agentTotal = agentDists.reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);
+        console.log(
+          `[reconcile] ADJUST_DIST tx=${tx.transaction_id}` +
+          ` artist_org_estimated=${artistOrgEstimated} target=${artistOrgTarget} diff=${artistOrgTarget - artistOrgEstimated}` +
+          ` agent(fixed)=${agentTotal} platform_fee=${platformFee} stripe_net=${stripeNet}`
+        );
         const organizerProfileId = (tx.qr_config as any)?.event?.organizer_profile_id ?? null;
-        const sortedDists = [...dists].sort((a: any, b: any) => {
+        const sortedDists = [...artistOrgDists].sort((a: any, b: any) => {
           if (b.actual_amount !== a.actual_amount) return b.actual_amount - a.actual_amount;
           return (b.profile_id === organizerProfileId ? 1 : 0) - (a.profile_id === organizerProfileId ? 1 : 0);
         });
@@ -98,9 +110,9 @@ export async function POST(req: Request) {
           const d = sortedDists[i] as any;
           const isLast = i === sortedDists.length - 1;
           const adjustedAmount = isLast
-            ? stripeNet - allocated
-            : Math.floor((d.actual_amount / estimatedNet) * stripeNet);
-          console.log(`[reconcile]   dist=${d.transaction_distribution_id} profile=${d.profile_id} before=${d.actual_amount} after=${adjustedAmount}`);
+            ? artistOrgTarget - allocated
+            : Math.floor((d.actual_amount / artistOrgEstimated) * artistOrgTarget);
+          console.log(`[reconcile]   dist=${d.transaction_distribution_id} role=${d.distribution_role} profile=${d.profile_id} before=${d.actual_amount} after=${adjustedAmount}`);
           await admin
             .from("transaction_distributions")
             .update({

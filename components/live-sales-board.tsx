@@ -228,7 +228,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
             </p>
           </div>
           <p className="text-xs text-slate-500">
-            カード: Stripe {(stats.stripe_rate * 100).toFixed(1)}% ／ PayPay: {(stats.paypay_rate * 100).toFixed(2)}% ＋ プラットフォーム {(stats.platform_rate * 100).toFixed(0)}% 控除後
+            カード: Stripe {(stats.stripe_rate * 100).toFixed(1)}%{stats.total_paypay_fee > 0 ? ` ／ PayPay: ${(stats.paypay_rate * 100).toFixed(2)}%` : ""} ＋ プラットフォーム {(stats.platform_rate * 100).toFixed(0)}% 控除後
           </p>
         </div>
 
@@ -247,10 +247,12 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
                 <span className="text-slate-500">決済手数料（カード {(stats.stripe_rate * 100).toFixed(1)}%）</span>
                 <span className="text-slate-400 tabular-nums">−{formatJPY(stats.total_card_fee)}</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">決済手数料（PayPay {(stats.paypay_rate * 100).toFixed(2)}%）</span>
-                <span className="text-slate-400 tabular-nums">−{formatJPY(stats.total_paypay_fee)}</span>
-              </div>
+              {stats.total_paypay_fee > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">決済手数料（PayPay {(stats.paypay_rate * 100).toFixed(2)}%）</span>
+                  <span className="text-slate-400 tabular-nums">−{formatJPY(stats.total_paypay_fee)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-xs">
                 <span className="text-slate-500">プラットフォーム手数料（{(stats.platform_rate * 100).toFixed(1)}%）</span>
                 <span className="text-slate-400 tabular-nums">−{formatJPY(stats.total_platform_fee)}</span>

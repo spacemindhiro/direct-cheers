@@ -1,11 +1,15 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import { cookies, headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { LogoutButton } from '@/components/logout-button';
 import { Loader2, UserCircle, MessageCircle } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
+
+const STEP_UP_ROLES = ['artist', 'organizer', 'agent', 'admin'] as const;
+const STEP_UP_TTL_MS = 480 * 60 * 1000;
 
 async function DashboardNav() {
   const supabase = await createClient();
@@ -32,6 +36,19 @@ async function DashboardNav() {
   }).length;
 
   if (!profile) redirect('/onboarding/profile');
+
+  // artist/organizer/agent/admin はステップアップ認証が必要
+  if (STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
+    const cookieStore = await cookies();
+    const stepUpAt = cookieStore.get('dc_stepup')?.value;
+    const isFresh = !!stepUpAt && (Date.now() - parseInt(stepUpAt)) < STEP_UP_TTL_MS;
+    if (!isFresh) {
+      // middleware が x-pathname ヘッダーをセットしているので意図したページに戻れる
+      const headersList = await headers();
+      const currentPath = headersList.get('x-pathname') ?? '/dashboard';
+      redirect(`/auth/step-up?redirect=${encodeURIComponent(currentPath)}`);
+    }
+  }
 
   return (
     <>

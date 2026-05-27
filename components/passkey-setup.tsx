@@ -7,7 +7,7 @@ import { Fingerprint, Loader2, CheckCircle2, ChevronRight } from "lucide-react";
 
 type Props = {
   email?: string;
-  mode: "register" | "authenticate";
+  mode: "register" | "authenticate" | "stepup";
   deviceName?: string;
   buttonLabel?: string;
   onSuccess?: () => void;
@@ -123,13 +123,45 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
     }
   };
 
+  const handleStepUp = async () => {
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      const optRes = await fetch("/api/passkeys/auth-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(email ? { email } : {}),
+      });
+      const { options, error: optErr } = await optRes.json();
+      if (optErr) throw new Error(optErr);
+
+      const credential = await startAuthentication({ optionsJSON: options });
+
+      const verRes = await fetch("/api/passkeys/stepup-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential }),
+      });
+      const { success, error: verErr } = await verRes.json();
+      if (verErr) throw new Error(verErr);
+      if (!success) throw new Error("Verification failed");
+
+      setStatus("success");
+      onSuccess?.();
+    } catch (err: any) {
+      if (err.name === "NotAllowedError") { setStatus("idle"); return; }
+      setErrorMsg(err.message ?? "エラーが発生しました");
+      setStatus("error");
+    }
+  };
+
   if (status === "success") {
     return (
       <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
         <CheckCircle2 size={20} className="text-green-400 shrink-0" />
         <div>
           <p className="text-sm font-black text-green-400">
-            {mode === "register" ? "パスキー登録完了！" : "パスキー認証成功！"}
+            {mode === "register" ? "パスキー登録完了！" : mode === "stepup" ? "認証完了！" : "パスキー認証成功！"}
           </p>
           {mode === "register" && (
             <p className="text-xs text-slate-500 mt-0.5">
@@ -145,8 +177,8 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
     <div className="space-y-3">
       <button
         type="button"
-        disabled={status === "loading" || (mode === "register" && !email)}
-        onClick={mode === "register" ? handleRegister : handleAuthenticate}
+        disabled={status === "loading" || (mode === "register" && !email) || (mode === "stepup" && !email)}
+        onClick={mode === "register" ? handleRegister : mode === "stepup" ? handleStepUp : handleAuthenticate}
         className="w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl p-4 transition-all active:scale-[0.98] disabled:opacity-60"
       >
         <div className="flex items-center gap-3">

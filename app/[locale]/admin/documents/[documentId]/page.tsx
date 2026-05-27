@@ -116,6 +116,40 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
           )}
         </div>
 
+        {/* 文書情報 */}
+        <dl className="space-y-3 pb-8 border-b border-slate-800">
+          <div className="flex items-start justify-between gap-4">
+            <dt className="text-[10px] font-black text-slate-500 uppercase tracking-wider shrink-0">署名者</dt>
+            <dd className="text-sm font-black text-white text-right">{subject?.display_name ?? '—'}</dd>
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <dt className="text-[10px] font-black text-slate-500 uppercase tracking-wider shrink-0">承認者</dt>
+            <dd className="text-sm text-slate-300 text-right">{signer?.display_name ?? '—'}</dd>
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <dt className="text-[10px] font-black text-slate-500 uppercase tracking-wider shrink-0">調印日時</dt>
+            <dd className="text-sm text-slate-300 text-right">{dateLabel}　{timeLabel}</dd>
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <dt className="text-[10px] font-black text-slate-500 uppercase tracking-wider shrink-0 mt-0.5">規約種別</dt>
+            <dd className="flex flex-wrap gap-1.5 justify-end">
+              {termsTypes.map((t) => (
+                <span key={t} className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 uppercase tracking-wider">
+                  {TERMS_LABELS[t] ?? t}
+                </span>
+              ))}
+            </dd>
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <dt className="text-[10px] font-black text-slate-500 uppercase tracking-wider shrink-0">バージョン</dt>
+            <dd className="text-sm text-slate-300 text-right">{doc.terms_version}</dd>
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <dt className="text-[10px] font-black text-slate-500 uppercase tracking-wider shrink-0">文書ID</dt>
+            <dd className="text-[10px] text-slate-600 font-mono text-right break-all">{doc.id}</dd>
+          </div>
+        </dl>
+
         {/* 規約全文 */}
         <TermsText types={termsTypes} />
 
@@ -165,9 +199,8 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
         </div>
 
         {/* 文書フッター */}
-        <div className="text-center space-y-1 pt-4 border-t border-slate-800">
-          <p className="text-[10px] text-slate-600 font-mono">Document ID: {doc.id}</p>
-          <p className="text-[10px] text-slate-600">Version: {doc.terms_version}</p>
+        <div className="text-center pt-4 border-t border-slate-800">
+          <p className="text-[10px] text-slate-700 font-mono">Document ID: {doc.id}</p>
         </div>
 
       </div>

@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers } from 'lucide-react';
+import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { ArtistSalesDashboard } from '@/components/artist-sales-dashboard';
@@ -139,6 +139,18 @@ async function DashboardContent() {
       seenRejected.add(eid);
       return true;
     });
+  }
+
+  // 非admin向け: 管理者からの未読メッセージ件数
+  let unreadAdminMessageCount = 0;
+  if (!isAdmin) {
+    const { count } = await admin
+      .from('admin_messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_profile_id', user!.id)
+      .eq('is_from_admin', true)
+      .eq('is_read_by_user', false);
+    unreadAdminMessageCount = count ?? 0;
   }
 
   // admin向け: 口座開設審査待ち件数 + 証跡提出通知
@@ -440,6 +452,28 @@ async function DashboardContent() {
             </div>
             <span className="text-amber-400 text-xs font-black uppercase tracking-widest shrink-0">確認 →</span>
           </div>
+        </Link>
+      )}
+
+      {/* 管理者メッセージ未読バナー */}
+      {unreadAdminMessageCount > 0 && (
+        <Link
+          href="/dashboard/admin-messages"
+          className="flex items-center justify-between gap-4 bg-indigo-500/10 border border-indigo-500/40 hover:border-indigo-500/70 rounded-[1.5rem] px-5 py-4 transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <MessageSquare size={20} className="text-indigo-400" />
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-indigo-500 rounded-full flex items-center justify-center text-[9px] font-black text-white">
+                {unreadAdminMessageCount}
+              </span>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">管理者メッセージ</p>
+              <p className="text-sm font-black text-white">未読 {unreadAdminMessageCount}件</p>
+            </div>
+          </div>
+          <span className="text-indigo-400 text-xs font-black uppercase tracking-widest shrink-0">確認 →</span>
         </Link>
       )}
 

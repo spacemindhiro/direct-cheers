@@ -252,3 +252,49 @@ export async function sendLineupResponseEmail(opts: {
     `),
   );
 }
+
+// ================================================================
+// 9. Admin → ユーザー メッセージ
+// ================================================================
+export async function sendAdminMessageEmail(opts: {
+  to: string;
+  body: string;
+  adminName: string;
+}) {
+  await send(
+    opts.to,
+    "【Direct Cheers】管理者からメッセージが届いています",
+    layout(`
+      <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">管理者からメッセージが届いています</h1>
+      <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin:0 0 20px">
+        Direct Cheers 管理者（<strong style="color:#ffffff">${opts.adminName}</strong>）からメッセージが届きました。
+      </p>
+      <div style="background:#0f172a;border-radius:12px;padding:16px 20px;margin:0 0 24px;border:1px solid #1e293b">
+        <p style="color:#e2e8f0;font-size:14px;line-height:1.8;margin:0;white-space:pre-wrap">${opts.body}</p>
+      </div>
+      ${actionButton(`${SITE_URL}/dashboard/messages`, "メッセージを確認する")}
+    `),
+  );
+}
+
+// ================================================================
+// 10. ユーザー → Admin 返信
+// ================================================================
+export async function sendUserReplyEmail(opts: {
+  to: string | string[];
+  body: string;
+  userName: string;
+  profileId: string;
+}) {
+  await send(
+    opts.to,
+    `【Direct Cheers】${opts.userName}さんから返信があります`,
+    layout(`
+      <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">${opts.userName}さんから返信があります</h1>
+      <div style="background:#0f172a;border-radius:12px;padding:16px 20px;margin:0 0 24px;border:1px solid #1e293b">
+        <p style="color:#e2e8f0;font-size:14px;line-height:1.8;margin:0;white-space:pre-wrap">${opts.body}</p>
+      </div>
+      ${actionButton(`${SITE_URL}/admin/connect-review/${opts.profileId}`, "返信を確認する")}
+    `),
+  );
+}

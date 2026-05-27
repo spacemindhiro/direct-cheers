@@ -6,6 +6,7 @@ import { Loader2, User, MapPin, Building2, ExternalLink, FileSignature, AlertTri
 import Link from "next/link";
 import Stripe from "stripe";
 import { AdminConnectReview } from "@/components/admin-connect-review";
+import { AdminMessagesPanel } from "@/components/admin-messages-panel";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -263,6 +264,9 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
           created_at: profile.created_at,
         }]} />
       </div>
+
+      {/* メッセージ */}
+      <AdminMessagesPanel profileId={profile.profile_id} />
     </div>
   );
 }

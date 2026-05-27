@@ -113,10 +113,12 @@ async function PayoutContent() {
     }
     const row = eventMap.get(eventId)!;
 
+    const isSettledAndReconciled = event?.lifecycle_status === "settled" && event?.reconciled_at !== null;
+
     if (d.is_frozen) {
       frozen += amt;
       row.frozen += amt;
-    } else if ((d as any).hold_released || (txDate && txDate < cutoff)) {
+    } else if ((d as any).hold_released || (isSettledAndReconciled && txDate && txDate < cutoff)) {
       available += amt;
       row.available += amt;
     } else {

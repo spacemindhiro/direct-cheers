@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Wifi, WifiOff, Lock, Loader2, X } from "lucide-react";
+import { Wifi, WifiOff, Lock, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { PasskeySetup } from "@/components/passkey-setup";
 
@@ -91,11 +91,7 @@ export function QRBoardDisplay({
   });
 
   // ロック解除モーダル
-  const [showUnlock, setShowUnlock]     = useState(false);
-  const [unlockEmail, setUnlockEmail]   = useState("");
-  const [unlockPassword, setUnlockPassword] = useState("");
-  const [unlockError, setUnlockError]   = useState<string | null>(null);
-  const [unlocking, setUnlocking]       = useState(false);
+  const [showUnlock, setShowUnlock] = useState(false);
   const [channelError, setChannelError] = useState<string | null>(null);
   const [holdProgress, setHoldProgress] = useState(0);
 
@@ -204,10 +200,6 @@ export function QRBoardDisplay({
     const supabase = createClient();
     const deviceId = getOrCreateDeviceId();
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUnlockEmail(session?.user?.email ?? "");
-    });
-
     const channel = supabase.channel(`event-display:${eventId}`, {
       config: { presence: { key: deviceId } },
     });
@@ -270,35 +262,10 @@ export function QRBoardDisplay({
     setHoldProgress(0);
   };
 
-  const closeUnlock = () => {
-    setShowUnlock(false);
-    setUnlockError(null);
-    setUnlockPassword("");
-  };
+  const closeUnlock = () => setShowUnlock(false);
 
   const handleUnlockSuccess = () => {
     router.push(`/dashboard/events/${eventId}`);
-  };
-
-  const handleUnlock = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!unlockPassword) return;
-    setUnlockError(null);
-    setUnlocking(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email: unlockEmail,
-        password: unlockPassword,
-      });
-      if (error) {
-        closeUnlock();
-      } else {
-        router.push(`/dashboard/events/${eventId}`);
-      }
-    } finally {
-      setUnlocking(false);
-    }
   };
 
   return (
@@ -433,32 +400,6 @@ export function QRBoardDisplay({
                 buttonLabel="パスキーで解除"
                 onSuccess={handleUnlockSuccess}
               />
-
-              <form onSubmit={handleUnlock} className="space-y-2">
-                <input
-                  type="email"
-                  value={unlockEmail}
-                  onChange={(e) => setUnlockEmail(e.target.value)}
-                  placeholder="メールアドレス"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
-                />
-                <input
-                  type="password"
-                  value={unlockPassword}
-                  onChange={(e) => setUnlockPassword(e.target.value)}
-                  placeholder="パスワード"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-indigo-500"
-                />
-                <button
-                  type="submit"
-                  disabled={!unlockPassword || unlocking}
-                  className="w-full h-11 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-black text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {unlocking ? <Loader2 size={16} className="animate-spin" /> : "パスワードで解除"}
-                </button>
-              </form>
-
-              {unlockError && <p className="text-red-400 text-xs text-center">{unlockError}</p>}
 
               <button
                 type="button"

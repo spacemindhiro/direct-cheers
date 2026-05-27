@@ -215,7 +215,7 @@ async function ReconcileContent() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <Link
-                        href={`/dashboard/events/${event.event_id}`}
+                        href={`/admin/reconcile/${event.event_id}`}
                         className="font-black text-white hover:text-indigo-300 transition-colors text-sm truncate block"
                       >
                         {event.title}

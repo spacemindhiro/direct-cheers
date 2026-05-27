@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 // サインアップはログインページに統合されました
 export default async function Page({
   searchParams,

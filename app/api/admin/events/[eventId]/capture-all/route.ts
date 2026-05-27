@@ -32,6 +32,7 @@ export async function POST(
     .eq("status", "completed");
 
   let captured = 0;
+  let skipped = 0;
   let errors = 0;
   const errorDetails: { pi_id: string; error: string }[] = [];
 
@@ -41,19 +42,29 @@ export async function POST(
       try { const p = JSON.parse(piId); if (p?.id) piId = p.id; } catch {}
     }
     try {
+      const pi = await stripe.paymentIntents.retrieve(piId);
+
+      if (pi.status === "succeeded") {
+        skipped++;
+        console.log(`[capture-all] skip (already captured) pi=${piId}`);
+        continue;
+      }
+      if (pi.status !== "requires_capture") {
+        errors++;
+        errorDetails.push({ pi_id: piId, error: `キャプチャ不可: status=${pi.status}` });
+        console.error(`[capture-all] uncapturable pi=${piId} status=${pi.status}`);
+        continue;
+      }
+
       await stripe.paymentIntents.capture(piId);
       captured++;
       console.log(`[capture-all] captured pi=${piId}`);
     } catch (err: any) {
-      if (err.code === "charge_already_captured") {
-        captured++;
-        continue;
-      }
       errors++;
       errorDetails.push({ pi_id: piId, error: err.message });
       console.error(`[capture-all] failed pi=${piId}:`, err.message);
     }
   }
 
-  return NextResponse.json({ success: true, captured, errors, errorDetails });
+  return NextResponse.json({ success: true, captured, skipped, errors, errorDetails });
 }

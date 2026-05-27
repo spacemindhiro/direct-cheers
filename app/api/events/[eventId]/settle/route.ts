@@ -270,17 +270,23 @@ export async function POST(
   const captureResults: { pi_id: string; captured: boolean; error?: string }[] = [];
   for (const piId of allPaymentIntentIds) {
     try {
+      const pi = await stripe.paymentIntents.retrieve(piId);
+      if (pi.status === "succeeded") {
+        captureResults.push({ pi_id: piId, captured: true });
+        console.log(`[settle] skip (already captured) pi=${piId}`);
+        continue;
+      }
+      if (pi.status !== "requires_capture") {
+        captureResults.push({ pi_id: piId, captured: false, error: `キャプチャ不可: status=${pi.status}` });
+        console.error(`[settle] uncapturable pi=${piId} status=${pi.status}`);
+        continue;
+      }
       await stripe.paymentIntents.capture(piId);
       captureResults.push({ pi_id: piId, captured: true });
       console.log(`[settle] captured pi=${piId}`);
     } catch (err: any) {
-      if (err.code === "charge_already_captured") {
-        captureResults.push({ pi_id: piId, captured: true });
-        console.log(`[settle] already_captured pi=${piId}`);
-      } else {
-        captureResults.push({ pi_id: piId, captured: false, error: err.message });
-        console.error(`[settle] capture failed pi=${piId} error=${err.message}`);
-      }
+      captureResults.push({ pi_id: piId, captured: false, error: err.message });
+      console.error(`[settle] capture failed pi=${piId} error=${err.message}`);
     }
   }
 

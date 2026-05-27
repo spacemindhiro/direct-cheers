@@ -31,8 +31,7 @@ export function EvidenceUploadForm({ eventId }: Props) {
     setPreviews(next.map((f) => URL.createObjectURL(f)));
   };
 
-  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (files.length === 0) return;
     setUploading(true);
     setError("");
@@ -41,6 +40,7 @@ export function EvidenceUploadForm({ eventId }: Props) {
       // 1. ファイルを1枚ずつ順番にアップロード
       const uploadedPaths: string[] = [];
       for (let i = 0; i < files.length; i++) {
+        console.log(`[evidence] uploading ${i + 1}/${files.length}:`, files[i].name, files[i].type, files[i].size);
         const fd = new FormData();
         fd.append("file", files[i]);
         const uploadRes = await fetch(`/api/events/${eventId}/evidence/upload`, {
@@ -48,28 +48,31 @@ export function EvidenceUploadForm({ eventId }: Props) {
           body: fd,
         });
         const uploadData = await uploadRes.json();
+        console.log(`[evidence] upload result ${i + 1}:`, uploadRes.status, uploadData);
         if (!uploadRes.ok) throw new Error(`写真${i + 1}枚目: ${uploadData.error ?? "アップロード失敗"}`);
         uploadedPaths.push(uploadData.path as string);
       }
-      const uploadData = { paths: uploadedPaths };
 
       // 2. パスを証跡APIに送信
+      console.log("[evidence] submitting record, paths:", uploadedPaths);
       const res = await fetch(`/api/events/${eventId}/evidence`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description: description || null,
-          photo_paths: uploadData.paths as string[],
+          photo_paths: uploadedPaths,
           attendance_count: attendanceCount ? parseInt(attendanceCount) : null,
         }),
       });
 
       const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      console.log("[evidence] insert result:", res.status, data);
+      if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`);
 
       setSubmitted(true);
       router.refresh();
     } catch (err: unknown) {
+      console.error("[evidence] error:", err);
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setUploading(false);
@@ -89,7 +92,7 @@ export function EvidenceUploadForm({ eventId }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+    <div className="space-y-5">
       {/* 写真アップロード */}
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">写真（最大10枚）</p>
@@ -153,7 +156,8 @@ export function EvidenceUploadForm({ eventId }: Props) {
       {error && <p className="text-xs text-red-400">{error}</p>}
 
       <button
-        type="submit"
+        type="button"
+        onClick={handleSubmit}
         disabled={uploading || files.length === 0}
         className="w-full h-12 bg-pink-500 hover:brightness-110 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
       >
@@ -163,6 +167,6 @@ export function EvidenceUploadForm({ eventId }: Props) {
           <>開催証跡を提出して承認依頼する</>
         )}
       </button>
-    </form>
+    </div>
   );
 }

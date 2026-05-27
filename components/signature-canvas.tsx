@@ -8,13 +8,14 @@ interface SignatureCanvasProps {
 }
 
 export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const isDrawing = useRef(false);
-  const hasDrawn = useRef(false);
-  const lastPos = useRef<{ x: number; y: number; pressure: number } | null>(null);
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const isDrawing  = useRef(false);
+  const hasDrawn   = useRef(false);
+  const lastPoint  = useRef<{ x: number; y: number; pressure: number } | null>(null);
+  const lastMid    = useRef<{ x: number; y: number } | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
-  // ResizeObserver でレイアウト確定後にキャンバス物理サイズを設定
+  // ResizeObserver でレイアウト後にキャンバス物理サイズを確定
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -45,86 +46,118 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       return {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
-        // Apple Pencil 2 は 0–1 の実圧力。指/マウスは 0.5 固定。
-        pressure: e.pointerType === "pencil" && e.pressure > 0
-          ? e.pressure
-          : 0.5,
+        pressure: e.pressure > 0 ? e.pressure : 0.5,
       };
     };
 
-    const strokeTo = (
+    /**
+     * 1セグメントを描く
+     * - 前の中点 → 今の中点を quadraticCurveTo（制御点=前の実点）で滑らかに接続
+     * - 各サンプル点に塗りつぶし円を重ねてギャップを完全に埋める
+     */
+    const drawTo = (
       ctx: CanvasRenderingContext2D,
-      from: { x: number; y: number; pressure: number },
-      to:   { x: number; y: number; pressure: number },
-      isPencil: boolean,
+      to: { x: number; y: number; pressure: number },
     ) => {
-      const avg = (from.pressure + to.pressure) / 2;
-      ctx.lineWidth   = isPencil ? Math.max(0.5, avg * 8) : 2.5;
+      const from = lastPoint.current!;
+      const avgP = (from.pressure + to.pressure) / 2;
+      const w    = Math.max(1, avgP * 8); // 圧力 0→1 = 線幅 1→8px
+
       ctx.strokeStyle = "#ffffff";
+      ctx.fillStyle   = "#ffffff";
       ctx.lineCap     = "round";
       ctx.lineJoin    = "round";
-      // 中点ベジェで滑らかに補間
+      ctx.lineWidth   = w;
+
       const mx = (from.x + to.x) / 2;
       const my = (from.y + to.y) / 2;
+
       ctx.beginPath();
-      ctx.moveTo(from.x, from.y);
-      ctx.quadraticCurveTo(from.x, from.y, mx, my);
+      if (lastMid.current) {
+        // 前の中点から今の中点へ、前の実点を制御点とした曲線
+        ctx.moveTo(lastMid.current.x, lastMid.current.y);
+        ctx.quadraticCurveTo(from.x, from.y, mx, my);
+      } else {
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(mx, my);
+      }
       ctx.stroke();
+
+      // セグメント間のギャップを塗りつぶし円で埋める
+      ctx.beginPath();
+      ctx.arc(mx, my, w / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      lastMid.current   = { x: mx, y: my };
+      lastPoint.current = to;
     };
 
     const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== "pencil") return; // Apple Pencil 2 のみ
       e.preventDefault();
-      try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-      isDrawing.current = true;
-      lastPos.current   = getPoint(e);
+      try { canvas.setPointerCapture(e.pointerId); } catch { /**/ }
+      const pt = getPoint(e);
+      isDrawing.current  = true;
+      lastPoint.current  = pt;
+      lastMid.current    = null; // stroke 開始時はリセット
+
+      // 点描き（最初のタッチ点を即時描画）
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        const w = Math.max(1, pt.pressure * 8);
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, w / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
     };
 
     const onMove = (e: PointerEvent) => {
-      if (!isDrawing.current || !lastPos.current) return;
+      if (e.pointerType !== "pencil") return;
+      if (!isDrawing.current || !lastPoint.current) return;
       e.preventDefault();
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      const isPencil = e.pointerType === "pencil";
-      // getCoalescedEvents で Pencil の中間サンプルも全部描く
+
       const events: PointerEvent[] =
         typeof e.getCoalescedEvents === "function"
           ? (e.getCoalescedEvents() as PointerEvent[])
           : [e];
+
       for (const ev of events) {
-        const pos = getPoint(ev);
-        strokeTo(ctx, lastPos.current, pos, isPencil);
-        lastPos.current = pos;
+        drawTo(ctx, getPoint(ev));
       }
       hasDrawn.current = true;
     };
 
-    const onUp = () => {
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerType !== "pencil") return;
       if (hasDrawn.current) {
         setIsEmpty(false);
-        // toDataURL は重いので pointerup 時のみ呼ぶ
         onSignature(canvas.toDataURL("image/png"));
       }
       isDrawing.current = false;
-      lastPos.current   = null;
+      lastPoint.current = null;
+      lastMid.current   = null;
     };
 
-    const onCancel = () => {
+    const onCancel = (e: PointerEvent) => {
+      if (e.pointerType !== "pencil") return;
       isDrawing.current = false;
-      lastPos.current   = null;
+      lastPoint.current = null;
+      lastMid.current   = null;
     };
 
     canvas.addEventListener("pointerdown",   onDown,   { passive: false });
     canvas.addEventListener("pointermove",   onMove,   { passive: false });
     canvas.addEventListener("pointerup",     onUp);
     canvas.addEventListener("pointercancel", onCancel);
-    canvas.addEventListener("pointerleave",  onCancel);
 
     return () => {
       canvas.removeEventListener("pointerdown",   onDown);
       canvas.removeEventListener("pointermove",   onMove);
       canvas.removeEventListener("pointerup",     onUp);
       canvas.removeEventListener("pointercancel", onCancel);
-      canvas.removeEventListener("pointerleave",  onCancel);
     };
   }, [onSignature]);
 
@@ -134,7 +167,9 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    hasDrawn.current = false;
+    hasDrawn.current  = false;
+    lastPoint.current = null;
+    lastMid.current   = null;
     setIsEmpty(true);
     onSignature(null);
   };
@@ -149,7 +184,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
         />
         {isEmpty && (
           <p className="absolute inset-0 flex items-center justify-center text-slate-600 text-base font-bold pointer-events-none select-none">
-            ここに署名してください
+            Apple Pencil で署名してください
           </p>
         )}
       </div>

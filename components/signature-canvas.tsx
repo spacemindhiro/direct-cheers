@@ -43,25 +43,24 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
 
     const getPoint = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
+      // Apple Pencil 2 は実圧力。それ以外は 0.5 固定で細め。
+      const isPencil = e.pointerType === "pencil";
       return {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
-        pressure: e.pressure > 0 ? e.pressure : 0.5,
+        pressure: isPencil && e.pressure > 0 ? e.pressure : 0.5,
+        isPencil,
       };
     };
 
-    /**
-     * 1セグメントを描く
-     * - 前の中点 → 今の中点を quadraticCurveTo（制御点=前の実点）で滑らかに接続
-     * - 各サンプル点に塗りつぶし円を重ねてギャップを完全に埋める
-     */
     const drawTo = (
       ctx: CanvasRenderingContext2D,
-      to: { x: number; y: number; pressure: number },
+      to: { x: number; y: number; pressure: number; isPencil: boolean },
     ) => {
       const from = lastPoint.current!;
       const avgP = (from.pressure + to.pressure) / 2;
-      const w    = Math.max(1, avgP * 8); // 圧力 0→1 = 線幅 1→8px
+      // Pencil: 圧力に比例 0.5–8px / その他: 2px 固定
+      const w = to.isPencil ? Math.max(0.5, avgP * 8) : 2;
 
       ctx.strokeStyle = "#ffffff";
       ctx.fillStyle   = "#ffffff";
@@ -74,7 +73,6 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
 
       ctx.beginPath();
       if (lastMid.current) {
-        // 前の中点から今の中点へ、前の実点を制御点とした曲線
         ctx.moveTo(lastMid.current.x, lastMid.current.y);
         ctx.quadraticCurveTo(from.x, from.y, mx, my);
       } else {
@@ -83,7 +81,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       }
       ctx.stroke();
 
-      // セグメント間のギャップを塗りつぶし円で埋める
+      // ギャップを塗りつぶし円で完全に埋める
       ctx.beginPath();
       ctx.arc(mx, my, w / 2, 0, Math.PI * 2);
       ctx.fill();
@@ -93,18 +91,17 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
     };
 
     const onDown = (e: PointerEvent) => {
-      if (e.pointerType !== "pencil") return; // Apple Pencil 2 のみ
       e.preventDefault();
       try { canvas.setPointerCapture(e.pointerId); } catch { /**/ }
       const pt = getPoint(e);
-      isDrawing.current  = true;
-      lastPoint.current  = pt;
-      lastMid.current    = null; // stroke 開始時はリセット
+      isDrawing.current = true;
+      lastPoint.current = pt;
+      lastMid.current   = null;
 
-      // 点描き（最初のタッチ点を即時描画）
+      // 最初の接触点を即時描画
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        const w = Math.max(1, pt.pressure * 8);
+        const w = pt.isPencil ? Math.max(0.5, pt.pressure * 8) : 2;
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, w / 2, 0, Math.PI * 2);
@@ -113,7 +110,6 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
     };
 
     const onMove = (e: PointerEvent) => {
-      if (e.pointerType !== "pencil") return;
       if (!isDrawing.current || !lastPoint.current) return;
       e.preventDefault();
       const ctx = canvas.getContext("2d");
@@ -130,8 +126,8 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       hasDrawn.current = true;
     };
 
-    const onUp = (e: PointerEvent) => {
-      if (e.pointerType !== "pencil") return;
+    const onUp = () => {
+      if (!isDrawing.current) return;
       if (hasDrawn.current) {
         setIsEmpty(false);
         onSignature(canvas.toDataURL("image/png"));
@@ -141,8 +137,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       lastMid.current   = null;
     };
 
-    const onCancel = (e: PointerEvent) => {
-      if (e.pointerType !== "pencil") return;
+    const onCancel = () => {
       isDrawing.current = false;
       lastPoint.current = null;
       lastMid.current   = null;

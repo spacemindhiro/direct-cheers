@@ -407,16 +407,13 @@ export default function LandingPage() {
             </div>
 
             {/* CTAボタン */}
-            <a
+            <Link
               href="/link-setup"
-              target="_blank"
-              rel="noopener noreferrer"
               className="flex items-center justify-center gap-3 w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white rounded-2xl py-5 font-black text-sm uppercase tracking-wider transition-all hover:scale-[1.02] shadow-xl shadow-orange-500/20 active:scale-[0.98]"
             >
               <CreditCard size={18} />
-              Stripe Linkにカードを事前登録（外部サイトへ）
-              <ExternalLink size={14} className="opacity-70" />
-            </a>
+              Stripe Linkにカードを事前登録する
+            </Link>
           </div>
         </div>
       </section>

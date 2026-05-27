@@ -12,8 +12,8 @@ function toStripeKana(str: string | null | undefined): string | undefined {
   const katakana = str.replace(/[\u3041-\u3096]/g, (c) =>
     String.fromCharCode(c.charCodeAt(0) + 0x60),
   );
-  // 全角カタカナ・長音符・スペース・ハイフン・ドットのみ残す
-  const cleaned = katakana.replace(/[^\u30A1-\u30FC\s\-\.]/g, "").trim();
+  // 全角カタカナ・長音符・半角数字・全角数字・スペース・ハイフン・ドットを残す
+  const cleaned = katakana.replace(/[^\u30A1-\u30FC\uFF10-\uFF19\u0030-\u0039\s\-\.]/g, "").trim();
   return cleaned || undefined;
 }
 

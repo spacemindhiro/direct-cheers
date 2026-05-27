@@ -41,12 +41,12 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           Stripe Linkを登録すると、次回からメールアドレスだけでワンタッチ決済できます。カード情報の再入力が不要になります。
         </p>
         <a
-          href="https://link.co/"
+          href="https://link.com"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/40 rounded-xl px-4 transition-all"
         >
-          <span className="text-xs font-black text-white">Stripe Linkについて</span>
+          <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
           <ChevronRight size={14} className="text-slate-500" />
         </a>
       </div>
@@ -69,7 +69,7 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           一部のイベントではPayPayが使用できない場合があります。Stripe Linkを登録しておくと、どの会場でも確実に使えます。
         </p>
         <a
-          href="https://link.co/"
+          href="https://link.com"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-orange-500/40 rounded-xl px-4 transition-all"
@@ -94,8 +94,17 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
         </div>
       </div>
       <p className="text-xs text-slate-400 leading-relaxed">
-        Apple Pay・Google Pay・Stripe Linkを使うと、イベント当日に数秒でチアを送れます。いまのうちに設定しておきましょう。
+        Apple Pay / Google Payが端末に設定済みならそのまま使えます。どの会場でも確実に使えるよう、Stripe Linkにカードを登録しておくのがおすすめです。
       </p>
+      <a
+        href="https://link.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500/40 rounded-xl px-4 transition-all"
+      >
+        <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
+        <ChevronRight size={14} className="text-slate-500" />
+      </a>
     </div>
   );
 }

@@ -234,9 +234,17 @@ export async function POST(
 
   // Payment Intent をキャプチャ（オーソリ → 売上確定）
   // チアーズ決済（qr_config 経由）+ 入場チケット決済（Type A/C: tickets 経由）を両方キャプチャ
+  function parsePiId(raw: string | null): string | null {
+    if (!raw) return null;
+    if (raw.startsWith("{")) {
+      try { const p = JSON.parse(raw); if (p?.id) return p.id; } catch {}
+    }
+    return raw;
+  }
+
   const allPaymentIntentIds = new Set(
     transactions
-      .map((tx) => tx.stripe_payment_intent_id)
+      .map((tx) => parsePiId(tx.stripe_payment_intent_id))
       .filter((id): id is string => !!id)
   );
 
@@ -254,7 +262,8 @@ export async function POST(
       .eq("status", "completed")
       .not("stripe_payment_intent_id", "is", null);
     for (const tx of entranceTxs ?? []) {
-      if (tx.stripe_payment_intent_id) allPaymentIntentIds.add(tx.stripe_payment_intent_id);
+      const piId = parsePiId(tx.stripe_payment_intent_id);
+      if (piId) allPaymentIntentIds.add(piId);
     }
   }
 
@@ -263,9 +272,21 @@ export async function POST(
     try {
       await stripe.paymentIntents.capture(piId);
       captureResults.push({ pi_id: piId, captured: true });
+      console.log(`[settle] captured pi=${piId}`);
     } catch (err: any) {
-      captureResults.push({ pi_id: piId, captured: false, error: err.message });
+      if (err.code === "charge_already_captured") {
+        captureResults.push({ pi_id: piId, captured: true });
+        console.log(`[settle] already_captured pi=${piId}`);
+      } else {
+        captureResults.push({ pi_id: piId, captured: false, error: err.message });
+        console.error(`[settle] capture failed pi=${piId} error=${err.message}`);
+      }
     }
+  }
+
+  const captureFailures = captureResults.filter((r) => !r.captured);
+  if (captureFailures.length > 0) {
+    console.error(`[settle] ${captureFailures.length} capture(s) failed for event=${eventId}`);
   }
 
   // Stripe transfers（Connect アカウントへ送金）
@@ -346,6 +367,8 @@ export async function POST(
     success: true,
     total_gross: totalGross,
     distributions: distributionRows.length,
+    captures: captureResults,
+    capture_failures: captureFailures.length,
     transfers: transferResults,
   });
 }

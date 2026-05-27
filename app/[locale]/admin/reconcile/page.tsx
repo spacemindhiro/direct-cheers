@@ -233,21 +233,29 @@ async function ReconcileContent() {
                       {total === 0 && <p className="text-[10px] text-slate-600">売上なし</p>}
                     </div>
                   </div>
-                  {!allDone && total > 0 && (
-                    <ReconcileButton eventId={event.event_id} pendingCount={total - reconciled} />
-                  )}
+                  {/* エラー詳細（目立つ位置に常時表示） */}
                   {txErrors.length > 0 && (
-                    <div className="border border-red-500/20 bg-red-500/5 rounded-xl p-3 space-y-2">
-                      <p className="text-[9px] font-black text-red-400 uppercase tracking-widest">照合エラー詳細</p>
+                    <div className="border border-red-500/30 bg-red-500/10 rounded-xl p-3 space-y-2">
+                      <p className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <XCircle size={11} /> 照合エラー {txErrors.length}件
+                      </p>
                       {txErrors.map((e) => (
-                        <div key={e.transaction_id} className="space-y-0.5">
+                        <div key={e.transaction_id} className="bg-slate-900/60 rounded-lg p-2 space-y-0.5">
                           <p className="text-[10px] font-mono text-slate-400 break-all">
                             PI: {e.stripe_pi_id ?? "(null)"}
                           </p>
-                          <p className="text-[10px] text-red-300 break-all">{e.error}</p>
+                          <p className="text-[11px] text-red-300 break-all font-bold">{e.error}</p>
                         </div>
                       ))}
                     </div>
+                  )}
+
+                  {/* 照合ボタン：未照合またはエラーあり */}
+                  {((!allDone && total > 0) || txErrors.length > 0) && (
+                    <ReconcileButton
+                      eventId={event.event_id}
+                      pendingCount={(total - reconciled) + txErrors.length}
+                    />
                   )}
                 </div>
               );

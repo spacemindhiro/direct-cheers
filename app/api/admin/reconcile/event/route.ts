@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   if (qrIds.length === 0)
     return NextResponse.json({ checked: 0, reconciled: 0, errors: 0 });
 
-  // 未照合トランザクション取得
+  // 未照合 OR エラー済み（再試行対象）のトランザクション取得
   const { data: transactions } = await admin
     .from("transactions")
     .select(`
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     `)
     .in("qr_config_id", qrIds)
     .eq("status", "completed")
-    .is("reconciled_at", null);
+    .or("reconciled_at.is.null,reconcile_error.not.is.null");
 
   const now = new Date();
   let reconciled = 0;
@@ -112,9 +112,10 @@ export async function POST(req: Request) {
         stripe_pi_id: tx.stripe_payment_intent_id,
         error: errMsg,
       });
+      // reconciled_at はセットしない → 次回実行で再試行される
       await admin
         .from("transactions")
-        .update({ reconcile_error: errMsg, reconciled_at: now.toISOString() })
+        .update({ reconcile_error: errMsg })
         .eq("transaction_id", tx.transaction_id);
     }
   }

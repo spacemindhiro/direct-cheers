@@ -287,10 +287,6 @@ export async function POST(
   const captureFailures = captureResults.filter((r) => !r.captured);
   if (captureFailures.length > 0) {
     console.error(`[settle] ${captureFailures.length} capture(s) failed for event=${eventId}`, captureFailures);
-    return NextResponse.json({
-      error: "キャプチャに失敗した決済があります。Stripeダッシュボードで確認してください。",
-      capture_failures: captureFailures,
-    }, { status: 500 });
   }
 
   // Stripe transfers（Connect アカウントへ送金）

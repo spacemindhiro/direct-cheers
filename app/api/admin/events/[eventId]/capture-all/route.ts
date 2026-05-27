@@ -33,17 +33,27 @@ export async function POST(
 
   let captured = 0;
   let errors = 0;
+  const errorDetails: { pi_id: string; error: string }[] = [];
+
   for (const tx of txs ?? []) {
+    let piId = tx.stripe_payment_intent_id as string;
+    if (piId?.startsWith("{")) {
+      try { const p = JSON.parse(piId); if (p?.id) piId = p.id; } catch {}
+    }
     try {
-      await stripe.paymentIntents.capture(tx.stripe_payment_intent_id);
+      await stripe.paymentIntents.capture(piId);
       captured++;
+      console.log(`[capture-all] captured pi=${piId}`);
     } catch (err: any) {
-      // already_captured は正常
-      if (err.code === "charge_already_captured") { captured++; continue; }
+      if (err.code === "charge_already_captured") {
+        captured++;
+        continue;
+      }
       errors++;
-      console.error(`[capture-all] PI ${tx.stripe_payment_intent_id}:`, err.message);
+      errorDetails.push({ pi_id: piId, error: err.message });
+      console.error(`[capture-all] failed pi=${piId}:`, err.message);
     }
   }
 
-  return NextResponse.json({ success: true, captured, errors });
+  return NextResponse.json({ success: true, captured, errors, errorDetails });
 }

@@ -84,7 +84,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const canCreateQR = (isOrganizer || isAgent) &&
     ["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status);
   const hasEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
-  const canSubmitEvidence = isOrganizer && hasEnded && event.lifecycle_status !== "settled";
+  const canSubmitEvidence = profile?.role === "organizer" && hasEnded && event.lifecycle_status !== "settled";
   const canEndEvent = isOrganizer && ["published", "ongoing"].includes(event.lifecycle_status);
 
   const cancellableStatuses = ["draft", "review_requested", "published", "ongoing"];

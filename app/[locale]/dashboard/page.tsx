@@ -72,8 +72,9 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           </div>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed">
-          Stripe Linkを登録すると、次回からメールアドレスだけでワンタッチ決済できます。カード情報の再入力が不要になります。
+          Apple Pay / Google Pay が端末に設定済みならそのまま使えます。設定していない場合は Stripe Link にカードを登録しておくとワンタッチ決済できます。
         </p>
+        <AppleGooglePayLinks />
         <Link
           href="/link-setup"
           className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/40 rounded-xl px-4 transition-all"
@@ -81,7 +82,6 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
           <ChevronRight size={14} className="text-slate-500" />
         </Link>
-        <AppleGooglePayLinks />
       </div>
     );
   }
@@ -95,20 +95,20 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           </div>
           <div>
             <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Payment Speed</p>
-            <p className="text-sm font-black text-white">PayPayバックアップを設定しよう</p>
+            <p className="text-sm font-black text-white">決済バックアップを設定しよう</p>
           </div>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed">
-          一部のイベントではPayPayが使用できない場合があります。Stripe Linkを登録しておくと、どの会場でも確実に使えます。
+          一部のイベントではPayPayが使えない場合があります。Apple Pay / Google Pay または Stripe Link を登録しておくと確実です。
         </p>
+        <AppleGooglePayLinks />
         <Link
           href="/link-setup"
           className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-orange-500/40 rounded-xl px-4 transition-all"
         >
-          <span className="text-xs font-black text-white">Stripe Linkを登録する</span>
+          <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
           <ChevronRight size={14} className="text-slate-500" />
         </Link>
-        <AppleGooglePayLinks />
       </div>
     );
   }
@@ -122,12 +122,13 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
         </div>
         <div>
           <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Payment Speed</p>
-          <p className="text-sm font-black text-white">事前にカードを登録しておこう</p>
+          <p className="text-sm font-black text-white">高速決済を準備しよう</p>
         </div>
       </div>
       <p className="text-xs text-slate-400 leading-relaxed">
-        Stripe Linkにカードを登録しておくと、イベント当日はメールアドレスだけでワンタッチ決済できます。今すぐ登録して当日をスムーズに。
+        Apple Pay / Google Pay が端末に設定済みならそのまま使えます。設定がない場合は Stripe Link にカードを登録しておくとスムーズです。
       </p>
+      <AppleGooglePayLinks />
       <Link
         href="/link-setup"
         className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500/40 rounded-xl px-4 transition-all"
@@ -135,7 +136,6 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
         <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
         <ChevronRight size={14} className="text-slate-500" />
       </Link>
-      <AppleGooglePayLinks />
     </div>
   );
 }

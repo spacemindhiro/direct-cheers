@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     `)
     .in("qr_config_id", qrIds)
     .eq("status", "completed")
-    .or("reconciled_at.is.null,reconcile_error.not.is.null");
+    .or("reconciled_at.is.null,reconcile_error.not.is.null,amount_verified.eq.false");
 
   const now = new Date();
   let reconciled = 0;

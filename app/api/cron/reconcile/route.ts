@@ -48,7 +48,7 @@ export async function GET(req: Request) {
       .select("transaction_id, stripe_payment_intent_id, total_gross_amount, qr_config_id")
       .in("qr_config_id", settledQrConfigIds)
       .eq("status", "completed")
-      .is("reconciled_at", null)
+      .or("reconciled_at.is.null,reconcile_error.not.is.null,amount_verified.eq.false")
       .not("stripe_payment_intent_id", "is", null)
       .neq("transaction_type", "invitation");
 

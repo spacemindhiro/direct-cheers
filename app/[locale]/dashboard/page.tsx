@@ -35,48 +35,50 @@ async function DashboardContent() {
 
   const follows = (followsData ?? []).map((f: any) => f.followee).filter(Boolean);
 
-  // Cheers履歴: sender_profile_id または sender_email でマッチ
+  // Cheers履歴: admin は不要なのでスキップ
+  const isAdmin = profile?.role === 'admin';
   const userEmail = user!.email!;
-
-  const { data: byProfile } = await admin
-    .from('transactions')
-    .select(`
-      transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
-      product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
-      qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
-    `)
-    .eq('sender_profile_id', user!.id)
-    .eq('status', 'completed')
-    .neq('transaction_type', 'invitation')
-    .order('created_at', { ascending: false })
-    .limit(50);
-
-  const { data: byEmail } = await admin
-    .from('transactions')
-    .select(`
-      transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
-      product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
-      qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
-    `)
-    .eq('sender_email', userEmail)
-    .eq('status', 'completed')
-    .neq('transaction_type', 'invitation')
-    .order('created_at', { ascending: false })
-    .limit(50);
-
-  // 重複排除してマージ
-  const seen = new Set<string>();
   let cheersHistory: any[] = [];
-  for (const tx of [...(byProfile ?? []), ...(byEmail ?? [])]) {
-    if (!seen.has(tx.transaction_id)) {
-      seen.add(tx.transaction_id);
-      cheersHistory.push(tx);
-    }
-  }
-  cheersHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  cheersHistory = cheersHistory.slice(0, 20);
+  let totalCheersAmount = 0;
 
-  const totalCheersAmount = (cheersHistory ?? []).reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+  if (!isAdmin) {
+    const { data: byProfile } = await admin
+      .from('transactions')
+      .select(`
+        transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
+        product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+        qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
+      `)
+      .eq('sender_profile_id', user!.id)
+      .eq('status', 'completed')
+      .neq('transaction_type', 'invitation')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    const { data: byEmail } = await admin
+      .from('transactions')
+      .select(`
+        transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
+        product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+        qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
+      `)
+      .eq('sender_email', userEmail)
+      .eq('status', 'completed')
+      .neq('transaction_type', 'invitation')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    const seen = new Set<string>();
+    for (const tx of [...(byProfile ?? []), ...(byEmail ?? [])]) {
+      if (!seen.has(tx.transaction_id)) {
+        seen.add(tx.transaction_id);
+        cheersHistory.push(tx);
+      }
+    }
+    cheersHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    cheersHistory = cheersHistory.slice(0, 20);
+    totalCheersAmount = cheersHistory.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+  }
 
   // agent / organizer / artist: transaction_distributions の actual_amount を集計するだけ
   let projectedNet = 0;
@@ -480,89 +482,91 @@ async function DashboardContent() {
         </div>
       )}
 
-      {/* Cheers送信セクション */}
-      <div className="space-y-4">
-        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-          <Heart size={14} className="text-pink-500" /> 送ったチア
-        </h2>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-2">
-            <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20">
-              <Heart size={18} className="text-pink-500" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Cheers</p>
-              <p className="text-3xl font-black text-white italic tracking-tighter">{cheersHistory?.length ?? 0}</p>
-            </div>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-2">
-            <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20">
-              <TrendingUp size={18} className="text-pink-400" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Amount</p>
-              <p className="text-3xl font-black text-white italic tracking-tighter">
-                ¥{totalCheersAmount.toLocaleString('ja-JP')}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Cheers履歴 */}
-      <div className="space-y-4">
-        <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-          <Heart size={14} className="text-pink-500" /> Cheers History
-        </h2>
-        {!cheersHistory || cheersHistory.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 text-center space-y-3">
-            <p className="text-slate-600 text-sm font-bold italic uppercase tracking-wider">No cheers yet.</p>
-            <p className="text-slate-700 text-xs">イベントでQRをスキャンして最初の応援を送ろう</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {cheersHistory.map((tx: any) => (
-              <div key={tx.transaction_id} className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-white truncate">
-                    {tx.qr_config?.event?.title ?? tx.product?.name ?? '—'}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {tx.product?.artist?.display_name && <span className="mr-2">{tx.product.artist.display_name}</span>}
-                    {new Date(tx.created_at).toLocaleDateString('ja-JP')}
-                  </p>
-                  {tx.sender_comment && (
-                    <p className="text-xs text-slate-400 mt-1 italic">"{tx.sender_comment}"</p>
-                  )}
+      {/* Cheers送信セクション・履歴・コレクション（admin非表示） */}
+      {!isAdmin && (
+        <>
+          <div className="space-y-4">
+            <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              <Heart size={14} className="text-pink-500" /> 送ったチア
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-2">
+                <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20">
+                  <Heart size={18} className="text-pink-500" />
                 </div>
-                <p className="text-lg font-black text-pink-400 shrink-0 tabular-nums">
-                  ¥{(tx.total_gross_amount ?? 0).toLocaleString('ja-JP')}
-                </p>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Cheers</p>
+                  <p className="text-3xl font-black text-white italic tracking-tighter">{cheersHistory?.length ?? 0}</p>
+                </div>
               </div>
-            ))}
+              <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-2">
+                <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20">
+                  <TrendingUp size={18} className="text-pink-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Amount</p>
+                  <p className="text-3xl font-black text-white italic tracking-tighter">
+                    ¥{totalCheersAmount.toLocaleString('ja-JP')}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* コレクションリンク */}
-      {cheersHistory.length > 0 && (
-        <Link
-          href="/dashboard/collection"
-          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
-              <Layers size={22} className="text-pink-400" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Collection</p>
-              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
-                カードコレクション
-              </p>
-              <p className="text-xs text-slate-500 mt-0.5">Cheersカードをすべて眺める</p>
-            </div>
+          <div className="space-y-4">
+            <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              <Heart size={14} className="text-pink-500" /> Cheers History
+            </h2>
+            {!cheersHistory || cheersHistory.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 text-center space-y-3">
+                <p className="text-slate-600 text-sm font-bold italic uppercase tracking-wider">No cheers yet.</p>
+                <p className="text-slate-700 text-xs">イベントでQRをスキャンして最初の応援を送ろう</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {cheersHistory.map((tx: any) => (
+                  <div key={tx.transaction_id} className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-white truncate">
+                        {tx.qr_config?.event?.title ?? tx.product?.name ?? '—'}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {tx.product?.artist?.display_name && <span className="mr-2">{tx.product.artist.display_name}</span>}
+                        {new Date(tx.created_at).toLocaleDateString('ja-JP')}
+                      </p>
+                      {tx.sender_comment && (
+                        <p className="text-xs text-slate-400 mt-1 italic">"{tx.sender_comment}"</p>
+                      )}
+                    </div>
+                    <p className="text-lg font-black text-pink-400 shrink-0 tabular-nums">
+                      ¥{(tx.total_gross_amount ?? 0).toLocaleString('ja-JP')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </Link>
+
+          {cheersHistory.length > 0 && (
+            <Link
+              href="/dashboard/collection"
+              className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
+                  <Layers size={22} className="text-pink-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Collection</p>
+                  <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
+                    カードコレクション
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">Cheersカードをすべて眺める</p>
+                </div>
+              </div>
+            </Link>
+          )}
+        </>
       )}
 
       {/* フォロー中 */}
@@ -764,23 +768,25 @@ async function DashboardContent() {
         </div>
       )}
 
-      {/* マイチケット */}
-      <Link
-        href="/tickets"
-        className="block bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-[2rem] p-6 transition-all group"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all">
-            <Ticket size={22} className="text-indigo-400" />
+      {/* マイチケット（admin非表示） */}
+      {!isAdmin && (
+        <Link
+          href="/tickets"
+          className="block bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all">
+              <Ticket size={22} className="text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Wallet</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
+                マイチケット
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Wallet</p>
-            <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
-              マイチケット
-            </p>
-          </div>
-        </div>
-      </Link>
+        </Link>
+      )}
 
 
     </div>

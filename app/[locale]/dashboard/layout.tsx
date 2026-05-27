@@ -38,14 +38,16 @@ async function DashboardNav() {
   if (!profile) redirect('/onboarding/profile');
 
   // artist/organizer/agent/admin はステップアップ認証が必要
-  if (STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
+  // ただし display ページはイベント中の表示専用キオスク画面のため対象外
+  const headersList = await headers();
+  const currentPath = headersList.get('x-pathname') ?? '/dashboard';
+  const isDisplayPath = /\/dashboard\/events\/[^/]+\/display/.test(currentPath);
+
+  if (!isDisplayPath && STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
     const cookieStore = await cookies();
     const stepUpAt = cookieStore.get('dc_stepup')?.value;
     const isFresh = !!stepUpAt && (Date.now() - parseInt(stepUpAt)) < STEP_UP_TTL_MS;
     if (!isFresh) {
-      // middleware が x-pathname ヘッダーをセットしているので意図したページに戻れる
-      const headersList = await headers();
-      const currentPath = headersList.get('x-pathname') ?? '/dashboard';
       redirect(`/auth/step-up?redirect=${encodeURIComponent(currentPath)}`);
     }
   }

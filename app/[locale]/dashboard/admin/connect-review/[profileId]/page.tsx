@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Loader2, User, MapPin, Building2, ExternalLink } from "lucide-react";
+import { Loader2, User, MapPin, Building2, ExternalLink, FileSignature, AlertTriangle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import Stripe from "stripe";
 import { AdminConnectReview } from "@/components/admin-connect-review";
@@ -65,6 +65,15 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
       stripeAccountCreatedAt = account.created ? new Date(account.created * 1000) : null;
     } catch { /* 取得失敗は無視 */ }
   }
+
+  // 署名済み書類を取得（最新1件）
+  const { data: signedDoc } = await admin
+    .from("signed_documents")
+    .select("id, signed_at, terms_types, terms_version")
+    .eq("profile_id", profileId)
+    .order("signed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   // 紹介者を取得
   const { data: invitation } = await admin
@@ -196,6 +205,43 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
           </div>
         </div>
       )}
+
+      {/* 調印式 */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">調印式</p>
+        {signedDoc ? (
+          <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+              <div>
+                <p className="text-sm font-black text-white">署名済み</p>
+                <p className="text-[10px] text-slate-500">
+                  {new Date(signedDoc.signed_at).toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" })}
+                </p>
+              </div>
+            </div>
+            <Link
+              href={`/admin/documents/${signedDoc.id}`}
+              className="text-[11px] font-black text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1 shrink-0"
+            >
+              書類を確認 <ExternalLink size={11} />
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+              <p className="text-sm font-black text-amber-300">未署名</p>
+            </div>
+            <Link
+              href={`/admin/terms/sign/${profileId}`}
+              className="flex items-center gap-1.5 text-[11px] font-black text-white bg-amber-500 hover:bg-amber-400 transition-colors px-3 py-1.5 rounded-lg shrink-0"
+            >
+              <FileSignature size={12} /> 調印式を開始
+            </Link>
+          </div>
+        )}
+      </div>
 
       {/* 承認・却下 */}
       <div className="space-y-2">

@@ -69,8 +69,8 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       const avgP = (from.pressure + to.pressure) / 2;
       const w    = Math.max(0.5, avgP * 8);
 
-      ctx.strokeStyle = "#0f172a";
-      ctx.fillStyle   = "#0f172a";
+      ctx.strokeStyle = "#ffffff";
+      ctx.fillStyle   = "#ffffff";
       ctx.lineCap     = "round";
       ctx.lineJoin    = "round";
       ctx.lineWidth   = w;
@@ -108,7 +108,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       const ctx = canvas.getContext("2d");
       if (ctx) {
         const w = Math.max(0.5, pt.pressure * 8);
-        ctx.fillStyle = "#0f172a";
+        ctx.fillStyle = "#ffffff";
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, w / 2, 0, Math.PI * 2);
         ctx.fill();
@@ -171,11 +171,11 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       <div className="relative" style={{ touchAction: "none" }}>
         <canvas
           ref={canvasRef}
-          className="w-full h-72 bg-white border-2 border-slate-300 rounded-2xl cursor-crosshair block"
+          className="w-full h-72 bg-slate-950 border-2 border-slate-700 rounded-2xl cursor-crosshair block"
           style={{ touchAction: "none" }}
         />
         {isEmpty && (
-          <p className="absolute inset-0 flex items-center justify-center text-slate-400 text-base font-bold pointer-events-none select-none">
+          <p className="absolute inset-0 flex items-center justify-center text-slate-600 text-base font-bold pointer-events-none select-none">
             Apple Pencil でご署名ください
           </p>
         )}

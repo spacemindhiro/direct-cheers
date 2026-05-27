@@ -94,6 +94,13 @@ function ThanksContent() {
         }
         setResult(data);
 
+        // Cheersカード表示をログ（チャージバック対策・fire-and-forget）
+        fetch("/api/pay/card-viewed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transaction_id: data.transaction_id }),
+        }).catch(() => {});
+
         // 会員かつパスキー登録済みの場合のみパスキーログインを表示
         if (data.is_member && data.has_passkey) {
           setHasExistingPasskey(true);

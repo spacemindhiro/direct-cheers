@@ -7,8 +7,10 @@ import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+
 export async function POST(req: Request) {
-  const { session_id } = await req.json() as { session_id: string };
+  const body = await req.json() as { session_id: string };
+  const { session_id } = body;
 
   if (!session_id) {
     return NextResponse.json({ error: "Missing session_id" }, { status: 400 });

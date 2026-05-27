@@ -213,6 +213,22 @@ export async function GET(
     my_net_amount: myDistByTx.get(tx.transaction_id) ?? null,
   }));
 
+  // messageタイプで宛先本人が閲覧したメッセージをログ（チャージバック対策）
+  if (!isAdmin && !isOrganizer && !isAgent) {
+    const viewedMessageTxIds = recentTransactions
+      .filter((t) => t.product_type === "message" && t.sender_comment != null)
+      .map((t) => t.transaction_id);
+    if (viewedMessageTxIds.length > 0) {
+      const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+        ?? req.headers.get("x-real-ip")
+        ?? null;
+      const userAgent = req.headers.get("user-agent") ?? null;
+      admin.from("asset_access_logs").insert(
+        viewedMessageTxIds.map((tid) => ({ transaction_id: tid, ip_address: ip, user_agent: userAgent }))
+      ).then(() => {});
+    }
+  }
+
   return NextResponse.json({
     total_gross: totalGross,
     transaction_count: txList.length,

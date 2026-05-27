@@ -37,24 +37,41 @@ export function EvidenceUploadForm({ eventId }: Props) {
     setError("");
 
     try {
-      // 1. ファイルを1枚ずつ順番にアップロード
+      // 1. 署名付きURLを取得してクライアントから直接Supabase Storageにアップロード
+      //    （Next.js/Vercelのボディサイズ制限を完全にバイパス）
       const uploadedPaths: string[] = [];
       for (let i = 0; i < files.length; i++) {
-        console.log(`[evidence] uploading ${i + 1}/${files.length}:`, files[i].name, files[i].type, files[i].size);
-        const fd = new FormData();
-        fd.append("file", files[i]);
-        const uploadRes = await fetch(`/api/events/${eventId}/evidence/upload`, {
+        const file = files[i];
+
+        // 1a. サーバーから署名付きURLを取得（ファイル名だけ送る小さいリクエスト）
+        const urlRes = await fetch(`/api/events/${eventId}/evidence/upload-url`, {
           method: "POST",
-          body: fd,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name }),
         });
-        const uploadData = await uploadRes.json();
-        console.log(`[evidence] upload result ${i + 1}:`, uploadRes.status, uploadData);
-        if (!uploadRes.ok) throw new Error(`写真${i + 1}枚目: ${uploadData.error ?? "アップロード失敗"}`);
-        uploadedPaths.push(uploadData.path as string);
+        if (!urlRes.ok) {
+          const urlData = await urlRes.json().catch(() => ({}));
+          throw new Error(`写真${i + 1}枚目: ${(urlData as { error?: string }).error ?? "URL取得失敗"}`);
+        }
+        const { path, signedUrl, contentType } = await urlRes.json() as {
+          path: string;
+          signedUrl: string;
+          contentType: string;
+        };
+
+        // 1b. 署名付きURLに直接PUT（Vercelを経由しない）
+        const putRes = await fetch(signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": contentType },
+          body: file,
+        });
+        if (!putRes.ok) {
+          throw new Error(`写真${i + 1}枚目: アップロード失敗 (HTTP ${putRes.status})`);
+        }
+        uploadedPaths.push(path);
       }
 
       // 2. パスを証跡APIに送信
-      console.log("[evidence] submitting record, paths:", uploadedPaths);
       const res = await fetch(`/api/events/${eventId}/evidence`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -65,14 +82,13 @@ export function EvidenceUploadForm({ eventId }: Props) {
         }),
       });
 
-      const data = await res.json();
-      console.log("[evidence] insert result:", res.status, data);
-      if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`);
+      const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      if (!res.ok || (data as { error?: string }).error)
+        throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
 
       setSubmitted(true);
       router.refresh();
     } catch (err: unknown) {
-      console.error("[evidence] error:", err);
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setUploading(false);

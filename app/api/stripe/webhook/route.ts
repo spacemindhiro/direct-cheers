@@ -119,25 +119,153 @@ export async function POST(req: Request) {
 
         if (!tx) break;
 
-        const { data: dists } = await admin
+        const { data: allDists } = await admin
           .from("transaction_distributions")
-          .select("profile_id")
-          .eq("transaction_id", tx.transaction_id)
-          .eq("distribution_status", "accrued");
+          .select("profile_id, actual_amount, distribution_status, event_id")
+          .eq("transaction_id", tx.transaction_id);
 
-        const primaryProfileId = (dists ?? [])[0]?.profile_id ?? null;
+        const primaryProfileId = (allDists ?? []).find(d => d.distribution_status === "accrued")?.profile_id
+          ?? (allDists ?? [])[0]?.profile_id ?? null;
+
+        const gross = tx.total_gross_amount ?? 0;
+        const cbFeeConfig = await getFeeConfig();
+        const stripeProcessingFee = Math.floor(gross * cbFeeConfig.stripe_rate);
+        const platformFeeHeld     = Math.floor(gross * cbFeeConfig.platform_rate);
 
         const { error: chargebackErr } = await admin.rpc("handle_chargeback", {
-          p_transaction_id:     tx.transaction_id,
-          p_claim_amount:       tx.total_gross_amount ?? 0,
-          p_stripe_dispute_fee: 1500,
-          p_dispute_id:         dispute.id,
-          p_primary_profile_id: primaryProfileId,
+          p_transaction_id:        tx.transaction_id,
+          p_claim_amount:          gross,
+          p_stripe_dispute_fee:    1500,
+          p_dispute_id:            dispute.id,
+          p_primary_profile_id:    primaryProfileId,
+          p_stripe_processing_fee: stripeProcessingFee,
+          p_platform_fee_held:     platformFeeHeld,
         });
 
         if (chargebackErr) throw chargebackErr;
 
-        console.log(`[webhook] chargeback: dispute=${dispute.id} tx=${tx.transaction_id}`);
+        // settle済み（paid）の受取人ごとにsettle_transfersをReversalして資金回収
+        const paidDists = (allDists ?? []).filter(d => d.distribution_status === "paid");
+        const reversalDetails: { profile_id: string; amount_reversed: number }[] = [];
+        let totalReversed = 0;
+
+        for (const dist of paidDists) {
+          if (!dist.event_id || !dist.actual_amount) continue;
+
+          const { data: transfers } = await admin
+            .from("settle_transfers")
+            .select("stripe_transfer_id")
+            .eq("profile_id", dist.profile_id)
+            .eq("event_id", dist.event_id)
+            .order("created_at", { ascending: false });
+
+          let remaining = dist.actual_amount;
+          let reversed  = 0;
+
+          for (const tr of transfers ?? []) {
+            if (remaining <= 0) break;
+            try {
+              const stripeTr  = await stripe.transfers.retrieve(tr.stripe_transfer_id);
+              const reversible = stripeTr.amount - stripeTr.amount_reversed;
+              if (reversible <= 0) continue;
+              const toReverse = Math.min(reversible, remaining);
+              await stripe.transfers.createReversal(tr.stripe_transfer_id, { amount: toReverse });
+              reversed  += toReverse;
+              remaining -= toReverse;
+            } catch (err: any) {
+              console.error(`[webhook] CB reversal失敗 transfer=${tr.stripe_transfer_id}:`, err.message);
+            }
+          }
+
+          if (reversed > 0) {
+            reversalDetails.push({ profile_id: dist.profile_id, amount_reversed: reversed });
+            totalReversed += reversed;
+          }
+        }
+
+        // debt_claimに回収詳細を記録
+        await admin
+          .from("debt_claims")
+          .update({
+            recovered_via_reversal: totalReversed,
+            reversal_details:       reversalDetails,
+          })
+          .eq("stripe_dispute_id", dispute.id);
+
+        console.log(`[webhook] chargeback: dispute=${dispute.id} tx=${tx.transaction_id} reversed=¥${totalReversed}`);
+        break;
+      }
+
+      // ──────────────────────────────────────────────────────
+      // チャージバック決着（勝訴: 再Transfer＋凍結解除 / 敗訴: 確定損失記録）
+      // ──────────────────────────────────────────────────────
+      case "charge.dispute.closed": {
+        const dispute = event.data.object as Stripe.Dispute;
+
+        const { data: claim } = await admin
+          .from("debt_claims")
+          .select("claim_id, profile_id, original_transaction_id, reversal_details, recovered_via_reversal")
+          .eq("stripe_dispute_id", dispute.id)
+          .maybeSingle();
+
+        if (!claim) break;
+
+        const isWon = dispute.status === "won";
+
+        if (isWon) {
+          // 勝訴: 引き戻した資金を各受取人に再Transfer
+          for (const detail of (claim.reversal_details as { profile_id: string; amount_reversed: number }[] ?? [])) {
+            if (detail.amount_reversed <= 0) continue;
+            const { data: prof } = await admin
+              .from("profiles")
+              .select("stripe_connect_id")
+              .eq("profile_id", detail.profile_id)
+              .single();
+            if (!prof?.stripe_connect_id) continue;
+            try {
+              await stripe.transfers.create({
+                amount:      detail.amount_reversed,
+                currency:    "jpy",
+                destination: prof.stripe_connect_id,
+                metadata:    { dispute_id: dispute.id, reason: "chargeback_won_reinstatement" },
+              });
+            } catch (err: any) {
+              console.error(`[webhook] CB win 再Transfer失敗 profile=${detail.profile_id}:`, err.message);
+            }
+          }
+
+          // distributions を凍結解除
+          if (claim.original_transaction_id) {
+            await admin
+              .from("transaction_distributions")
+              .update({ is_frozen: false })
+              .eq("transaction_id", claim.original_transaction_id);
+          }
+
+          // 他にactive debt_claimがなければプロファイル凍結解除
+          if (claim.profile_id) {
+            const { count } = await admin
+              .from("debt_claims")
+              .select("claim_id", { count: "exact", head: true })
+              .eq("profile_id", claim.profile_id)
+              .eq("status", "active")
+              .neq("claim_id", claim.claim_id);
+            if ((count ?? 0) === 0) {
+              await admin
+                .from("profiles")
+                .update({ balance_frozen: false, balance_frozen_at: null })
+                .eq("profile_id", claim.profile_id);
+            }
+          }
+
+          await admin.from("debt_claims").update({ status: "closed_won" }).eq("claim_id", claim.claim_id);
+          console.log(`[webhook] CB won: dispute=${dispute.id} re-transferred=¥${claim.recovered_via_reversal}`);
+        } else {
+          // 敗訴: 回収済み資金はplatformに留め確定損失を記録（凍結解除はadmin手動）
+          await admin.from("debt_claims").update({ status: "closed_lost" }).eq("claim_id", claim.claim_id);
+          console.log(`[webhook] CB lost: dispute=${dispute.id} recovered=¥${claim.recovered_via_reversal}`);
+        }
+
         break;
       }
 

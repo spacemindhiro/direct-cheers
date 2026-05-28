@@ -3,12 +3,24 @@
 -- 変更点:
 --   1. 4つの決済RPCにplatform distribution INSERTを追加
 --      distribution_role = 'platform', profile_id = adminのUUID
---   2. handle_chargebackのフリーズ対象からplatformを除外
+--   2. complete_cheers_payment: 旧16引数オーバーロードをDROPし17引数版に統合
+--      20260527000002_add_wallet_type が CREATE FUNCTION（OR REPLACEなし）で
+--      p_wallet_type付き17引数版を別オーバーロードとして追加したため
+--      16引数版と17引数版が共存→REVOKE時に「not unique」エラーになっていた
+--   3. handle_chargebackのフリーズ対象からplatformを除外
 --      （platform feeはStripeが直接回収するため凍結不要）
 
 -- ============================================================
--- 1. complete_cheers_payment（Cheers決済）
+-- 1. complete_cheers_payment
+--    旧16引数版（p_wallet_typeなし）をDROPしてからOR REPLACEで統合
 -- ============================================================
+DROP FUNCTION IF EXISTS complete_cheers_payment(
+  TEXT, UUID, UUID, TEXT, TEXT,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  TEXT, TEXT, TEXT,
+  UUID, UUID, BIGINT
+);
+
 CREATE OR REPLACE FUNCTION complete_cheers_payment(
   p_stripe_payment_intent_id TEXT,
   p_product_id               UUID,
@@ -24,7 +36,8 @@ CREATE OR REPLACE FUNCTION complete_cheers_payment(
   p_sender_comment           TEXT    DEFAULT NULL,
   p_event_id                 UUID    DEFAULT NULL,
   p_agent_id                 UUID    DEFAULT NULL,
-  p_agent_fee                BIGINT  DEFAULT 0
+  p_agent_fee                BIGINT  DEFAULT 0,
+  p_wallet_type              TEXT    DEFAULT NULL
 ) RETURNS TABLE(out_transaction_id UUID)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public
@@ -32,6 +45,11 @@ AS $$
 DECLARE
   v_transaction_id UUID;
   v_profile_id     UUID;
+  v_target         RECORD;
+  v_target_count   INT;
+  v_current        INT;
+  v_allocated      BIGINT;
+  v_amount         BIGINT;
   v_admin_id       UUID;
 BEGIN
   IF p_email IS NOT NULL THEN
@@ -56,6 +74,7 @@ BEGIN
     amount_verified,
     amount_mismatch,
     payment_method,
+    wallet_type,
     stripe_fee,
     platform_fee,
     net_amount
@@ -73,18 +92,68 @@ BEGIN
     TRUE,
     0,
     p_payment_method,
+    p_wallet_type,
     p_stripe_fee,
     p_platform_fee,
     p_net_amount
   )
+  ON CONFLICT DO NOTHING
   RETURNING transaction_id INTO v_transaction_id;
 
+  IF v_transaction_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- エージェント手数料 distribution
   IF p_agent_id IS NOT NULL AND p_agent_fee > 0 AND p_event_id IS NOT NULL THEN
     INSERT INTO transaction_distributions (
       transaction_id, event_id, profile_id, distribution_role, actual_amount, distribution_status
     ) VALUES (
       v_transaction_id, p_event_id, p_agent_id, 'agent', p_agent_fee, 'accrued'
     );
+  END IF;
+
+  -- アーティスト・オーガナイザー配分（端数ルール: 最後の1人が残額を受け取る）
+  IF p_qr_config_id IS NOT NULL AND p_event_id IS NOT NULL THEN
+    SELECT COUNT(*) INTO v_target_count
+      FROM qr_config_targets
+      WHERE qr_config_id = p_qr_config_id AND deleted_at IS NULL;
+
+    IF v_target_count > 0 THEN
+      v_current   := 0;
+      v_allocated := 0;
+
+      FOR v_target IN
+        SELECT t.profile_id, t.distribution_ratio, p.role
+          FROM qr_config_targets t
+          JOIN profiles p ON p.profile_id = t.profile_id
+          WHERE t.qr_config_id = p_qr_config_id AND t.deleted_at IS NULL
+          ORDER BY
+            t.distribution_ratio DESC,
+            CASE p.role
+              WHEN 'admin'     THEN 0
+              WHEN 'agent'     THEN 1
+              WHEN 'organizer' THEN 2
+              WHEN 'artist'    THEN 3
+              ELSE                  4
+            END ASC,
+            t.created_at ASC
+      LOOP
+        v_current := v_current + 1;
+        IF v_current = v_target_count THEN
+          v_amount := p_net_amount - v_allocated;
+        ELSE
+          v_amount := floor(p_net_amount * v_target.distribution_ratio);
+        END IF;
+        v_allocated := v_allocated + v_amount;
+
+        INSERT INTO transaction_distributions (
+          transaction_id, event_id, profile_id, distribution_role, actual_amount, distribution_status
+        ) VALUES (
+          v_transaction_id, p_event_id, v_target.profile_id, v_target.role, v_amount, 'accrued'
+        );
+      END LOOP;
+    END IF;
   END IF;
 
   -- admin の platform fee distribution（event_idが存在する場合のみ）
@@ -103,8 +172,19 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION complete_cheers_payment FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION complete_cheers_payment TO service_role;
+REVOKE EXECUTE ON FUNCTION complete_cheers_payment(
+  TEXT, UUID, UUID, TEXT, TEXT,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  TEXT, TEXT, TEXT,
+  UUID, UUID, BIGINT, TEXT
+) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION complete_cheers_payment(
+  TEXT, UUID, UUID, TEXT, TEXT,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  TEXT, TEXT, TEXT,
+  UUID, UUID, BIGINT, TEXT
+) TO service_role;
 
 -- ============================================================
 -- 2. complete_entrance_typeb（TypeB入場チケット）
@@ -193,8 +273,17 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION complete_entrance_typeb FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION complete_entrance_typeb TO service_role;
+REVOKE EXECUTE ON FUNCTION complete_entrance_typeb(
+  TEXT, UUID, UUID, TEXT, TEXT,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  TEXT
+) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION complete_entrance_typeb(
+  TEXT, UUID, UUID, TEXT, TEXT,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  TEXT
+) TO service_role;
 
 -- ============================================================
 -- 3. complete_entrance_typea_charge（TypeA自動決済）
@@ -214,10 +303,11 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_transaction_id UUID;
-  v_ticket_id      UUID;
-  v_profile_id     UUID;
-  v_admin_id       UUID;
+  v_transaction_id     UUID;
+  v_ticket_id          UUID;
+  v_profile_id         UUID;
+  v_existing_ticket_id UUID;
+  v_admin_id           UUID;
 BEGIN
   SELECT profile_id INTO v_profile_id FROM provisional_users WHERE email = p_email;
 
@@ -250,12 +340,21 @@ BEGIN
   )
   RETURNING transaction_id INTO v_transaction_id;
 
-  INSERT INTO tickets (
-    transaction_id, reservation_id, product_id, event_id, email, holder_profile_id, status
-  ) VALUES (
-    v_transaction_id, p_reservation_id, p_product_id, p_event_id, p_email, v_profile_id, 'valid'
-  )
-  RETURNING ticket_id INTO v_ticket_id;
+  -- 既存チケット確認（冪等）
+  SELECT ticket_id INTO v_existing_ticket_id
+    FROM tickets WHERE reservation_id = p_reservation_id LIMIT 1;
+
+  IF v_existing_ticket_id IS NOT NULL THEN
+    UPDATE tickets SET transaction_id = v_transaction_id WHERE ticket_id = v_existing_ticket_id;
+    v_ticket_id := v_existing_ticket_id;
+  ELSE
+    INSERT INTO tickets (
+      transaction_id, reservation_id, product_id, event_id, email, holder_profile_id, status
+    ) VALUES (
+      v_transaction_id, p_reservation_id, p_product_id, p_event_id, p_email, v_profile_id, 'valid'
+    )
+    RETURNING ticket_id INTO v_ticket_id;
+  END IF;
 
   UPDATE entrance_reservations
   SET status = 'charged', charged_at = now(), transaction_id = v_transaction_id
@@ -277,8 +376,17 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION complete_entrance_typea_charge FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION complete_entrance_typea_charge TO service_role;
+REVOKE EXECUTE ON FUNCTION complete_entrance_typea_charge(
+  TEXT, UUID, UUID, TEXT,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  UUID
+) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION complete_entrance_typea_charge(
+  TEXT, UUID, UUID, TEXT,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  UUID
+) TO service_role;
 
 -- ============================================================
 -- 4. complete_entrance_typec_checkin（TypeCチェックイン決済）
@@ -302,7 +410,6 @@ DECLARE
   v_event_id       UUID;
   v_admin_id       UUID;
 BEGIN
-  -- event_id をチケットから取得（platform distribution に使用）
   SELECT event_id INTO v_event_id FROM tickets WHERE ticket_id = p_ticket_id;
 
   INSERT INTO transactions (
@@ -352,13 +459,20 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION complete_entrance_typec_checkin FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION complete_entrance_typec_checkin TO service_role;
+REVOKE EXECUTE ON FUNCTION complete_entrance_typec_checkin(
+  TEXT, UUID,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  UUID, UUID
+) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION complete_entrance_typec_checkin(
+  TEXT, UUID,
+  BIGINT, BIGINT, BIGINT, BIGINT,
+  UUID, UUID
+) TO service_role;
 
 -- ============================================================
 -- 5. handle_chargeback: platformをフリーズ対象から除外
---    platform feeはStripeが直接プラットフォームアカウントから回収するため
---    distribution凍結・profile凍結ともに不要
 -- ============================================================
 CREATE OR REPLACE FUNCTION handle_chargeback(
   p_transaction_id        UUID,
@@ -392,7 +506,7 @@ BEGIN
   WHERE profile_id IN (
     SELECT DISTINCT profile_id
     FROM transaction_distributions
-    WHERE transaction_id   = p_transaction_id
+    WHERE transaction_id    = p_transaction_id
       AND distribution_role != 'platform'
   );
 

@@ -78,5 +78,5 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION handle_chargeback FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION handle_chargeback TO service_role;
+REVOKE EXECUTE ON FUNCTION handle_chargeback(UUID, BIGINT, INTEGER, TEXT, UUID, BIGINT, BIGINT) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION handle_chargeback(UUID, BIGINT, INTEGER, TEXT, UUID, BIGINT, BIGINT) TO service_role;

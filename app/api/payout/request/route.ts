@@ -110,76 +110,71 @@ export async function POST(req: Request) {
   }
 
   // 振込手数料をプラットフォームへ回収（ロール別3分岐）
+  // 1つのTransferに残高が足りない場合に備え、複数Transferをかき集めてtargetAmountに達するまでReversal
+  const collectFeeByReversal = async (transferIds: string[], targetAmount: number): Promise<number> => {
+    let remaining = targetAmount;
+    for (const transferId of transferIds) {
+      if (remaining <= 0) break;
+      try {
+        const tr = await stripe.transfers.retrieve(transferId);
+        const reversible = tr.amount - tr.amount_reversed;
+        if (reversible <= 0) continue;
+        const toReverse = Math.min(reversible, remaining);
+        await stripe.transfers.createReversal(transferId, { amount: toReverse });
+        remaining -= toReverse;
+      } catch (err: any) {
+        console.error(`[payout/request] reversal失敗 transfer=${transferId}:`, err.message);
+      }
+    }
+    return targetAmount - remaining; // 実際に回収できた額
+  };
+
   const payoutRole = profile.role as string;
   const payoutEventIds = [...new Set(
     (eligibleDists as any[]).map((d: any) => d.event_id).filter(Boolean) as string[]
   )];
 
   try {
-    if (payoutRole === "agent") {
-      // エージェント: プラットフォームから直接Transfer済み → Reversalでプラットフォームに戻る
-      const { data: tr } = await admin
+    if (payoutRole === "agent" || payoutRole === "organizer") {
+      // エージェント・オーガナイザー: プラットフォームから直接Transfer済み → Reversalで回収
+      const { data: trs } = await admin
         .from("settle_transfers")
         .select("stripe_transfer_id")
         .eq("profile_id", user.id)
         .in("event_id", payoutEventIds)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (tr?.stripe_transfer_id) {
-        await stripe.transfers.createReversal(tr.stripe_transfer_id, { amount: TRANSFER_FEE });
-      }
-    } else if (payoutRole === "organizer") {
-      // オーガナイザー: プラットフォームから直接Transfer済み → Reversalで回収
-      // settle_transferがない場合（元々のTransferがない状態）はスキップ
-      const { data: tr } = await admin
-        .from("settle_transfers")
-        .select("stripe_transfer_id")
-        .eq("profile_id", user.id)
-        .in("event_id", payoutEventIds)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (tr?.stripe_transfer_id) {
-        await stripe.transfers.createReversal(tr.stripe_transfer_id, { amount: TRANSFER_FEE });
-      }
+        .order("created_at", { ascending: false });
+      const ids = (trs ?? []).map((t) => t.stripe_transfer_id);
+      await collectFeeByReversal(ids, TRANSFER_FEE);
     } else {
       // アーティスト: TransferをReversalすると資金がオーガナイザーに戻る
-      // → さらにオーガナイザーTransferをReversalしてプラットフォームへ回収
-      const { data: artistTr } = await admin
+      // → 不足分をオーガナイザーのTransferからさらにReversalしてプラットフォームへ回収
+      const { data: artistTrs } = await admin
         .from("settle_transfers")
         .select("stripe_transfer_id")
         .eq("profile_id", user.id)
         .in("event_id", payoutEventIds)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
+      const artistIds = (artistTrs ?? []).map((t) => t.stripe_transfer_id);
+      const collected = await collectFeeByReversal(artistIds, TRANSFER_FEE);
 
-      if (artistTr?.stripe_transfer_id) {
-        await stripe.transfers.createReversal(artistTr.stripe_transfer_id, { amount: TRANSFER_FEE });
+      // アーティストTransferだけで ¥500 集めきれなかった場合、残りをオーガナイザーから回収
+      const remaining = TRANSFER_FEE - collected;
+      if (remaining > 0 && payoutEventIds.length > 0) {
+        const { data: eventRow } = await admin
+          .from("events")
+          .select("organizer_profile_id")
+          .eq("event_id", payoutEventIds[0])
+          .single();
 
-        // 資金がオーガナイザーのConnectアカウントに着いたので、そこからプラットフォームへ回収
-        if (payoutEventIds.length > 0) {
-          const { data: eventRow } = await admin
-            .from("events")
-            .select("organizer_profile_id")
-            .eq("event_id", payoutEventIds[0])
-            .single();
-
-          if (eventRow?.organizer_profile_id) {
-            const { data: orgTr } = await admin
-              .from("settle_transfers")
-              .select("stripe_transfer_id")
-              .eq("profile_id", eventRow.organizer_profile_id)
-              .in("event_id", payoutEventIds)
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-
-            if (orgTr?.stripe_transfer_id) {
-              await stripe.transfers.createReversal(orgTr.stripe_transfer_id, { amount: TRANSFER_FEE });
-            }
-          }
+        if (eventRow?.organizer_profile_id) {
+          const { data: orgTrs } = await admin
+            .from("settle_transfers")
+            .select("stripe_transfer_id")
+            .eq("profile_id", eventRow.organizer_profile_id)
+            .in("event_id", payoutEventIds)
+            .order("created_at", { ascending: false });
+          const orgIds = (orgTrs ?? []).map((t) => t.stripe_transfer_id);
+          await collectFeeByReversal(orgIds, remaining);
         }
       }
     }

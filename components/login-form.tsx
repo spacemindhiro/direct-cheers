@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { Loader2, ArrowRight, Mail, Send, MailCheck } from "lucide-react";
+import { Loader2, Mail, Send, MailCheck } from "lucide-react";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
 
 export function LoginForm({
@@ -103,19 +103,29 @@ export function LoginForm({
         </p>
       </div>
 
-      {/* パスキー */}
+      {/* パスキー（登録済みの方向け） */}
       {PasskeySetup && (
-        <PasskeySetup
-          mode="authenticate"
-          email={email || undefined}
-          onSuccess={() => window.location.replace(redirectTo)}
-        />
+        <div className="space-y-2">
+          <p className="text-center text-[10px] text-slate-500 uppercase tracking-[0.3em] font-bold">
+            パスキー登録済みの方
+          </p>
+          <PasskeySetup
+            mode="authenticate"
+            email={email || undefined}
+            onSuccess={() => window.location.replace(redirectTo)}
+          />
+        </div>
       )}
 
-      <div className="flex items-center gap-4">
-        <div className="flex-1 h-px bg-slate-800" />
-        <span className="text-xs text-slate-600 font-bold">または</span>
-        <div className="flex-1 h-px bg-slate-800" />
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-4">
+          <div className="flex-1 h-px bg-slate-800" />
+          <span className="text-xs text-slate-600 font-bold">または</span>
+          <div className="flex-1 h-px bg-slate-800" />
+        </div>
+        <p className="text-center text-[10px] text-slate-500">
+          はじめての方・メールでログインの方はメールアドレスを入力してください
+        </p>
       </div>
 
       {/* マジックリンク */}

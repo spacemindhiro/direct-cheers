@@ -431,8 +431,8 @@ export default function ProfileEditPage() {
           </div>
         )}
 
-        {/* ── エージェント: アーティスト名（自身がDJとしても活動する場合） ── */}
-        {isAgent && (
+        {/* ── オーガナイザー / エージェント: アーティスト名（自身がDJとしても活動する場合） ── */}
+        {(isOrganizer || isAgent) && (
           <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">DJとして出演する場合</p>
             <Field label="アーティスト名（DJ名）" icon={<Mic2 size={11} className="text-pink-500" />} optional

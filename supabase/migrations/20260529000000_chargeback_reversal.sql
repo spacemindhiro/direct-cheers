@@ -16,6 +16,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS debt_claims_dispute_id_idx
 --   2. stripe_dispute_id を保存（dispute.closed での lookup に使用）
 --   3. stripe_processing_fee / platform_fee_held を記録
 --   4. stripe_dispute_id による冪等チェック（二重処理防止）
+-- 旧シグネチャ（5引数版）を先に削除してオーバーロードの重複を防ぐ
+DROP FUNCTION IF EXISTS handle_chargeback(UUID, BIGINT, INTEGER, TEXT, UUID);
+
 CREATE OR REPLACE FUNCTION handle_chargeback(
   p_transaction_id        UUID,
   p_claim_amount          BIGINT,

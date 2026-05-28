@@ -43,7 +43,7 @@ Deno.serve(async (_req) => {
     .order("updated_at", { ascending: false })
     .limit(1)
     .single();
-  const STRIPE_RATE   = Number(feeRow?.stripe_rate   ?? 0.036);
+  const STRIPE_RATE   = Number(feeRow?.stripe_rate   ?? 0.0396);
   const PLATFORM_RATE = Number(feeRow?.platform_rate ?? 0.10);
 
   for (const r of reservations ?? []) {

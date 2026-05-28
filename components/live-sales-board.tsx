@@ -228,7 +228,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
             </p>
           </div>
           <p className="text-xs text-slate-500">
-            カード: Stripe {(stats.stripe_rate * 100).toFixed(1)}%{stats.total_paypay_fee > 0 ? ` ／ PayPay: ${(stats.paypay_rate * 100).toFixed(2)}%` : ""} ＋ プラットフォーム {(stats.platform_rate * 100).toFixed(0)}% 控除後
+            カード: Stripe {parseFloat((stats.stripe_rate * 100).toFixed(3))}%{stats.total_paypay_fee > 0 ? ` ／ PayPay: ${parseFloat((stats.paypay_rate * 100).toFixed(3))}%` : ""} ＋ プラットフォーム {(stats.platform_rate * 100).toFixed(0)}% 控除後
           </p>
         </div>
 
@@ -244,12 +244,12 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
             </div>
             <div className="border-t border-slate-700 pt-3 space-y-2">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500">決済手数料（カード {(stats.stripe_rate * 100).toFixed(1)}%）</span>
+                <span className="text-slate-500">決済手数料（カード {parseFloat((stats.stripe_rate * 100).toFixed(3))}%）</span>
                 <span className="text-slate-400 tabular-nums">−{formatJPY(stats.total_card_fee)}</span>
               </div>
               {stats.total_paypay_fee > 0 && (
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">決済手数料（PayPay {(stats.paypay_rate * 100).toFixed(2)}%）</span>
+                  <span className="text-slate-500">決済手数料（PayPay {parseFloat((stats.paypay_rate * 100).toFixed(3))}%）</span>
                   <span className="text-slate-400 tabular-nums">−{formatJPY(stats.total_paypay_fee)}</span>
                 </div>
               )}

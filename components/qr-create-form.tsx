@@ -34,7 +34,7 @@ export function QRCreateForm({
   eventStartAt,
   eventVenue,
   targets: targetCandidates,
-  feeConfig = { stripe_rate: 0.036, platform_rate: 0.10, net_rate: 0.864, paypay_rate: 0.0398, paypay_net_rate: 0.8602 },
+  feeConfig = { stripe_rate: 0.0396, platform_rate: 0.10, net_rate: 0.8604, paypay_rate: 0.04378, paypay_net_rate: 0.85622 },
   paypayEnabled = false,
   organizerBalance = 0,
   productTypeConfigs = [],
@@ -562,7 +562,7 @@ export function QRCreateForm({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-              配分設定（手数料 {((feeConfig.stripe_rate + feeConfig.platform_rate) * 100).toFixed(1)}% 控除後 {(feeConfig.net_rate * 100).toFixed(1)}% を配分）
+              配分設定（手数料 {parseFloat(((feeConfig.stripe_rate + feeConfig.platform_rate) * 100).toFixed(3))}% 控除後 {parseFloat((feeConfig.net_rate * 100).toFixed(3))}% を配分）
             </label>
             <button
               type="button"
@@ -668,35 +668,35 @@ export function QRCreateForm({
               <>
                 <p className="text-[10px] text-slate-500 mb-1">カード払い</p>
                 <div className="flex justify-between text-xs text-slate-400">
-                  <span>決済手数料（Stripe）</span><span>{(feeConfig.stripe_rate * 100).toFixed(1)}%</span>
+                  <span>決済手数料（Stripe）</span><span>{parseFloat((feeConfig.stripe_rate * 100).toFixed(3))}%</span>
                 </div>
                 <div className="flex justify-between text-xs text-slate-400">
-                  <span>プラットフォーム利用料</span><span>{(feeConfig.platform_rate * 100).toFixed(1)}%</span>
+                  <span>プラットフォーム利用料</span><span>{parseFloat((feeConfig.platform_rate * 100).toFixed(3))}%</span>
                 </div>
                 <div className="flex justify-between text-xs font-black text-white border-t border-slate-700 pt-1 mt-1">
-                  <span>アーティスト配分</span><span>{(feeConfig.net_rate * 100).toFixed(1)}%</span>
+                  <span>アーティスト配分</span><span>{parseFloat((feeConfig.net_rate * 100).toFixed(3))}%</span>
                 </div>
                 <p className="text-[10px] text-slate-500 mt-2 mb-1">PayPay払い</p>
                 <div className="flex justify-between text-xs text-slate-400">
-                  <span>決済手数料（PayPay）</span><span>{((feeConfig.paypay_rate ?? 0.0398) * 100).toFixed(2)}%</span>
+                  <span>決済手数料（PayPay）</span><span>{parseFloat(((feeConfig.paypay_rate ?? 0.04378) * 100).toFixed(3))}%</span>
                 </div>
                 <div className="flex justify-between text-xs text-slate-400">
-                  <span>プラットフォーム利用料</span><span>{(feeConfig.platform_rate * 100).toFixed(1)}%</span>
+                  <span>プラットフォーム利用料</span><span>{parseFloat((feeConfig.platform_rate * 100).toFixed(3))}%</span>
                 </div>
                 <div className="flex justify-between text-xs font-black text-white border-t border-slate-700 pt-1 mt-1">
-                  <span>アーティスト配分</span><span>{((feeConfig.paypay_net_rate ?? 0.8602) * 100).toFixed(2)}%</span>
+                  <span>アーティスト配分</span><span>{parseFloat(((feeConfig.paypay_net_rate ?? 0.85622) * 100).toFixed(3))}%</span>
                 </div>
               </>
             ) : (
               <>
                 <div className="flex justify-between text-xs text-slate-400">
-                  <span>Stripe 決済手数料</span><span>{(feeConfig.stripe_rate * 100).toFixed(1)}%</span>
+                  <span>Stripe 決済手数料</span><span>{parseFloat((feeConfig.stripe_rate * 100).toFixed(3))}%</span>
                 </div>
                 <div className="flex justify-between text-xs text-slate-400">
-                  <span>プラットフォーム利用料</span><span>{(feeConfig.platform_rate * 100).toFixed(1)}%</span>
+                  <span>プラットフォーム利用料</span><span>{parseFloat((feeConfig.platform_rate * 100).toFixed(3))}%</span>
                 </div>
                 <div className="flex justify-between text-xs font-black text-white border-t border-slate-700 pt-1 mt-1">
-                  <span>アーティスト配分</span><span>{(feeConfig.net_rate * 100).toFixed(1)}%</span>
+                  <span>アーティスト配分</span><span>{parseFloat((feeConfig.net_rate * 100).toFixed(3))}%</span>
                 </div>
               </>
             )}

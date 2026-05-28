@@ -10,12 +10,12 @@ export type FeeConfig = {
 };
 
 const DEFAULT: FeeConfig = {
-  stripe_rate: 0.036,
+  stripe_rate: 0.0396,
   platform_rate: 0.10,
   agent_fee_rate: 0.05,
-  net_rate: 0.864,
-  paypay_rate: 0.0398,
-  paypay_net_rate: 0.8602,
+  net_rate: 0.8604,
+  paypay_rate: 0.04378,
+  paypay_net_rate: 0.85622,
 };
 
 /** サーバーサイドのみで呼び出すこと */
@@ -53,7 +53,7 @@ export function getNetRate(feeConfig: FeeConfig, paymentMethod: "card" | "paypay
   return paymentMethod === "paypay" ? feeConfig.paypay_net_rate : feeConfig.net_rate;
 }
 
-/** 表示用: 0.036 → "3.6%" */
+/** 表示用: 0.0396 → "3.96%"、0.10 → "10%" （末尾ゼロ除去） */
 export function fmtPct(rate: number): string {
-  return `${(rate * 100).toFixed(1)}%`;
+  return `${parseFloat((rate * 100).toFixed(3))}%`;
 }

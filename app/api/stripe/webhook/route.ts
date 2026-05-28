@@ -131,10 +131,13 @@ export async function POST(req: Request) {
         const cbFeeConfig = await getFeeConfig();
         const stripeProcessingFee = Math.floor(gross * cbFeeConfig.stripe_rate);
         const platformFeeHeld     = Math.floor(gross * cbFeeConfig.platform_rate);
+        // MoR負担額 = Stripe決済手数料 + MoRへの純送金額（プラットフォーム手数料を除く）
+        // = gross - platformFeeHeld（¥1,500紛争手数料はプラットフォームが負担）
+        const claimAmount = gross - platformFeeHeld;
 
         const { error: chargebackErr } = await admin.rpc("handle_chargeback", {
           p_transaction_id:        tx.transaction_id,
-          p_claim_amount:          gross,
+          p_claim_amount:          claimAmount,
           p_stripe_dispute_fee:    1500,
           p_dispute_id:            dispute.id,
           p_primary_profile_id:    primaryProfileId,
@@ -261,9 +264,30 @@ export async function POST(req: Request) {
           await admin.from("debt_claims").update({ status: "closed_won" }).eq("claim_id", claim.claim_id);
           console.log(`[webhook] CB won: dispute=${dispute.id} re-transferred=¥${claim.recovered_via_reversal}`);
         } else {
-          // 敗訴: 回収済み資金はplatformに留め確定損失を記録（凍結解除はadmin手動）
-          await admin.from("debt_claims").update({ status: "closed_lost" }).eq("claim_id", claim.claim_id);
-          console.log(`[webhook] CB lost: dispute=${dispute.id} recovered=¥${claim.recovered_via_reversal}`);
+          // 敗訴: debt_claimsをactiveのままにして残債をview_withdrawable_balancesで追跡
+          // recovered_amountを更新し、balance_frozenを解除して将来の収益で相殺できるようにする
+          await admin
+            .from("debt_claims")
+            .update({ recovered_amount: claim.recovered_via_reversal ?? 0 })
+            .eq("claim_id", claim.claim_id);
+
+          // 他にactive debt_claimがなければプロファイル凍結解除
+          if (claim.profile_id) {
+            const { count } = await admin
+              .from("debt_claims")
+              .select("claim_id", { count: "exact", head: true })
+              .eq("profile_id", claim.profile_id)
+              .eq("status", "active")
+              .neq("claim_id", claim.claim_id);
+            if ((count ?? 0) === 0) {
+              await admin
+                .from("profiles")
+                .update({ balance_frozen: false, balance_frozen_at: null })
+                .eq("profile_id", claim.profile_id);
+            }
+          }
+
+          console.log(`[webhook] CB lost: dispute=${dispute.id} recovered=¥${claim.recovered_via_reversal} 残債をactiveで追跡継続`);
         }
 
         break;

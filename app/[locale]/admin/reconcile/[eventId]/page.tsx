@@ -44,6 +44,7 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
     .from("transactions")
     .select(`
       transaction_id, stripe_payment_intent_id, total_gross_amount,
+      stripe_fee, net_amount, platform_fee,
       amount_verified, amount_mismatch, stripe_fee_actual, stripe_net_actual,
       reconciled_at, reconcile_error, created_at,
       transaction_distributions(profile_id, actual_amount, amount_before_reconcile, distribution_status,
@@ -165,39 +166,68 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
                     </div>
                   </div>
 
-                  {/* 金額グリッド — Stripe実績を主役に */}
-                  <div className="pl-6 space-y-2">
-                    {/* Stripe実績（照合の主目的） */}
-                    <div className="grid grid-cols-3 gap-x-4">
-                      <div>
-                        <p className="text-[9px] text-slate-500 uppercase tracking-widest">Stripe手数料(実)</p>
-                        <p className="text-sm font-black text-amber-300">{fmt(tx.stripe_fee_actual)}</p>
+                  {/* 金額グリッド — 推計→実績の前後表示 */}
+                  {(() => {
+                    const stripeGross = tx.reconciled_at && tx.total_gross_amount !== null && tx.amount_mismatch !== null
+                      ? tx.total_gross_amount + tx.amount_mismatch : null;
+                    const grossChanged = tx.amount_mismatch !== null && tx.amount_mismatch !== 0;
+                    const feeChanged = tx.stripe_fee_actual !== null && tx.stripe_fee_actual !== tx.stripe_fee;
+                    const netChanged = tx.stripe_net_actual !== null && tx.stripe_net_actual !== tx.net_amount;
+                    return (
+                      <div className="pl-6 space-y-2">
+                        <div className="grid grid-cols-3 gap-x-4">
+                          {/* Gross */}
+                          <div>
+                            <p className="text-[9px] text-slate-500 uppercase tracking-widest">Gross</p>
+                            {grossChanged ? (
+                              <p className="text-sm font-black text-amber-300">
+                                <span className="text-slate-500 line-through text-xs mr-1">{fmt(tx.total_gross_amount)}</span>
+                                → {fmt(stripeGross)}
+                              </p>
+                            ) : (
+                              <p className="text-sm font-black text-slate-300">{fmt(tx.total_gross_amount)}</p>
+                            )}
+                          </div>
+                          {/* Stripe手数料 */}
+                          <div>
+                            <p className="text-[9px] text-slate-500 uppercase tracking-widest">Stripe手数料</p>
+                            {tx.reconciled_at ? (
+                              feeChanged ? (
+                                <p className="text-sm font-black text-amber-300">
+                                  <span className="text-slate-500 line-through text-xs mr-1">{fmt((tx as any).stripe_fee ?? null)}</span>
+                                  → {fmt(tx.stripe_fee_actual)}
+                                </p>
+                              ) : (
+                                <p className="text-sm font-black text-slate-300">{fmt(tx.stripe_fee_actual)}</p>
+                              )
+                            ) : (
+                              <p className="text-sm font-black text-slate-500">{fmt((tx as any).stripe_fee ?? null)}<span className="text-[9px] ml-1 text-slate-600">推計</span></p>
+                            )}
+                          </div>
+                          {/* Stripe Net */}
+                          <div>
+                            <p className="text-[9px] text-slate-500 uppercase tracking-widest">Stripe Net</p>
+                            {tx.reconciled_at ? (
+                              netChanged ? (
+                                <p className="text-sm font-black text-amber-300">
+                                  <span className="text-slate-500 line-through text-xs mr-1">{fmt((tx as any).net_amount ?? null)}</span>
+                                  → {fmt(tx.stripe_net_actual)}
+                                </p>
+                              ) : (
+                                <p className="text-sm font-black text-emerald-300">{fmt(tx.stripe_net_actual)}</p>
+                              )
+                            ) : (
+                              <p className="text-sm font-black text-slate-500">{fmt((tx as any).net_amount ?? null)}<span className="text-[9px] ml-1 text-slate-600">推計</span></p>
+                            )}
+                          </div>
+                        </div>
+                        {/* Gross差分（不一致時のみ表示） */}
+                        {grossChanged && (
+                          <p className="text-[10px] text-amber-400 font-bold">Gross差分: {fmt(tx.amount_mismatch)}</p>
+                        )}
                       </div>
-                      <div>
-                        <p className="text-[9px] text-slate-500 uppercase tracking-widest">Stripe Net(実)</p>
-                        <p className="text-sm font-black text-emerald-300">{fmt(tx.stripe_net_actual)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-slate-500 uppercase tracking-widest">Gross差分</p>
-                        <p className={`text-sm font-black ${tx.amount_mismatch !== null && tx.amount_mismatch !== 0 ? "text-amber-400" : "text-slate-400"}`}>
-                          {tx.amount_mismatch !== null ? (tx.amount_mismatch === 0 ? "±0" : fmt(tx.amount_mismatch)) : "—"}
-                        </p>
-                      </div>
-                    </div>
-                    {/* DB値（参考） */}
-                    <div className="grid grid-cols-2 gap-x-4">
-                      <div>
-                        <p className="text-[9px] text-slate-600 uppercase tracking-widest">DB Gross</p>
-                        <p className="text-xs font-bold text-slate-500">{fmt(tx.total_gross_amount)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-slate-600 uppercase tracking-widest">Stripe受領Gross</p>
-                        <p className={`text-xs font-bold ${isMismatch ? "text-amber-400" : "text-slate-500"}`}>
-                          {tx.reconciled_at ? fmt(tx.total_gross_amount !== null && tx.amount_mismatch !== null ? tx.total_gross_amount + tx.amount_mismatch : null) : "—"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* 分配金 */}
                   {((tx.transaction_distributions ?? []) as any[]).length > 0 && (() => {

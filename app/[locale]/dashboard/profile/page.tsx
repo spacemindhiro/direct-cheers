@@ -374,7 +374,7 @@ export default function ProfileEditPage() {
             </Field>
           )}
           <Field label="Website" icon={<Globe size={11} className="text-pink-500" />} optional={!isCreator}
-            hint={isCreator ? "口座登録に必要です" : undefined}>
+            hint={isCreator ? "Stripe審査に使用。口座登録手続き（Step 5）でも入力できます" : undefined}>
             <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)}
               placeholder="https://yoursite.com" className={inputClass} />
           </Field>

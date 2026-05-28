@@ -109,23 +109,82 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Stripe payout 失敗: ${err.message}` }, { status: 500 });
   }
 
-  // 振込手数料をプラットフォームへ回収（精算Transferの一部取り消し）
-  const { data: settleTransfer } = await admin
-    .from("settle_transfers")
-    .select("stripe_transfer_id")
-    .eq("profile_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
+  // 振込手数料をプラットフォームへ回収（ロール別3分岐）
+  const payoutRole = profile.role as string;
+  const payoutEventIds = [...new Set(
+    (eligibleDists as any[]).map((d: any) => d.event_id).filter(Boolean) as string[]
+  )];
 
-  if (settleTransfer?.stripe_transfer_id) {
-    try {
-      await stripe.transfers.createReversal(settleTransfer.stripe_transfer_id, {
-        amount: TRANSFER_FEE,
-      });
-    } catch (err: any) {
-      console.error("[payout/request] transfer reversal 失敗:", err.message);
+  try {
+    if (payoutRole === "agent") {
+      // エージェント: プラットフォームから直接Transfer済み → Reversalでプラットフォームに戻る
+      const { data: tr } = await admin
+        .from("settle_transfers")
+        .select("stripe_transfer_id")
+        .eq("profile_id", user.id)
+        .in("event_id", payoutEventIds)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (tr?.stripe_transfer_id) {
+        await stripe.transfers.createReversal(tr.stripe_transfer_id, { amount: TRANSFER_FEE });
+      }
+    } else if (payoutRole === "organizer") {
+      // オーガナイザー: プラットフォームから直接Transfer済み → Reversalで回収
+      // settle_transferがない場合（元々のTransferがない状態）はスキップ
+      const { data: tr } = await admin
+        .from("settle_transfers")
+        .select("stripe_transfer_id")
+        .eq("profile_id", user.id)
+        .in("event_id", payoutEventIds)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (tr?.stripe_transfer_id) {
+        await stripe.transfers.createReversal(tr.stripe_transfer_id, { amount: TRANSFER_FEE });
+      }
+    } else {
+      // アーティスト: TransferをReversalすると資金がオーガナイザーに戻る
+      // → さらにオーガナイザーTransferをReversalしてプラットフォームへ回収
+      const { data: artistTr } = await admin
+        .from("settle_transfers")
+        .select("stripe_transfer_id")
+        .eq("profile_id", user.id)
+        .in("event_id", payoutEventIds)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (artistTr?.stripe_transfer_id) {
+        await stripe.transfers.createReversal(artistTr.stripe_transfer_id, { amount: TRANSFER_FEE });
+
+        // 資金がオーガナイザーのConnectアカウントに着いたので、そこからプラットフォームへ回収
+        if (payoutEventIds.length > 0) {
+          const { data: eventRow } = await admin
+            .from("events")
+            .select("organizer_profile_id")
+            .eq("event_id", payoutEventIds[0])
+            .single();
+
+          if (eventRow?.organizer_profile_id) {
+            const { data: orgTr } = await admin
+              .from("settle_transfers")
+              .select("stripe_transfer_id")
+              .eq("profile_id", eventRow.organizer_profile_id)
+              .in("event_id", payoutEventIds)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (orgTr?.stripe_transfer_id) {
+              await stripe.transfers.createReversal(orgTr.stripe_transfer_id, { amount: TRANSFER_FEE });
+            }
+          }
+        }
+      }
     }
+  } catch (err: any) {
+    console.error("[payout/request] 振込手数料回収失敗:", err.message);
   }
 
   // payout_requests を作成

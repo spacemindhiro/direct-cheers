@@ -423,14 +423,23 @@ export async function POST(req: Request) {
               productType = p?.type ?? null;
               eventTitle = (p?.event as any)?.title ?? null;
             }
-            await sendPurchaseReceipt({
-              to: email,
-              amount: gross,
-              recipientName,
-              eventTitle,
-              transactionId: newTxId,
-              productType,
-            });
+            // receipt_sent_at が NULL の行だけ UPDATE → 成功した側だけ送信（重複防止）
+            const { data: claimed } = await admin
+              .from("transactions")
+              .update({ receipt_sent_at: new Date().toISOString() })
+              .eq("transaction_id", newTxId)
+              .is("receipt_sent_at", null)
+              .select("transaction_id");
+            if (claimed && claimed.length > 0) {
+              await sendPurchaseReceipt({
+                to: email,
+                amount: gross,
+                recipientName,
+                eventTitle,
+                transactionId: newTxId,
+                productType,
+              });
+            }
           })().catch((err) => console.error("[webhook] メール送信失敗:", err));
         }
         break;

@@ -122,7 +122,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: rpcError.message }, { status: 500 });
   }
 
-  const transactionId: string = (rpcRows as any[])[0].out_transaction_id;
+  // RPC が ON CONFLICT でスキップした場合（webhook が先に書いた race）は既存行を取得
+  let transactionId: string;
+  const isNewTransaction = (rpcRows as any[]).length > 0;
+  if (isNewTransaction) {
+    transactionId = (rpcRows as any[])[0].out_transaction_id;
+  } else {
+    const { data: tx } = await admin
+      .from("transactions")
+      .select("transaction_id")
+      .eq("stripe_payment_intent_id", pi?.id ?? "")
+      .single();
+    if (!tx) {
+      return NextResponse.json({ error: "Transaction not found after RPC no-op" }, { status: 500 });
+    }
+    transactionId = tx.transaction_id;
+  }
 
   const [isMember, hasPasskey] = await Promise.all([
     checkIsMember(admin, email ?? null),
@@ -218,15 +233,24 @@ export async function POST(req: Request) {
       httpOnly: false,
     });
 
-    sendPurchaseReceipt({
-      to: email,
-      amount: session.amount_total ?? 0,
-      recipientName: qrcInfo.recipientName,
-      eventTitle: product.event_title as string | null,
-      transactionId: transactionId,
-      productType: product.product_type as string | null,
-      ticketId,
-    }).catch((err) => console.error("[pay/complete] メール送信失敗:", err));
+    // receipt_sent_at が NULL の行だけ UPDATE → 成功した側だけ送信（重複防止）
+    const { data: claimed } = await admin
+      .from("transactions")
+      .update({ receipt_sent_at: new Date().toISOString() })
+      .eq("transaction_id", transactionId)
+      .is("receipt_sent_at", null)
+      .select("transaction_id");
+    if (claimed && claimed.length > 0) {
+      sendPurchaseReceipt({
+        to: email,
+        amount: session.amount_total ?? 0,
+        recipientName: qrcInfo.recipientName,
+        eventTitle: product.event_title as string | null,
+        transactionId: transactionId,
+        productType: product.product_type as string | null,
+        ticketId,
+      }).catch((err) => console.error("[pay/complete] メール送信失敗:", err));
+    }
   }
 
   return response;

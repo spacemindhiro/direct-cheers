@@ -409,7 +409,7 @@ async function DashboardContent() {
     event: { title: string; venue: string; start_at: string; organizer_profile_id: string; organizer_name: string } | null;
   }[] = [];
 
-  if (profile?.role === 'artist') {
+  if (['artist', 'agent', 'organizer'].includes(profile?.role ?? '')) {
     const { data: allRows } = await admin
       .from('event_artists')
       .select(`
@@ -804,8 +804,8 @@ async function DashboardContent() {
         <FollowerHero profileId={user!.id} />
       )}
 
-      {/* アーティスト向け: 出演依頼（pending） */}
-      {profile?.role === 'artist' && lineupInvites.length > 0 && (
+      {/* 出演依頼（artist / agent / organizer 共通） */}
+      {['artist', 'agent', 'organizer'].includes(profile?.role ?? '') && lineupInvites.length > 0 && (
         <LineupInvitations invites={lineupInvites} artistId={user!.id} />
       )}
 

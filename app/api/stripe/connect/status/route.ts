@@ -82,11 +82,12 @@ export async function POST() {
       } catch { /* notifications テーブルがなければスキップ */ }
     }
 
-    return NextResponse.json({ stripe_status: "approved", platform_status: "pending" });
+    return NextResponse.json({ stripe_status: "approved", details_submitted: true, platform_status: "pending" });
   }
 
   return NextResponse.json({
     stripe_status: stripeReady ? "approved" : "pending",
+    details_submitted: detailsSubmitted,
     platform_status: profile.verification_status,
     requirements: account.requirements?.currently_due ?? [],
   });

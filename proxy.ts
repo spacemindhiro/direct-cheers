@@ -92,7 +92,21 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return supabaseResponse;
+  // intlMiddleware がロケールリダイレクトを返す場合はそのまま通す。
+  // ページを描画するケース（非リダイレクト）では x-pathname をセットした
+  // レスポンスを返す。これにより dashboard layout がステップアップ認証後に
+  // 正しいパスへ戻れるようになる（セットしないとデフォルトの /dashboard に飛ぶ）。
+  if (supabaseResponse.headers.get("location")) {
+    return supabaseResponse;
+  }
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", path);
+  const pathedResponse = NextResponse.next({ request: { headers: requestHeaders } });
+  supabaseResponse.cookies.getAll().forEach((c) =>
+    pathedResponse.cookies.set(c.name, c.value)
+  );
+  return pathedResponse;
 }
 
 export const config = {

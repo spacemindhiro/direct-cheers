@@ -1,45 +1,31 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
 
 function ConnectReturnContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const isSuccess = searchParams.get("success") === "1";
-  const isRefresh = searchParams.get("refresh") === "1";
-  const [status, setStatus] = useState<"checking" | "approved" | "pending" | "error">("checking");
-  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<"checking" | "submitted" | "incomplete">("checking");
 
   useEffect(() => {
-    if (!isSuccess) {
-      // リフレッシュ（途中離脱）: オンボーディングをやり直す
-      setStatus("error");
-      setMessage("オンボーディングが完了していません。プロフィール画面から再度お試しください。");
-      setTimeout(() => router.push("/dashboard/profile"), 3000);
-      return;
-    }
-
-    // Stripe審査ステータスを確認
+    // ?success=1 / ?refresh=1 は step-up 認証経由で消える可能性があるため
+    // クエリパラメータに頼らず Stripe の details_submitted を直接確認する
     fetch("/api/stripe/connect/status", { method: "POST" })
       .then((r) => r.json())
-      .then((data) => {
-        if (data.stripe_status === "approved") {
-          setStatus("approved");
-          setMessage("Stripe審査が完了しました。プラットフォームオーナーによる口座開設審査をお待ちください。");
+      .then((data: { details_submitted?: boolean; stripe_status?: string }) => {
+        if (data.details_submitted) {
+          setStatus("submitted");
         } else {
-          setStatus("pending");
-          setMessage("Stripeへの情報送信が完了しました。審査完了までしばらくお待ちください。");
+          setStatus("incomplete");
         }
         setTimeout(() => router.push("/dashboard/profile"), 4000);
       })
       .catch(() => {
-        setStatus("error");
-        setMessage("ステータスの確認に失敗しました。プロフィール画面をご確認ください。");
+        setStatus("incomplete");
         setTimeout(() => router.push("/dashboard/profile"), 3000);
       });
-  }, [isSuccess, isRefresh, router]);
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
@@ -50,25 +36,22 @@ function ConnectReturnContent() {
             <p className="text-white font-black text-lg">審査状況を確認中...</p>
           </>
         )}
-        {status === "approved" && (
+        {status === "submitted" && (
           <>
             <CheckCircle size={40} className="text-emerald-400 mx-auto" />
-            <p className="text-white font-black text-lg">Stripe審査完了</p>
-            <p className="text-slate-400 text-sm">{message}</p>
-          </>
-        )}
-        {status === "pending" && (
-          <>
-            <CheckCircle size={40} className="text-amber-400 mx-auto" />
             <p className="text-white font-black text-lg">情報を送信しました</p>
-            <p className="text-slate-400 text-sm">{message}</p>
+            <p className="text-slate-400 text-sm">
+              Stripeへの情報送信が完了しました。オーナーによる口座開設審査をお待ちください。
+            </p>
           </>
         )}
-        {status === "error" && (
+        {status === "incomplete" && (
           <>
-            <AlertCircle size={40} className="text-red-400 mx-auto" />
-            <p className="text-white font-black text-lg">確認できませんでした</p>
-            <p className="text-slate-400 text-sm">{message}</p>
+            <AlertCircle size={40} className="text-amber-400 mx-auto" />
+            <p className="text-white font-black text-lg">手続きが完了していません</p>
+            <p className="text-slate-400 text-sm">
+              プロフィール画面から再度お試しください。
+            </p>
           </>
         )}
         <p className="text-slate-600 text-xs">プロフィール画面に戻ります...</p>

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
+import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -247,25 +248,6 @@ type QrConfigInfo = {
   recipientAvatar: string | null;
 };
 
-// メールから profile_id を解決 — リクエストごとに1回だけ呼ぶ
-async function resolveProfileIdByEmail(
-  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
-  email: string | null,
-): Promise<string | null> {
-  if (!email) return null;
-  const { data: prov } = await admin
-    .from("provisional_users")
-    .select("profile_id")
-    .eq("email", email)
-    .maybeSingle();
-  if (prov?.profile_id) return prov.profile_id;
-  try {
-    const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    return users.find((u) => u.email === email)?.id ?? null;
-  } catch {
-    return null;
-  }
-}
 
 async function getQrConfigInfo(
   admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,

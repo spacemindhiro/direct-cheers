@@ -128,39 +128,40 @@ export function LoginForm({
         </p>
       </div>
 
-      {/* Google ログイン */}
-      <button
-        type="button"
-        onClick={signInWithGoogle}
-        disabled={googlePending}
-        className="w-full h-14 bg-white text-slate-800 rounded-2xl font-black text-sm flex items-center justify-center gap-3 hover:bg-slate-100 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-      >
-        {googlePending
-          ? <Loader2 size={18} className="animate-spin text-slate-600" />
-          : <><GoogleIcon /> Googleでログイン / 登録</>
-        }
-      </button>
-
-      {/* パスキー（登録済みの方向け） */}
+      {/* パスキー（メインログイン手段） */}
       {PasskeySetup && (
-        <>
-          <div className="flex items-center gap-4">
-            <div className="flex-1 h-px bg-slate-800" />
-            <span className="text-xs text-slate-600 font-bold">または</span>
-            <div className="flex-1 h-px bg-slate-800" />
-          </div>
-          <div className="space-y-2">
-            <p className="text-center text-[10px] text-slate-500 uppercase tracking-[0.3em] font-bold">
-              パスキー登録済みの方
-            </p>
-            <PasskeySetup
-              mode="authenticate"
-              email={email || undefined}
-              onSuccess={() => window.location.replace(redirectTo)}
-            />
-          </div>
-        </>
+        <div className="space-y-2">
+          <PasskeySetup
+            mode="authenticate"
+            email={email || undefined}
+            onSuccess={() => window.location.replace(redirectTo)}
+          />
+        </div>
       )}
+
+      <div className="flex items-center gap-4">
+        <div className="flex-1 h-px bg-slate-800" />
+        <span className="text-xs text-slate-600 font-bold">または</span>
+        <div className="flex-1 h-px bg-slate-800" />
+      </div>
+
+      {/* Google（初回サインイン向け） */}
+      <div className="space-y-2">
+        <p className="text-center text-[10px] text-slate-500 uppercase tracking-[0.3em] font-bold">
+          はじめての方
+        </p>
+        <button
+          type="button"
+          onClick={signInWithGoogle}
+          disabled={googlePending}
+          className="w-full h-14 bg-white text-slate-800 rounded-2xl font-black text-sm flex items-center justify-center gap-3 hover:bg-slate-100 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+        >
+          {googlePending
+            ? <Loader2 size={18} className="animate-spin text-slate-600" />
+            : <><GoogleIcon /> Googleでサインイン</>
+          }
+        </button>
+      </div>
 
       <div className="space-y-1.5">
         <div className="flex items-center gap-4">
@@ -169,7 +170,7 @@ export function LoginForm({
           <div className="flex-1 h-px bg-slate-800" />
         </div>
         <p className="text-center text-[10px] text-slate-500">
-          はじめての方・メールでログインの方はメールアドレスを入力してください
+          メールアドレスでログイン / 新規登録
         </p>
       </div>
 

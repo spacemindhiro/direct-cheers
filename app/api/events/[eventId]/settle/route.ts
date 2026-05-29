@@ -14,7 +14,7 @@ export async function POST(
   const { eventId } = await params;
   const supabase = await createClient();
   const admin = createAdminClient();
-  const { net_rate: NET_RATE, agent_fee_rate: AGENT_FEE_RATE } = await getFeeConfig();
+  const { agent_fee_rate: AGENT_FEE_RATE } = await getFeeConfig();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -92,7 +92,7 @@ export async function POST(
   // トランザクション取得（招待は精算対象外）
   const { data: transactions } = await admin
     .from("transactions")
-    .select("transaction_id, qr_config_id, total_gross_amount, status, stripe_payment_intent_id")
+    .select("transaction_id, qr_config_id, total_gross_amount, net_amount, status, stripe_payment_intent_id")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed")
     .neq("transaction_type", "invitation");
@@ -131,7 +131,8 @@ export async function POST(
   const desiredDists = new Map<string, DistEntry>();
 
   for (const tx of transactions) {
-    const net = Math.floor((tx.total_gross_amount ?? 0) * NET_RATE);
+    // 保存済み net_amount を使用（RPCが計算した値: gross - floor(gross×stripe_rate) - floor(gross×platform_rate)）
+    const net = (tx as any).net_amount ?? 0;
     const txTargets = targetsByQr.get(tx.qr_config_id ?? "") ?? [];
 
     for (const target of txTargets) {

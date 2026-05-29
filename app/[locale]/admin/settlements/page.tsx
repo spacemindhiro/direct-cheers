@@ -101,7 +101,7 @@ async function SettlementsContent() {
   // トランザクション詳細取得
   const { data: txs } = await admin
     .from("transactions")
-    .select("transaction_id, qr_config_id, total_gross_amount, status, created_at, sender_name")
+    .select("transaction_id, qr_config_id, total_gross_amount, net_amount, status, created_at, sender_name")
     .in("qr_config_id", allQrIds)
     .eq("status", "completed")
     .order("created_at", { ascending: false });
@@ -113,12 +113,14 @@ async function SettlementsContent() {
     .in("qr_config_id", allQrIds)
     .is("deleted_at", null);
 
-  // QR別集計
+  // QR別集計（gross / net ともに保存値をそのまま足し算）
   const grossByQr = new Map<string, number>();
-  const txsByQr = new Map<string, typeof txs>();
+  const netByQr   = new Map<string, number>();
+  const txsByQr   = new Map<string, typeof txs>();
   for (const tx of txs ?? []) {
     const id = tx.qr_config_id!;
     grossByQr.set(id, (grossByQr.get(id) ?? 0) + (tx.total_gross_amount ?? 0));
+    netByQr.set(id,   (netByQr.get(id)   ?? 0) + ((tx as any).net_amount   ?? 0));
     const list = txsByQr.get(id) ?? [];
     list.push(tx);
     txsByQr.set(id, list);
@@ -161,7 +163,7 @@ async function SettlementsContent() {
             const summary = summaryByEvent.get(event.event_id);
             const qrIds = qrConfigIdsByEvent.get(event.event_id) ?? [];
             const gross = qrIds.reduce((s, id) => s + (grossByQr.get(id) ?? 0), 0);
-            const net = Math.floor(gross * net_rate);
+            const net   = qrIds.reduce((s, id) => s + (netByQr.get(id)   ?? 0), 0);
             const settled = event.lifecycle_status === "settled";
             const isRejected = !settled && summary?.is_approved_for_payout === false;
             const hasEvidence = evidences.length > 0;
@@ -192,8 +194,7 @@ async function SettlementsContent() {
             // 配分内訳（プロフィール別に集計）
             const profileAmounts = new Map<string, { display_name: string | null; amount: number }>();
             for (const qrId of qrIds) {
-              const qrGross = grossByQr.get(qrId) ?? 0;
-              const qrNet = Math.floor(qrGross * net_rate);
+              const qrNet     = netByQr.get(qrId) ?? 0;
               const qrTargets = (targets ?? []).filter((t) => t.qr_config_id === qrId);
               for (const t of qrTargets) {
                 const amount = Math.floor(qrNet * Number(t.distribution_ratio));
@@ -262,7 +263,7 @@ async function SettlementsContent() {
                 <SettlementDetails
                   gross={gross}
                   net={net}
-                  netRateLabel={`${(net_rate * 100).toFixed(1)}%`}
+                  netRateLabel={`${parseFloat((net_rate * 100).toFixed(3))}%`}
                   txGroups={txGroups}
                   distributionRows={distributionRows}
                 />

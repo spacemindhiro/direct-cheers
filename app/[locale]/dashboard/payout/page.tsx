@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PayoutForm } from "@/components/payout-form";
 import { PayoutBypassButton } from "@/components/payout-bypass-button";
-import { getFeeConfig } from "@/lib/fee-config";
 import {
   Loader2, Wallet, Clock, Lock, AlertTriangle,
   CheckCircle2, RefreshCw, CalendarClock, ExternalLink,
@@ -38,7 +37,6 @@ async function PayoutContent() {
   }
 
   const cutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const { net_rate: NET_RATE } = await getFeeConfig();
 
   // 未精算（distributions未作成）の見込み保留額をイベント別に加算するため先に取得
   const { data: myTargets } = await admin
@@ -135,7 +133,7 @@ async function PayoutContent() {
     const qrConfigIds = myTargets!.map((t) => t.qr_config_id);
     const { data: unsettledTxs } = await admin
       .from("transactions")
-      .select("transaction_id, qr_config_id, total_gross_amount, created_at")
+      .select("transaction_id, qr_config_id, total_gross_amount, net_amount, created_at")
       .in("qr_config_id", qrConfigIds)
       .eq("status", "completed");
 
@@ -145,7 +143,7 @@ async function PayoutContent() {
       if (!target) continue;
       const ratio = Number(target.distribution_ratio ?? 0);
       if (ratio <= 0) continue;
-      const amt = Math.floor(Math.floor((tx.total_gross_amount ?? 0) * NET_RATE) * ratio);
+      const amt = Math.floor(((tx as any).net_amount ?? 0) * ratio);
       if (amt <= 0) continue;
 
       const event = (target as any).qr_config?.event;

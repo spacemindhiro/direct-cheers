@@ -38,8 +38,8 @@ export function EventPayPayToggle({
             {enabled ? "有効" : "無効"}
           </p>
           {enabled && (
-            <p className="text-[10px] text-amber-400 mt-0.5">決済手数料 3.98%（カードは {" "}
-              <span className="font-black">3.6%</span>）・返金時手数料不返還</p>
+            <p className="text-[10px] text-amber-400 mt-0.5">決済手数料 4.378%（カードは {" "}
+              <span className="font-black">3.96%</span>）・返金時手数料不返還</p>
           )}
         </div>
         <button
@@ -75,8 +75,8 @@ export function EventPayPayToggle({
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 space-y-2 text-xs text-slate-300">
               <p className="font-black text-amber-400">PayPay 利用における注意事項</p>
               <ul className="space-y-1.5 list-disc list-inside text-slate-400">
-                <li>決済手数料は <span className="font-black text-white">3.98%</span>（カード決済 3.6% より高い）</li>
-                <li>デジタルコンテンツ販売とStripeに判定された場合、<span className="font-black text-amber-400">最大 9.48%</span> が適用される場合があります（当社でコントロールできません）</li>
+                <li>決済手数料は <span className="font-black text-white">4.378%</span>（カード決済 3.96% より高い）</li>
+                <li>デジタルコンテンツ販売とStripeに判定された場合、さらに高い手数料が適用される場合があります（当社でコントロールできません）</li>
                 <li>PayPayは<span className="font-black text-white">即時決済</span>のため、返金時も<span className="font-black text-white">決済手数料は返還されません</span></li>
               </ul>
             </div>

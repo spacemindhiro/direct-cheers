@@ -1,11 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type FeeConfig = {
-  stripe_rate: number;    // 例: 0.036
+  stripe_rate: number;    // 例: 0.0396（3.6% × 消費税1.1）
   platform_rate: number;  // 例: 0.10
   agent_fee_rate: number; // platform_rate の半分をエージェントへ (例: 0.05)
-  net_rate: number;       // 1 - stripe_rate - platform_rate (例: 0.864)
-  paypay_rate: number;    // 例: 0.0398
+  net_rate: number;       // 1 - stripe_rate - platform_rate (例: 0.8604)
+  paypay_rate: number;    // 例: 0.04378（3.98% × 消費税1.1）
   paypay_net_rate: number;// 1 - paypay_rate - platform_rate
 };
 
@@ -33,7 +33,7 @@ export async function getFeeConfig(): Promise<FeeConfig> {
 
     const stripe_rate = Number(data.stripe_rate);
     const platform_rate = Number(data.platform_rate);
-    const paypay_rate = Number(data.paypay_rate ?? 0.0398);
+    const paypay_rate = Number(data.paypay_rate ?? 0.04378);
     const agent_fee_rate = Math.round(platform_rate / 2 * 10000) / 10000;
     return {
       stripe_rate,

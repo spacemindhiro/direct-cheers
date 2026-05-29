@@ -20,19 +20,26 @@ async function DocumentsContent() {
   const { data: me } = await admin.from('profiles').select('role').eq('profile_id', user.id).single();
   if (me?.role !== 'admin') redirect('/dashboard');
 
-  const { data: docs } = await admin
+  const { data: rawDocs } = await admin
     .from('signed_documents')
-    .select(`
-      id,
-      signed_at,
-      terms_types,
-      terms_version,
-      profile_id,
-      signed_by,
-      subject:profiles!profile_id(display_name, role),
-      signer:profiles!signed_by(display_name)
-    `)
+    .select('id, signed_at, terms_types, terms_version, profile_id, signed_by')
     .order('signed_at', { ascending: false });
+
+  // profile_id と signed_by を一括で取得（同一テーブルへの二重 JOIN を回避）
+  const allProfileIds = [...new Set([
+    ...(rawDocs ?? []).map((d) => d.profile_id),
+    ...(rawDocs ?? []).map((d) => d.signed_by),
+  ])];
+  const { data: profilesData } = allProfileIds.length > 0
+    ? await admin.from('profiles').select('profile_id, display_name, role').in('profile_id', allProfileIds)
+    : { data: [] as { profile_id: string; display_name: string | null; role: string }[] };
+  const profileMap = Object.fromEntries((profilesData ?? []).map((p) => [p.profile_id, p]));
+
+  const docs = (rawDocs ?? []).map((d) => ({
+    ...d,
+    subject: profileMap[d.profile_id] ?? null,
+    signer: profileMap[d.signed_by] ?? null,
+  }));
 
   return (
     <div className="space-y-10">

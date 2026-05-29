@@ -104,6 +104,8 @@ export function QRBoardDisplay({
   const lastRealtimeRef    = useRef<number>(0);    // last Realtime cheer timestamp
   const lastPolledCountRef = useRef<number>(0);    // server count at last poll
 
+  const [qrSize, setQrSize] = useState(320);
+
   const canvasRef      = useRef<HTMLCanvasElement>(null);
   const holdTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -155,17 +157,28 @@ export function QRBoardDisplay({
     return () => window.removeEventListener('popstate', block);
   }, []);
 
+  // 画面サイズに応じてQRサイズを動的計算
+  useEffect(() => {
+    const calc = () => {
+      const size = Math.max(160, Math.min(600, Math.floor(Math.min(window.innerWidth * 0.82, window.innerHeight - 200))));
+      setQrSize(size);
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, []);
+
   // QRコード描画
   useEffect(() => {
     if (!qrState?.qr_url || !canvasRef.current) return;
     import("qrcode").then(({ default: QRCode }) => {
       QRCode.toCanvas(canvasRef.current!, qrState.qr_url, {
-        width: 320,
+        width: qrSize,
         margin: 2,
         color: { dark: "#000000", light: "#ffffff" },
       }).catch(() => {});
     });
-  }, [qrState?.qr_url]);
+  }, [qrState?.qr_url, qrSize]);
 
   // 初期チア数取得 + ポーリングフォールバック（Realtimeが届かない場合の保険）
   useEffect(() => {
@@ -366,7 +379,7 @@ export function QRBoardDisplay({
 
         {/* QR表示 */}
         {qrState ? (
-          <div className="relative flex flex-col items-center gap-6 px-8 py-10 w-full max-w-sm pointer-events-none">
+          <div className="relative flex flex-col items-center gap-4 px-4 py-6 w-full pointer-events-none">
             <p className="text-3xl font-black text-white uppercase tracking-tight text-center leading-tight">
               {qrState.artist_name || eventTitle}
             </p>

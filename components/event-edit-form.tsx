@@ -33,6 +33,9 @@ export function EventEditForm({
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [selectedArtists, setSelectedArtists] = useState<Artist[]>(currentArtists);
+  const [artistMessages, setArtistMessages] = useState<Record<string, string>>({});
+
+  const originalIds = new Set(currentArtists.map((a) => a.profile_id));
 
   // 新規アーティスト検索
   const [searchMode, setSearchMode] = useState(false);
@@ -86,7 +89,10 @@ export function EventEditForm({
           venue,
           start_at: jstLocalToUtcIso(start_at),
           end_at: jstLocalToUtcIso(end_at),
-          artist_ids: selectedArtists.map((a) => a.profile_id),
+          artists: selectedArtists.map((a) => ({
+            profile_id: a.profile_id,
+            invite_message: artistMessages[a.profile_id] || null,
+          })),
         }),
       });
       const data = await res.json();
@@ -171,33 +177,50 @@ export function EventEditForm({
             出演アーティスト
           </label>
 
+          {/* 選択済みアーティスト + メッセージ入力 */}
           {selectedArtists.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectedArtists.map((a) => (
-                <span
-                  key={a.profile_id}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-pink-500/15 border border-pink-500/40 text-pink-300"
-                >
-                  {a.display_name}
-                  {a.status === "pending" && (
-                    <span className="text-[9px] font-black text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded px-1.5 py-0.5 uppercase tracking-widest">
-                      交渉中
-                    </span>
-                  )}
-                  {a.status === "confirmed" && (
-                    <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 uppercase tracking-widest">
-                      承諾済
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => toggleArtist(a)}
-                    className="ml-0.5 text-pink-400/60 hover:text-pink-300"
-                  >
-                    <X size={11} />
-                  </button>
-                </span>
-              ))}
+            <div className="space-y-2">
+              {selectedArtists.map((a) => {
+                const isNew = !originalIds.has(a.profile_id);
+                return (
+                  <div key={a.profile_id} className="bg-slate-800/60 border border-pink-500/20 rounded-2xl p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-black text-pink-300">
+                        {a.display_name}
+                        {isNew && (
+                          <span className="text-[9px] font-medium text-pink-500/70 uppercase tracking-widest">NEW</span>
+                        )}
+                        {!isNew && a.status === "pending" && (
+                          <span className="text-[9px] font-black text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded px-1.5 py-0.5 uppercase tracking-widest">
+                            交渉中
+                          </span>
+                        )}
+                        {!isNew && a.status === "confirmed" && (
+                          <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 uppercase tracking-widest">
+                            承諾済
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleArtist(a)}
+                        className="text-slate-600 hover:text-red-400 transition-colors"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                    <textarea
+                      value={artistMessages[a.profile_id] ?? ""}
+                      onChange={(e) =>
+                        setArtistMessages((prev) => ({ ...prev, [a.profile_id]: e.target.value }))
+                      }
+                      placeholder={`${a.display_name} へのメッセージ（任意）`}
+                      rows={2}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:border-pink-500 outline-none resize-none"
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
 

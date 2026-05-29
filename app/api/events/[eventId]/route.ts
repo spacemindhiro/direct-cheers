@@ -43,14 +43,17 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { title, venue, start_at, end_at, artist_ids, paypay_enabled } = body as {
+  const { title, venue, start_at, end_at, artists, artist_ids, paypay_enabled } = body as {
     title?: string;
     venue?: string;
     start_at?: string;
     end_at?: string;
+    artists?: { profile_id: string; invite_message?: string | null }[];
     artist_ids?: string[];
     paypay_enabled?: boolean;
   };
+  // 新フォーマット（artists[]）と旧フォーマット（artist_ids[]）の両方をサポート
+  const artistList = artists ?? artist_ids?.map((id) => ({ profile_id: id, invite_message: null as string | null }));
 
   // 日程・場所が変わったら draft に戻す（再承認が必要）
   // タイムゾーン付き ISO 文字列と datetime-local 値を正規化して比較
@@ -79,7 +82,7 @@ export async function PATCH(
   }
 
   // アーティスト変更
-  if (artist_ids !== undefined) {
+  if (artistList !== undefined) {
     // 現在の非削除アーティストを取得
     const { data: currentArtists } = await supabase
       .from("event_artists")
@@ -88,7 +91,7 @@ export async function PATCH(
       .is("deleted_at", null);
 
     const currentIds = new Set((currentArtists ?? []).map((a) => a.artist_profile_id));
-    const newIds = new Set(artist_ids);
+    const newIds = new Set(artistList.map((a) => a.profile_id));
 
     // 削除: 現在いるが新リストにいない → 論理削除
     const toRemove = (currentArtists ?? []).filter((a) => !newIds.has(a.artist_profile_id));
@@ -100,11 +103,11 @@ export async function PATCH(
     }
 
     // 追加: 新リストにいるが現在いない → pending で insert
-    const toAdd = artist_ids.filter((id) => !currentIds.has(id));
+    const toAdd = artistList.filter((a) => !currentIds.has(a.profile_id));
     if (toAdd.length > 0) {
-      const rows = toAdd.map((artist_profile_id, i) => ({
+      const rows = toAdd.map((a, i) => ({
         event_id: eventId,
-        artist_profile_id,
+        artist_profile_id: a.profile_id,
         performance_order: (currentArtists?.length ?? 0) + i + 1,
         status: "pending",
       }));
@@ -113,7 +116,7 @@ export async function PATCH(
         .insert(rows)
         .select("event_artist_id, artist_profile_id");
 
-      // 新規アーティストごとにメッセージスレッドを作成
+      // 新規アーティストごとにメッセージスレッドを作成（メッセージがあれば投稿）
       try {
         const admin = createAdminClient();
         for (const ea of insertedEAs ?? []) {
@@ -127,6 +130,15 @@ export async function PATCH(
             { conversation_id: conv.conversation_id, profile_id: event.organizer_profile_id },
             { conversation_id: conv.conversation_id, profile_id: ea.artist_profile_id },
           ]);
+          const entry = toAdd.find((a) => a.profile_id === ea.artist_profile_id);
+          if (entry?.invite_message?.trim()) {
+            await admin.from("messages").insert({
+              conversation_id: conv.conversation_id,
+              sender_profile_id: user.id,
+              body: entry.invite_message.trim(),
+              message_type: "text",
+            });
+          }
         }
       } catch { /* 非致死的 */ }
 
@@ -146,8 +158,8 @@ export async function PATCH(
 
         const organizerDisplayName = organizer?.organizer_name ?? organizer?.display_name ?? "オーガナイザー";
 
-        const notifs = toAdd.map((artistId) => ({
-          profile_id: artistId,
+        const notifs = toAdd.map((a) => ({
+          profile_id: a.profile_id,
           type: "lineup_invite",
           title: "出演依頼が届いています",
           body: `${organizerDisplayName} から「${eventData?.title}」への出演依頼が届いています。`,
@@ -156,8 +168,8 @@ export async function PATCH(
         await admin.from("notifications").insert(notifs);
 
         // メール送信（fire-and-forget）
-        for (const artistId of toAdd) {
-          const { data: authUser } = await admin.auth.admin.getUserById(artistId);
+        for (const a of toAdd) {
+          const { data: authUser } = await admin.auth.admin.getUserById(a.profile_id);
           const email = authUser.user?.email;
           if (email) {
             sendLineupInviteEmail({
@@ -170,6 +182,38 @@ export async function PATCH(
           }
         }
       } catch { /* notifications テーブルがなければスキップ */ }
+    }
+
+    // 既存アーティストへのメッセージ送信（会話スレッドが既にある場合）
+    const existingWithMsg = artistList.filter(
+      (a) => currentIds.has(a.profile_id) && a.invite_message?.trim()
+    );
+    if (existingWithMsg.length > 0) {
+      try {
+        const admin = createAdminClient();
+        for (const a of existingWithMsg) {
+          const { data: ea } = await admin
+            .from("event_artists")
+            .select("event_artist_id")
+            .eq("event_id", eventId)
+            .eq("artist_profile_id", a.profile_id)
+            .is("deleted_at", null)
+            .single();
+          if (!ea) continue;
+          const { data: conv } = await admin
+            .from("conversations")
+            .select("conversation_id")
+            .eq("event_artist_id", ea.event_artist_id)
+            .maybeSingle();
+          if (!conv) continue;
+          await admin.from("messages").insert({
+            conversation_id: conv.conversation_id,
+            sender_profile_id: user.id,
+            body: a.invite_message!.trim(),
+            message_type: "text",
+          });
+        }
+      } catch { /* 非致死的 */ }
     }
   }
 

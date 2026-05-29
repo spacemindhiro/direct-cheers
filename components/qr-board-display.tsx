@@ -147,6 +147,14 @@ export function QRBoardDisplay({
     }
   }, [spawnHearts]);
 
+  // PWAキオスクモード: OS/ブラウザのバックナビゲーションをブロック
+  useEffect(() => {
+    history.pushState(null, '', window.location.href);
+    const block = () => history.pushState(null, '', window.location.href);
+    window.addEventListener('popstate', block);
+    return () => window.removeEventListener('popstate', block);
+  }, []);
+
   // QRコード描画
   useEffect(() => {
     if (!qrState?.qr_url || !canvasRef.current) return;
@@ -285,6 +293,7 @@ export function QRBoardDisplay({
 
       <div
         className="fixed inset-0 flex flex-col items-center justify-center select-none bg-slate-950"
+        style={{ overscrollBehavior: "none" }}
         onTouchStart={handleHoldStart}
         onTouchEnd={handleHoldEnd}
         onMouseDown={handleHoldStart}

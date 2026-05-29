@@ -193,13 +193,16 @@ export async function POST(
     distribution_role: string; actual_amount: number; distribution_status: string;
   }[] = [];
 
+  const distUpdatePromises: Promise<any>[] = [];
   for (const [key, entry] of desiredDists.entries()) {
     const existingId = existingMap.get(key);
     if (existingId) {
-      await admin
-        .from("transaction_distributions")
-        .update({ actual_amount: entry.amount })
-        .eq("transaction_distribution_id", existingId);
+      distUpdatePromises.push(
+        admin
+          .from("transaction_distributions")
+          .update({ actual_amount: entry.amount })
+          .eq("transaction_distribution_id", existingId) as unknown as Promise<any>
+      );
     } else {
       distInsertRows.push({
         transaction_id: entry.txId,
@@ -212,16 +215,20 @@ export async function POST(
     }
   }
 
-  // 未確定アーティストなど、desired に含まれない既存行は 0 に更新
-  for (const d of existingArtistOrgDists ?? []) {
-    const key = `${d.transaction_id}/${d.profile_id}/${d.distribution_role}`;
-    if (!desiredDists.has(key) && d.actual_amount !== 0) {
-      await admin
+  // 未確定アーティストなど desired に含まれない既存行は 0 に更新
+  const zeroUpdatePromises = (existingArtistOrgDists ?? [])
+    .filter((d) => {
+      const key = `${d.transaction_id}/${d.profile_id}/${d.distribution_role}`;
+      return !desiredDists.has(key) && d.actual_amount !== 0;
+    })
+    .map((d) =>
+      admin
         .from("transaction_distributions")
         .update({ actual_amount: 0 })
-        .eq("transaction_distribution_id", d.transaction_distribution_id);
-    }
-  }
+        .eq("transaction_distribution_id", d.transaction_distribution_id) as unknown as Promise<any>
+    );
+
+  await Promise.all([...distUpdatePromises, ...zeroUpdatePromises]);
 
   const distributionRows = distInsertRows; // agent 追加用に参照を保持
 
@@ -317,59 +324,58 @@ export async function POST(
     }
   }
 
-  const captureResults: { pi_id: string; captured: boolean; error?: string }[] = [];
-  for (const piId of allPaymentIntentIds) {
-    try {
-      const pi = await stripe.paymentIntents.retrieve(piId);
-      if (pi.status === "succeeded") {
-        captureResults.push({ pi_id: piId, captured: true });
-        console.log(`[settle] skip (already captured) pi=${piId}`);
-        continue;
+  const captureResults: { pi_id: string; captured: boolean; error?: string }[] = await Promise.all(
+    [...allPaymentIntentIds].map(async (piId) => {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(piId);
+        if (pi.status === "succeeded") {
+          console.log(`[settle] skip (already captured) pi=${piId}`);
+          return { pi_id: piId, captured: true };
+        }
+        if (pi.status !== "requires_capture") {
+          console.error(`[settle] uncapturable pi=${piId} status=${pi.status}`);
+          return { pi_id: piId, captured: false, error: `キャプチャ不可: status=${pi.status}` };
+        }
+        await stripe.paymentIntents.capture(piId);
+        console.log(`[settle] captured pi=${piId}`);
+        return { pi_id: piId, captured: true };
+      } catch (err: any) {
+        console.error(`[settle] capture failed pi=${piId} error=${err.message}`);
+        return { pi_id: piId, captured: false, error: err.message };
       }
-      if (pi.status !== "requires_capture") {
-        captureResults.push({ pi_id: piId, captured: false, error: `キャプチャ不可: status=${pi.status}` });
-        console.error(`[settle] uncapturable pi=${piId} status=${pi.status}`);
-        continue;
-      }
-      await stripe.paymentIntents.capture(piId);
-      captureResults.push({ pi_id: piId, captured: true });
-      console.log(`[settle] captured pi=${piId}`);
-    } catch (err: any) {
-      captureResults.push({ pi_id: piId, captured: false, error: err.message });
-      console.error(`[settle] capture failed pi=${piId} error=${err.message}`);
-    }
-  }
+    })
+  );
 
   const captureFailures = captureResults.filter((r) => !r.captured);
   if (captureFailures.length > 0) {
     console.error(`[settle] ${captureFailures.length} capture(s) failed for event=${eventId}`, captureFailures);
   }
 
-  // Stripe transfers（Connect アカウントへ送金）
-  const transferResults: { profile_id: string; amount: number; transfer_id: string | null; error?: string }[] = [];
-  for (const [profileId, info] of profileAmounts.entries()) {
-    if (!info.stripe_connect_id || info.amount <= 0) {
-      transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: null });
-      continue;
-    }
-    try {
-      const transfer = await stripe.transfers.create({
-        amount: info.amount,
-        currency: "jpy",
-        destination: info.stripe_connect_id,
-        metadata: { event_id: eventId, profile_id: profileId },
-      });
-      transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: transfer.id });
-      await admin.from("settle_transfers").insert({
-        event_id: eventId,
-        profile_id: profileId,
-        stripe_transfer_id: transfer.id,
-        amount: info.amount,
-      });
-    } catch (err: any) {
-      transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: null, error: err.message });
-    }
-  }
+  // Stripe transfers（Connect アカウントへ送金、各プロフィールは独立 → 並列実行）
+  const transferResults: { profile_id: string; amount: number; transfer_id: string | null; error?: string }[] = await Promise.all(
+    [...profileAmounts.entries()].map(async ([profileId, info]) => {
+      if (!info.stripe_connect_id || info.amount <= 0) {
+        return { profile_id: profileId, amount: info.amount, transfer_id: null };
+      }
+      try {
+        const transfer = await stripe.transfers.create({
+          amount: info.amount,
+          currency: "jpy",
+          destination: info.stripe_connect_id,
+          metadata: { event_id: eventId, profile_id: profileId },
+        });
+        await admin.from("settle_transfers").insert({
+          event_id: eventId,
+          profile_id: profileId,
+          stripe_transfer_id: transfer.id,
+          amount: info.amount,
+        });
+        return { profile_id: profileId, amount: info.amount, transfer_id: transfer.id };
+      } catch (err: any) {
+        return { profile_id: profileId, amount: info.amount, transfer_id: null, error: err.message };
+      }
+    })
+  );
 
   // settlement_summary を upsert
   if (existingSummary) {

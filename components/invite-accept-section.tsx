@@ -2,25 +2,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
 import { InviteLoginPrompt, InviteAutoAccept } from "./invite-accept-client";
 
 async function checkIsMember(email: string): Promise<boolean> {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("provisional_users")
-    .select("profile_id")
-    .eq("email", email)
-    .maybeSingle();
-  if (data?.profile_id) return true;
-  try {
-    const { data: users } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const authUser = users?.users?.find((u) => u.email === email);
-    // メール確認済みのユーザーのみ既存会員として扱う
-    // 未確認の場合はサインアップ扱いにして再度確認メールを送らせる
-    return !!(authUser?.email_confirmed_at);
-  } catch {
-    return false;
-  }
+  const profileId = await resolveProfileIdByEmail(admin, email);
+  return !!profileId;
 }
 
 export async function InviteAcceptSection({

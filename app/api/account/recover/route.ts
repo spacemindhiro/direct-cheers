@@ -74,50 +74,48 @@ export async function POST(req: Request) {
       { status: 404 }
     );
 
-  // Stripe の PaymentIntent から customer_email を取得
+  // Stripe の PaymentIntent から customer_email を取得（各 tx は独立 → 並列実行）
   const results: {
     transaction_id: string;
     masked_email: string | null;
     event_title: string | null;
     raw_email?: string;
-  }[] = [];
+  }[] = await Promise.all(
+    txs.map(async (tx) => {
+      const { data: fullTx } = await admin
+        .from("transactions")
+        .select("stripe_payment_intent_id")
+        .eq("transaction_id", tx.transaction_id)
+        .single();
 
-  for (const tx of txs) {
-    // Stripe から customer_email を取得
-    const { data: fullTx } = await admin
-      .from("transactions")
-      .select("stripe_payment_intent_id")
-      .eq("transaction_id", tx.transaction_id)
-      .single();
-
-    let customerEmail: string | null = null;
-    try {
-      const pi = await stripe.paymentIntents.retrieve(fullTx!.stripe_payment_intent_id, {
-        expand: ["customer"],
-      });
-      customerEmail =
-        typeof pi.customer === "object" && pi.customer !== null
-          ? (pi.customer as { email?: string | null }).email ?? null
-          : null;
-      if (!customerEmail) {
-        // checkout session から取得を試みる
-        const sessions = await stripe.checkout.sessions.list({
-          payment_intent: fullTx!.stripe_payment_intent_id,
-          limit: 1,
+      let customerEmail: string | null = null;
+      try {
+        const pi = await stripe.paymentIntents.retrieve(fullTx!.stripe_payment_intent_id, {
+          expand: ["customer"],
         });
-        customerEmail = sessions.data[0]?.customer_email ?? null;
+        customerEmail =
+          typeof pi.customer === "object" && pi.customer !== null
+            ? (pi.customer as { email?: string | null }).email ?? null
+            : null;
+        if (!customerEmail) {
+          const sessions = await stripe.checkout.sessions.list({
+            payment_intent: fullTx!.stripe_payment_intent_id,
+            limit: 1,
+          });
+          customerEmail = sessions.data[0]?.customer_email ?? null;
+        }
+      } catch {
+        // Stripe API エラーはスキップ
       }
-    } catch {
-      // Stripe API エラーはスキップ
-    }
 
-    results.push({
-      transaction_id: tx.transaction_id,
-      masked_email: customerEmail ? maskEmail(customerEmail) : null,
-      event_title: (tx.qr_config as any)?.event?.title ?? null,
-      raw_email: customerEmail ?? undefined,
-    });
-  }
+      return {
+        transaction_id: tx.transaction_id,
+        masked_email: customerEmail ? maskEmail(customerEmail) : null,
+        event_title: (tx.qr_config as any)?.event?.title ?? null,
+        raw_email: customerEmail ?? undefined,
+      };
+    })
+  );
 
   // 1件のみ & new_email が指定されている場合は移行処理へ
   if (new_email && results.length === 1 && results[0].raw_email) {

@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
+import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -99,10 +100,7 @@ export async function POST(req: Request) {
 
     let holderProfileId = pu?.profile_id ?? null;
     if (!holderProfileId) {
-      try {
-        const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        holderProfileId = users.find((u) => u.email === reservation.email)?.id ?? null;
-      } catch { /* ignore */ }
+      holderProfileId = await resolveProfileIdByEmail(admin, reservation.email);
     }
 
     const { data: ticket } = await admin

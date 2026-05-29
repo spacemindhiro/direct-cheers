@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  // @ts-ignore
+  apiVersion: '2023-10-16',
+});
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const sessionId = searchParams.get('session_id');
@@ -9,13 +14,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
   }
 
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) return NextResponse.json({ error: "Key Missing" }, { status: 500 });
-
-  const stripe = new Stripe(key, {
-    // @ts-ignore
-    apiVersion: '2023-10-16',
-  });
+  if (!process.env.STRIPE_SECRET_KEY) return NextResponse.json({ error: "Key Missing" }, { status: 500 });
 
   try {
     // line_itemsやcustomerを含めて取得

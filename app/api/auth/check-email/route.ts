@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -7,8 +8,6 @@ export async function GET(req: Request) {
   if (!email) return NextResponse.json({ exists: false });
 
   const admin = createAdminClient();
-  const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const exists = users.some(u => u.email?.toLowerCase() === email);
-
-  return NextResponse.json({ exists });
+  const profileId = await resolveProfileIdByEmail(admin, email);
+  return NextResponse.json({ exists: !!profileId });
 }

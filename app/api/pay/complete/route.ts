@@ -44,6 +44,9 @@ export async function POST(req: Request) {
   const meta = session.metadata ?? {};
   const admin = createAdminClient();
 
+  // profile_id をメールから1回だけ解決 — provisional_users 優先、auth.users フォールバック
+  const senderProfileId = await resolveProfileIdByEmail(admin, email ?? null);
+
   // 既存 transaction チェック（冪等性）
   const { data: existing } = await admin
     .from("transactions")
@@ -52,11 +55,10 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (existing) {
-    const [product, qrcInfo, isMember, hasPasskey] = await Promise.all([
+    const [product, qrcInfo, hasPasskey] = await Promise.all([
       getProductInfo(admin, existing.product_id),
       getQrConfigInfo(admin, existing.qr_config_id ?? null),
-      checkIsMember(admin, email ?? null),
-      checkHasPasskey(admin, email ?? null),
+      checkHasPasskey(admin, senderProfileId),
     ]);
     let existingTicketId: string | null = null;
     if (product.product_type === "entrance") {
@@ -67,7 +69,7 @@ export async function POST(req: Request) {
         .maybeSingle();
       existingTicketId = t?.ticket_id ?? null;
     }
-    return buildResponse(email, existing, product, qrcInfo, isMember, hasPasskey, existingTicketId);
+    return buildResponse(email, existing, product, qrcInfo, !!senderProfileId, hasPasskey, existingTicketId);
   }
 
   const productId = meta.product_id || null;
@@ -139,10 +141,7 @@ export async function POST(req: Request) {
     transactionId = tx.transaction_id;
   }
 
-  const [isMember, hasPasskey] = await Promise.all([
-    checkIsMember(admin, email ?? null),
-    checkHasPasskey(admin, email ?? null),
-  ]);
+  const hasPasskey = await checkHasPasskey(admin, senderProfileId);
 
   // シリアルナンバー採番
   let serialNumber: number | null = null;
@@ -171,31 +170,16 @@ export async function POST(req: Request) {
 
   const product = await getProductInfo(admin, productId);
 
-  // エントランスタイプならチケット発行
+  // エントランスタイプならチケット発行 — profile_id は冒頭で解決済み
   let ticketId: string | null = null;
   if (product.product_type === "entrance" && qrcInfo.eventId && productId) {
-    let holderProfileId: string | null = null;
-    if (email) {
-      const { data: pu } = await admin
-        .from("provisional_users")
-        .select("profile_id")
-        .eq("email", email)
-        .maybeSingle();
-      holderProfileId = pu?.profile_id ?? null;
-      if (!holderProfileId) {
-        try {
-          const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-          holderProfileId = users.find((u) => u.email === email)?.id ?? null;
-        } catch { /* ignore */ }
-      }
-    }
     const { data: t } = await admin
       .from("tickets")
       .insert({
         product_id: productId,
         event_id: qrcInfo.eventId,
         email: email ?? null,
-        holder_profile_id: holderProfileId,
+        holder_profile_id: senderProfileId,
         transaction_id: transactionId,
         status: "valid",
       })
@@ -220,7 +204,7 @@ export async function POST(req: Request) {
     },
     product,
     qrcInfo,
-    isMember,
+    !!senderProfileId,
     hasPasskey,
     ticketId,
   );
@@ -263,6 +247,26 @@ type QrConfigInfo = {
   recipientAvatar: string | null;
 };
 
+// メールから profile_id を解決 — リクエストごとに1回だけ呼ぶ
+async function resolveProfileIdByEmail(
+  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
+  email: string | null,
+): Promise<string | null> {
+  if (!email) return null;
+  const { data: prov } = await admin
+    .from("provisional_users")
+    .select("profile_id")
+    .eq("email", email)
+    .maybeSingle();
+  if (prov?.profile_id) return prov.profile_id;
+  try {
+    const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    return users.find((u) => u.email === email)?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function getQrConfigInfo(
   admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
   qrConfigId: string | null,
@@ -271,85 +275,29 @@ async function getQrConfigInfo(
 
   const { data: qrc } = await admin
     .from("qr_configs")
-    .select("event_id, image_url, recipient_profile_id")
+    .select("event_id, image_url, recipient:profiles!recipient_profile_id(display_name, avatar_url)")
     .eq("qr_config_id", qrConfigId)
     .single();
-
-  let recipientName: string | null = null;
-  let recipientAvatar: string | null = null;
-  if (qrc?.recipient_profile_id) {
-    const { data: rp } = await admin
-      .from("profiles")
-      .select("display_name, avatar_url")
-      .eq("profile_id", qrc.recipient_profile_id)
-      .single();
-    recipientName = rp?.display_name ?? null;
-    recipientAvatar = rp?.avatar_url ?? null;
-  }
 
   return {
     eventId: qrc?.event_id ?? null,
     imageUrl: qrc?.image_url ?? null,
-    recipientName,
-    recipientAvatar,
+    recipientName: (qrc?.recipient as any)?.display_name ?? null,
+    recipientAvatar: (qrc?.recipient as any)?.avatar_url ?? null,
   };
 }
 
+// profile_id を受け取り passkey_credentials だけ確認
 async function checkHasPasskey(
   admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
-  email: string | null,
+  profileId: string | null,
 ): Promise<boolean> {
-  if (!email) return false;
-
-  // provisional_users 経由で profile_id を取得
-  const { data: prov } = await admin
-    .from("provisional_users")
-    .select("profile_id")
-    .eq("email", email)
-    .maybeSingle();
-
-  const profileId = prov?.profile_id ?? null;
-
-  // provisional に profile_id がない場合は auth users から直接解決
-  let resolvedProfileId = profileId;
-  if (!resolvedProfileId) {
-    try {
-      const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      const authUser = users.find((u) => u.email === email);
-      resolvedProfileId = authUser?.id ?? null;
-    } catch {
-      return false;
-    }
-  }
-
-  if (!resolvedProfileId) return false;
-
+  if (!profileId) return false;
   const { count } = await admin
     .from("passkey_credentials")
     .select("*", { count: "exact", head: true })
-    .eq("profile_id", resolvedProfileId);
+    .eq("profile_id", profileId);
   return (count ?? 0) > 0;
-}
-
-async function checkIsMember(
-  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
-  email: string | null,
-): Promise<boolean> {
-  if (!email) return false;
-  // provisional_users で profile_id が紐いていれば会員
-  const { data: prov } = await admin
-    .from("provisional_users")
-    .select("profile_id")
-    .eq("email", email)
-    .maybeSingle();
-  if (prov?.profile_id) return true;
-  // それ以外は Supabase auth に存在するか確認（organizer 等のケース）
-  try {
-    const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    return data.users.some((u) => u.email === email);
-  } catch {
-    return false;
-  }
 }
 
 function buildResponse(

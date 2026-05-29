@@ -154,58 +154,136 @@ async function DashboardContent() {
     .single();
 
   const admin = createAdminClient();
-
-  // フォロー中一覧
-  const { data: followsData } = await admin
-    .from('follows')
-    .select(`
-      follow_id,
-      followee_id,
-      followee:profiles!followee_id(profile_id, display_name, avatar_url, role)
-    `)
-    .eq('follower_id', user!.id)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  const follows = (followsData ?? []).map((f: any) => f.followee).filter(Boolean);
-
-  // Cheers履歴: admin は不要なのでスキップ
-  const isAdmin = profile?.role === 'admin';
+  const role = profile?.role ?? 'user';
+  const isAdmin = role === 'admin';
   const userEmail = user!.email!;
+  const isRoleEarner = ['agent', 'organizer', 'artist'].includes(role);
+  const isOrganizerOrAdmin = ['organizer', 'admin'].includes(role);
+  const isAgentOrAdmin = ['agent', 'admin'].includes(role);
+  const isPerformerRole = ['artist', 'agent', 'organizer'].includes(role);
+
+  // 第1バッチ: 互いに依存しないクエリをすべて並列実行
+  const [
+    followsResult,
+    byProfileResult,
+    byEmailResult,
+    myDistResult,
+    notifsResult,
+    rejectedNotifsResult,
+    adminMsgCountResult,
+    pendingConnectResult,
+    evidenceNotifsResult,
+    approvalNotifsResult,
+    draftCountResult,
+    cancelCountResult,
+    lineupResult,
+  ] = await Promise.all([
+    admin.from('follows').select(`
+      follow_id, followee_id,
+      followee:profiles!followee_id(profile_id, display_name, avatar_url, role)
+    `).eq('follower_id', user!.id).order('created_at', { ascending: false }).limit(20),
+
+    !isAdmin
+      ? admin.from('transactions').select(`
+          transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
+          payment_method, wallet_type,
+          product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+          qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
+        `).eq('sender_profile_id', user!.id).eq('status', 'completed').neq('transaction_type', 'invitation').order('created_at', { ascending: false }).limit(50)
+      : Promise.resolve({ data: null }),
+
+    !isAdmin
+      ? admin.from('transactions').select(`
+          transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
+          payment_method, wallet_type,
+          product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+          qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
+        `).eq('sender_email', userEmail).eq('status', 'completed').neq('transaction_type', 'invitation').order('created_at', { ascending: false }).limit(50)
+      : Promise.resolve({ data: null }),
+
+    isRoleEarner
+      ? admin.from('transaction_distributions').select('actual_amount, transaction:transactions!transaction_id(status)').eq('profile_id', user!.id).is('deleted_at', null)
+      : Promise.resolve({ data: null }),
+
+    isOrganizerOrAdmin
+      ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).in('type', ['event_approved', 'event_cancelled', 'event_cancel_rejected']).eq('is_read', false).order('created_at', { ascending: false }).limit(5)
+      : Promise.resolve({ data: null }),
+
+    isOrganizerOrAdmin
+      ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).eq('type', 'evidence_rejected').eq('is_read', false).order('created_at', { ascending: false }).limit(20)
+      : Promise.resolve({ data: null }),
+
+    !isAdmin
+      ? admin.from('admin_messages').select('id', { count: 'exact', head: true }).eq('user_profile_id', user!.id).eq('is_from_admin', true).eq('is_read_by_user', false)
+      : Promise.resolve({ count: 0, data: null }),
+
+    isAdmin
+      ? admin.from('profiles').select('profile_id', { count: 'exact', head: true }).eq('verification_status', 'pending')
+      : Promise.resolve({ count: 0, data: null }),
+
+    isAdmin
+      ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).eq('type', 'evidence_submitted').eq('is_read', false).order('created_at', { ascending: false }).limit(50)
+      : Promise.resolve({ data: null }),
+
+    isAgentOrAdmin
+      ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).eq('type', 'approval_requested').eq('is_read', false).order('created_at', { ascending: false }).limit(10)
+      : Promise.resolve({ data: null }),
+
+    isAgentOrAdmin
+      ? (role === 'agent'
+          ? admin.from('events').select('event_id', { count: 'exact', head: true }).eq('agent_id', user!.id)
+          : admin.from('events').select('event_id', { count: 'exact', head: true })
+        ).eq('lifecycle_status', 'review_requested')
+      : Promise.resolve({ count: 0, data: null }),
+
+    isAgentOrAdmin
+      ? (role === 'agent'
+          ? admin.from('events').select('event_id', { count: 'exact', head: true }).eq('agent_id', user!.id)
+          : admin.from('events').select('event_id', { count: 'exact', head: true })
+        ).eq('lifecycle_status', 'cancellation_requested')
+      : Promise.resolve({ count: 0, data: null }),
+
+    isPerformerRole
+      ? admin.from('event_artists').select(`
+          event_artist_id, event_id, status, invite_message,
+          event:events!event_id(
+            title, venue, start_at, end_at, organizer_profile_id,
+            organizer:profiles!organizer_profile_id(display_name)
+          )
+        `).eq('artist_profile_id', user!.id).is('deleted_at', null).order('created_at', { ascending: false })
+      : Promise.resolve({ data: null }),
+  ]);
+
+  // 第2バッチ: 第1バッチの結果に依存するフォローアップクエリを並列実行
+  const rejectedNotifs = ((rejectedNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
+  const rejectedEventIds = rejectedNotifs.map((n) => n.metadata?.event_id).filter(Boolean) as string[];
+
+  const evidenceNotifs = ((evidenceNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
+  const evidenceEventIds = evidenceNotifs.map((n) => n.metadata?.event_id).filter(Boolean) as string[];
+
+  const approvalNotifs = ((approvalNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
+  const notifEventIds = approvalNotifs.map((n) => n.metadata?.event_id).filter(Boolean) as string[];
+
+  const [activeSummariesResult, settledEventsResult, pendingEventsResult] = await Promise.all([
+    rejectedEventIds.length > 0
+      ? admin.from('settlement_summaries').select('event_id').in('event_id', rejectedEventIds).eq('is_approved_for_payout', false)
+      : Promise.resolve({ data: [] as { event_id: string }[] }),
+    evidenceEventIds.length > 0
+      ? admin.from('events').select('event_id').in('event_id', evidenceEventIds).eq('lifecycle_status', 'settled')
+      : Promise.resolve({ data: [] as { event_id: string }[] }),
+    notifEventIds.length > 0
+      ? admin.from('events').select('event_id').in('event_id', notifEventIds).eq('lifecycle_status', 'review_requested')
+      : Promise.resolve({ data: [] as { event_id: string }[] }),
+  ]);
+
+  // 結果を整形
+  const follows = ((followsResult.data ?? []) as any[]).map((f) => f.followee).filter(Boolean);
+
   let cheersHistory: any[] = [];
   let totalCheersAmount = 0;
-
   if (!isAdmin) {
-    const { data: byProfile } = await admin
-      .from('transactions')
-      .select(`
-        transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
-        payment_method, wallet_type,
-        product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
-        qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
-      `)
-      .eq('sender_profile_id', user!.id)
-      .eq('status', 'completed')
-      .neq('transaction_type', 'invitation')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    const { data: byEmail } = await admin
-      .from('transactions')
-      .select(`
-        transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
-        payment_method, wallet_type,
-        product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
-        qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
-      `)
-      .eq('sender_email', userEmail)
-      .eq('status', 'completed')
-      .neq('transaction_type', 'invitation')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
     const seen = new Set<string>();
-    for (const tx of [...(byProfile ?? []), ...(byEmail ?? [])]) {
+    for (const tx of [...((byProfileResult.data as any[]) ?? []), ...((byEmailResult.data as any[]) ?? [])]) {
       if (!seen.has(tx.transaction_id)) {
         seen.add(tx.transaction_id);
         cheersHistory.push(tx);
@@ -216,7 +294,6 @@ async function DashboardContent() {
     totalCheersAmount = cheersHistory.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
   }
 
-  // 決済最適化パターン判定（一般ユーザー・admin以外）
   type PaymentPattern = 'A' | 'B' | 'C' | 'D';
   let paymentPattern: PaymentPattern = 'D';
   if (!isAdmin && cheersHistory.length > 0) {
@@ -230,218 +307,74 @@ async function DashboardContent() {
     }
   }
 
-  // agent / organizer / artist: transaction_distributions の actual_amount を集計するだけ
   let projectedNet = 0;
-  if (['agent', 'organizer', 'artist'].includes(profile?.role ?? '')) {
-    const { data: myDistRows } = await admin
-      .from('transaction_distributions')
-      .select('actual_amount, transaction:transactions!transaction_id(status)')
-      .eq('profile_id', user!.id)
-      .is('deleted_at', null);
-
-    projectedNet = (myDistRows ?? [])
+  if (isRoleEarner) {
+    projectedNet = ((myDistResult.data as any[]) ?? [])
       .filter((d) => (d.transaction as any)?.status === 'completed')
       .reduce((s, d) => s + (d.actual_amount ?? 0), 0);
   }
 
-  // オーガナイザー向け: 未読のイベント承認/中止通知
-  let pendingNotifications: { notification_id: string; title: string; body: string; metadata: any }[] = [];
-  let evidenceRejectedNotifications: { notification_id: string; title: string; body: string; metadata: any }[] = [];
-  if (['organizer', 'admin'].includes(profile?.role ?? '')) {
-    const { data: notifs } = await admin
-      .from('notifications')
-      .select('notification_id, title, body, metadata')
-      .eq('profile_id', user!.id)
-      .in('type', ['event_approved', 'event_cancelled', 'event_cancel_rejected'])
-      .eq('is_read', false)
-      .order('created_at', { ascending: false })
-      .limit(5);
-    pendingNotifications = notifs ?? [];
+  const pendingNotifications = ((notifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
 
-    const { data: rejectedNotifs } = await admin
-      .from('notifications')
-      .select('notification_id, title, body, metadata')
-      .eq('profile_id', user!.id)
-      .eq('type', 'evidence_rejected')
-      .eq('is_read', false)
-      .order('created_at', { ascending: false })
-      .limit(20);
+  const stillRejectedEventIds = new Set(((activeSummariesResult.data ?? []) as any[]).map((s) => s.event_id));
+  const seenRejected = new Set<string>();
+  const evidenceRejectedNotifications = rejectedNotifs.filter((n) => {
+    const eid = n.metadata?.event_id;
+    if (!eid || !stillRejectedEventIds.has(eid) || seenRejected.has(eid)) return false;
+    seenRejected.add(eid);
+    return true;
+  });
 
-    // 差戻し状態が解消済み（再提出・精算完了）のイベントの通知を除外
-    const rejectedEventIds = (rejectedNotifs ?? [])
-      .map((n) => n.metadata?.event_id)
-      .filter(Boolean) as string[];
+  const unreadAdminMessageCount = !isAdmin ? (adminMsgCountResult.count ?? 0) : 0;
+  const pendingConnectReviewCount = isAdmin ? (pendingConnectResult.count ?? 0) : 0;
 
-    let stillRejectedEventIds = new Set<string>();
-    if (rejectedEventIds.length > 0) {
-      const { data: activeSummaries } = await admin
-        .from('settlement_summaries')
-        .select('event_id')
-        .in('event_id', rejectedEventIds)
-        .eq('is_approved_for_payout', false);
-      stillRejectedEventIds = new Set((activeSummaries ?? []).map((s) => s.event_id));
-    }
+  const settledEventIds = new Set(((settledEventsResult.data ?? []) as any[]).map((e) => e.event_id));
+  const seenEventIds = new Set<string>();
+  const pendingEvidenceNotifications = evidenceNotifs.filter((n) => {
+    const eid = n.metadata?.event_id;
+    if (!eid || settledEventIds.has(eid) || seenEventIds.has(eid)) return false;
+    seenEventIds.add(eid);
+    return true;
+  });
 
-    const seenRejected = new Set<string>();
-    evidenceRejectedNotifications = (rejectedNotifs ?? []).filter((n) => {
-      const eid = n.metadata?.event_id;
-      if (!eid || !stillRejectedEventIds.has(eid) || seenRejected.has(eid)) return false;
-      seenRejected.add(eid);
-      return true;
-    });
-  }
+  const pendingEventIds = new Set(((pendingEventsResult.data ?? []) as any[]).map((e) => e.event_id));
+  const seenApproval = new Set<string>();
+  const approvalRequestedNotifications = approvalNotifs.filter((n) => {
+    const eid = n.metadata?.event_id;
+    if (!eid || !pendingEventIds.has(eid) || seenApproval.has(eid)) return false;
+    seenApproval.add(eid);
+    return true;
+  });
 
-  // 非admin向け: 管理者からの未読メッセージ件数
-  let unreadAdminMessageCount = 0;
-  if (!isAdmin) {
-    const { count } = await admin
-      .from('admin_messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_profile_id', user!.id)
-      .eq('is_from_admin', true)
-      .eq('is_read_by_user', false);
-    unreadAdminMessageCount = count ?? 0;
-  }
+  const pendingApprovalCount = draftCountResult.count ?? 0;
+  const pendingCancellationCount = cancelCountResult.count ?? 0;
 
-  // admin向け: 口座開設審査待ち件数 + 証跡提出通知
-  let pendingConnectReviewCount = 0;
-  let pendingEvidenceNotifications: { notification_id: string; title: string; body: string; metadata: any }[] = [];
-  if (profile?.role === 'admin') {
-    const { count } = await admin
-      .from('profiles')
-      .select('profile_id', { count: 'exact', head: true })
-      .eq('verification_status', 'pending');
-    pendingConnectReviewCount = count ?? 0;
-
-    const { data: evidenceNotifs } = await admin
-      .from('notifications')
-      .select('notification_id, title, body, metadata')
-      .eq('profile_id', user!.id)
-      .eq('type', 'evidence_submitted')
-      .eq('is_read', false)
-      .order('created_at', { ascending: false })
-      .limit(50);
-    // 精算済みイベントの通知を除外 + event_id単位で最新1件のみ
-    const evidenceEventIds = (evidenceNotifs ?? [])
-      .map((n) => n.metadata?.event_id)
-      .filter(Boolean) as string[];
-
-    let settledEventIds = new Set<string>();
-    if (evidenceEventIds.length > 0) {
-      const { data: settledEvents } = await admin
-        .from('events')
-        .select('event_id')
-        .in('event_id', evidenceEventIds)
-        .eq('lifecycle_status', 'settled');
-      settledEventIds = new Set((settledEvents ?? []).map((e) => e.event_id));
-    }
-
-    const seenEventIds = new Set<string>();
-    pendingEvidenceNotifications = (evidenceNotifs ?? []).filter((n) => {
-      const eid = n.metadata?.event_id;
-      if (!eid || settledEventIds.has(eid) || seenEventIds.has(eid)) return false;
-      seenEventIds.add(eid);
-      return true;
-    });
-  }
-
-  // エージェント向け: 承認依頼通知
-  let approvalRequestedNotifications: { notification_id: string; title: string; body: string; metadata: any }[] = [];
-  if (['agent', 'admin'].includes(profile?.role ?? '')) {
-    const { data: approvalNotifs } = await admin
-      .from('notifications')
-      .select('notification_id, title, body, metadata')
-      .eq('profile_id', user!.id)
-      .eq('type', 'approval_requested')
-      .eq('is_read', false)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    // review_requested のままのイベントの通知のみ表示（承認済み・却下済みは除外）
-    const notifEventIds = (approvalNotifs ?? [])
-      .map((n) => n.metadata?.event_id)
-      .filter(Boolean) as string[];
-
-    let pendingEventIds = new Set<string>();
-    if (notifEventIds.length > 0) {
-      const { data: pendingEvents } = await admin
-        .from('events')
-        .select('event_id')
-        .in('event_id', notifEventIds)
-        .eq('lifecycle_status', 'review_requested');
-      pendingEventIds = new Set((pendingEvents ?? []).map((e) => e.event_id));
-    }
-
-    const seenApproval = new Set<string>();
-    approvalRequestedNotifications = (approvalNotifs ?? []).filter((n) => {
-      const eid = n.metadata?.event_id;
-      if (!eid || !pendingEventIds.has(eid) || seenApproval.has(eid)) return false;
-      seenApproval.add(eid);
-      return true;
-    });
-  }
-
-  // エージェント向け: 承認待ちイベント件数
-  let pendingApprovalCount = 0;
-  let pendingCancellationCount = 0;
-  if (['agent', 'admin'].includes(profile?.role ?? '')) {
-    const query = admin.from('events').select('event_id', { count: 'exact', head: true });
-    const baseQuery = profile?.role === 'agent'
-      ? query.eq('agent_id', user!.id)
-      : query;
-
-    const { count: draftCount } = await baseQuery.eq('lifecycle_status', 'review_requested');
-    const { count: cancelCount } = await (profile?.role === 'agent'
-      ? admin.from('events').select('event_id', { count: 'exact', head: true }).eq('agent_id', user!.id)
-      : admin.from('events').select('event_id', { count: 'exact', head: true })
-    ).eq('lifecycle_status', 'cancellation_requested');
-
-    pendingApprovalCount = draftCount ?? 0;
-    pendingCancellationCount = cancelCount ?? 0;
-  }
-
-  // アーティスト向け: 出演依頼（pending）と出演予定（confirmed）を取得
-  let lineupInvites: {
+  const now = new Date().toISOString();
+  const lineupInvites: {
     event_artist_id: string;
     event_id: string;
-    status: "pending" | "confirmed";
+    status: 'pending' | 'confirmed';
     invite_message?: string | null;
     event: { title: string; venue: string; start_at: string; organizer_profile_id: string; organizer_name: string } | null;
-  }[] = [];
-
-  if (['artist', 'agent', 'organizer'].includes(profile?.role ?? '')) {
-    const { data: allRows } = await admin
-      .from('event_artists')
-      .select(`
-        event_artist_id, event_id, status, invite_message,
-        event:events!event_id(
-          title, venue, start_at, end_at, organizer_profile_id,
-          organizer:profiles!organizer_profile_id(display_name)
-        )
-      `)
-      .eq('artist_profile_id', user!.id)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
-
-    const now = new Date().toISOString();
-    lineupInvites = (allRows ?? [])
-      .filter((r: any) => r.status === 'pending' || (r.status === 'confirmed' && (!r.event?.end_at || r.event.end_at > now)))
-      .map((r: any) => ({
-        event_artist_id: r.event_artist_id,
-        event_id: r.event_id,
-        status: r.status as 'pending' | 'confirmed',
-        invite_message: r.invite_message ?? null,
-        event: r.event
-          ? {
-              title: r.event.title,
-              venue: r.event.venue,
-              start_at: r.event.start_at,
-              organizer_profile_id: r.event.organizer_profile_id,
-              organizer_name: r.event.organizer?.display_name ?? 'オーガナイザー',
-            }
-          : null,
-      }));
-  }
+  }[] = isPerformerRole
+    ? ((lineupResult.data as any[]) ?? [])
+        .filter((r) => r.status === 'pending' || (r.status === 'confirmed' && (!r.event?.end_at || r.event.end_at > now)))
+        .map((r) => ({
+          event_artist_id: r.event_artist_id,
+          event_id: r.event_id,
+          status: r.status as 'pending' | 'confirmed',
+          invite_message: r.invite_message ?? null,
+          event: r.event
+            ? {
+                title: r.event.title,
+                venue: r.event.venue,
+                start_at: r.event.start_at,
+                organizer_profile_id: r.event.organizer_profile_id,
+                organizer_name: r.event.organizer?.display_name ?? 'オーガナイザー',
+              }
+            : null,
+        }))
+    : [];
 
   const roleLabelMap: Record<string, string> = {
     user: 'ファン',
@@ -450,8 +383,7 @@ async function DashboardContent() {
     agent: 'エージェント',
     admin: '管理者',
   };
-
-  const roleLabel = roleLabelMap[profile?.role ?? 'user'] ?? profile?.role;
+  const roleLabel = roleLabelMap[role] ?? role;
 
   return (
     <div className="space-y-10">

@@ -17,16 +17,10 @@ async function DashboardNav() {
 
   if (!user) redirect('/auth/login');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, role, stripe_restricted, stripe_connect_id, avatar_url')
-    .eq('profile_id', user.id)
-    .maybeSingle();
-
-  const { data: convParticipants } = await supabase
-    .from('conversation_participants')
-    .select('last_read_at, conversations!inner(updated_at)')
-    .eq('profile_id', user.id);
+  const [{ data: profile }, { data: convParticipants }] = await Promise.all([
+    supabase.from('profiles').select('display_name, role, stripe_restricted, stripe_connect_id, avatar_url').eq('profile_id', user.id).maybeSingle(),
+    supabase.from('conversation_participants').select('last_read_at, conversations!inner(updated_at)').eq('profile_id', user.id),
+  ]);
 
   const unreadCount = (convParticipants ?? []).filter((cp) => {
     const updatedAt = (cp.conversations as unknown as { updated_at: string } | null)?.updated_at;

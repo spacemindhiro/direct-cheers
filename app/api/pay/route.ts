@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  // @ts-ignore
+  apiVersion: '2023-10-16',
+});
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { amount, artistId, metadata } = body;
-    const stripeKey = process.env.STRIPE_SECRET_KEY || "";
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const cleanSiteUrl = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl;
-
-    const stripe = new Stripe(stripeKey, {
-      // @ts-ignore
-      apiVersion: '2023-10-16',
-    });
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],

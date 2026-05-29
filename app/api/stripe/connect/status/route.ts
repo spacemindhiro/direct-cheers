@@ -23,14 +23,18 @@ export async function POST() {
 
   const account = await stripe.accounts.retrieve(profile.stripe_connect_id);
 
+  const detailsSubmitted = !!account.details_submitted;
   const stripeReady =
-    account.charges_enabled &&
-    account.payouts_enabled &&
-    account.details_submitted;
+    !!account.charges_enabled &&
+    !!account.payouts_enabled &&
+    detailsSubmitted;
 
   const admin = createAdminClient();
 
-  if (stripeReady && (profile.verification_status === "unverified" || profile.verification_status === "rejected")) {
+  // details_submitted になった時点でpendingに遷移する。
+  // charges_enabled / payouts_enabled はStripe側の審査完了後に立つため、
+  // フォーム送信直後はfalseのままになりuserがunverifiedに見えてしまう。
+  if (detailsSubmitted && (profile.verification_status === "unverified" || profile.verification_status === "rejected")) {
     // Stripe審査通過 → プラットフォーム審査待ちに更新
     await admin
       .from("profiles")

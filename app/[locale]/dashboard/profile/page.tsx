@@ -463,7 +463,7 @@ export default function ProfileEditPage() {
                 <Clock size={16} className="text-amber-400 shrink-0" />
                 <div>
                   <p className="text-sm text-amber-400 font-black">口座開設審査中</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Stripe審査完了 — プラットフォームオーナーによる審査待ち</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Stripeに情報送信済み — オーナーによる口座開設審査待ち</p>
                 </div>
               </div>
             )}

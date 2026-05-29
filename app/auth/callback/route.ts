@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   const errRedirect = (msg: string) =>
     NextResponse.redirect(`${origin}/auth/error?error=${encodeURIComponent(msg)}`);
 
-  let authUser: { id: string; user_metadata?: Record<string, unknown> } | null = null;
+  let authUser: { id: string; user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> } | null = null;
 
   if (token_hash && type) {
     const { data, error } = await supabase.auth.verifyOtp({ type, token_hash });
@@ -55,6 +55,17 @@ export async function GET(request: Request) {
     .maybeSingle();
 
   if (profile) {
+    return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
+  }
+
+  // Google 等 OAuth ログインはオンボーディング不要
+  if (authUser.app_metadata?.provider !== 'email') {
+    await admin.from('profiles').insert({
+      profile_id: authUser.id,
+      display_name: (authUser.user_metadata?.full_name ?? authUser.user_metadata?.name ?? null) as string | null,
+      role: 'user',
+      status: 'active',
+    });
     return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
   }
 

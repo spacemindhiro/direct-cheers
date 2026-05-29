@@ -1,169 +1,174 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { Trash2 } from "lucide-react";
+import { getStroke } from "perfect-freehand";
 
 interface SignatureCanvasProps {
   onSignature: (dataUrl: string | null) => void;
 }
 
-type DrawPoint = { x: number; y: number; pressure: number };
+type Point = [number, number, number]; // x, y, pressure
+type Stroke = { pts: Point[]; simulate: boolean };
 
-// WebKit 拡張: Apple Pencil は touchType === "stylus" を返す
-const isStylus = (t: Touch) => (t as Touch & { touchType?: string }).touchType === "stylus";
-
-const findStylus = (list: TouchList): Touch | null => {
-  for (let i = 0; i < list.length; i++) {
-    if (isStylus(list[i])) return list[i];
+// perfect-freehand のポリゴン配列 → SVG path文字列
+function svgPath(poly: number[][]): string {
+  if (!poly.length) return "";
+  const d: (string | number)[] = ["M", poly[0][0], poly[0][1], "Q"];
+  for (let i = 0; i < poly.length; i++) {
+    const [x0, y0] = poly[i];
+    const [x1, y1] = poly[(i + 1) % poly.length];
+    d.push(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
   }
-  return null;
+  return d.join(" ") + " Z";
+}
+
+// とめ・はね・はらいを活かすオプション
+// - thinning 高め: 筆圧による太細変化を大きく
+// - end.taper: 払い抜けのテーパー長（はらい・はね）
+// - simulatePressure: タッチ/マウス時は速度から疑似筆圧
+const OPT = {
+  size: 16,
+  thinning: 0.72,
+  smoothing: 0.5,
+  streamline: 0.45,
+  easing: (t: number) => Math.sin((t * Math.PI) / 2),
+  start: { cap: true, taper: 4,  easing: (t: number) => t * t },
+  end:   { cap: true, taper: 22, easing: (t: number) => t * t },
 };
 
 export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const isDrawing = useRef(false);
-  const hasDrawn  = useRef(false);
-  const lastPoint = useRef<DrawPoint | null>(null);
-  const lastMid   = useRef<{ x: number; y: number } | null>(null);
+  const canvasRef   = useRef<HTMLCanvasElement>(null);
+  const strokesRef  = useRef<Stroke[]>([]);
+  const currentRef  = useRef<Stroke | null>(null);
+  const rafRef      = useRef<number | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
+  // キャンバス全体を再描画（refs から読む）
+  const paint = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = "#ffffff";
+
+    for (const { pts, simulate } of strokesRef.current) {
+      const poly = getStroke(pts, { ...OPT, simulatePressure: simulate, last: true });
+      ctx.fill(new Path2D(svgPath(poly)));
+    }
+
+    const cur = currentRef.current;
+    if (cur && cur.pts.length > 1) {
+      const poly = getStroke(cur.pts, { ...OPT, simulatePressure: cur.simulate, last: false });
+      ctx.fill(new Path2D(svgPath(poly)));
+    }
+
+    ctx.restore();
+  }, []);
+
+  const schedule = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(paint);
+  }, [paint]);
+
+  // DPR・リサイズ対応
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const setup = () => {
       const rect = canvas.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
-      const dpr  = window.devicePixelRatio || 1;
-      const newW = Math.round(rect.width  * dpr);
-      const newH = Math.round(rect.height * dpr);
-      // サイズ未変更ならリセット不要（描画内容を保持する）
-      if (canvas.width === newW && canvas.height === newH) return;
-      canvas.width  = newW;
-      canvas.height = newH;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.scale(dpr, dpr);
+      if (!rect.width || !rect.height) return;
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.round(rect.width  * dpr);
+      const h = Math.round(rect.height * dpr);
+      if (canvas.width === w && canvas.height === h) return;
+      canvas.width  = w;
+      canvas.height = h;
+      schedule();
     };
     setup();
     const ro = new ResizeObserver(setup);
     ro.observe(canvas);
     return () => ro.disconnect();
-  }, []);
+  }, [schedule]);
 
+  // ポインターイベント
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const fromTouch = (touch: Touch): DrawPoint => {
-      const rect  = canvas.getBoundingClientRect();
-      const force = (touch as Touch & { force?: number }).force ?? 0;
-      return {
-        x:        touch.clientX - rect.left,
-        y:        touch.clientY - rect.top,
-        pressure: force > 0 ? force : 0.5,
-      };
+    const pt = (e: PointerEvent): Point => {
+      const r = canvas.getBoundingClientRect();
+      return [e.clientX - r.left, e.clientY - r.top, e.pressure || 0.5];
     };
 
-    const drawTo = (ctx: CanvasRenderingContext2D, to: DrawPoint) => {
-      const from = lastPoint.current!;
-      const avgP = (from.pressure + to.pressure) / 2;
-      const w    = Math.max(0.5, avgP * 8);
-
-      ctx.strokeStyle = "#ffffff";
-      ctx.fillStyle   = "#ffffff";
-      ctx.lineCap     = "round";
-      ctx.lineJoin    = "round";
-      ctx.lineWidth   = w;
-
-      const mx = (from.x + to.x) / 2;
-      const my = (from.y + to.y) / 2;
-
-      ctx.beginPath();
-      if (lastMid.current) {
-        ctx.moveTo(lastMid.current.x, lastMid.current.y);
-        ctx.quadraticCurveTo(from.x, from.y, mx, my);
-      } else {
-        ctx.moveTo(from.x, from.y);
-        ctx.lineTo(mx, my);
+    const exportPng = () => {
+      const exp = document.createElement("canvas");
+      exp.width  = canvas.width;
+      exp.height = canvas.height;
+      const dpr  = window.devicePixelRatio || 1;
+      const ctx  = exp.getContext("2d")!;
+      ctx.fillStyle = "#020617"; // slate-950
+      ctx.fillRect(0, 0, exp.width, exp.height);
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.fillStyle = "#ffffff";
+      for (const { pts, simulate } of strokesRef.current) {
+        const poly = getStroke(pts, { ...OPT, simulatePressure: simulate, last: true });
+        ctx.fill(new Path2D(svgPath(poly)));
       }
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(mx, my, w / 2, 0, Math.PI * 2);
-      ctx.fill();
-
-      lastMid.current   = { x: mx, y: my };
-      lastPoint.current = to;
+      ctx.restore();
+      onSignature(exp.toDataURL("image/png"));
     };
 
-    const onTouchStart = (e: TouchEvent) => {
+    const onDown = (e: PointerEvent) => {
       e.preventDefault();
-      const stylus = findStylus(e.changedTouches);
-      if (!stylus) return; // Apple Pencil 以外は無視
-      const pt = fromTouch(stylus);
-      isDrawing.current = true;
-      lastPoint.current = pt;
-      lastMid.current   = null;
-
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        const w = Math.max(0.5, pt.pressure * 8);
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, w / 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      canvas.setPointerCapture(e.pointerId);
+      currentRef.current = { pts: [pt(e)], simulate: e.pointerType !== "pen" };
+      schedule();
     };
 
-    const onTouchMove = (e: TouchEvent) => {
+    const onMove = (e: PointerEvent) => {
+      if (!currentRef.current) return;
       e.preventDefault();
-      if (!isDrawing.current || !lastPoint.current) return;
-      const stylus = findStylus(e.changedTouches);
-      if (!stylus) return;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      drawTo(ctx, fromTouch(stylus));
-      hasDrawn.current = true;
+      currentRef.current.pts.push(pt(e));
+      schedule();
     };
 
-    const onTouchEnd = (e: TouchEvent) => {
-      // Apple Pencil が離れた時だけ終了。手のひら等の touchend は無視。
-      const stylus = findStylus(e.changedTouches);
-      if (!stylus) return;
-      if (!isDrawing.current) return;
-      if (hasDrawn.current) {
-        setIsEmpty(false);
-        onSignature(canvas.toDataURL("image/png"));
-      }
-      isDrawing.current = false;
-      lastPoint.current = null;
-      lastMid.current   = null;
+    const onUp = (e: PointerEvent) => {
+      const cur = currentRef.current;
+      currentRef.current = null;
+      if (!cur || cur.pts.length < 2) { schedule(); return; }
+      strokesRef.current.push(cur);
+      setIsEmpty(false);
+      schedule();
+      requestAnimationFrame(exportPng);
     };
 
-    canvas.addEventListener("touchstart",  onTouchStart, { passive: false });
-    canvas.addEventListener("touchmove",   onTouchMove,  { passive: false });
-    canvas.addEventListener("touchend",    onTouchEnd);
-    canvas.addEventListener("touchcancel", onTouchEnd);
+    canvas.addEventListener("pointerdown",  onDown, { passive: false });
+    canvas.addEventListener("pointermove",  onMove, { passive: false });
+    canvas.addEventListener("pointerup",    onUp);
+    canvas.addEventListener("pointercancel", onUp);
 
     return () => {
-      canvas.removeEventListener("touchstart",  onTouchStart);
-      canvas.removeEventListener("touchmove",   onTouchMove);
-      canvas.removeEventListener("touchend",    onTouchEnd);
-      canvas.removeEventListener("touchcancel", onTouchEnd);
+      canvas.removeEventListener("pointerdown",   onDown);
+      canvas.removeEventListener("pointermove",   onMove);
+      canvas.removeEventListener("pointerup",     onUp);
+      canvas.removeEventListener("pointercancel", onUp);
     };
-  }, [onSignature]);
+  }, [onSignature, schedule]);
 
   const clear = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    hasDrawn.current  = false;
-    lastPoint.current = null;
-    lastMid.current   = null;
+    strokesRef.current = [];
+    currentRef.current = null;
     setIsEmpty(true);
     onSignature(null);
+    schedule();
   };
 
   return (
@@ -176,7 +181,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
         />
         {isEmpty && (
           <p className="absolute inset-0 flex items-center justify-center text-slate-600 text-base font-bold pointer-events-none select-none">
-            Apple Pencil でご署名ください
+            ここにご署名ください
           </p>
         )}
       </div>

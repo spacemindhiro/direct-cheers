@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -33,6 +34,18 @@ export async function POST(req: Request) {
       ? (["paypay"] as unknown as Stripe.Checkout.SessionCreateParams.PaymentMethodType[])
       : (["card"] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[]);
 
+  // 事前登録済みカスタマーIDを引く
+  let savedCustomerId: string | null = null;
+  if (customer_email && payment_method === "card") {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("provisional_users")
+      .select("stripe_customer_id")
+      .eq("email", customer_email)
+      .single();
+    savedCustomerId = data?.stripe_customer_id ?? null;
+  }
+
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: paymentMethodTypes,
     payment_intent_data: { capture_method: "manual" },
@@ -53,7 +66,6 @@ export async function POST(req: Request) {
     mode: "payment",
     success_url: thanksUrl,
     cancel_url: `${SITE_URL}/c/${qr_config_id}`,
-    customer_creation: "always",
     metadata: {
       qr_config_id,
       product_id,
@@ -62,9 +74,13 @@ export async function POST(req: Request) {
     },
   };
 
-  // 既知メアドがあれば pre-fill
-  if (customer_email) {
-    sessionParams.customer_email = customer_email;
+  if (savedCustomerId) {
+    // 保存済みカード → customer で渡す（customer_creation 不要）
+    sessionParams.customer = savedCustomerId;
+  } else {
+    // 未登録 → 新規作成 & メアド pre-fill
+    sessionParams.customer_creation = "always";
+    if (customer_email) sessionParams.customer_email = customer_email;
   }
 
   // card の場合は AP/GP を有効化

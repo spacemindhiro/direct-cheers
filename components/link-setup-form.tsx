@@ -77,14 +77,18 @@ export function LinkSetupForm({ userEmail }: { userEmail: string | null }) {
   const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
-    fetch("/api/stripe/link-setup", { method: "POST" })
+    fetch("/api/stripe/link-setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(userEmail ? { email: userEmail } : {}),
+    })
       .then((r) => r.json())
       .then((d) => {
         if (d.client_secret) setClientSecret(d.client_secret);
         else setFetchError(true);
       })
       .catch(() => setFetchError(true));
-  }, []);
+  }, [userEmail]);
 
   if (fetchError) {
     return (

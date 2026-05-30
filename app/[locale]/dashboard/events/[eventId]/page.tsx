@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, Pencil, CheckCircle2, ScanLine } from "lucide-react";
 import { EventEndButton } from "@/components/event-end-button";
@@ -16,9 +16,7 @@ import { EventPayPayToggle } from "@/components/event-paypay-toggle";
 async function EventDetailContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) redirect("/auth/login");
 

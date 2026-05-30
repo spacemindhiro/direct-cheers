@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUser } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { ConversationThread } from './conversation-thread';
 import { Loader2 } from 'lucide-react';
@@ -10,7 +10,7 @@ async function ConversationPageContent({
   params: Promise<{ conversationId: string }>;
 }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect('/auth/login');
 
   const { conversationId } = await params;

@@ -79,9 +79,12 @@ export async function proxy(request: NextRequest) {
     },
   });
 
+  // ルーティング判定はセッションのローカル検証で十分（ネットワーク呼び出しなし）
+  // 厳密なサーバー側検証は各ページのgetUser()が担う
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   if (!user) {
     // ロケールを保持してログインへリダイレクト

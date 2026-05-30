@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, User, MapPin, Building2, ExternalLink, FileSignature, AlertTriangle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
@@ -30,7 +30,7 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
   const { profileId } = await params;
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/auth/login");
 
   const { data: me } = await supabase.from("profiles").select("role").eq("profile_id", user.id).single();

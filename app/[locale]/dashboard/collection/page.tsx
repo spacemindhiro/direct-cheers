@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersCard } from "@/components/cheers-card";
 import { FollowButton } from "@/components/follow-button";
@@ -8,9 +8,7 @@ import { Loader2, Layers } from "lucide-react";
 
 async function CollectionContent() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/auth/login");
 
   const admin = createAdminClient();

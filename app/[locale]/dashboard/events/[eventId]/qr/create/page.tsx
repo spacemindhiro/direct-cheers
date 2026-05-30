@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QRCreateForm } from "@/components/qr-create-form";
 import { getFeeConfig } from "@/lib/fee-config";
@@ -10,9 +10,7 @@ import Link from "next/link";
 async function QRCreateContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) redirect("/auth/login");
 

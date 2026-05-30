@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Loader2, FileText, ChevronRight } from 'lucide-react';
 
@@ -13,7 +13,7 @@ const TERMS_TYPE_LABELS: Record<string, string> = {
 
 async function DocumentsContent() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect('/auth/login');
 
   const admin = createAdminClient();

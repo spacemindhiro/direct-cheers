@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   Loader2, TrendingUp, Users, Star, Mic2, CalendarDays, Crown, ArrowUpRight
@@ -26,7 +26,7 @@ function getTier(count: number) {
 
 async function InsightsContent() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/auth/login");
 
   const { data: me } = await supabase

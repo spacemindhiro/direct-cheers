@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle } from "lucide-react";
 import { ReconcileButton } from "@/components/reconcile-button";
@@ -17,7 +17,7 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/auth/login");
 
   const { data: me } = await supabase

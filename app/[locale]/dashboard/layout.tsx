@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUser } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { LogoutButton } from '@/components/logout-button';
 import { Loader2, UserCircle, MessageCircle } from 'lucide-react';
@@ -13,7 +13,7 @@ const STEP_UP_TTL_MS = 480 * 60 * 1000;
 
 async function DashboardNav() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) redirect('/auth/login');
 

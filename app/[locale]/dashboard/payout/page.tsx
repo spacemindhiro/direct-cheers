@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PayoutForm } from "@/components/payout-form";
 import { PayoutBypassButton } from "@/components/payout-bypass-button";
@@ -23,7 +23,7 @@ async function PayoutContent() {
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/auth/login");
 
   const { data: profile } = await supabase

@@ -1,4 +1,5 @@
 {
+  "regions": ["nrt1"],
   "crons": [
     {
       "path": "/api/cron/reconcile",

@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import { LinkSetupForm } from "@/components/link-setup-form";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { Zap, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 async function LinkSetupContent() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
 
   return (
     <div className="max-w-md mx-auto px-6 py-12 space-y-8">

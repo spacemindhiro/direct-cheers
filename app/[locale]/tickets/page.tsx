@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, Ticket, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import { DigitalTicket } from "@/components/digital-ticket";
 
 async function TicketsContent() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/auth/login?redirect=/tickets");
 
   const admin = createAdminClient();

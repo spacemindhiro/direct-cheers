@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EvidenceUploadForm } from "@/components/evidence-upload-form";
 import { Loader2, Calendar, MapPin, CheckCircle2 } from "lucide-react";
@@ -15,7 +15,7 @@ async function EvidencePageContent({
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) redirect("/auth/login");
 
   const { data: event } = await admin

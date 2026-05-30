@@ -1,11 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
-/**
- * Especially important if using Fluid compute: Don't put this client in a
- * global variable. Always create a new client within each function when using
- * it.
- */
 export async function createClient() {
   const cookieStore = await cookies();
 
@@ -32,3 +28,10 @@ export async function createClient() {
     },
   );
 }
+
+// 同一RSCレンダリング内でgetUser()を1回に束約する
+export const getUser = cache(async () => {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+});

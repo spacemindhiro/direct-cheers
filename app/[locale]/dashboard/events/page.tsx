@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { Loader2, Plus, Calendar, MapPin } from "lucide-react";
 import Link from "next/link";
 
@@ -15,9 +15,7 @@ const LIFECYCLE_CONFIG: Record<string, { label: string; className: string }> = {
 
 async function EventsContent() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
 
   if (!user) redirect("/auth/login");
 

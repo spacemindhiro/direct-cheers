@@ -7,6 +7,93 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const TRANSFER_FEE = 500; // 振込手数料 ¥500
 const HOLD_DAYS = 14;     // 出金可能になるまでの日数
 
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+// 複数 transfer から targetAmount 分を Reversal してプラットフォームに回収
+const collectFeeByReversal = async (
+  transferIds: string[],
+  targetAmount: number,
+): Promise<number> => {
+  let remaining = targetAmount;
+  for (const transferId of transferIds) {
+    if (remaining <= 0) break;
+    try {
+      const tr = await stripe.transfers.retrieve(transferId);
+      const reversible = tr.amount - tr.amount_reversed;
+      if (reversible <= 0) continue;
+      const toReverse = Math.min(reversible, remaining);
+      await stripe.transfers.createReversal(transferId, { amount: toReverse });
+      remaining -= toReverse;
+    } catch (err: any) {
+      console.error(`[payout/request] reversal失敗 transfer=${transferId}:`, err.message);
+    }
+  }
+  return targetAmount - remaining;
+};
+
+// connected account 内の sub-transfer を Reversal（資金は organizer に戻る）
+const collectFeeByReversalFromAccount = async (
+  transferIds: string[],
+  targetAmount: number,
+  stripeAccount: string,
+): Promise<number> => {
+  let remaining = targetAmount;
+  for (const transferId of transferIds) {
+    if (remaining <= 0) break;
+    try {
+      const tr = await stripe.transfers.retrieve(transferId, {}, { stripeAccount });
+      const reversible = tr.amount - tr.amount_reversed;
+      if (reversible <= 0) continue;
+      const toReverse = Math.min(reversible, remaining);
+      await stripe.transfers.createReversal(transferId, { amount: toReverse }, { stripeAccount });
+      remaining -= toReverse;
+    } catch (err: any) {
+      console.error(`[payout/request] sub-transfer reversal失敗 transfer=${transferId}:`, err.message);
+    }
+  }
+  return targetAmount - remaining;
+};
+
+// イベントの transactions から destination_transfer_id を取得（新フロー判定用）
+const getDestinationTransferIds = async (
+  admin: AdminClient,
+  eventIds: string[],
+): Promise<string[]> => {
+  if (eventIds.length === 0) return [];
+  const { data: qrcs } = await admin
+    .from("qr_configs")
+    .select("qr_config_id")
+    .in("event_id", eventIds);
+  const qrcIds = (qrcs ?? []).map((q: any) => q.qr_config_id);
+  if (qrcIds.length === 0) return [];
+  const { data: txs } = await admin
+    .from("transactions")
+    .select("destination_transfer_id")
+    .in("qr_config_id", qrcIds)
+    .not("destination_transfer_id", "is", null);
+  return (txs ?? []).map((t: any) => t.destination_transfer_id).filter(Boolean) as string[];
+};
+
+// イベントの organizer の Stripe Connect ID を取得
+const getOrganizerConnectId = async (
+  admin: AdminClient,
+  eventIds: string[],
+): Promise<string | null> => {
+  if (eventIds.length === 0) return null;
+  const { data: eventRow } = await admin
+    .from("events")
+    .select("organizer_profile_id")
+    .eq("event_id", eventIds[0])
+    .single();
+  if (!eventRow?.organizer_profile_id) return null;
+  const { data: orgProfile } = await admin
+    .from("profiles")
+    .select("stripe_connect_id")
+    .eq("profile_id", eventRow.organizer_profile_id)
+    .single();
+  return orgProfile?.stripe_connect_id ?? null;
+};
+
 export async function POST(req: Request) {
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -37,7 +124,6 @@ export async function POST(req: Request) {
   const isAdmin = profile?.role === "admin";
   const useBypass = !!bypass_event_id && isAdmin;
 
-  // 出金可能残高を取得（14日以上前のトランザクションに紐づく accrued distributions）
   const cutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: availableDists } = await admin
@@ -60,8 +146,6 @@ export async function POST(req: Request) {
     .eq("is_frozen", false)
     .is("deleted_at", null);
 
-  // 14日経過 かつ 照合済み かつ 金額一致 のみ出金可能
-  // hold_released=true または bypass_event_id 指定時は14日チェックをスキップ
   const eligibleDists = (availableDists ?? []).filter((d) => {
     const tx = d.transaction as any;
     if (!tx) return false;
@@ -72,7 +156,6 @@ export async function POST(req: Request) {
     return true;
   });
 
-  // 照合未完了の distributions があるか確認（hold解除済み・bypass対象を除く）
   const unreconciledCount = (availableDists ?? []).filter((d) => {
     const tx = d.transaction as any;
     if ((d as any).hold_released) return false;
@@ -110,33 +193,14 @@ export async function POST(req: Request) {
   }
 
   // 振込手数料をプラットフォームへ回収（ロール別3分岐）
-  // 1つのTransferに残高が足りない場合に備え、複数Transferをかき集めてtargetAmountに達するまでReversal
-  const collectFeeByReversal = async (transferIds: string[], targetAmount: number): Promise<number> => {
-    let remaining = targetAmount;
-    for (const transferId of transferIds) {
-      if (remaining <= 0) break;
-      try {
-        const tr = await stripe.transfers.retrieve(transferId);
-        const reversible = tr.amount - tr.amount_reversed;
-        if (reversible <= 0) continue;
-        const toReverse = Math.min(reversible, remaining);
-        await stripe.transfers.createReversal(transferId, { amount: toReverse });
-        remaining -= toReverse;
-      } catch (err: any) {
-        console.error(`[payout/request] reversal失敗 transfer=${transferId}:`, err.message);
-      }
-    }
-    return targetAmount - remaining; // 実際に回収できた額
-  };
-
   const payoutRole = profile.role as string;
   const payoutEventIds = [...new Set(
     (eligibleDists as any[]).map((d: any) => d.event_id).filter(Boolean) as string[]
   )];
 
   try {
-    if (payoutRole === "agent" || payoutRole === "organizer") {
-      // エージェント・オーガナイザー: プラットフォームから直接Transfer済み → Reversalで回収
+    if (payoutRole === "agent") {
+      // agent: settle_transfers の platform→agent Transfer を Reversal
       const { data: trs } = await admin
         .from("settle_transfers")
         .select("stripe_transfer_id")
@@ -145,9 +209,30 @@ export async function POST(req: Request) {
         .order("created_at", { ascending: false });
       const ids = (trs ?? []).map((t) => t.stripe_transfer_id);
       await collectFeeByReversal(ids, TRANSFER_FEE);
+
+    } else if (payoutRole === "organizer") {
+      // organizer: destination transfer (platform→organizer) の Reversal でプラットフォームへ回収
+      const destTransferIds = await getDestinationTransferIds(admin, payoutEventIds);
+      if (destTransferIds.length > 0) {
+        // 新フロー: destination transfer reversal（organizer→platform）
+        await collectFeeByReversal(destTransferIds, TRANSFER_FEE);
+      } else {
+        // 旧フロー: settle_transfers の platform→organizer Transfer reversal
+        const { data: trs } = await admin
+          .from("settle_transfers")
+          .select("stripe_transfer_id")
+          .eq("profile_id", user.id)
+          .in("event_id", payoutEventIds)
+          .order("created_at", { ascending: false });
+        const ids = (trs ?? []).map((t) => t.stripe_transfer_id);
+        await collectFeeByReversal(ids, TRANSFER_FEE);
+      }
+
     } else {
-      // アーティスト: TransferをReversalすると資金がオーガナイザーに戻る
-      // → 不足分をオーガナイザーのTransferからさらにReversalしてプラットフォームへ回収
+      // artist
+      const destTransferIds = await getDestinationTransferIds(admin, payoutEventIds);
+      const isNewFlow = destTransferIds.length > 0;
+
       const { data: artistTrs } = await admin
         .from("settle_transfers")
         .select("stripe_transfer_id")
@@ -155,26 +240,39 @@ export async function POST(req: Request) {
         .in("event_id", payoutEventIds)
         .order("created_at", { ascending: false });
       const artistIds = (artistTrs ?? []).map((t) => t.stripe_transfer_id);
-      const collected = await collectFeeByReversal(artistIds, TRANSFER_FEE);
 
-      // アーティストTransferだけで ¥500 集めきれなかった場合、残りをオーガナイザーから回収
-      const remaining = TRANSFER_FEE - collected;
-      if (remaining > 0 && payoutEventIds.length > 0) {
-        const { data: eventRow } = await admin
-          .from("events")
-          .select("organizer_profile_id")
-          .eq("event_id", payoutEventIds[0])
-          .single();
-
-        if (eventRow?.organizer_profile_id) {
-          const { data: orgTrs } = await admin
-            .from("settle_transfers")
-            .select("stripe_transfer_id")
-            .eq("profile_id", eventRow.organizer_profile_id)
-            .in("event_id", payoutEventIds)
-            .order("created_at", { ascending: false });
-          const orgIds = (orgTrs ?? []).map((t) => t.stripe_transfer_id);
-          await collectFeeByReversal(orgIds, remaining);
+      if (isNewFlow) {
+        // 新フロー:
+        // 1. sub-transfer (organizer→artist) を Reversal → ¥500 が organizer に戻る
+        // 2. destination transfer (platform→organizer) を Reversal → ¥500 が platform に戻る
+        const organizerConnectId = await getOrganizerConnectId(admin, payoutEventIds);
+        if (organizerConnectId) {
+          const collected = await collectFeeByReversalFromAccount(artistIds, TRANSFER_FEE, organizerConnectId);
+          if (collected > 0) {
+            // organizer に戻った ¥500 を destination transfer reversal でプラットフォームへ回収
+            await collectFeeByReversal(destTransferIds, collected);
+          }
+        }
+      } else {
+        // 旧フロー: platform→artist Transfer reversal（プラットフォームへ直接戻る）
+        const collected = await collectFeeByReversal(artistIds, TRANSFER_FEE);
+        const remaining = TRANSFER_FEE - collected;
+        if (remaining > 0 && payoutEventIds.length > 0) {
+          const { data: eventRow } = await admin
+            .from("events")
+            .select("organizer_profile_id")
+            .eq("event_id", payoutEventIds[0])
+            .single();
+          if (eventRow?.organizer_profile_id) {
+            const { data: orgTrs } = await admin
+              .from("settle_transfers")
+              .select("stripe_transfer_id")
+              .eq("profile_id", eventRow.organizer_profile_id)
+              .in("event_id", payoutEventIds)
+              .order("created_at", { ascending: false });
+            const orgIds = (orgTrs ?? []).map((t) => t.stripe_transfer_id);
+            await collectFeeByReversal(orgIds, remaining);
+          }
         }
       }
     }
@@ -199,7 +297,6 @@ export async function POST(req: Request) {
   if (prErr) return NextResponse.json({ error: prErr.message }, { status: 500 });
 
   // 使用した distributions を paid に更新
-  // 要求額に達するまで古い順に充当
   let remaining = requested_amount;
   const toMarkPaid: string[] = [];
   const sorted = [...eligibleDists].sort((a, b) =>

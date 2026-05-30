@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
+import { getFeeConfig } from "@/lib/fee-config";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -35,14 +36,48 @@ export async function POST(req: Request) {
       ? (["paypay"] as unknown as Stripe.Checkout.SessionCreateParams.PaymentMethodType[])
       : (["card"] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[]);
 
-  // ログイン中ユーザーのメアドを auth から取得（Link 別メアド決済でもコレクションが崩れないよう metadata に保存）
-  const loggedInUser = await getUser();
+  const [loggedInUser, feeConfig] = await Promise.all([getUser(), getFeeConfig()]);
   const loggedInEmail = loggedInUser?.email ?? null;
+
+  const admin = createAdminClient();
+
+  // organizer の Connect ID を取得（card 決済の destination charge 用）
+  let organizerConnectId: string | null = null;
+  if (payment_method === "card") {
+    const { data: qrc } = await admin
+      .from("qr_configs")
+      .select("event_id")
+      .eq("qr_config_id", qr_config_id)
+      .single();
+
+    if (qrc?.event_id) {
+      const { data: eventRow } = await admin
+        .from("events")
+        .select("organizer_profile_id")
+        .eq("event_id", qrc.event_id)
+        .single();
+
+      if (eventRow?.organizer_profile_id) {
+        const { data: orgProfile } = await admin
+          .from("profiles")
+          .select("stripe_connect_id")
+          .eq("profile_id", eventRow.organizer_profile_id)
+          .single();
+        organizerConnectId = orgProfile?.stripe_connect_id ?? null;
+      }
+    }
+  }
+
+  // application_fee_amount = platform_fee + stripe_fee
+  // → organizer が受け取る額 = gross - application_fee_amount = net_amount
+  const stripeRate = payment_method === "paypay" ? feeConfig.paypay_rate : feeConfig.stripe_rate;
+  const applicationFeeAmount = organizerConnectId
+    ? Math.floor(amount * feeConfig.platform_rate) + Math.floor(amount * stripeRate)
+    : undefined;
 
   // 事前登録済みカスタマーIDを引く
   let savedCustomerId: string | null = null;
   if (customer_email && payment_method === "card") {
-    const admin = createAdminClient();
     const { data } = await admin
       .from("provisional_users")
       .select("stripe_customer_id")
@@ -53,7 +88,16 @@ export async function POST(req: Request) {
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: paymentMethodTypes,
-    payment_intent_data: { capture_method: "manual" },
+    payment_intent_data: {
+      capture_method: "manual",
+      ...(organizerConnectId
+        ? {
+            on_behalf_of: organizerConnectId,
+            transfer_data: { destination: organizerConnectId },
+            application_fee_amount: applicationFeeAmount,
+          }
+        : {}),
+    },
     line_items: [
       {
         price_data: {

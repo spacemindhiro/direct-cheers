@@ -60,7 +60,7 @@ export async function POST(
   if (existingSummary?.is_approved_for_payout)
     return NextResponse.json({ error: "Already approved" }, { status: 400 });
 
-  // オーガナイザーの Stripe Connect ID（未確定アーティスト分の集約先）
+  // オーガナイザーの Stripe Connect ID
   const { data: organizerProfile } = await admin
     .from("profiles")
     .select("stripe_connect_id")
@@ -126,12 +126,10 @@ export async function POST(
   const profileAmounts = new Map<string, { amount: number; role: string; stripe_connect_id: string | null }>();
 
   // トランザクションごと・プロフィールごとの確定額（UPDATE/INSERT 用）
-  // key: `${transaction_id}/${profile_id}/${role}`
   type DistEntry = { txId: string; profileId: string; role: string; amount: number; connectId: string | null };
   const desiredDists = new Map<string, DistEntry>();
 
   for (const tx of transactions) {
-    // 保存済み net_amount を使用（RPCが計算した値: gross - floor(gross×stripe_rate) - floor(gross×platform_rate)）
     const net = (tx as any).net_amount ?? 0;
     const txTargets = targetsByQr.get(tx.qr_config_id ?? "") ?? [];
 
@@ -181,13 +179,12 @@ export async function POST(
     .in("transaction_id", txIds)
     .in("distribution_role", ["artist", "organizer"]);
 
-  const existingMap = new Map<string, string>(); // key → distribution_id
+  const existingMap = new Map<string, string>();
   for (const d of existingArtistOrgDists ?? []) {
     const key = `${d.transaction_id}/${d.profile_id}/${d.distribution_role}`;
     existingMap.set(key, d.transaction_distribution_id);
   }
 
-  // 既存行を上書き更新（金額が変わった場合のみ）、新規行は INSERT
   const distInsertRows: {
     transaction_id: string; event_id: string; profile_id: string;
     distribution_role: string; actual_amount: number; distribution_status: string;
@@ -215,7 +212,6 @@ export async function POST(
     }
   }
 
-  // 未確定アーティストなど desired に含まれない既存行は 0 に更新
   const zeroUpdatePromises = (existingArtistOrgDists ?? [])
     .filter((d) => {
       const key = `${d.transaction_id}/${d.profile_id}/${d.distribution_role}`;
@@ -230,10 +226,9 @@ export async function POST(
 
   await Promise.all([...distUpdatePromises, ...zeroUpdatePromises]);
 
-  const distributionRows = distInsertRows; // agent 追加用に参照を保持
+  const distributionRows = distInsertRows;
 
-  // エージェント手数料 — pay/complete で積み上げ済みのレコードを Transfer 対象に加算し、
-  // 未作成（コード変更前の古いトランザクション等）は補完作成する
+  // エージェント手数料
   if (event.agent_id) {
     const [{ data: agentProfile }, { data: existingAgentDists }] = await Promise.all([
       admin.from("profiles").select("stripe_connect_id").eq("profile_id", event.agent_id).single(),
@@ -280,7 +275,6 @@ export async function POST(
     }
   }
 
-  // transaction_distributions を一括挿入
   if (distributionRows.length > 0) {
     const { error: distErr } = await admin
       .from("transaction_distributions")
@@ -289,14 +283,20 @@ export async function POST(
       return NextResponse.json({ error: distErr.message }, { status: 500 });
   }
 
-  // Payment Intent をキャプチャ（オーソリ → 売上確定）
-  // チアーズ決済（qr_config 経由）+ 入場チケット決済（Type A/C: tickets 経由）を両方キャプチャ
+  // Payment Intent をキャプチャ
   function parsePiId(raw: string | null): string | null {
     if (!raw) return null;
     if (raw.startsWith("{")) {
       try { const p = JSON.parse(raw); if (p?.id) return p.id; } catch {}
     }
     return raw;
+  }
+
+  // pi_id → transaction_id マップ（destination_transfer_id 更新用）
+  const txByPiId = new Map<string, string>();
+  for (const tx of transactions) {
+    const piId = parsePiId((tx as any).stripe_payment_intent_id);
+    if (piId) txByPiId.set(piId, tx.transaction_id);
   }
 
   const allPaymentIntentIds = new Set(
@@ -314,13 +314,16 @@ export async function POST(
   if (ticketTxIds && ticketTxIds.length > 0) {
     const { data: entranceTxs } = await admin
       .from("transactions")
-      .select("stripe_payment_intent_id")
+      .select("transaction_id, stripe_payment_intent_id")
       .in("transaction_id", ticketTxIds.map((t) => t.transaction_id as string))
       .eq("status", "completed")
       .not("stripe_payment_intent_id", "is", null);
     for (const tx of entranceTxs ?? []) {
-      const piId = parsePiId(tx.stripe_payment_intent_id);
-      if (piId) allPaymentIntentIds.add(piId);
+      const piId = parsePiId((tx as any).stripe_payment_intent_id);
+      if (piId) {
+        allPaymentIntentIds.add(piId);
+        txByPiId.set(piId, (tx as any).transaction_id);
+      }
     }
   }
 
@@ -351,31 +354,103 @@ export async function POST(
     console.error(`[settle] ${captureFailures.length} capture(s) failed for event=${eventId}`, captureFailures);
   }
 
-  // Stripe transfers（Connect アカウントへ送金、各プロフィールは独立 → 並列実行）
-  const transferResults: { profile_id: string; amount: number; transfer_id: string | null; error?: string }[] = await Promise.all(
-    [...profileAmounts.entries()].map(async ([profileId, info]) => {
-      if (!info.stripe_connect_id || info.amount <= 0) {
-        return { profile_id: profileId, amount: info.amount, transfer_id: null };
-      }
+  // キャプチャ済み PI から destination_transfer_id を取得して transactions に記録
+  // destination charge の場合、capture 時に Stripe が自動で organizer への Transfer を作成する
+  const capturedPiIds = captureResults.filter((r) => r.captured).map((r) => r.pi_id);
+  const destTransferByPiId = new Map<string, string>();
+
+  await Promise.all(
+    capturedPiIds.map(async (piId) => {
       try {
-        const transfer = await stripe.transfers.create({
-          amount: info.amount,
-          currency: "jpy",
-          destination: info.stripe_connect_id,
-          metadata: { event_id: eventId, profile_id: profileId },
-        });
+        const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
+        const charge = pi.latest_charge as Stripe.Charge | null;
+        const transfer = charge?.transfer;
+        if (!transfer) return;
+        const transferId = typeof transfer === "string" ? transfer : (transfer as any).id;
+        if (transferId) destTransferByPiId.set(piId, transferId);
+      } catch (err: any) {
+        console.error(`[settle] destination_transfer_id 取得失敗 pi=${piId}:`, err.message);
+      }
+    })
+  );
+
+  if (destTransferByPiId.size > 0) {
+    await Promise.all(
+      [...destTransferByPiId.entries()].map(([piId, transferId]) => {
+        const txId = txByPiId.get(piId);
+        if (!txId) return Promise.resolve();
+        return admin
+          .from("transactions")
+          .update({ destination_transfer_id: transferId })
+          .eq("transaction_id", txId) as unknown as Promise<any>;
+      })
+    );
+  }
+
+  const isDestinationChargeFlow = destTransferByPiId.size > 0;
+
+  // Transfer 実行
+  // - organizer: destination charge で自動 transfer 済み → スキップ（新フロー）
+  // - artist: organizer の Connect アカウントから sub-transfer（新フロー）
+  // - agent: platform → agent transfer（常に platform から）
+  // - 旧フロー（destination charge なし）: 全ロールとも platform から直接 transfer
+  const transferResults: { profile_id: string; amount: number; transfer_id: string | null; error?: string }[] = [];
+
+  for (const [profileId, info] of profileAmounts.entries()) {
+    if (!info.stripe_connect_id || info.amount <= 0) {
+      transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: null });
+      continue;
+    }
+
+    // 新フロー: organizer は destination transfer で自動送金済み
+    if (info.role === "organizer" && isDestinationChargeFlow) {
+      continue;
+    }
+
+    // 新フロー: artist は organizer の Connect アカウントから sub-transfer
+    if (info.role === "artist" && isDestinationChargeFlow && organizerConnectId) {
+      try {
+        const transfer = await stripe.transfers.create(
+          {
+            amount: info.amount,
+            currency: "jpy",
+            destination: info.stripe_connect_id,
+            metadata: { event_id: eventId, profile_id: profileId },
+          },
+          { stripeAccount: organizerConnectId }
+        );
         await admin.from("settle_transfers").insert({
           event_id: eventId,
           profile_id: profileId,
           stripe_transfer_id: transfer.id,
           amount: info.amount,
         });
-        return { profile_id: profileId, amount: info.amount, transfer_id: transfer.id };
+        transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: transfer.id });
       } catch (err: any) {
-        return { profile_id: profileId, amount: info.amount, transfer_id: null, error: err.message };
+        transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: null, error: err.message });
       }
-    })
-  );
+      continue;
+    }
+
+    // agent（常に platform から）& 旧フローの organizer/artist
+    try {
+      const transfer = await stripe.transfers.create({
+        amount: info.amount,
+        currency: "jpy",
+        destination: info.stripe_connect_id,
+        metadata: { event_id: eventId, profile_id: profileId },
+      });
+      await admin.from("settle_transfers").insert({
+        event_id: eventId,
+        profile_id: profileId,
+        stripe_transfer_id: transfer.id,
+        amount: info.amount,
+      });
+      transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: transfer.id });
+    } catch (err: any) {
+      transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: null, error: err.message });
+    }
+  }
 
   // settlement_summary を upsert
   if (existingSummary) {
@@ -404,7 +479,7 @@ export async function POST(
     .update({ lifecycle_status: "settled" })
     .eq("event_id", eventId);
 
-  // オーガナイザーの差戻し通知 + adminの証跡提出通知を既読化
+  // 通知を既読化
   const { data: ev } = await admin
     .from("events")
     .select("organizer_profile_id")
@@ -418,7 +493,6 @@ export async function POST(
       .eq("type", "evidence_rejected")
       .filter("metadata->>event_id", "eq", eventId);
   }
-  // adminへの証跡提出通知を既読化
   await admin
     .from("notifications")
     .update({ is_read: true })
@@ -432,5 +506,6 @@ export async function POST(
     captures: captureResults,
     capture_failures: captureFailures.length,
     transfers: transferResults,
+    destination_charge_flow: isDestinationChargeFlow,
   });
 }

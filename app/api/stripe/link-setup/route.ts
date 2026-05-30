@@ -7,7 +7,7 @@ export async function POST() {
   try {
     const setupIntent = await stripe.setupIntents.create({
       payment_method_types: ["card", "link"],
-      usage: "on_session",
+      usage: "off_session",
     });
     return NextResponse.json({ client_secret: setupIntent.client_secret });
   } catch (err: any) {

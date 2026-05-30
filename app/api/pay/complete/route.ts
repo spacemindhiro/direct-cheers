@@ -36,13 +36,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
   }
 
-  const email = session.customer_email ?? (session.customer as Stripe.Customer)?.email;
+  const stripeEmail = session.customer_email ?? (session.customer as Stripe.Customer)?.email;
+  const meta = session.metadata ?? {};
+  // ログイン中ユーザーのメアドが metadata にあればそちらを優先（Link 別メアド決済対策）
+  const email = meta.sender_email || stripeEmail;
   const stripeCustomerId =
     typeof session.customer === "string"
       ? session.customer
       : (session.customer as Stripe.Customer)?.id ?? null;
 
-  const meta = session.metadata ?? {};
   const admin = createAdminClient();
 
   // profile_id をメールから1回だけ解決 — provisional_users 優先、auth.users フォールバック

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/supabase/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -33,6 +34,10 @@ export async function POST(req: Request) {
     payment_method === "paypay"
       ? (["paypay"] as unknown as Stripe.Checkout.SessionCreateParams.PaymentMethodType[])
       : (["card"] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[]);
+
+  // ログイン中ユーザーのメアドを auth から取得（Link 別メアド決済でもコレクションが崩れないよう metadata に保存）
+  const loggedInUser = await getUser();
+  const loggedInEmail = loggedInUser?.email ?? null;
 
   // 事前登録済みカスタマーIDを引く
   let savedCustomerId: string | null = null;
@@ -71,6 +76,7 @@ export async function POST(req: Request) {
       product_id,
       artist_name: metadata?.artist_name ?? "",
       event_title: metadata?.event_title ?? "",
+      ...(loggedInEmail ? { sender_email: loggedInEmail } : {}),
     },
   };
 

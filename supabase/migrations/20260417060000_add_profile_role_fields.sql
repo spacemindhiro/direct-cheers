@@ -23,6 +23,15 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS business_type text NOT NULL DEFAULT 'individual',
   ADD COLUMN IF NOT EXISTS business_name text;
 
-ALTER TABLE public.profiles
-  ADD CONSTRAINT IF NOT EXISTS profiles_business_type_check
-    CHECK (business_type IN ('individual', 'company'));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'profiles_business_type_check'
+      AND conrelid = 'public.profiles'::regclass
+  ) THEN
+    ALTER TABLE public.profiles
+      ADD CONSTRAINT profiles_business_type_check
+        CHECK (business_type IN ('individual', 'company'));
+  END IF;
+END $$;

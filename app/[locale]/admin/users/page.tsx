@@ -57,6 +57,7 @@ async function AdminUsersContent() {
     .from("profiles")
     .select("profile_id, display_name, role, status, created_at")
     .neq("role", "user")
+    .neq("role", "admin")
     .neq("status", "active")
     .order("created_at", { ascending: false });
 
@@ -65,6 +66,7 @@ async function AdminUsersContent() {
     .from("profiles")
     .select("profile_id, display_name, role, status, created_at")
     .neq("role", "user")
+    .neq("role", "admin")
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(20);

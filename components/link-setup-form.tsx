@@ -47,7 +47,10 @@ function Form({ userEmail }: { userEmail: string | null }) {
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Card</p>
-        <PaymentElement options={{ layout: "tabs" }} />
+        <PaymentElement options={{
+        layout: "tabs",
+        defaultValues: userEmail ? { billingDetails: { email: userEmail } } : undefined,
+      }} />
       </div>
 
       {error && (

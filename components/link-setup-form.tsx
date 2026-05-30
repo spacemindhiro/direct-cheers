@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
-  LinkAuthenticationElement,
   PaymentElement,
   useStripe,
   useElements,
@@ -13,7 +12,7 @@ import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
-function Form() {
+function Form({ userEmail }: { userEmail: string | null }) {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -29,6 +28,11 @@ function Form() {
       elements,
       confirmParams: {
         return_url: `${window.location.origin}/link-setup/complete`,
+        ...(userEmail ? {
+          payment_method_data: {
+            billing_details: { email: userEmail },
+          },
+        } : {}),
       },
     });
 
@@ -42,17 +46,8 @@ function Form() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Email</p>
-        <LinkAuthenticationElement />
-      </div>
-
-      <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Card</p>
-        <PaymentElement
-          options={{
-            layout: "tabs",
-          }}
-        />
+        <PaymentElement options={{ layout: "tabs" }} />
       </div>
 
       {error && (
@@ -67,7 +62,7 @@ function Form() {
         disabled={loading || !stripe}
         className="w-full h-12 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-xl font-black text-sm uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
       >
-        {loading ? <Loader2 size={16} className="animate-spin" /> : "Stripe Linkに登録する"}
+        {loading ? <Loader2 size={16} className="animate-spin" /> : "カードを登録する"}
       </button>
 
       <p className="text-center text-[10px] text-slate-600">
@@ -77,7 +72,7 @@ function Form() {
   );
 }
 
-export function LinkSetupForm() {
+export function LinkSetupForm({ userEmail }: { userEmail: string | null }) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState(false);
 
@@ -126,7 +121,7 @@ export function LinkSetupForm() {
         },
       }}
     >
-      <Form />
+      <Form userEmail={userEmail} />
     </Elements>
   );
 }
@@ -139,8 +134,8 @@ export function LinkSetupComplete() {
       </div>
       <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">登録完了</h2>
       <p className="text-sm text-slate-400">
-        Stripe Linkにカードを登録しました。<br />
-        次回からはメールアドレスだけでワンタッチ決済できます。
+        カードを登録しました。<br />
+        次回からはスムーズにお支払いいただけます。
       </p>
     </div>
   );

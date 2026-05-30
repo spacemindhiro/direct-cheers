@@ -38,7 +38,7 @@ async function LinkSetupContent() {
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] p-6">
-        <LinkSetupForm />
+        <LinkSetupForm userEmail={user?.email ?? null} />
       </div>
 
     </div>

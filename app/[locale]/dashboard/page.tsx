@@ -32,7 +32,16 @@ function AppleGooglePayLinks() {
   );
 }
 
-function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D' }) {
+function LinkRegisteredBadge() {
+  return (
+    <div className="flex items-center gap-2 h-10 px-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+      <span className="text-xs font-black text-emerald-400">Stripe Link 登録済み</span>
+    </div>
+  );
+}
+
+function PaymentOptimizationSection({ pattern, linkRegistered }: { pattern: 'A' | 'B' | 'C' | 'D'; linkRegistered: boolean }) {
   if (pattern === 'A') {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-5 space-y-3">
@@ -48,13 +57,15 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
         <p className="text-xs text-slate-400 leading-relaxed">
           Apple Pay でワンタッチ決済が使えます。ただし LINE などのアプリ内ブラウザでは Apple Pay は使用できません。Stripe Link も登録しておくとどこでも確実に使えます。
         </p>
-        <Link
-          href="/link-setup"
-          className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-emerald-500/40 rounded-xl px-4 transition-all"
-        >
-          <span className="text-xs font-black text-white">Stripe Linkをバックアップ登録する</span>
-          <ChevronRight size={14} className="text-slate-500" />
-        </Link>
+        {linkRegistered ? <LinkRegisteredBadge /> : (
+          <Link
+            href="/link-setup"
+            className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-emerald-500/40 rounded-xl px-4 transition-all"
+          >
+            <span className="text-xs font-black text-white">Stripe Linkをバックアップ登録する</span>
+            <ChevronRight size={14} className="text-slate-500" />
+          </Link>
+        )}
       </div>
     );
   }
@@ -75,13 +86,15 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           Apple Pay / Google Pay が端末に設定済みならそのまま使えます。設定していない場合は Stripe Link にカードを登録しておくとワンタッチ決済できます。
         </p>
         <AppleGooglePayLinks />
-        <Link
-          href="/link-setup"
-          className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/40 rounded-xl px-4 transition-all"
-        >
-          <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
-          <ChevronRight size={14} className="text-slate-500" />
-        </Link>
+        {linkRegistered ? <LinkRegisteredBadge /> : (
+          <Link
+            href="/link-setup"
+            className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/40 rounded-xl px-4 transition-all"
+          >
+            <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
+            <ChevronRight size={14} className="text-slate-500" />
+          </Link>
+        )}
       </div>
     );
   }
@@ -102,13 +115,15 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
           一部のイベントではPayPayが使えない場合があります。Apple Pay / Google Pay または Stripe Link を登録しておくと確実です。
         </p>
         <AppleGooglePayLinks />
-        <Link
-          href="/link-setup"
-          className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-orange-500/40 rounded-xl px-4 transition-all"
-        >
-          <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
-          <ChevronRight size={14} className="text-slate-500" />
-        </Link>
+        {linkRegistered ? <LinkRegisteredBadge /> : (
+          <Link
+            href="/link-setup"
+            className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-orange-500/40 rounded-xl px-4 transition-all"
+          >
+            <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
+            <ChevronRight size={14} className="text-slate-500" />
+          </Link>
+        )}
       </div>
     );
   }
@@ -132,13 +147,15 @@ function PaymentOptimizationSection({ pattern }: { pattern: 'A' | 'B' | 'C' | 'D
         <li className="text-slate-600">💳 <span className="font-bold">カード入力</span> — 毎回手入力が必要で当日は時間がかかります</li>
       </ul>
       <AppleGooglePayLinks />
-      <Link
-        href="/link-setup"
-        className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500/40 rounded-xl px-4 transition-all"
-      >
-        <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
-        <ChevronRight size={14} className="text-slate-500" />
-      </Link>
+      {linkRegistered ? <LinkRegisteredBadge /> : (
+        <Link
+          href="/link-setup"
+          className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500/40 rounded-xl px-4 transition-all"
+        >
+          <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
+          <ChevronRight size={14} className="text-slate-500" />
+        </Link>
+      )}
     </div>
   );
 }
@@ -177,6 +194,7 @@ async function DashboardContent() {
     draftCountResult,
     cancelCountResult,
     lineupResult,
+    provisionalUserResult,
   ] = await Promise.all([
     admin.from('follows').select(`
       follow_id, followee_id,
@@ -252,6 +270,10 @@ async function DashboardContent() {
           )
         `).eq('artist_profile_id', user!.id).is('deleted_at', null).order('created_at', { ascending: false })
       : Promise.resolve({ data: null }),
+
+    !isAdmin
+      ? admin.from('provisional_users').select('stripe_customer_id').eq('email', userEmail).not('stripe_customer_id', 'is', null).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   // 第2バッチ: 第1バッチの結果に依存するフォローアップクエリを並列実行
@@ -293,6 +315,8 @@ async function DashboardContent() {
     cheersHistory = cheersHistory.slice(0, 20);
     totalCheersAmount = cheersHistory.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
   }
+
+  const hasLinkRegistered = !isAdmin && !!(provisionalUserResult as any)?.data?.stripe_customer_id;
 
   type PaymentPattern = 'A' | 'B' | 'C' | 'D';
   let paymentPattern: PaymentPattern = 'D';
@@ -630,7 +654,7 @@ async function DashboardContent() {
           </div>
 
           {/* 決済スピード最適化セクション */}
-          <PaymentOptimizationSection pattern={paymentPattern} />
+          <PaymentOptimizationSection pattern={paymentPattern} linkRegistered={hasLinkRegistered} />
 
           <div className="space-y-4">
             <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">

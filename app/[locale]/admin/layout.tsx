@@ -46,6 +46,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               Reconcile
             </Link>
+            <Link
+              href="/admin/refunds"
+              className="text-[10px] font-black text-red-400 hover:text-red-300 uppercase tracking-widest transition-colors"
+            >
+              Refunds
+            </Link>
             <LogoutButton />
           </div>
         </div>

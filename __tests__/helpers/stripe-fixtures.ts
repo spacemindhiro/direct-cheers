@@ -5,11 +5,33 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 // Stripe テスト用 Express Connect アカウントを作成して ID を返す
 export async function createTestConnectAccount(): Promise<string> {
   const account = await stripe.accounts.create({
-    type: "express",
+    type: "custom",
     country: "JP",
-    capabilities: { transfers: { requested: true } },
+    capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
     settings: { payouts: { schedule: { interval: "manual" } } },
-  });
+    tos_acceptance: { date: Math.floor(Date.now() / 1000), ip: "127.0.0.1" },
+    business_type: "individual",
+    business_profile: { mcc: "5734", product_description: "テスト", url: "https://direct-cheers.jp" },
+    individual: {
+      email: "test@direct-cheers.jp",
+      phone: "+818012345678",
+      first_name_kana: "テスト",
+      last_name_kana: "ユーザー",
+      first_name_kanji: "テスト",
+      last_name_kanji: "ユーザー",
+      dob: { day: 1, month: 1, year: 1990 },
+      address_kana: { postal_code: "1000001", state: "トウキョウト", city: "チヨダク", town: "チヨダ", line1: "1-1" },
+      address_kanji: { postal_code: "1000001", state: "東京都", city: "千代田区", town: "千代田", line1: "1-1" },
+    },
+    external_account: {
+      object: "bank_account",
+      country: "JP",
+      currency: "jpy",
+      routing_number: "1100000",
+      account_number: "0001234",
+      account_holder_name: "テスト ユーザー",
+    },
+  } as any);
   return account.id;
 }
 
@@ -22,11 +44,12 @@ export async function deleteTestConnectAccount(accountId: string): Promise<void>
   }
 }
 
-// destination charge の PaymentIntent を作成（requires_capture 状態で返す）
+// PaymentIntent を作成（requires_capture 状態で返す）
+// on_behalf_of のみ設定し transfer_data.destination は使わない。
+// settle 時に source_transaction で organizer / artist へ個別 Transfer するため。
 export async function createTestPaymentIntent(params: {
   amount: number;
   organizerConnectId: string;
-  applicationFeeAmount: number;
 }): Promise<Stripe.PaymentIntent> {
   return stripe.paymentIntents.create({
     amount: params.amount,
@@ -35,10 +58,26 @@ export async function createTestPaymentIntent(params: {
     payment_method: "pm_card_visa",
     confirm: true,
     on_behalf_of: params.organizerConnectId,
-    transfer_data: { destination: params.organizerConnectId },
-    application_fee_amount: params.applicationFeeAmount,
     return_url: "http://localhost:3000",
   });
+}
+
+// PI をキャプチャして chargeId と source_transaction Transfer ID を返す（settle フロー再現）
+export async function captureAndTransfer(params: {
+  piId: string;
+  amount: number;
+  destination: string;
+}): Promise<{ chargeId: string; transferId: string }> {
+  await stripe.paymentIntents.capture(params.piId);
+  const pi = await stripe.paymentIntents.retrieve(params.piId, { expand: ["latest_charge"] });
+  const chargeId = (pi.latest_charge as Stripe.Charge)?.id ?? "";
+  const transfer = await stripe.transfers.create({
+    amount: params.amount,
+    currency: "jpy",
+    destination: params.destination,
+    source_transaction: chargeId,
+  });
+  return { chargeId, transferId: transfer.id };
 }
 
 // platform → Connect アカウントへ直接 Transfer（旧フロー用・テスト残高を作るために使用）

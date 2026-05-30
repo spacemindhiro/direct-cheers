@@ -4,37 +4,38 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
-export type TestContext = {
-  adminProfileId: string;
-  organizerProfileId: string;
-  artistProfileId: string;
-  agentProfileId: string;
-  organizerConnectId: string | null;
-  artistConnectId: string | null;
-  agentConnectId: string | null;
-  eventId: string;
-  qrConfigId: string;
-};
-
-// テスト用プロファイルを挿入
+// auth.users + profiles をセットで作成して profile_id を返す
+// profiles.profile_id は auth.users への FK があるため auth user 先作成が必須
 export async function insertProfile(params: {
-  profileId?: string;
   role: "admin" | "organizer" | "artist" | "agent";
   displayName: string;
   email: string;
   stripeConnectId?: string | null;
 }): Promise<string> {
-  const id = params.profileId ?? newId();
+  const { data: authData, error: authErr } = await testAdmin.auth.admin.createUser({
+    email: params.email,
+    password: "TestPass123!",
+    email_confirm: true,
+  });
+  if (authErr) throw new Error(`auth user 作成失敗 [${params.email}]: ${authErr.message}`);
+
+  const id = authData.user.id;
   const { error } = await testAdmin.from("profiles").insert({
     profile_id: id,
     role: params.role,
     display_name: params.displayName,
-    email: params.email,
     stripe_connect_id: params.stripeConnectId ?? null,
     status: "active",
   });
   if (error) throw new Error(`プロファイル挿入失敗 [${params.role}]: ${error.message}`);
   return id;
+}
+
+// auth user を削除（afterAll のクリーンアップ用）
+export async function deleteAuthUsers(profileIds: string[]): Promise<void> {
+  await Promise.all(
+    profileIds.map((id) => testAdmin.auth.admin.deleteUser(id).catch(() => {})),
+  );
 }
 
 // テスト用イベントを挿入
@@ -45,12 +46,13 @@ export async function insertEvent(params: {
   title?: string;
 }): Promise<string> {
   const id = params.eventId ?? newId();
+  // agent_id は NOT NULL。指定がない場合は organizer を代入（テスト用の自己参照）
   const { error } = await testAdmin.from("events").insert({
     event_id: id,
     title: params.title ?? "テストイベント",
     organizer_profile_id: params.organizerProfileId,
-    agent_id: params.agentId ?? null,
-    lifecycle_status: "active",
+    agent_id: params.agentId ?? params.organizerProfileId,
+    lifecycle_status: "published",
     start_at: new Date(Date.now() + 86400_000).toISOString(),
     end_at: new Date(Date.now() + 172800_000).toISOString(),
   });
@@ -62,6 +64,7 @@ export async function insertEvent(params: {
 export async function insertQrConfig(params: {
   qrConfigId?: string;
   eventId: string;
+  creatorProfileId: string;
   recipientProfileId: string;
   productId?: string | null;
 }): Promise<string> {
@@ -71,9 +74,9 @@ export async function insertQrConfig(params: {
   const { error } = await testAdmin.from("qr_configs").insert({
     qr_config_id: id,
     event_id: params.eventId,
+    creator_profile_id: params.creatorProfileId,
     recipient_profile_id: params.recipientProfileId,
     product_id: productId,
-    slug: `test-${id.slice(0, 8)}`,
   });
   if (error) throw new Error(`QR config 挿入失敗: ${error.message}`);
   return id;
@@ -116,7 +119,7 @@ export async function insertTransaction(params: {
     platform_fee: params.platformFee,
     stripe_payment_intent_id: params.stripePaymentIntentId,
     status: params.status ?? "completed",
-    transaction_type: "cheers",
+    transaction_type: "purchase",
     payment_method: "card",
     amount_verified: true,
     amount_mismatch: 0,
@@ -179,8 +182,8 @@ export async function insertEventEvidence(params: {
     .from("event_evidences")
     .insert({
       event_id: params.eventId,
-      submitted_by_profile_id: params.submittedByProfileId,
-      evidence_url: "https://example.com/test-evidence.pdf",
+      submitted_by: params.submittedByProfileId,
+      photo_paths: [],
     })
     .select("evidence_id")
     .single();

@@ -1,6 +1,6 @@
 # Direct Cheers — 統合テスト仕様書
 
-> **最終更新:** 2026-05-30  
+> **最終更新:** 2026-05-31  
 > **対象ブランチ:** develop  
 > **テストランナー:** Vitest 4.x
 
@@ -12,9 +12,18 @@
 |----------|------|
 | テストランナー | Vitest 4（ESM ネイティブ、Next.js / Stripe SDK v20 と互換） |
 | Stripe | **モックしない**。`STRIPE_SECRET_KEY=sk_test_*` でテストモード API を実際に呼ぶ |
+| Stripe Connect アカウント（テスト用） | **Custom タイプ**で作成する（環境制約・後述） |
 | Supabase | **モックしない**。`supabase start` で起動したローカル Docker DB を使う |
 | Next.js server utils | `@/lib/supabase/server`（`createClient`, `getUser`）のみ `vi.mock` でダミー返却 |
 | `next/headers` | `vi.mock` でダミー返却（テスト環境に Request context がないため） |
+
+### 環境制約: Stripe Connect アカウントのタイプ
+
+テスト fixture（`stripe-fixtures.ts`）では Connect アカウントを **Custom タイプ** で作成している。
+
+プロダクションで使用するのは **Express タイプ** だが、Express アカウントは Stripe のホスト型オンボーディング（本人確認フロー）を経ないと `transfers` capability が Active にならない。Stripe の API は Express アカウントへの `tos_acceptance` セットを明示的に禁止している（`controller[requirement_collection]=stripe` のアカウントには ToS を代理受諾できない）。
+
+Custom タイプであれば API で `tos_acceptance` を渡すことで capability を即時 Active にできるため、テスト用途に採用した。決済ロジック（destination charge、transfer、reversal）はアカウントタイプに依存しないため、テストの有効性に影響しない。
 
 ### 実行モード
 
@@ -74,11 +83,12 @@ __tests__/
 │   ├── stripe-fixtures.ts  Connect アカウント作成・PI 作成・Capture・Transfer ヘルパー
 │   └── seed.ts             DB レコード挿入ヘルパー（profiles, events, transactions 等）
 └── integration/
-    ├── pay-cheers.test.ts  TC-PAY   /api/pay/cheers
-    ├── settle.test.ts      TC-SETTLE /api/events/[eventId]/settle
+    ├── pay-cheers.test.ts  TC-PAY    /api/pay/cheers（TC-PAY-05 は settle.test.ts 内に配置）
+    ├── settle.test.ts      TC-SETTLE /api/events/[eventId]/settle（TC-PAY-05 含む）
+    ├── refund.test.ts      TC-REFUND /api/admin/refund（返金5パターン）
     ├── payout.test.ts      TC-PAYOUT /api/payout/request
-    ├── chargeback.test.ts  TC-CB    /api/stripe/webhook（dispute イベント）
-    └── tax.test.ts         TC-TAX   手数料計算・端数処理（純ロジック）
+    ├── chargeback.test.ts  TC-CB     /api/stripe/webhook（dispute イベント）
+    └── tax.test.ts         TC-TAX    手数料計算・端数処理（純ロジック）
 ```
 
 ---
@@ -93,6 +103,7 @@ __tests__/
 | TC-PAY-02 | PayPay 決済 | PI に `on_behalf_of` が設定されない（destination charge なし） |
 | TC-PAY-03 | オーガナイザーに Connect アカウントなし | `application_fee_amount` が null でも Session が正常作成される |
 | TC-PAY-04 | 必須フィールド欠損 | HTTP 400 が返る |
+| TC-PAY-05 | SavedCard off_session オーソリ → settle 完走 | SetupIntent でカード登録 → off_session PI（capture_method=manual）→ settle ロジックがキャプチャし agent/org/artist に1円単位で3者分配 |
 
 **手数料計算（TC-PAY-01）:**
 ```
@@ -102,23 +113,83 @@ application_fee_amount = floor(gross × platform_rate) + floor(gross × stripe_r
 organizer 受取 = gross - application_fee_amount = 10000 - 1396 = 8604
 ```
 
+**TC-PAY-05 計算根拠（gross=10,000、agent+org50%+artist50%）:**
+```
+stripe_fee = 396, platform_fee = 1000, net = 8604
+agent  = floor(10000 × 0.05) = 500
+org    = floor(8604 × 0.5)  = 4302
+artist = floor(8604 × 0.5)  = 4302
+合計   = 9104 = net（プラットフォームは platform_fee=1000 を黙示的回収）
+```
+
 ---
 
 ### TC-SETTLE — /api/events/[eventId]/settle（決済キャプチャ・送金）
 
 | ID | タイトル | アサーション |
 |----|----------|-------------|
-| TC-SETTLE-01 | destination charge 新フロー | `transactions.destination_transfer_id` に `tr_*` が記録される。artist に sub-transfer が作成される。organizer の `settle_transfers` 行は作成されない |
-| TC-SETTLE-03 | エージェント手数料 | `transaction_distributions` に agent 行（`actual_amount = floor(gross × 0.05)`）が作成される。`settle_transfers` にも agent 分の transfer が存在する |
+| TC-SETTLE-01 | source_transaction Transfer フロー | organizer・artist それぞれに `source_transaction` Transfer が作成され `settle_transfers` に記録される。`transactions.destination_transfer_id` は NULL（destination charge は使用しない） |
+| TC-SETTLE-03 | エージェント手数料 | `transaction_distributions` に agent 行（`actual_amount = floor(gross × 0.05)`）が作成される。`settle_transfers` にも agent 分の source_transaction Transfer が存在する |
 | TC-SETTLE-04 | 未確定アーティスト → オーガナイザー帰属 | `event_artists.status = "pending"` のアーティストへの配分が organizer に振り替えられる |
 | TC-SETTLE-05 | 二重 settle 防止 | HTTP 400 `Already settled` |
+| TC-SETTLE-06 | 照合差異・再精算（分割精算の総額一致） | 15,000円 精算 + 5,000円 差分精算 の合計が 20,000円 一括精算と1円単位で完全一致する。差分精算の分配率が正確に適用される |
 
-**新フロー判定:**
+**source_transaction Transfer フロー（現行アーキテクチャ）:**
 ```
-transactions.destination_transfer_id IS NOT NULL → 新フロー
-  organizer: 自動送金済みのため settle_transfers は作成しない
-  artist:    organizer の Connect アカウントから sub-transfer（stripeAccount オプション）
-  agent:     platform から直接 Transfer（変わらず）
+全ロール（organizer / artist / agent）とも source_transaction: chargeId を指定した Transfer を使用。
+platform の available 残高に依存しない。platform 手数料は黙示的回収（gross - 全送金合計）。
+
+transactions.destination_transfer_id は NULL（destination charge は使わない設計に変更済み）
+```
+
+**TC-SETTLE-06 再精算の計算根拠:**
+```
+gross=20,000 → stripeFee=792, platformFee=2000, net=17208, agent=1000, org=8604, artist=8604
+gross=15,000 → stripeFee=594, platformFee=1500, net=12906, agent=750,  org=6453, artist=6453
+gross= 5,000 → stripeFee=198, platformFee= 500, net= 4302, agent=250,  org=2151, artist=2151
+
+org: 6453+2151=8604 ✓  artist: 6453+2151=8604 ✓  agent: 750+250=1000 ✓
+```
+
+---
+
+---
+
+### TC-REFUND — /api/admin/refund（返金実行）
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-REFUND-01 | 非admin → 403 Forbidden | organizer ロールで POST → 403 |
+| TC-REFUND-02 | オーソリ中（requires_capture）→ cancel | PI.status=canceled、TX.status=cancelled |
+| TC-REFUND-03 | キャプチャ後・settle前 + COMPASSIONATE | refund 実行。settle_transfer なし（totalReversed=0）。debt_claims に stripe_fee が記録される |
+| TC-REFUND-04 | キャプチャ後・settle後 + FULL_PENALTY | 全 settle_transfer を逆転（totalReversed=settle額）。debt_claims に platform_fee が記録される |
+| TC-REFUND-05 | キャプチャ後・settle後 + COMPASSIONATE | 全 settle_transfer を逆転（同上）。debt_claims に stripe_fee が記録される |
+
+**5パターンの処理分岐:**
+```
+1. requires_capture                → PI cancel（資金移動ゼロ）
+2. succeeded + settle前 FULL_PENALTY    → refund + debt_claims(platform_fee 10%)
+3. succeeded + settle前 COMPASSIONATE   → refund + debt_claims(stripe_fee ~4%)
+4. succeeded + settle後 FULL_PENALTY    → refund + 全transfer逆転(按分) + debt_claims(platform_fee)
+5. succeeded + settle後 COMPASSIONATE   → refund + 全transfer逆転(按分) + debt_claims(stripe_fee)
+```
+
+**プラットフォーム損益（gross=10,000 の場合）:**
+```
+settle後 FULL_PENALTY:
+  refund: -10000, 逆転回収: +9104, debt(platform_fee): +1000 → net = 500 - 10000 + 9104 + 1000 = +604
+settle後 COMPASSIONATE:
+  refund: -10000, 逆転回収: +9104, debt(stripe_fee): +396  → net = 500 - 10000 + 9104 + 396  = 0 (完全無傷)
+settle前 COMPASSIONATE:
+  refund: -10000, debt(stripe_fee): +396                   → net = 9604 - 10000 + 396 = 0 (完全無傷)
+```
+
+**debt_claims フィールド:**
+```
+profile_id              = organizer の profile_id
+original_transaction_id = 対象トランザクション
+claim_amount            = FULL_PENALTY: platform_fee / COMPASSIONATE: stripe_fee
+status                  = 'active'（回収時に 'recovered' に更新）
 ```
 
 ---

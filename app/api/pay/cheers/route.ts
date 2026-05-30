@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
-import { getFeeConfig } from "@/lib/fee-config";
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -36,7 +34,7 @@ export async function POST(req: Request) {
       ? (["paypay"] as unknown as Stripe.Checkout.SessionCreateParams.PaymentMethodType[])
       : (["card"] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[]);
 
-  const [loggedInUser, feeConfig] = await Promise.all([getUser(), getFeeConfig()]);
+  const loggedInUser = await getUser();
   const loggedInEmail = loggedInUser?.email ?? null;
 
   const admin = createAdminClient();
@@ -68,13 +66,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // application_fee_amount = platform_fee + stripe_fee
-  // → organizer が受け取る額 = gross - application_fee_amount = net_amount
-  const stripeRate = payment_method === "paypay" ? feeConfig.paypay_rate : feeConfig.stripe_rate;
-  const applicationFeeAmount = organizerConnectId
-    ? Math.floor(amount * feeConfig.platform_rate) + Math.floor(amount * stripeRate)
-    : undefined;
-
   // 事前登録済みカスタマーIDを引く
   let savedCustomerId: string | null = null;
   if (customer_email && payment_method === "card") {
@@ -90,13 +81,7 @@ export async function POST(req: Request) {
     payment_method_types: paymentMethodTypes,
     payment_intent_data: {
       capture_method: "manual",
-      ...(organizerConnectId
-        ? {
-            on_behalf_of: organizerConnectId,
-            transfer_data: { destination: organizerConnectId },
-            application_fee_amount: applicationFeeAmount,
-          }
-        : {}),
+      ...(organizerConnectId ? { on_behalf_of: organizerConnectId } : {}),
     },
     line_items: [
       {

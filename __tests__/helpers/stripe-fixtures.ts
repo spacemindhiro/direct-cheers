@@ -62,6 +62,23 @@ export async function createTestPaymentIntent(params: {
   });
 }
 
+// PayPay のように即時キャプチャ済み（succeeded）の PI を作成する。
+// PayPay はテストモード未対応のため pm_card_visa で代替。
+// capture_method: "automatic" で confirm すると Stripe が即時キャプチャし succeeded 状態になる。
+// PayPay 実フローと同様に on_behalf_of を設定しない（platform 口座に全額着金）。
+export async function createTestCapturedPaymentIntent(params: {
+  amount: number;
+}): Promise<Stripe.PaymentIntent> {
+  return stripe.paymentIntents.create({
+    amount: params.amount,
+    currency: "jpy",
+    capture_method: "automatic",
+    payment_method: "pm_card_visa",
+    confirm: true,
+    return_url: "http://localhost:3000",
+  });
+}
+
 // PI をキャプチャして chargeId と source_transaction Transfer ID を返す（settle フロー再現）
 export async function captureAndTransfer(params: {
   piId: string;

@@ -80,7 +80,8 @@ export async function POST(req: Request) {
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: paymentMethodTypes,
     payment_intent_data: {
-      capture_method: "manual",
+      // PayPay は仕様上 manual capture 非対応のため即時キャプチャ。カードはオーソリ維持。
+      capture_method: payment_method === "paypay" ? "automatic" : "manual",
       ...(organizerConnectId ? { on_behalf_of: organizerConnectId } : {}),
     },
     line_items: [

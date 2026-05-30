@@ -39,9 +39,9 @@ export async function getFeeConfig(): Promise<FeeConfig> {
       stripe_rate,
       platform_rate,
       agent_fee_rate,
-      net_rate: Math.round((1 - stripe_rate - platform_rate) * 10000) / 10000,
+      net_rate: Math.round((1 - stripe_rate - platform_rate) * 100000) / 100000,
       paypay_rate,
-      paypay_net_rate: Math.round((1 - paypay_rate - platform_rate) * 10000) / 10000,
+      paypay_net_rate: Math.round((1 - paypay_rate - platform_rate) * 100000) / 100000,
     };
   } catch {
     return DEFAULT;

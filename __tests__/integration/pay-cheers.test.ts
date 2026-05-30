@@ -30,6 +30,10 @@ vi.mock("stripe", async (importOriginal) => {
       const origCreate = this.checkout.sessions.create.bind(this.checkout.sessions);
       (this.checkout.sessions as any).create = async (params: any, opts?: any) => {
         captured.sessionCreateParams = params;
+        // PayPay はテストモードのサンドボックスが Stripe から提供されていないためスタブを返す
+        if ((params.payment_method_types ?? []).includes("paypay")) {
+          return { url: "https://checkout.stripe.com/c/pay/cs_test_paypay_stub", id: "cs_test_paypay_stub" };
+        }
         return origCreate(params, opts);
       };
     }
@@ -138,11 +142,10 @@ describe("TC-PAY-01: カード決済（destination charge フロー）", () => {
 });
 
 // ── TC-PAY-02: PayPay 決済 ────────────────────────────────────────────
-describe("TC-PAY-02: PayPay 決済（destination charge なし）", () => {
-  // PayPay はテストモードのサンドボックスが Stripe から提供されていないため実行不可。
-  // さらに route が capture_method: "manual" を全決済に設定しているが PayPay は manual capture 非対応。
-  // PayPay を有効化する際には route の capture_method 条件分岐と本テストの skip を同時に対処すること。
-  it.skip("Checkout Session が作成され on_behalf_of が設定されない", async () => {
+describe("TC-PAY-02: PayPay 決済（即時キャプチャ・destination charge なし）", () => {
+  // PayPay はテストモードのサンドボックスが Stripe から提供されていないため、
+  // checkout.sessions.create をスタブ化して route のパラメータ組み立てのみ検証する。
+  it("capture_method: automatic で Checkout Session が作成され on_behalf_of が設定されない", async () => {
     const req = new Request("http://localhost/api/pay/cheers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -161,6 +164,8 @@ describe("TC-PAY-02: PayPay 決済（destination charge なし）", () => {
     expect(data.url).toBeTruthy();
 
     const pid = captured.sessionCreateParams?.payment_intent_data;
+    // PayPay は manual capture 非対応 → automatic に切り替わっていることを確認
+    expect(pid?.capture_method).toBe("automatic");
     expect(pid?.on_behalf_of).toBeUndefined();
     expect(pid?.transfer_data).toBeUndefined();
   });

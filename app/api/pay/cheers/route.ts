@@ -39,30 +39,28 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  // organizer の Connect ID を取得（card 決済の destination charge 用）
+  // organizer の Connect ID を取得（全決済手段で on_behalf_of に使用 — MoR はオーガナイザー）
   let organizerConnectId: string | null = null;
-  if (payment_method === "card") {
-    const { data: qrc } = await admin
-      .from("qr_configs")
-      .select("event_id")
-      .eq("qr_config_id", qr_config_id)
+  const { data: qrc } = await admin
+    .from("qr_configs")
+    .select("event_id")
+    .eq("qr_config_id", qr_config_id)
+    .single();
+
+  if (qrc?.event_id) {
+    const { data: eventRow } = await admin
+      .from("events")
+      .select("organizer_profile_id")
+      .eq("event_id", qrc.event_id)
       .single();
 
-    if (qrc?.event_id) {
-      const { data: eventRow } = await admin
-        .from("events")
-        .select("organizer_profile_id")
-        .eq("event_id", qrc.event_id)
+    if (eventRow?.organizer_profile_id) {
+      const { data: orgProfile } = await admin
+        .from("profiles")
+        .select("stripe_connect_id")
+        .eq("profile_id", eventRow.organizer_profile_id)
         .single();
-
-      if (eventRow?.organizer_profile_id) {
-        const { data: orgProfile } = await admin
-          .from("profiles")
-          .select("stripe_connect_id")
-          .eq("profile_id", eventRow.organizer_profile_id)
-          .single();
-        organizerConnectId = orgProfile?.stripe_connect_id ?? null;
-      }
+      organizerConnectId = orgProfile?.stripe_connect_id ?? null;
     }
   }
 

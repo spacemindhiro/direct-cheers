@@ -60,7 +60,7 @@ export async function POST() {
         type: "express",
         country: "JP",
         email: user.email,
-        capabilities: { transfers: { requested: true } },
+        capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
         business_type: isCompany ? "company" : "individual",
         metadata: { profile_id: user.id, display_name: profile.display_name ?? "" },
         business_profile: {

@@ -166,7 +166,8 @@ describe("TC-PAY-02: PayPay 決済（即時キャプチャ・destination charge 
     const pid = captured.sessionCreateParams?.payment_intent_data;
     // PayPay は manual capture 非対応 → automatic に切り替わっていることを確認
     expect(pid?.capture_method).toBe("automatic");
-    expect(pid?.on_behalf_of).toBeUndefined();
+    // MoR はオーガナイザー → PayPay でも on_behalf_of を設定する
+    expect(pid?.on_behalf_of).toBe(organizerConnectId);
     expect(pid?.transfer_data).toBeUndefined();
   });
 });

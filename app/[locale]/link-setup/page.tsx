@@ -1,11 +1,10 @@
 import { Suspense } from "react";
 import { LinkSetupForm } from "@/components/link-setup-form";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 import { Zap, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 async function LinkSetupContent() {
-  const supabase = await createClient();
   const user = await getUser();
 
   return (

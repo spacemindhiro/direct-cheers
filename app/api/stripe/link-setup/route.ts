@@ -6,8 +6,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 export async function POST() {
   try {
     const setupIntent = await stripe.setupIntents.create({
-      payment_method_types: ["card", "link"],
-      usage: "off_session",
+      payment_method_types: ["card"],
+      usage: "on_session",
     });
     return NextResponse.json({ client_secret: setupIntent.client_secret });
   } catch (err: any) {

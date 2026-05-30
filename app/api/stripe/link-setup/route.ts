@@ -32,8 +32,8 @@ export async function POST(req: Request) {
     }
 
     const setupIntent = await stripe.setupIntents.create({
-      payment_method_types: ["card"],
-      usage: "on_session",
+      payment_method_types: ["card", "link"],
+      usage: "off_session",
       ...(customerId ? { customer: customerId } : {}),
     });
 

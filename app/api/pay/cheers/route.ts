@@ -75,12 +75,16 @@ export async function POST(req: Request) {
     savedCustomerId = data?.stripe_customer_id ?? null;
   }
 
+  // PayPay は Stripe Connect の on_behalf_of を現行 API でサポートしていない。
+  // カード（AP/GP/Link）のみ on_behalf_of を設定し、MoR をオーガナイザーに移転する。
+  const useOnBehalfOf = payment_method !== "paypay" && organizerConnectId != null;
+
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: paymentMethodTypes,
     payment_intent_data: {
       // PayPay は仕様上 manual capture 非対応のため即時キャプチャ。カードはオーソリ維持。
       capture_method: payment_method === "paypay" ? "automatic" : "manual",
-      ...(organizerConnectId ? { on_behalf_of: organizerConnectId } : {}),
+      ...(useOnBehalfOf ? { on_behalf_of: organizerConnectId! } : {}),
     },
     line_items: [
       {

@@ -1,6 +1,6 @@
 # Direct Cheers — 統合テスト仕様書
 
-> **最終更新:** 2026-05-31  
+> **最終更新:** 2026-05-31（TC-PAY-MATRIX-V2・TC-SETTLE-07・TC-TAX-07 追加）  
 > **対象ブランチ:** develop  
 > **テストランナー:** Vitest 4.x
 
@@ -99,18 +99,18 @@ __tests__/
 
 | ID | タイトル | アサーション |
 |----|----------|-------------|
-| TC-PAY-01 | カード決済・destination charge フロー | Session の PI に `on_behalf_of`, `transfer_data.destination`, `application_fee_amount` が設定されている |
-| TC-PAY-02 | PayPay 決済 | PI に `on_behalf_of` が設定されない（destination charge なし） |
-| TC-PAY-03 | オーガナイザーに Connect アカウントなし | `application_fee_amount` が null でも Session が正常作成される |
+| TC-PAY-01 | カード決済・MoR 移転フロー | `payment_intent_data.on_behalf_of = organizerConnectId`、`capture_method = "manual"`。`transfer_data` / `application_fee_amount` は**設定しない**（settle 時に source_transaction Transfer で分配）|
+| TC-PAY-02 | PayPay 決済 | `on_behalf_of` が **undefined**（PayPay は Connect の on_behalf_of 非対応）。`capture_method = "automatic"` |
+| TC-PAY-03 | オーガナイザーに Connect アカウントなし | `on_behalf_of` なしで Session が正常作成される |
 | TC-PAY-04 | 必須フィールド欠損 | HTTP 400 が返る |
 | TC-PAY-05 | SavedCard off_session オーソリ → settle 完走 | SetupIntent でカード登録 → off_session PI（capture_method=manual）→ settle ロジックがキャプチャし agent/org/artist に1円単位で3者分配 |
 
-**手数料計算（TC-PAY-01）:**
+**アーキテクチャ注記（TC-PAY-01）:**
 ```
-application_fee_amount = floor(gross × platform_rate) + floor(gross × stripe_rate)
-                       = floor(10000 × 0.10) + floor(10000 × 0.0396)
-                       = 1000 + 396 = 1396
-organizer 受取 = gross - application_fee_amount = 10000 - 1396 = 8604
+現行実装は Separate Charges & Transfers（Full Pool）設計。
+Checkout Session 作成時点では transfer_data / application_fee_amount を設定しない。
+全額 platform に着金し、settle API が source_transaction Transfer で各受取人へ分配する。
+on_behalf_of のみ設定することで Stripe 明細上の MoR をオーガナイザーに移転する。
 ```
 
 **TC-PAY-05 計算根拠（gross=10,000、agent+org50%+artist50%）:**
@@ -124,6 +124,46 @@ artist = floor(8604 × 0.5)  = 4302
 
 ---
 
+### TC-PAY-MATRIX-V2 — 全決済手段 × Capability状態マトリクス
+
+> `vi.mock("stripe")` 内の `InstrumentedStripe` が `checkout.sessions.create` と
+> `accounts.retrieve` の両方をインターセプト。`captured.accountCapabilities` を
+> テストごとに書き換えることで Capability 状態を注入する。
+
+| ID | 決済手段 | Capability状態 | 期待結果 |
+|----|----------|----------------|---------|
+| TC-PAY-MATRIX-01 | card | active | 200。`on_behalf_of = organizerConnectId`、`capture_method = "manual"`、`payment_method_types = ["card"]` |
+| TC-PAY-MATRIX-02 | apple_pay | active | 200。Apple Pay は Stripe 上 card type。`payment_method_types = ["card"]`、`on_behalf_of` あり |
+| TC-PAY-MATRIX-03 | google_pay | active | 200。Google Pay も card type。TC-MATRIX-02 と同一コードパス |
+| TC-PAY-MATRIX-04 | link | active | 200。`payment_method_types = ["card", "link"]`、`on_behalf_of` あり |
+| TC-PAY-MATRIX-05 | paypay | — (チェック対象外) | 200。`on_behalf_of = undefined`、`capture_method = "automatic"` |
+| TC-PAY-MATRIX-06a | card | `card_payments: "pending"` | **422** `account_incomplete`。`missing_capabilities` に `card_payments`。`checkout.sessions.create` は**呼ばれない** |
+| TC-PAY-MATRIX-06b | card | `transfers: "inactive"` | **422** `account_incomplete`。`missing_capabilities` に `transfers` |
+| TC-PAY-MATRIX-06c | paypay | `card_payments: "pending"` + `transfers: "inactive"` | **200**（PayPay は Capability チェック対象外） |
+
+**決済手段ごとの処理マッピング:**
+```
+payment_method   payment_method_types   on_behalf_of   capture_method   Capabilityチェック
+card             ['card']               あり            manual           あり
+apple_pay        ['card']               あり            manual           あり
+google_pay       ['card']               あり            manual           あり
+link             ['card', 'link']       あり            manual           あり
+paypay           ['paypay']             なし            automatic        なし（Connect非対応）
+```
+
+**Capability チェックの実装（`lib/stripe-check.ts`）:**
+```typescript
+// checkConnectCapabilities(stripe, connectId, required?)
+// required のデフォルト = ['card_payments', 'transfers']
+// → stripe.accounts.retrieve でアカウント状態を取得し
+//   required の各ケイパビリティが "active" でなければ
+//   { ok: false, missing: [...] } を返す
+// → route.ts がこれを受けて 422 / account_incomplete を返し
+//   Stripe への Checkout Session 作成電文を送らずブロックする
+```
+
+---
+
 ### TC-SETTLE — /api/events/[eventId]/settle（決済キャプチャ・送金）
 
 | ID | タイトル | アサーション |
@@ -133,6 +173,7 @@ artist = floor(8604 × 0.5)  = 4302
 | TC-SETTLE-04 | 未確定アーティスト → オーガナイザー帰属 | `event_artists.status = "pending"` のアーティストへの配分が organizer に振り替えられる |
 | TC-SETTLE-05 | 二重 settle 防止 | HTTP 400 `Already settled` |
 | TC-SETTLE-06 | 照合差異・再精算（分割精算の総額一致） | 15,000円 精算 + 5,000円 差分精算 の合計が 20,000円 一括精算と1円単位で完全一致する。差分精算の分配率が正確に適用される |
+| TC-SETTLE-07 | PayPay 即時キャプチャ済み PI のセトルメント | `capture_method: "automatic"` で confirm 済み（succeeded）の PI を使用。settle ロジックがキャプチャをスキップし、`source_transaction` で3者分配する。PayPay 手数料（4.378% = 3.98% × 消費税1.1）を適用 |
 
 **source_transaction Transfer フロー（現行アーキテクチャ）:**
 ```
@@ -140,6 +181,16 @@ artist = floor(8604 × 0.5)  = 4302
 platform の available 残高に依存しない。platform 手数料は黙示的回収（gross - 全送金合計）。
 
 transactions.destination_transfer_id は NULL（destination charge は使わない設計に変更済み）
+```
+
+**TC-SETTLE-07 計算根拠（gross=10,000、PayPay手数料 4.378%、agent+org50%+artist50%）:**
+```
+stripe_fee  = floor(10000 × 0.04378) = 437   ← 3.98% × 1.1（消費税込み実質レート）
+platform_fee = floor(10000 × 0.10)   = 1000
+net          = 10000 - 437 - 1000    = 8563
+agent  = floor(10000 × 0.05)         = 500
+org    = floor(8563 × 0.5)           = 4281
+artist = floor(8563 × 0.5)           = 4281
 ```
 
 **TC-SETTLE-06 再精算の計算根拠:**
@@ -255,6 +306,16 @@ vi.mock("stripe", ...) で stripe.webhooks.constructEvent を
 | TC-TAX-04 | PayPay 手数料 | stripeFee=437（floor(10000 × 0.04378)）、net=8563 |
 | TC-TAX-05 | 消費税逆算 | `actual - floor(actual / 1.1)` = 910（actual=10000 の場合） |
 | TC-TAX-06 | fee-config フォールバック | DB 接続失敗時にデフォルト値を返す。`getNetRate` / `fmtPct` の動作検証 |
+| TC-TAX-07 | PayPay 手数料の消費税上乗せ（9ケース） | `3.98% × 1.1 = 4.378%` の法的根拠を明示。`paypay_rate > card_rate`、`paypay_net_rate = 0.85622`（5桁精度）、5金額での恒等式、消費税差額検証 |
+
+**TC-TAX-07 法的根拠（PayPay 手数料への消費税上乗せ）:**
+```
+Stripe カード手数料（3.6%）: 金融取引として消費税法上の非課税取引
+PayPay 決済手数料（3.98%）: 課税取引 → 消費税（10%）が上乗せされる
+
+実質手数料 = 3.98% × 1.1 = 4.378%  ← fee-config の paypay_rate に反映済み
+paypay_net_rate = 1 - 0.04378 - 0.10 = 0.85622（Math.round × 100000 で5桁精度）
+```
 
 **恒等式（必ず成立させること）:**
 ```
@@ -345,6 +406,36 @@ import { createClient } from "@/lib/supabase/server";
 });
 ```
 
+### Stripe accounts.retrieve の Capability 注入（pay-cheers.test.ts）
+
+```typescript
+// module スコープの captured オブジェクトに accountCapabilities を持たせる
+const captured: {
+  sessionCreateParams?: any;
+  accountCapabilities: Record<string, string>;
+} = {
+  accountCapabilities: { card_payments: "active", transfers: "active" }, // デフォルト: 正常
+};
+
+// InstrumentedStripe の constructor 内で accounts.retrieve をインターセプト
+(this.accounts as any).retrieve = async (id: string) => ({
+  id,
+  object: "account",
+  capabilities: captured.accountCapabilities,
+});
+
+// 異常系テストでは afterEach でリセット
+afterEach(() => {
+  captured.accountCapabilities = { card_payments: "active", transfers: "active" };
+  captured.sessionCreateParams = undefined;
+});
+
+// 個別テスト内で Capability 不足を注入
+captured.accountCapabilities = { card_payments: "pending", transfers: "active" };
+// → route.ts が 422 / account_incomplete を返す
+// → captured.sessionCreateParams が undefined のままであることで「電文未送信」を証明
+```
+
 ### webhook の署名検証バイパス
 
 ```typescript
@@ -370,4 +461,5 @@ vi.mock("stripe", async (importOriginal) => {
 - **ローカル DB のリセット:** `supabase db reset` は全データを消去するため、テスト中に実行しないこと
 - **webhook 冪等チェック:** `webhook_processed_events` テーブルに同一 `stripe_event_id` が残っていると再テストが通らない。各テストで `beforeAll` に削除を入れること
 - **TC-SETTLE の requires_capture PI:** Stripe テストモードの PI は 7 日で期限切れになる。テストは毎回新規に PI を作成するので問題なし
-- **PayPay テスト（TC-PAY-02）:** Stripe テストモードで PayPay の Checkout Session は作成できるが、実際の決済フローは不完全。Session URL の存在確認のみを行う
+- **PayPay / Link テスト（TC-PAY-02, TC-PAY-MATRIX-04/05）:** Stripe テストモードに PayPay・Link のサンドボックスが提供されていないため、`InstrumentedStripe` 内で `checkout.sessions.create` をスタブ化してパラメータ検証のみを行う。実 API は呼ばれない
+- **Capability チェックのモック:** `accounts.retrieve` を常にインターセプトするため、テストモードの Connect アカウント（Custom タイプ）の実際の capability 状態に依存しない。`captured.accountCapabilities` で完全制御する

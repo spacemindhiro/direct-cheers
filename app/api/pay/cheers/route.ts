@@ -2,8 +2,17 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
+import { checkConnectCapabilities } from "@/lib/stripe-check";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+
+type PaymentMethod = "card" | "apple_pay" | "google_pay" | "link" | "paypay";
+
+function resolvePaymentMethodTypes(method: PaymentMethod): Stripe.Checkout.SessionCreateParams.PaymentMethodType[] {
+  if (method === "paypay") return ["paypay"] as unknown as Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
+  if (method === "link") return ["card", "link"] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
+  return ["card"]; // card / apple_pay / google_pay はすべて card type
+}
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -18,7 +27,7 @@ export async function POST(req: Request) {
     qr_config_id: string;
     product_id: string;
     amount: number;
-    payment_method: "card" | "paypay";
+    payment_method: PaymentMethod;
     customer_email?: string;
     metadata?: Record<string, string>;
   };
@@ -29,10 +38,7 @@ export async function POST(req: Request) {
 
   const thanksUrl = `${SITE_URL}/c/${qr_config_id}/thanks?session_id={CHECKOUT_SESSION_ID}`;
 
-  const paymentMethodTypes =
-    payment_method === "paypay"
-      ? (["paypay"] as unknown as Stripe.Checkout.SessionCreateParams.PaymentMethodType[])
-      : (["card"] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[]);
+  const paymentMethodTypes = resolvePaymentMethodTypes(payment_method);
 
   const loggedInUser = await getUser();
   const loggedInEmail = loggedInUser?.email ?? null;
@@ -79,6 +85,19 @@ export async function POST(req: Request) {
   // カード（AP/GP/Link）のみ on_behalf_of を設定し、MoR をオーガナイザーに移転する。
   const useOnBehalfOf = payment_method !== "paypay" && organizerConnectId != null;
 
+  // カード系かつ on_behalf_of を使用する場合、Capability が揃っているか事前検証する。
+  // 未完了の Connected Account に対して Stripe が決済を受け付けると客側エラーになるため、
+  // 無駄な電文を飛ばす前にバックエンドでブロックする。
+  if (useOnBehalfOf) {
+    const { ok, missing } = await checkConnectCapabilities(stripe, organizerConnectId!);
+    if (!ok) {
+      return NextResponse.json(
+        { error: "account_incomplete", missing_capabilities: missing },
+        { status: 422 },
+      );
+    }
+  }
+
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: paymentMethodTypes,
     payment_intent_data: {
@@ -121,8 +140,8 @@ export async function POST(req: Request) {
     if (customer_email) sessionParams.customer_email = customer_email;
   }
 
-  // card の場合は AP/GP を有効化
-  if (payment_method === "card") {
+  // カード系（card / AP / GP / Link）は 3DS を有効化。PayPay は非対応のため除外。
+  if (payment_method !== "paypay") {
     sessionParams.payment_method_options = {
       card: { request_three_d_secure: "automatic" },
     };

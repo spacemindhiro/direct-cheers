@@ -6,7 +6,7 @@
  * route が Stripe に渡す payment_intent_data パラメータを直接検証する。
  * これは PI を完了後に検証するのと等価であり、テストドライバとして機能する。
  */
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import {
   createTestConnectAccount,
   deleteTestConnectAccount,
@@ -17,9 +17,15 @@ import { insertProfile, deleteAuthUsers } from "../helpers/seed";
 import { insertEvent, insertQrConfig } from "../helpers/seed";
 import { cleanupTestData } from "../helpers/db-reset";
 
-// route が stripe.checkout.sessions.create に渡すパラメータをキャプチャ
+// route が stripe に渡すパラメータ・テストで注入する mock 状態を保持する
 // vi.mock はホイスティングされるため、ファクトリがクロージャで参照できるよう module スコープに置く
-const captured: { sessionCreateParams?: any } = {};
+const captured: {
+  sessionCreateParams?: any;
+  // accounts.retrieve が返す capabilities — テストごとに書き換えて異常系を再現する
+  accountCapabilities: Record<string, string>;
+} = {
+  accountCapabilities: { card_payments: "active", transfers: "active" },
+};
 
 vi.mock("stripe", async (importOriginal) => {
   const StripeModule = (await importOriginal()) as any;
@@ -27,15 +33,27 @@ vi.mock("stripe", async (importOriginal) => {
   class InstrumentedStripe extends OrigStripe {
     constructor(...args: any[]) {
       super(...args);
+
+      // checkout.sessions.create をインターセプトしてパラメータをキャプチャ
       const origCreate = this.checkout.sessions.create.bind(this.checkout.sessions);
       (this.checkout.sessions as any).create = async (params: any, opts?: any) => {
         captured.sessionCreateParams = params;
-        // PayPay はテストモードのサンドボックスが Stripe から提供されていないためスタブを返す
+        // PayPay / Link はテストモードのサンドボックスが Stripe から提供されていないためスタブを返す
         if ((params.payment_method_types ?? []).includes("paypay")) {
           return { url: "https://checkout.stripe.com/c/pay/cs_test_paypay_stub", id: "cs_test_paypay_stub" };
         }
+        if ((params.payment_method_types ?? []).includes("link")) {
+          return { url: "https://checkout.stripe.com/c/pay/cs_test_link_stub", id: "cs_test_link_stub" };
+        }
         return origCreate(params, opts);
       };
+
+      // accounts.retrieve をインターセプト → captured.accountCapabilities でテストごとに制御
+      (this.accounts as any).retrieve = async (id: string) => ({
+        id,
+        object: "account",
+        capabilities: captured.accountCapabilities,
+      });
     }
   }
   return { ...StripeModule, default: InstrumentedStripe };
@@ -213,5 +231,201 @@ describe("TC-PAY-04: バリデーション", () => {
 
     const res = await POST(req);
     expect(res.status).toBe(400);
+  });
+});
+
+// ── TC-PAY-MATRIX-V2: 全決済手段 × Capability状態マトリクス ──────────────
+// accounts.retrieve は InstrumentedStripe でインターセプト済み。
+// 各テスト後に captured をリセットしてテスト間の干渉を防ぐ。
+describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マトリクス", () => {
+  afterEach(() => {
+    captured.accountCapabilities = { card_payments: "active", transfers: "active" };
+    captured.sessionCreateParams = undefined;
+  });
+
+  // ── TC-PAY-MATRIX-01: カード決済（正常系）────────────────────────────
+  describe("TC-PAY-MATRIX-01: カード決済（正常系）", () => {
+    it("on_behalf_of が設定され capture_method: manual / payment_method_types: ['card']", async () => {
+      const req = new Request("http://localhost/api/pay/cheers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qr_config_id: qrConfigId,
+          product_id: crypto.randomUUID(),
+          amount: 10_000,
+          payment_method: "card",
+        }),
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      const pid = captured.sessionCreateParams?.payment_intent_data;
+      expect(pid?.on_behalf_of).toBe(organizerConnectId);
+      expect(pid?.capture_method).toBe("manual");
+      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card"]);
+    });
+  });
+
+  // ── TC-PAY-MATRIX-02: Apple Pay（正常系）────────────────────────────
+  describe("TC-PAY-MATRIX-02: Apple Pay（正常系）", () => {
+    it("Apple Pay は card type として処理 — on_behalf_of 設定・payment_method_types: ['card']", async () => {
+      const req = new Request("http://localhost/api/pay/cheers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qr_config_id: qrConfigId,
+          product_id: crypto.randomUUID(),
+          amount: 10_000,
+          payment_method: "apple_pay",
+        }),
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      const pid = captured.sessionCreateParams?.payment_intent_data;
+      // Apple Pay は wallet token として card type で処理 → on_behalf_of / capture_method はカードと同一
+      expect(pid?.on_behalf_of).toBe(organizerConnectId);
+      expect(pid?.capture_method).toBe("manual");
+      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card"]);
+    });
+  });
+
+  // ── TC-PAY-MATRIX-03: Google Pay（正常系）───────────────────────────
+  describe("TC-PAY-MATRIX-03: Google Pay（正常系）", () => {
+    it("Google Pay は card type として処理 — on_behalf_of 設定・payment_method_types: ['card']", async () => {
+      const req = new Request("http://localhost/api/pay/cheers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qr_config_id: qrConfigId,
+          product_id: crypto.randomUUID(),
+          amount: 10_000,
+          payment_method: "google_pay",
+        }),
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      const pid = captured.sessionCreateParams?.payment_intent_data;
+      expect(pid?.on_behalf_of).toBe(organizerConnectId);
+      expect(pid?.capture_method).toBe("manual");
+      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card"]);
+    });
+  });
+
+  // ── TC-PAY-MATRIX-04: Link決済（正常系）────────────────────────────
+  describe("TC-PAY-MATRIX-04: Link決済（正常系）", () => {
+    it("payment_method_types に 'link' が含まれ on_behalf_of が設定される", async () => {
+      const req = new Request("http://localhost/api/pay/cheers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qr_config_id: qrConfigId,
+          product_id: crypto.randomUUID(),
+          amount: 10_000,
+          payment_method: "link",
+        }),
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      const pid = captured.sessionCreateParams?.payment_intent_data;
+      expect(pid?.on_behalf_of).toBe(organizerConnectId);
+      expect(pid?.capture_method).toBe("manual");
+      // Link は card と一緒に提供される
+      expect(captured.sessionCreateParams?.payment_method_types).toContain("link");
+      expect(captured.sessionCreateParams?.payment_method_types).toContain("card");
+    });
+  });
+
+  // ── TC-PAY-MATRIX-05: PayPay（ハイブリッド戦略・正常系）──────────────
+  describe("TC-PAY-MATRIX-05: PayPay（on_behalf_of除外・消費税5桁精度）", () => {
+    it("on_behalf_of なし・capture_method: automatic・Capability チェックをスキップ", async () => {
+      const req = new Request("http://localhost/api/pay/cheers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qr_config_id: qrConfigId,
+          product_id: crypto.randomUUID(),
+          amount: 10_000,
+          payment_method: "paypay",
+        }),
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      const pid = captured.sessionCreateParams?.payment_intent_data;
+      // PayPay は on_behalf_of 非対応（ハイブリッド戦略）
+      expect(pid?.on_behalf_of).toBeUndefined();
+      // PayPay は manual capture 非対応 → automatic
+      expect(pid?.capture_method).toBe("automatic");
+      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["paypay"]);
+    });
+  });
+
+  // ── TC-PAY-MATRIX-06: Capability不足（異常系）──────────────────────
+  describe("TC-PAY-MATRIX-06: Connected Account の Capability 不足（異常系）", () => {
+    it("card_payments が pending → 422 でブロックし Stripe に電文を送らない", async () => {
+      // accounts.retrieve が card_payments: pending を返すよう注入
+      captured.accountCapabilities = { card_payments: "pending", transfers: "active" };
+
+      const req = new Request("http://localhost/api/pay/cheers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qr_config_id: qrConfigId,
+          product_id: crypto.randomUUID(),
+          amount: 10_000,
+          payment_method: "card",
+        }),
+      });
+      const res = await POST(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(422);
+      expect(data.error).toBe("account_incomplete");
+      expect(data.missing_capabilities).toContain("card_payments");
+      // Stripe に無駄な電文を飛ばしていないことを確認
+      expect(captured.sessionCreateParams).toBeUndefined();
+    });
+
+    it("transfers が inactive → 422 でブロックし missing_capabilities に transfers が含まれる", async () => {
+      captured.accountCapabilities = { card_payments: "active", transfers: "inactive" };
+
+      const req = new Request("http://localhost/api/pay/cheers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qr_config_id: qrConfigId,
+          product_id: crypto.randomUUID(),
+          amount: 10_000,
+          payment_method: "card",
+        }),
+      });
+      const res = await POST(req);
+      const data = await res.json();
+
+      expect(res.status).toBe(422);
+      expect(data.missing_capabilities).toContain("transfers");
+      expect(captured.sessionCreateParams).toBeUndefined();
+    });
+
+    it("PayPay は Capability チェック対象外 → Capability 不足でも 200 を返す", async () => {
+      // PayPay は on_behalf_of を使わないため Capability チェックをスキップすることを確認
+      captured.accountCapabilities = { card_payments: "pending", transfers: "inactive" };
+
+      const req = new Request("http://localhost/api/pay/cheers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qr_config_id: qrConfigId,
+          product_id: crypto.randomUUID(),
+          amount: 5_000,
+          payment_method: "paypay",
+        }),
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+    });
   });
 });

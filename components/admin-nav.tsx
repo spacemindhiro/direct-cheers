@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserCircle } from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 
 const NAV_ITEMS = [
@@ -34,6 +35,14 @@ export function AdminNav() {
           </Link>
         );
       })}
+      <Link
+        href="/dashboard/profile"
+        className={`transition-colors ${
+          pathname.includes('/dashboard/profile') ? "text-white" : "text-slate-400 hover:text-white"
+        }`}
+      >
+        <UserCircle size={18} />
+      </Link>
       <LogoutButton />
     </div>
   );

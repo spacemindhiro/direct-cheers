@@ -7,6 +7,7 @@ import { LogoutButton } from '@/components/logout-button';
 import { Loader2, UserCircle, MessageCircle } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
+import { AdminNav } from '@/components/admin-nav';
 
 const STEP_UP_ROLES = ['artist', 'organizer', 'agent', 'admin'] as const;
 const STEP_UP_TTL_MS = 480 * 60 * 1000;
@@ -44,6 +45,33 @@ async function DashboardNav() {
     if (!isFresh) {
       redirect(`/auth/step-up?redirect=${encodeURIComponent(currentPath)}`);
     }
+  }
+
+  if (profile.role === 'admin') {
+    return (
+      <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-6">
+            <Link href="/dashboard" className="flex items-center gap-2 group">
+              <img
+                src="/logo-emblem.png"
+                alt="Direct Cheers"
+                className="w-7 h-7 rounded-lg shadow-lg shadow-pink-500/10 group-hover:scale-110 transition-transform"
+              />
+              <span className="text-lg font-black tracking-tighter text-white uppercase italic">
+                Direct Cheers
+              </span>
+            </Link>
+            <span className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em] border border-pink-500/30 px-2 py-1 rounded-lg">
+              Admin
+            </span>
+          </div>
+          <Suspense fallback={null}>
+            <AdminNav />
+          </Suspense>
+        </div>
+      </nav>
+    );
   }
 
   return (

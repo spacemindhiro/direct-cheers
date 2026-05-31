@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { ArtistSalesDashboard } from '@/components/artist-sales-dashboard';
@@ -540,6 +540,27 @@ async function DashboardContent() {
         </div>
       )}
 
+      {/* Admin: Documents */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/documents"
+          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
+              <FileText size={22} className="text-pink-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
+                Documents
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">署名済み利用規約同意書</p>
+            </div>
+          </div>
+        </Link>
+      )}
+
       {/* エージェント向け: 承認待ちバナー */}
       {(pendingApprovalCount > 0 || pendingCancellationCount > 0) && (
         <Link
@@ -909,6 +930,26 @@ async function DashboardContent() {
             </div>
           </Link>
         </div>
+      )}
+
+      {/* Admin: Refunds */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/refunds"
+          className="block bg-slate-900 border border-red-500/20 hover:border-red-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20 group-hover:bg-red-500/20 transition-all">
+              <RotateCcw size={22} className="text-red-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin — 取り扱い注意</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-red-400 transition-colors">
+                返金管理
+              </p>
+            </div>
+          </div>
+        </Link>
       )}
 
       {/* マイチケット（admin非表示） */}

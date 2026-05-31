@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { AdminNav } from "@/components/admin-nav";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -21,7 +22,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Admin
             </span>
           </div>
-          <AdminNav />
+          <Suspense fallback={null}>
+            <AdminNav />
+          </Suspense>
         </div>
       </nav>
       <main className="max-w-5xl mx-auto px-6 py-10">

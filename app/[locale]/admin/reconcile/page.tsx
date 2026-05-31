@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Loader2, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, XCircle, Clock } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import { ReconcileButton } from "@/components/reconcile-button";
 import Link from "next/link";
 
@@ -113,10 +114,7 @@ async function ReconcileContent() {
   return (
     <div className="space-y-10">
       <div className="space-y-1">
-        <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4">
-          <ArrowLeft size={12} /> ダッシュボードへ
-        </Link>
-        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Admin</p>
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Reconcile" }]} />
         <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">照合管理</h1>
         <p className="text-sm text-slate-500">Stripe照合バッチの実行ログとイベント別照合状況</p>
       </div>

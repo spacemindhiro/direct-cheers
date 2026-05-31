@@ -3,7 +3,8 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { AdminBreadcrumb } from '@/components/admin-breadcrumb';
 import {
   TERMS_LABELS,
   TERMS_CONTENT,
@@ -86,18 +87,16 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
   return (
     <div className="space-y-8 pb-8">
 
-      {/* 戻るボタン */}
-      <div className="flex items-center gap-4">
-        <Link
-          href="/admin/documents"
-          className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0"
-        >
-          <ArrowLeft size={16} />
-        </Link>
-        <div>
-          <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Signed Document</p>
-          <p className="text-lg font-black text-white">{subject?.display_name ?? '—'}</p>
-        </div>
+      {/* ヘッダー */}
+      <div className="space-y-1">
+        <AdminBreadcrumb crumbs={[
+          { label: "Admin", href: "/admin/users" },
+          { label: "Documents", href: "/admin/documents" },
+          { label: subject?.display_name ?? "Document" },
+        ]} />
+        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">
+          {subject?.display_name ?? '—'}
+        </h1>
       </div>
 
       {/* 書面本体 */}

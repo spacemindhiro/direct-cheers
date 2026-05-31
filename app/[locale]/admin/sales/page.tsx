@@ -4,6 +4,7 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { Loader2, TrendingUp, Zap, Users, Calendar } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 
 async function AdminSalesContent() {
   const supabase = await createClient();
@@ -69,7 +70,7 @@ async function AdminSalesContent() {
   return (
     <div className="space-y-10">
       <div className="space-y-1">
-        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Admin</p>
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Sales" }]} />
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">Sales Overview</h1>
       </div>
 

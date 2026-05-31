@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   Loader2, TrendingUp, Users, Star, Mic2, CalendarDays, Crown, ArrowUpRight
 } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import Link from "next/link";
 
 const TIER_CONFIG: Record<number, { label: string; className: string }> = {
@@ -58,7 +59,7 @@ async function InsightsContent() {
   return (
     <div className="space-y-10 pb-20">
       <div className="space-y-1">
-        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Admin</p>
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Insights" }]} />
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
           Follower Insights
         </h1>

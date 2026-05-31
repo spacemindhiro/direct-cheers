@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogoutButton } from "@/components/logout-button";
+import { AdminNav } from "@/components/admin-nav";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -21,39 +21,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Admin
             </span>
           </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/admin/users"
-              className="text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
-            >
-              Users
-            </Link>
-            <Link
-              href="/admin/connect-review"
-              className="text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
-            >
-              口座審査
-            </Link>
-            <Link
-              href="/admin/documents"
-              className="text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
-            >
-              Documents
-            </Link>
-            <Link
-              href="/admin/reconcile"
-              className="text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors"
-            >
-              Reconcile
-            </Link>
-            <Link
-              href="/admin/refunds"
-              className="text-[10px] font-black text-red-400 hover:text-red-300 uppercase tracking-widest transition-colors"
-            >
-              Refunds
-            </Link>
-            <LogoutButton />
-          </div>
+          <AdminNav />
         </div>
       </nav>
       <main className="max-w-5xl mx-auto px-6 py-10">

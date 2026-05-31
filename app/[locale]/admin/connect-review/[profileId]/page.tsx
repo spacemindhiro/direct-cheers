@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, User, MapPin, Building2, ExternalLink, FileSignature, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import Link from "next/link";
 import Stripe from "stripe";
 import { AdminConnectReview } from "@/components/admin-connect-review";
@@ -94,7 +95,11 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
     <div className="space-y-6">
       {/* ヘッダー */}
       <div className="space-y-1">
-<p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.4em]">Admin / Connect Review</p>
+        <AdminBreadcrumb crumbs={[
+          { label: "Admin", href: "/admin/users" },
+          { label: "口座審査", href: "/admin/connect-review" },
+          { label: profile.display_name ?? "—" },
+        ]} />
         <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">
           {profile.display_name ?? "—"}
         </h1>

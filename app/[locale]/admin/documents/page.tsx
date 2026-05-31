@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Loader2, FileText, ChevronRight } from 'lucide-react';
+import { AdminBreadcrumb } from '@/components/admin-breadcrumb';
 
 const TERMS_TYPE_LABELS: Record<string, string> = {
   base: 'ベース規約',
@@ -44,7 +45,7 @@ async function DocumentsContent() {
   return (
     <div className="space-y-10">
       <div className="space-y-1">
-        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Admin</p>
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Documents" }]} />
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">Documents</h1>
         <p className="text-xs text-slate-500">署名済み利用規約同意書 一覧</p>
       </div>

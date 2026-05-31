@@ -8,7 +8,8 @@ import { SettlementDetails, type TxGroup, type DistributionRow } from "@/compone
 import { AdminForcePayoutButton } from "@/components/admin-force-payout-button";
 import { AdminAuthExpiryActions } from "@/components/admin-auth-expiry-actions";
 import { CaptureAllButton } from "@/components/capture-all-button";
-import { Loader2, Calendar, MapPin, ImageIcon, CheckCircle2, Clock, AlertTriangle, ArrowLeft, ExternalLink, Zap } from "lucide-react";
+import { Loader2, Calendar, MapPin, ImageIcon, CheckCircle2, Clock, AlertTriangle, ExternalLink, Zap } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import Link from "next/link";
 
 async function SettlementsContent() {
@@ -139,17 +140,13 @@ async function SettlementsContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
-      <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
+    <div className="space-y-8">
 
-        <div className="space-y-1">
-          <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4">
-            <ArrowLeft size={12} /> ダッシュボードへ
-          </Link>
-          <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Admin</p>
-          <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">精算管理</h1>
-          <p className="text-sm text-slate-500">終了したイベントのエビデンスを確認し、精算を承認します</p>
-        </div>
+      <div className="space-y-1">
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Settlements" }]} />
+        <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">精算管理</h1>
+        <p className="text-sm text-slate-500">終了したイベントのエビデンスを確認し、精算を承認します</p>
+      </div>
 
         {(events ?? []).length === 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center">
@@ -352,7 +349,6 @@ async function SettlementsContent() {
             );
           })}
         </div>
-      </div>
     </div>
   );
 }

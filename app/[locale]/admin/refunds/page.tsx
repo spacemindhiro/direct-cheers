@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
-import { Loader2, ShieldAlert } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import { RefundClient } from "./refund-client";
 
 async function RefundsContent() {
@@ -22,12 +23,7 @@ async function RefundsContent() {
     <div className="space-y-8">
       {/* ヘッダー */}
       <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <ShieldAlert size={16} className="text-red-400" />
-          <p className="text-[10px] font-black text-red-400 uppercase tracking-[0.3em]">
-            Admin / Refunds
-          </p>
-        </div>
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Refunds" }]} />
         <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">
           返金管理
         </h1>

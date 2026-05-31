@@ -7,6 +7,7 @@ import { AdminApproveButton } from "@/components/admin-approve-button";
 import { AdminConnectReview } from "@/components/admin-connect-review";
 import { AdminTermsConfirmButton } from "@/components/admin-terms-confirm-button";
 import { Loader2, Users, CreditCard, PenLine } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 
 const ROLE_LABELS: Record<string, string> = {
   agent: "エージェント",
@@ -103,9 +104,7 @@ async function AdminUsersContent() {
   return (
     <div className="space-y-10">
       <div className="space-y-1">
-        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">
-          Admin
-        </p>
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Users" }]} />
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
           User Management
         </h1>

@@ -4,6 +4,7 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 import { ShieldCheck, Loader2 } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import { AdminConnectReview } from "@/components/admin-connect-review";
 
 async function ConnectReviewContent() {
@@ -39,13 +40,11 @@ async function ConnectReviewContent() {
 export default function AdminConnectReviewPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-8 pb-20">
-      <div className="flex items-center gap-4">
-<div>
-          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.4em]">Admin</p>
-          <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter flex items-center gap-2">
-            <ShieldCheck size={22} className="text-indigo-400" /> 口座開設審査
-          </h1>
-        </div>
+      <div className="space-y-1">
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "口座審査" }]} />
+        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter flex items-center gap-2">
+          <ShieldCheck size={22} className="text-indigo-400" /> 口座開設審査
+        </h1>
       </div>
 
       <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-slate-600" size={32} /></div>}>

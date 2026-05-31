@@ -2,10 +2,10 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Loader2, ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import { ReconcileButton } from "@/components/reconcile-button";
 import { CaptureAllButton } from "@/components/capture-all-button";
-import Link from "next/link";
 
 function fmt(n: number | null) {
   if (n === null) return "—";
@@ -70,13 +70,11 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
     <div className="space-y-8">
       {/* ヘッダー */}
       <div className="space-y-1">
-        <Link
-          href="/admin/reconcile"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-4"
-        >
-          <ArrowLeft size={12} /> 照合管理へ
-        </Link>
-        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Admin / Reconcile</p>
+        <AdminBreadcrumb crumbs={[
+          { label: "Admin", href: "/admin/users" },
+          { label: "Reconcile", href: "/admin/reconcile" },
+          { label: event.title },
+        ]} />
         <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter truncate">{event.title}</h1>
         <p className="text-xs text-slate-500">
           終了: {new Date(event.end_at).toLocaleDateString("ja-JP")}

@@ -1,6 +1,6 @@
 # Direct Cheers — 統合テスト仕様書
 
-> **最終更新:** 2026-05-31（TC-PAY-MATRIX-V2・TC-SETTLE-07・TC-TAX-07 追加）  
+> **最終更新:** 2026-06-01（TC-POST-PAY 後半戦一気通貫シナリオテスト追加）  
 > **対象ブランチ:** develop  
 > **テストランナー:** Vitest 4.x
 
@@ -87,8 +87,9 @@ __tests__/
     ├── settle.test.ts      TC-SETTLE /api/events/[eventId]/settle（TC-PAY-05 含む）
     ├── refund.test.ts      TC-REFUND /api/admin/refund（返金5パターン）
     ├── payout.test.ts      TC-PAYOUT /api/payout/request
-    ├── chargeback.test.ts  TC-CB     /api/stripe/webhook（dispute イベント）
-    └── tax.test.ts         TC-TAX    手数料計算・端数処理（純ロジック）
+    ├── chargeback.test.ts  TC-CB       /api/stripe/webhook（dispute イベント）
+    ├── tax.test.ts         TC-TAX      手数料計算・端数処理（純ロジック）
+    └── settle-flow.test.ts TC-POST-PAY イベント終了→照合→審査ロック→Settle 一気通貫
 ```
 
 ---
@@ -293,6 +294,50 @@ amount_mismatch = 0
 vi.mock("stripe", ...) で stripe.webhooks.constructEvent を
 署名検証なしで JSON.parse(body) を返すように上書き
 ```
+
+---
+
+### TC-POST-PAY — 後半戦一気通貫シナリオ（`settle-flow.test.ts`）
+
+> 決済完了後の「イベント終了 → ログ照合 → 開催審査ロック → Settle（分配）」フローの
+> カバレッジ。前半（招待〜決済）のテスト網羅に対し、**後半フローの防衛網**として追加。
+
+#### TC-POST-PAY-01: 一気通貫パイプライン
+
+| サブケース | 検証内容 | アサーション |
+|------------|----------|-------------|
+| A. イベント終了 | `/api/events/[eventId]/end` → `lifecycle_status = "ended"` | HTTP 200、DB で `ended` を確認 |
+| B. StripeログとDB照合 | `/api/admin/reconcile/event` → succeeded PI の `amount_received` と DB gross が一致 | `amount_verified=true`、`amount_mismatch=0`、`reconciled_at` が NULL でない、`reconciliation_logs` が記録される |
+| C. エビデンスなし → settle ブロック | エビデンス未提出状態で settle を呼ぶ | HTTP 400 `No evidence submitted`（出金不可） |
+| D. Settle 実行・分配精度 | エビデンス提出後に settle → agent+org+artist の Transfer 額が1円単位で正確 | `agentTransfer.amount = floor(gross×0.05)`、`orgTransfer.amount = floor(net×0.5)`、`artistTransfer.amount = floor(net×0.5)`、合計一致 |
+| E. チャージバック待機期間ロック | Settle 後の distributions の状態確認 | 全行 `distribution_status = "accrued"`（出金前ロック）、`dist合計 = Transfer合計` |
+| F. 二重 settle ブロック | settle済みイベントに再度 settle | HTTP 400 `Already settled` |
+
+**TC-POST-PAY-01 計算根拠（gross=20,000、agent+org50%+artist50%）:**
+```
+stripe_fee   = floor(20000 × 0.0396) = 792
+platform_fee = floor(20000 × 0.10)   = 2000
+net          = 20000 - 792 - 2000    = 17208
+agent  = floor(20000 × 0.05) = 1000
+org    = floor(17208 × 0.5)  = 8604
+artist = floor(17208 × 0.5)  = 8604
+合計   = 1000 + 8604 + 8604  = 18208
+```
+
+#### TC-POST-PAY-02: 照合差分検知
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-POST-PAY-02 | StripeとDB金額不一致を検知 | DB gross=9,000 / Stripe amount_received=10,000 → `amount_verified=false`、`amount_mismatch=1000`、`reconciled_at` はセット（照合自体は完了記録） |
+
+#### TC-POST-PAY-03: 多者分配精度検証
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-POST-PAY-03 | 4者分配（agent+org+artist1+artist2）端数誤差ゼロ | org=50% / artist1=30% / artist2=20% の QR。Transfer合計 ≤ NET+AGENT。NET+AGENT との差 < 10円（Math.floor 端数分のみ） |
+
+**使用 Stripe フィクスチャ:** `createTestCapturedPaymentIntent`（`capture_method: "automatic"`, succeeded 状態）
+— 照合ルートが `requires_capture` をスキップするため、**succeeded PI を使用することで照合が実際に走る**
 
 ---
 

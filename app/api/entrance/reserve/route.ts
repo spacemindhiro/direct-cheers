@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     .from("products")
     .select("product_id, payment_type, stock_limit, sold_count, charge_amount: min_amount, name, event_id, track_inventory")
     .eq("product_id", product_id)
-    .eq("deleted_at", null as any)
+    .is("deleted_at", null)
     .single();
 
   if (!product) {

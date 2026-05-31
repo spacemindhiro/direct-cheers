@@ -1,8 +1,55 @@
 # Direct Cheers — 統合テスト仕様書
 
-> **最終更新:** 2026-06-01（TC-POST-PAY 後半戦一気通貫シナリオテスト追加）  
+> **最終更新:** 2026-06-01（TC-ENT 入場チケット・TC-IDEM 冪等性テスト追加・ギャップ分析追記）  
 > **対象ブランチ:** develop  
 > **テストランナー:** Vitest 4.x
+
+---
+
+## 0. テストギャップ分析（QA視点）
+
+### 0-1. テストカバレッジサマリー
+
+| テストファイル | 対象モジュール | ケース数 | 主なリスク |
+|---------------|--------------|---------|-----------|
+| pay-cheers.test.ts | /api/pay/cheers | 13 | 決済手段 × Capability マトリクス |
+| settle.test.ts | /api/events/[eventId]/settle | 8 | 分配精度・フロー分岐 |
+| settle-flow.test.ts | end → reconcile → settle | 8 | 後半戦一気通貫 |
+| refund.test.ts | /api/admin/refund | 5 | 5パターン返金ロジック |
+| payout.test.ts | /api/payout/request | 3 | 出金・残高照会 |
+| chargeback.test.ts | /api/stripe/webhook | 3 | チャージバック処理 |
+| tax.test.ts | fee-config / 計算ロジック | 9 | 端数精度 |
+| **entrance.test.ts** | /api/entrance/reserve, checkin | **11** | **入場チケット全体（新規）** |
+| **idempotency.test.ts** | /api/pay/complete, webhook | **5** | **二重課金・重複処理（新規）** |
+| **合計** | | **~65** | |
+
+### 0-2. テストギャップ一覧と優先度
+
+| 優先度 | 領域 | ギャップ内容 | 対応状況 |
+|--------|------|-------------|---------|
+| ★★★ 高 | 入場チケット予約・チェックイン | `/api/entrance/` が完全未テスト。在庫切れ、タイプA/B/C分岐、ALREADY_USED等 | **→ TC-ENT で解消** |
+| ★★★ 高 | 決済完了の冪等性 | `/api/pay/complete` の二重呼び出し（同一PI→同一tx）が未テスト | **→ TC-IDEM で解消** |
+| ★★★ 高 | Webhook 重複配信 | 同一`stripe_event_id`の2回配信をスキップする冪等チェック | **→ TC-IDEM-C で解消** |
+| ★★ 中 | 価格上限バリデーション | スタンダード3000円/メッセージ5000円/入場30000円の上限がAPI側で未検証（フロントのみ） | 未実装（バックエンドに制約なし） |
+| ★★ 中 | レースコンディション | 残1枚チケットへの同時予約（`reserve_product_stock` の排他ロック効果） | 未実装（DB RPC 直接テストで要対応） |
+| ★★ 中 | イベントライフサイクル状態チェック | `settled`済みイベントへのcancel/endなど「順番違い操作」の拒否 | 一部 TC-POST-PAY-01-F でカバー |
+| ★ 低 | カスタムプラン（上限10万円） | 実装未済のため後回し | スコープ外 |
+| ★ 低 | Apple Pay / Google Pay リアル決済 | Stripe テストモード非対応のためモックのみ | TC-PAY-MATRIX でカバー済み |
+
+### 0-3. バックエンドにない価格バリデーションの注意点
+
+`/api/pay/cheers` は `amount` パラメータを **そのまま Stripe に渡す**。
+上限チェック（3,000円 / 5,000円 / 30,000円）は現在フロントエンドのみの制御。
+API に直接リクエストを送れば上限超えの決済が作れる。将来的にバックエンドでの検証を推奨。
+
+### 0-4. 残存テストギャップ（将来対応）
+
+```
+- TC-RACE: reserve_product_stock の同時呼び出しでのオーバーセル防止検証
+- TC-PRICE: スタンダード/メッセージ/入場の金額上限をバックエンドで実装後にテスト
+- TC-LIFECYCLE: イベント状態マトリクス（published/ended/settled × cancel/end/settle の全掛け算）
+- TC-WEBHOOK-RETRY: タイムアウト後のリトライで重複処理が起きないことの網羅
+```
 
 ---
 
@@ -89,7 +136,9 @@ __tests__/
     ├── payout.test.ts      TC-PAYOUT /api/payout/request
     ├── chargeback.test.ts  TC-CB       /api/stripe/webhook（dispute イベント）
     ├── tax.test.ts         TC-TAX      手数料計算・端数処理（純ロジック）
-    └── settle-flow.test.ts TC-POST-PAY イベント終了→照合→審査ロック→Settle 一気通貫
+    ├── settle-flow.test.ts TC-POST-PAY  イベント終了→照合→審査ロック→Settle 一気通貫
+    ├── entrance.test.ts    TC-ENT       入場チケット予約・チェックイン・権限チェック
+    └── idempotency.test.ts TC-IDEM      二重課金防止・webhook重複配信・冪等性
 ```
 
 ---
@@ -293,6 +342,136 @@ amount_mismatch = 0
 ```typescript
 vi.mock("stripe", ...) で stripe.webhooks.constructEvent を
 署名検証なしで JSON.parse(body) を返すように上書き
+```
+
+---
+
+### TC-ENT — 入場チケットシステム（`entrance.test.ts`）
+
+> `/api/entrance/reserve`（予約作成）と `/api/entrance/checkin`（チェックイン）の全体を網羅。
+> **タイプA/B/C の仕様分岐・在庫管理・状態遷移・権限チェックはここで担保する。**
+
+#### TC-ENT-A: 予約バリデーション
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-ENT-A-01 | product_id 欠損 | HTTP 400 |
+| TC-ENT-A-02 | customer_email 欠損 | HTTP 400 |
+| TC-ENT-A-03 | 存在しない product_id | HTTP 404 Product not found |
+| TC-ENT-A-04 | 在庫切れ（sold_count=stock_limit）| HTTP 409 `SOLD_OUT` |
+
+#### TC-ENT-B: タイプB予約（Checkout Session）
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-ENT-B-01 | タイプB正常予約 | HTTP 200、`type="B"`、`url` が checkout.stripe.com で始まる |
+
+#### TC-ENT-C: タイプA予約（SetupIntent / 5日前直接オーソリ）
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-ENT-C-01 | タイプA（開催14日前）→ SetupIntentパス | `is_auth=false`、`client_secret` あり、DB に `entrance_reservations` が `pending` で作成 |
+| TC-ENT-C-02 | タイプA（開催3日前）→ 直接オーソリパス | `is_auth=true`、`client_secret` あり（PI）、`reservation_id` あり |
+
+**タイプA 5日分岐の設計:**
+```
+開催まで > 5日: SetupIntent（カード保存） → cronが5日前に off_session PI を作成
+開催まで ≤ 5日: PaymentIntent(capture_method=manual) を直接作成 → その場でオーソリ
+```
+
+#### TC-ENT-D: チェックイン正常系
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-ENT-D-01 | 有効チケット（タイプB）のチェックイン | HTTP 200、`ok=true`、DB で `tickets.status="used"`、`checked_in_at` がセット |
+
+#### TC-ENT-E: チェックイン異常系
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-ENT-E-01 | 使用済みチケット | HTTP 409 `ALREADY_USED` |
+| TC-ENT-E-02 | キャンセル済みチケット | HTTP 409 `TICKET_CANCELLED` |
+| TC-ENT-E-03 | 存在しないチケットコード | HTTP 404 `TICKET_NOT_FOUND` |
+| TC-ENT-E-04 | ticket_code 欠損 | HTTP 400 |
+
+#### TC-ENT-F: チェックイン権限チェック
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-ENT-F-01 | 未認証（ログアウト状態） | HTTP 401 Unauthorized |
+| TC-ENT-F-02 | 他イベントのオーガナイザー | HTTP 403 Forbidden |
+
+**チェックインの状態遷移:**
+```
+valid  → [checkin_ticket RPC] → used（正常）
+used   → 409 ALREADY_USED（ルート層で事前チェック）
+cancelled → 409 TICKET_CANCELLED（ルート層で事前チェック）
+```
+
+**Stripe モック方針（entrance.test.ts）:**
+```
+customers.create / setupIntents.create / paymentIntents.create / checkout.sessions.create
+をすべてモックし、実Stripe API を呼ばない。
+理由: カード情報なしでは成功しないフロー（タイプCチェックイン等）があるため。
+```
+
+---
+
+### TC-IDEM — 冪等性・二重課金防止（`idempotency.test.ts`）
+
+> リアルイベント会場の不安定な通信を想定した「二重課金・重複処理」防止ロジックの網羅。
+
+#### TC-IDEM-A: /api/pay/complete バリデーション
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-IDEM-A-01 | session_id 欠損 | HTTP 400、`error` に "session_id" が含まれる |
+| TC-IDEM-A-02 | payment_status=unpaid かつ PI.status=requires_payment_method | HTTP 400 `Payment not completed` |
+
+#### TC-IDEM-B: /api/pay/complete 二重呼び出し
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-IDEM-B-01 | 既存 PI の tx が DB にある状態で再呼び出し | HTTP 200、返却 `transaction_id` = 既存 id（新規作成なし）、DB の同 PI の tx 件数 = 1 |
+| TC-IDEM-B-02 | requires_capture（manual capture）PI でも同じく冪等 | HTTP 200、既存 transaction_id を返す |
+
+**冪等性の実装ロジック:**
+```typescript
+// pay/complete/route.ts
+const { data: existing } = await admin.from("transactions")
+  .select("transaction_id, ...")
+  .eq("stripe_payment_intent_id", pi?.id ?? "")
+  .maybeSingle();
+
+if (existing) {
+  return buildResponse(...);  // ← 既存行を返して終了（二重書き込みなし）
+}
+// 新規の場合のみ RPC complete_cheers_payment を呼ぶ
+```
+
+#### TC-IDEM-C: Stripe Webhook 重複配信
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-IDEM-C-01 | 同一 stripe_event_id を2回送信 | 1回目 200。2回目も 200。`webhook_processed_events` の件数が増加しない |
+
+**webhook 冪等チェックの実装:**
+```typescript
+// /api/stripe/webhook/route.ts
+const { data: alreadyProcessed } = await admin
+  .from("webhook_processed_events")
+  .select("id")
+  .eq("stripe_event_id", event.id)
+  .maybeSingle();
+
+if (alreadyProcessed) return NextResponse.json({ received: true }); // スキップ
+```
+
+**Stripe モック方針（idempotency.test.ts）:**
+```typescript
+// module スコープの captured に fakePiId を持たせ、
+// checkout.sessions.retrieve をインターセプト → 任意の PI id / status を返す
+// webhook テストは署名検証をバイパス（TC-CB と同じパターン）
 ```
 
 ---

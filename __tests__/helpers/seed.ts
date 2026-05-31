@@ -191,6 +191,93 @@ export async function insertEventEvidence(params: {
   return data.evidence_id;
 }
 
+// products を挿入（入場チケット商品）
+export async function insertProduct(params: {
+  eventId: string;
+  name?: string;
+  type?: string;
+  paymentType?: "A" | "B" | "C";
+  minAmount?: number;
+  stockLimit?: number;
+  soldCount?: number;
+  trackInventory?: boolean;
+  artistId?: string | null;
+}): Promise<string> {
+  const id = newId();
+  const { error } = await testAdmin.from("products").insert({
+    product_id: id,
+    event_id: params.eventId,
+    name: params.name ?? "テスト入場券",
+    type: params.type ?? "entrance",
+    payment_type: params.paymentType ?? "B",
+    min_amount: params.minAmount ?? 3000,
+    stock_limit: params.stockLimit ?? 100,
+    sold_count: params.soldCount ?? 0,
+    track_inventory: params.trackInventory ?? true,
+    artist_id: params.artistId ?? null,
+  });
+  if (error) throw new Error(`product 挿入失敗: ${error.message}`);
+  return id;
+}
+
+// tickets を挿入
+export async function insertTicket(params: {
+  eventId: string;
+  productId: string;
+  status?: "valid" | "used" | "cancelled";
+  email?: string;
+  holderProfileId?: string | null;
+  reservationId?: string | null;
+  transactionId?: string | null;
+}): Promise<{ ticketId: string; ticketCode: string }> {
+  const ticketId = newId();
+  const ticketCode = `tkt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const { error } = await testAdmin.from("tickets").insert({
+    ticket_id: ticketId,
+    ticket_code: ticketCode,
+    status: params.status ?? "valid",
+    event_id: params.eventId,
+    product_id: params.productId,
+    email: params.email ?? "test@test.local",
+    holder_profile_id: params.holderProfileId ?? null,
+    reservation_id: params.reservationId ?? null,
+    transaction_id: params.transactionId ?? null,
+  });
+  if (error) throw new Error(`ticket 挿入失敗: ${error.message}`);
+  return { ticketId, ticketCode };
+}
+
+// entrance_reservations を挿入
+export async function insertReservation(params: {
+  productId: string;
+  eventId: string;
+  stripeCustomerId: string;
+  stripeSetupIntentId?: string | null;
+  stripePaymentIntentId?: string | null;
+  stripePaymentMethodId?: string | null;
+  email?: string;
+  holderName?: string | null;
+  chargeAmount?: number;
+  status?: "pending" | "reserved" | "charged" | "cancelled";
+}): Promise<string> {
+  const id = newId();
+  const { error } = await testAdmin.from("entrance_reservations").insert({
+    reservation_id: id,
+    product_id: params.productId,
+    event_id: params.eventId,
+    stripe_customer_id: params.stripeCustomerId,
+    stripe_setup_intent_id: params.stripeSetupIntentId ?? null,
+    stripe_payment_intent_id: params.stripePaymentIntentId ?? null,
+    stripe_payment_method_id: params.stripePaymentMethodId ?? null,
+    email: params.email ?? "test@test.local",
+    holder_name: params.holderName ?? null,
+    charge_amount: params.chargeAmount ?? 3000,
+    status: params.status ?? "pending",
+  });
+  if (error) throw new Error(`reservation 挿入失敗: ${error.message}`);
+  return id;
+}
+
 // settle_transfers を挿入
 export async function insertSettleTransfer(params: {
   eventId: string;

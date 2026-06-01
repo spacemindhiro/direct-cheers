@@ -1,6 +1,6 @@
 # Direct Cheers — 統合テスト仕様書
 
-> **最終更新:** 2026-06-01（TC-ENT 入場チケット・TC-IDEM 冪等性テスト追加・ギャップ分析追記）  
+> **最終更新:** 2026-06-01（test.each マトリクス爆破：95ケース → 844ケースへ拡張）  
 > **対象ブランチ:** develop  
 > **テストランナー:** Vitest 4.x
 
@@ -19,9 +19,14 @@
 | payout.test.ts | /api/payout/request | 3 | 出金・残高照会 |
 | chargeback.test.ts | /api/stripe/webhook | 3 | チャージバック処理 |
 | tax.test.ts | fee-config / 計算ロジック | 9 | 端数精度 |
-| **entrance.test.ts** | /api/entrance/reserve, checkin | **11** | **入場チケット全体（新規）** |
-| **idempotency.test.ts** | /api/pay/complete, webhook | **5** | **二重課金・重複処理（新規）** |
-| **合計** | | **~65** | |
+| entrance.test.ts | /api/entrance/reserve, checkin | 11 | 入場チケット全体 |
+| idempotency.test.ts | /api/pay/complete, webhook | 5 | 二重課金・重複処理 |
+| **tax-matrix.test.ts** | fee-config / 計算ロジック（test.each） | **542** | **境界値×レート×分配率 全掛け算（新規）** |
+| **pay-matrix.test.ts** | /api/pay/cheers（test.each） | **80** | **決済手段×Capability×金額 全掛け算（新規）** |
+| **entrance-matrix.test.ts** | /api/entrance/reserve, checkin（test.each） | **49** | **時間境界値×在庫×権限 全掛け算（新規）** |
+| **refund-matrix.test.ts** | /api/admin/refund（test.each） | **46** | **返金バリデーション×ロール×PI状態（新規）** |
+| **post-pay-matrix.test.ts** | reconcile, payout/request（test.each） | **32** | **照合差分×Payout守衛条件 汚染テスト（新規）** |
+| **合計** | | **844** | |
 
 ### 0-2. テストギャップ一覧と優先度
 
@@ -687,3 +692,111 @@ vi.mock("stripe", async (importOriginal) => {
 - **TC-SETTLE の requires_capture PI:** Stripe テストモードの PI は 7 日で期限切れになる。テストは毎回新規に PI を作成するので問題なし
 - **PayPay / Link テスト（TC-PAY-02, TC-PAY-MATRIX-04/05）:** Stripe テストモードに PayPay・Link のサンドボックスが提供されていないため、`InstrumentedStripe` 内で `checkout.sessions.create` をスタブ化してパラメータ検証のみを行う。実 API は呼ばれない
 - **Capability チェックのモック:** `accounts.retrieve` を常にインターセプトするため、テストモードの Connect アカウント（Custom タイプ）の実際の capability 状態に依存しない。`captured.accountCapabilities` で完全制御する
+
+---
+
+## 8. マトリクステスト仕様（test.each 爆破）
+
+> 2026-06-01 追加。`test.each` によるパラメータ駆動テストで 95ケース → **844ケース** に拡張。
+
+### TC-TAX-MATRIX — 手数料計算境界値・分配率マトリクス（542ケース）
+
+**ファイル:** `tax-matrix.test.ts` / **種別:** 純粋単体（DB・Stripe 不要）
+
+| セクション | 説明 | ケース数 |
+|-----------|------|---------|
+| TC-TAX-BOUNDARY-01 | 30境界値 × 3レート → `net + appFee ≤ gross` かつ差 ≤ 1円 | 90 |
+| TC-TAX-BOUNDARY-02 | 30境界値 × 3レート → 全計算値が整数 かつ `net > 0` | 90 |
+| TC-TAX-DIST-01 | 10金額 × 13分配率 → `org + a1 + a2 == net` (端数吸収後) | 130 |
+| TC-TAX-DIST-02 | 10金額 × 13分配率 → `agentFee == floor(gross × 5%)` | 130 |
+| TC-TAX-PAYPAY-01 | 30境界値 → PayPay `net + fee ≤ gross` かつ差 ≤ 1円 | 30 |
+| TC-TAX-PAYPAY-02 | 30境界値 → PayPay `stripeFee ≥ cardFee`（消費税上乗せ） | 30 |
+| TC-TAX-TRIPLE | 8パターン → `agent+org+artist の総合計 = net` | 8 |
+| TC-TAX-RATE-PRECISION | PayPay 3.98%×1.1=4.378% の5桁精度 など | 4 |
+| TC-TAX-AGENT-MATRIX | 30境界値 → `agentFee` 整数性・非負・floor精度 | 30 |
+
+**境界値一覧（30点）:** 1, 11, 99, 100, 101, 999, 1000, 1001, 2999, 3000, 3001, 4999, 5000, 5001, 9999, 10000, 10001, 29999, 30000, 30001, 49999, 50000, 50001, 99999, 100000, 100001, 299999, 300000, 1000000, 1500000
+
+**分配率パターン（13種）:** 100:0, 50:50, 99:1, 1:99, 33:67, 67:33, 10:90, 25:75, 30:30:40, 20:60:20, 40:40:20, 50:30:20, 50:25:25
+
+---
+
+### TC-PAY-MATRIX — 決済手段×Capability状態×金額マトリクス（80ケース）
+
+**ファイル:** `pay-matrix.test.ts` / **種別:** モックStripe + 実DB
+
+| セクション | 説明 | ケース数 |
+|-----------|------|---------|
+| TC-PAY-MATRIX-CARD | card/apple_pay/google_pay/link × 7 Capability状態 → 200/422 | 28 |
+| TC-PAY-MATRIX-PAYPAY | PayPay × 7 Capability状態 → 全200（チェックスキップ） | 7 |
+| TC-PAY-VALIDATE | 必須フィールド欠損・ゼロ金額 → 400 | 12 |
+| TC-PAY-MATRIX-AMOUNT | 5有効金額 × 4カード系手段 → 全200 | 20 |
+| TC-PAY-MATRIX-MISSING-CAPS | 422時の `missing_capabilities` 内容検証 | 8 |
+| TC-PAY-NO-CONNECT | Connect未設定 × 5手段 → 全200（チェックスキップ） | 5 |
+
+**Capability状態7種:** (active,active)=pass, (pending,active), (inactive,active), (unrequested,active), (active,pending), (active,inactive), (active,unrequested)=いずれも fail
+
+---
+
+### TC-ENT-MATRIX — 入場チケット時間境界値・在庫・権限マトリクス（49ケース）
+
+**ファイル:** `entrance-matrix.test.ts` / **種別:** モックStripe + 実DB
+
+| セクション | 説明 | ケース数 |
+|-----------|------|---------|
+| TC-ENT-TIME | タイプA 5日前分岐 × 7時間オフセット → `is_auth` 切り替え検証 | 7 |
+| TC-ENT-STOCK | stock × sold の9組合せ → 200/409 SOLD_OUT | 10 |
+| TC-ENT-AUTH | 3認証状態(own/other/none) × 3チケット状態(valid/used/cancelled) = 9マトリクス | 9 |
+| TC-ENT-IDEM | 同一チケットコードを3回連打 → 1回目200, 2回目409, 3回目409（冪等） | 3 |
+| TC-ENT-VALIDATE | 予約APIへの不正入力10パターン → 400/404 | 10 |
+| TC-ENT-TYPE | タイプB/C種別テスト・track_inventory分岐など | 5 |
+| TC-ENT-CHECKIN-FAIL | 失敗系チェックイン追加バリエーション | 5 |
+
+**時間境界値（7点）:** 6日1秒前, 5日1秒前（SetupIntentパス）, 5日ちょうど～1日前（DirectAuthパス）  
+**注意:** ルートはステータスチェック（used/cancelled）を権限チェックより先に実行するため、`other_organizer × used/cancelled` は 403 ではなく 409 が返る（意図的設計）。
+
+---
+
+### TC-REFUND-MATRIX — 返金バリデーション×ロール×PI状態×debt_claims（46ケース）
+
+**ファイル:** `refund-matrix.test.ts` / **種別:** モックStripe（全メソッド）+ 実DB
+
+| セクション | 説明 | ケース数 |
+|-----------|------|---------|
+| TC-REFUND-A | 入力バリデーション（欠損・空白・null）→ 400 | 10 |
+| TC-REFUND-B | 非adminロール（organizer/artist/agent/匿名）→ 403/401 | 4 |
+| TC-REFUND-C | succeeded PI × refundType バリエーション8種 → 200/400 | 8 |
+| TC-REFUND-D | PI状態5種（requires_capture/succeeded/canceled/refunded/requires_payment_method）| 5 |
+| TC-REFUND-E | settle前 × 4金額 × FULL_PENALTY/COMPASSIONATE → `debtAmount` 金額検証 | 8 |
+| TC-REFUND-F | settle後 × 3金額 × FULL_PENALTY/COMPASSIONATE → transfer逆転 + debt_claims | 6 |
+| TC-REFUND-G | 有効な reason 内容5バリエーション → 全200 | 5 |
+
+**debt_claims 金額公式:**  
+- `FULL_PENALTY` → `debtAmount = floor(gross × 0.10)` (platform_fee)  
+- `COMPASSIONATE` → `debtAmount = floor(gross × 0.0396)` (stripe_fee)
+
+---
+
+### TC-POST-PAY-MATRIX — 照合差分×Payout守衛条件 データ汚染テスト（32ケース）
+
+**ファイル:** `post-pay-matrix.test.ts` / **種別:** モックStripe + 実DB
+
+| セクション | 説明 | ケース数 |
+|-----------|------|---------|
+| TC-POST-PAY-RECONCILE | Stripe vs DB 不一致10パターン → `amount_verified` / `amount_mismatch` 検証 | 10 |
+| TC-POST-PAY-PAYOUT-GUARD | 出金可能条件を1項目ずつ汚染（is_frozen/hold_released/reconciled_at/amount_verified/amount_mismatch など8条件） | 8 |
+| TC-POST-PAY-PAYOUT-AMOUNT | 振込手数料境界値（501円:ok, 500円:fail, 499円:fail, 1円:fail, 0円:fail, -1円:fail） | 6 |
+| TC-POST-PAY-PROFILE-GUARD | balance_frozen=true→403, stripe_connect_id=null→400, 未認証→401 | 3 |
+| TC-POST-PAY-MULTI-TX | 複数TX混在・冪等性・空イベント・再照合 | 5 |
+
+**照合不一致シナリオ（10点）:** 完全一致(verified=true), DB-1000(false,+1000), DB+1000(false,-1000), 1円差(false,+1/-1), DB=半額(false,+5000), 小金額完全一致, 小金額1円差, 大金額完全一致, 大金額不一致
+
+**Payout守衛条件（出金ブロックされる8条件）:**
+1. `is_frozen=true`（チャージバック凍結中）
+2. `distribution_status='paid'`（支払済みで残高なし）
+3. `hold_released=false`（ホールド未解除）
+4. `reconciled_at=null`（照合未完了）
+5. `amount_verified=false`（照合不一致フラグ）
+6. `amount_mismatch=1000`（金額差分あり）
+7. `balance_frozen=true`（プロファイル凍結）→ 403
+8. `hold_released=true + is_frozen=true`（凍結優先確認）

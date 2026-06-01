@@ -63,12 +63,13 @@ function InvitePage() {
     e.preventDefault();
     if (!email) return;
     setPending(true);
-    const callbackUrl = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(`/join/${code}`)}`;
     await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: callbackUrl,
-        data: { skip_onboarding: true },
+        data: {
+          skip_onboarding: true,
+          post_auth_redirect: `/join/${code}`,
+        },
       },
     });
     setPending(false);

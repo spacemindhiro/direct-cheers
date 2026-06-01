@@ -61,10 +61,12 @@ export function LoginForm({
     if (!email || magicPending) return;
     setMagicPending(true);
     const supabase = createClient();
+    // token_hash フロー: emailRedirectTo の代わりに user_metadata 経由でリダイレクト先を伝える。
+    // メールテンプレートが {{ .TokenHash }} を使用するため、別ブラウザ・別端末でも開けるようになる。
     await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`,
+        data: { post_auth_redirect: redirectTo },
       },
     });
     setMagicPending(false);

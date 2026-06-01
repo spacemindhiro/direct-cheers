@@ -170,15 +170,21 @@ async function handleTypeB(
     return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
   }
 
-  // 冪等性チェック
-  const { data: existingTicket } = await admin
-    .from("tickets")
-    .select("ticket_id, ticket_code")
-    .eq("transaction_id", session.payment_intent as string ?? "")
+  // 冪等性チェック: transactions → tickets の順で検索
+  const { data: existingTx } = await admin
+    .from("transactions")
+    .select("transaction_id")
+    .eq("stripe_payment_intent_id", session.payment_intent as string ?? "")
     .maybeSingle();
-
-  if (existingTicket) {
-    return NextResponse.json({ ok: true, ticket_id: existingTicket.ticket_id, ticket_code: existingTicket.ticket_code });
+  if (existingTx) {
+    const { data: existingTicket } = await admin
+      .from("tickets")
+      .select("ticket_id, ticket_code")
+      .eq("transaction_id", existingTx.transaction_id)
+      .maybeSingle();
+    if (existingTicket) {
+      return NextResponse.json({ ok: true, ticket_id: existingTicket.ticket_id, ticket_code: existingTicket.ticket_code });
+    }
   }
 
   const bGross = session.amount_total ?? 0;

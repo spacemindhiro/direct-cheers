@@ -1,10 +1,15 @@
 /**
  * POST /api/entrance/complete
  *
- * タイプA/C: SetupIntent confirm 後にフロントから呼ばれる。
+ * タイプA（SetupIntentパス）: カード登録完了後に呼ばれる。
  * - reservation を 'reserved' に更新
- * - タイプC（当日決済）でなければここでチケット発行はしない（決済後に発行）
- * - タイプC はチケットを発行する（チェックイン時に決済）
+ * - チケットは /reserve 時点で既に発行済みのため、ここでは作成しない（取得のみ）
+ *
+ * タイプA（5日以内 PaymentIntentパス）: カードオーソリ完了後に呼ばれる。
+ * - transaction + チケット更新をアトミックに実行
+ *
+ * タイプC: SetupIntent confirm 後 → チェックイン時に決済実行
+ * - チケット即時発行
  *
  * タイプB: Stripe Checkout の complete フックから呼ばれる（session_id で）
  */
@@ -12,7 +17,6 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
-import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -81,7 +85,7 @@ export async function POST(req: Request) {
 
   const paymentType = (reservation.product as any).payment_type as "A" | "B" | "C";
 
-  // タイプA: reservation を reserved に更新 + チケット即時発行
+  // タイプA: reservation を reserved に更新。チケットは /reserve 時点で発行済み。
   if (paymentType === "A") {
     await admin
       .from("entrance_reservations")
@@ -91,30 +95,12 @@ export async function POST(req: Request) {
       })
       .eq("reservation_id", reservation.reservation_id);
 
-    // provisional_users から profile_id を取得（なければ auth users から解決）
-    const { data: pu } = await admin
-      .from("provisional_users")
-      .select("profile_id")
-      .eq("email", reservation.email)
-      .maybeSingle();
-
-    let holderProfileId = pu?.profile_id ?? null;
-    if (!holderProfileId) {
-      holderProfileId = await resolveProfileIdByEmail(admin, reservation.email);
-    }
-
+    // /reserve で発行済みのチケットを取得して返す
     const { data: ticket } = await admin
       .from("tickets")
-      .insert({
-        reservation_id: reservation.reservation_id,
-        product_id: reservation.product_id,
-        event_id: reservation.event_id,
-        email: reservation.email,
-        holder_profile_id: holderProfileId,
-        status: "valid",
-      })
       .select("ticket_id, ticket_code")
-      .single();
+      .eq("reservation_id", reservation.reservation_id)
+      .maybeSingle();
 
     return NextResponse.json({
       ok: true,

@@ -208,11 +208,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: resErr.message }, { status: 500 });
   }
 
+  // タイプA: カード登録を待たずにチケットを即時発行する。
+  // 「購入完了」としてチケット画面を見せ、カード登録は非同期に行うUX設計。
+  // ステータスは reserved→charged へと後から遷移するが、チケット自体は有効。
+  const { data: ticket } = await admin
+    .from("tickets")
+    .insert({
+      reservation_id: reservation!.reservation_id,
+      product_id,
+      event_id: eventId,
+      email: customer_email,
+      status: "valid",
+    })
+    .select("ticket_id, ticket_code")
+    .single();
+
   return NextResponse.json({
     type: paymentType,
     is_auth: false,
     client_secret: setupIntent.client_secret,
     reservation_id: reservation!.reservation_id,
+    ticket_id: ticket?.ticket_id ?? null,
+    ticket_code: ticket?.ticket_code ?? null,
     amount,
     event_title: event?.title ?? "",
     product_name: (product as any).name,

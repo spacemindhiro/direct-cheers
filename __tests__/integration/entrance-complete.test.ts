@@ -18,6 +18,7 @@ import {
   insertEvent,
   insertProduct,
   insertReservation,
+  insertTicket,
 } from "../helpers/seed";
 import { testAdmin } from "../helpers/db-reset";
 
@@ -338,6 +339,8 @@ describe("TC-ENT-COMPLETE-C: タイプA/C SetupIntent 完了経路", () => {
   let reservationAId: string;
   let reservationCId: string;
 
+  let preIssuedTicketId: string; // /reserve 時点で発行済みのチケット
+
   beforeAll(async () => {
     productAId = await insertProduct({ eventId, paymentType: "A", name: "TypeA SetupIntentテスト券" });
     productCId = await insertProduct({ eventId, paymentType: "C", name: "TypeC SetupIntentテスト券" });
@@ -361,10 +364,20 @@ describe("TC-ENT-COMPLETE-C: タイプA/C SetupIntent 完了経路", () => {
     });
     cleanup.reservationIds.push(reservationAId, reservationCId);
 
+    // 新仕様: /reserve 時点でチケットを発行済みとしてDBに挿入しておく
+    const { ticketId } = await insertTicket({
+      eventId,
+      productId: productAId,
+      status: "valid",
+      reservationId: reservationAId,
+    });
+    preIssuedTicketId = ticketId;
+    cleanup.ticketIds.push(ticketId);
+
     mockStripe.setupPmId = "pm_mock_visa_001";
   });
 
-  it("TC-ENT-COMPLETE-C-01: タイプA + payment_method_id → reservation=reserved、ticket発行", async () => {
+  it("TC-ENT-COMPLETE-C-01: タイプA + payment_method_id → reservation=reserved、/reserve発行済みチケットを返す", async () => {
     const req = new Request("http://localhost/api/entrance/complete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -375,9 +388,9 @@ describe("TC-ENT-COMPLETE-C: タイプA/C SetupIntent 完了経路", () => {
 
     expect(res.status).toBe(200);
     expect(data.ok).toBe(true);
-    expect(data.ticket_id).toBeTruthy();
+    // /complete はチケットを新規作成しない。/reserve で発行済みの ticket_id を返す
+    expect(data.ticket_id).toBe(preIssuedTicketId);
     expect(data.payment_type).toBe("A");
-    cleanup.ticketIds.push(data.ticket_id);
 
     const { data: rsv } = await testAdmin
       .from("entrance_reservations")

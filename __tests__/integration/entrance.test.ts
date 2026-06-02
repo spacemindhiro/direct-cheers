@@ -66,7 +66,6 @@ vi.mock("stripe", async (importOriginal) => {
         object: "payment_intent",
       });
 
-      const origSessionCreate = this.checkout.sessions.create.bind(this.checkout.sessions);
       (this.checkout.sessions as any).create = async (params: any) => ({
         id: `cs_ent_test_${Date.now()}`,
         url: `https://checkout.stripe.com/pay/cs_ent_test_mock`,
@@ -323,15 +322,28 @@ describe("TC-ENT-C: タイプA予約", () => {
     expect(data.client_secret).toBeTruthy();
     expect(data.reservation_id).toBeTruthy();
 
-    // DB に reservation が作成されること
+    // 仕様：予約と同時にチケットを即時発行する
+    expect(data.ticket_id).toBeTruthy();
+    expect(data.ticket_code).toBeTruthy();
+    cleanup.reservationIds.push(data.reservation_id);
+
+    // DB に reservation が pending で作成されていること
     const { data: reservation } = await testAdmin
       .from("entrance_reservations")
       .select("reservation_id, status, charge_amount")
       .eq("reservation_id", data.reservation_id)
       .single();
-    expect(reservation?.status).toBe("pending");
+    expect(reservation?.status).toBe("pending"); // カード登録前なので pending
     expect(reservation?.charge_amount).toBe(5000);
-    cleanup.reservationIds.push(data.reservation_id);
+
+    // DB にチケットが valid で作成されていること
+    const { data: ticket } = await testAdmin
+      .from("tickets")
+      .select("ticket_id, status")
+      .eq("ticket_id", data.ticket_id)
+      .single();
+    expect(ticket?.status).toBe("valid");
+    cleanup.ticketIds.push(data.ticket_id);
   });
 
   it("TC-ENT-C-02: タイプA（開催まで3日）→ 直接オーソリ PI が返る（is_auth=true）", async () => {

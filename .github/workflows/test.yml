@@ -1,0 +1,93 @@
+name: Integration Test Suite
+
+# ──────────────────────────────────────────────────────────────────
+# トリガー: main / develop へのプッシュ、および同ブランチへのPR
+#
+# このワークフローが「Required status check」に設定されていれば
+# Vercel 本番デプロイの遮断ガードレールとして機能する。
+# 設定手順: GitHub → Settings → Branches → Branch protection rules
+#   ✅ Require status checks to pass before merging
+#   ✅ "test / 985ケース全テスト (push)" を必須ステータスに追加
+# ──────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# 同一ブランチへの連続プッシュ時は古いランを自動キャンセル
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: 985ケース全テスト
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. ソース取得 ──────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js セットアップ ────────────────────────────────────
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      # ── 3. Supabase ローカル DB 起動 ───────────────────────────────
+      # supabase start はマイグレーションを自動適用してコンテナを起動する
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: latest
+
+      - name: Start local Supabase (with migrations)
+        run: supabase start
+        timeout-minutes: 10
+
+      # ── 4. .env.test 生成 ──────────────────────────────────────────
+      # Supabase のキーは supabase status から動的に取得
+      # Stripe / Cron / Internal のシークレットは GitHub Secrets から注入
+      - name: Generate .env.test
+        env:
+          STRIPE_SECRET_KEY:                  ${{ secrets.STRIPE_SECRET_KEY }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET:              ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          CRON_SECRET:                        ${{ secrets.CRON_SECRET }}
+          INTERNAL_API_SECRET:                ${{ secrets.INTERNAL_API_SECRET }}
+        run: |
+          ANON_KEY=$(supabase status | grep 'anon key' | awk '{print $NF}')
+          SERVICE_KEY=$(supabase status | grep 'service_role key' | awk '{print $NF}')
+
+          {
+            echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}"
+            echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}"
+            echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}"
+            echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_KEY}"
+            echo "NEXT_PUBLIC_SITE_URL=http://localhost:3000"
+            echo "CRON_SECRET=${CRON_SECRET:-test_cron_secret}"
+            echo "INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-test_internal_secret}"
+          } > .env.test
+
+          echo "✅ .env.test 生成完了（Supabase URL: http://127.0.0.1:54321）"
+
+      # ── 5. テスト実行（985ケース）──────────────────────────────────
+      # 1件でも失敗したら終了コード 1 → ジョブ FAIL → Vercel デプロイ遮断
+      - name: Run 985 integration tests
+        run: npm run test:ci
+        env:
+          CI: true
+
+      # ── 6. クリーンアップ ──────────────────────────────────────────
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup

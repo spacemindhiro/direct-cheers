@@ -258,7 +258,8 @@ export async function insertReservation(params: {
   email?: string;
   holderName?: string | null;
   chargeAmount?: number;
-  status?: "pending" | "reserved" | "charged" | "cancelled";
+  status?: "pending" | "reserved" | "charged" | "cancelled" | "card_error";
+  cardErrorMessage?: string | null;
 }): Promise<string> {
   const id = newId();
   const { error } = await testAdmin.from("entrance_reservations").insert({
@@ -273,6 +274,7 @@ export async function insertReservation(params: {
     holder_name: params.holderName ?? null,
     charge_amount: params.chargeAmount ?? 3000,
     status: params.status ?? "pending",
+    card_error_message: params.cardErrorMessage ?? null,
   });
   if (error) throw new Error(`reservation 挿入失敗: ${error.message}`);
   return id;

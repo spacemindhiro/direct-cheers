@@ -27,33 +27,47 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, checked: 0, matched: 0, mismatched: 0, errors: 0 });
     }
 
-    // settled イベントの qr_config_id を取得
-    const { data: settledQrConfigs } = await admin
-      .from("qr_configs")
-      .select("qr_config_id, event_id")
-      .in("event_id", settledEventIds);
+    // settled イベントの qr_config_id を取得（URLが長すぎるため50件ずつバッチ）
+    const BATCH = 50;
+    const allQrConfigs: { qr_config_id: string; event_id: string }[] = [];
+    for (let i = 0; i < settledEventIds.length; i += BATCH) {
+      const batch = settledEventIds.slice(i, i + BATCH);
+      const { data: batchQr } = await admin
+        .from("qr_configs")
+        .select("qr_config_id, event_id")
+        .in("event_id", batch);
+      allQrConfigs.push(...(batchQr ?? []));
+    }
 
-    const settledQrConfigIds = (settledQrConfigs ?? []).map((q) => q.qr_config_id);
+    const settledQrConfigIds = allQrConfigs.map((q) => q.qr_config_id);
     const qrToEventId = new Map<string, string>();
-    for (const q of settledQrConfigs ?? []) qrToEventId.set(q.qr_config_id, q.event_id);
+    for (const q of allQrConfigs) qrToEventId.set(q.qr_config_id, q.event_id);
 
     if (settledQrConfigIds.length === 0) {
       console.log("[reconcile] no qr_configs for settled events, skip");
       return NextResponse.json({ success: true, checked: 0, matched: 0, mismatched: 0, errors: 0 });
     }
 
-    // settled イベントの未照合トランザクションを取得
-    const { data: transactions, error: txErr } = await admin
-      .from("transactions")
-      .select(`
-        transaction_id, stripe_payment_intent_id, total_gross_amount, platform_fee, qr_config_id,
-        transaction_distributions(transaction_distribution_id, profile_id, distribution_role, actual_amount, amount_before_reconcile, distribution_status)
-      `)
-      .in("qr_config_id", settledQrConfigIds)
-      .eq("status", "completed")
-      .or("reconciled_at.is.null,reconcile_error.not.is.null,amount_verified.eq.false")
-      .not("stripe_payment_intent_id", "is", null)
-      .neq("transaction_type", "invitation");
+    // settled イベントの未照合トランザクションを取得（URLが長すぎるため50件ずつバッチ）
+    const allTransactions: any[] = [];
+    let txErr: any = null;
+    for (let i = 0; i < settledQrConfigIds.length; i += BATCH) {
+      const batch = settledQrConfigIds.slice(i, i + BATCH);
+      const { data: batchTx, error: batchErr } = await admin
+        .from("transactions")
+        .select(`
+          transaction_id, stripe_payment_intent_id, total_gross_amount, platform_fee, qr_config_id,
+          transaction_distributions(transaction_distribution_id, profile_id, distribution_role, actual_amount, amount_before_reconcile, distribution_status)
+        `)
+        .in("qr_config_id", batch)
+        .eq("status", "completed")
+        .or("reconciled_at.is.null,reconcile_error.not.is.null,amount_verified.eq.false")
+        .not("stripe_payment_intent_id", "is", null)
+        .neq("transaction_type", "invitation");
+      if (batchErr) { txErr = batchErr; break; }
+      allTransactions.push(...(batchTx ?? []));
+    }
+    const transactions = allTransactions;
 
     if (txErr) {
       console.error("[reconcile] fetch transactions error:", txErr.message);
@@ -166,7 +180,7 @@ export async function GET(req: Request) {
     )];
 
     for (const eventId of touchedEventIds) {
-      const qrIds = (settledQrConfigs ?? [])
+      const qrIds = allQrConfigs
         .filter((q) => q.event_id === eventId)
         .map((q) => q.qr_config_id);
 

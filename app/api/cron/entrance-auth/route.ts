@@ -28,6 +28,20 @@ export async function GET(req: Request) {
   const windowStart = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
   const windowEnd   = new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000);
 
+  // Supabase の joined フィルタは信頼できないため、
+  // 先にウィンドウ内イベントを取得してから reservations を絞り込む
+  const { data: targetEvents } = await admin
+    .from("events")
+    .select("event_id")
+    .gte("start_at", windowStart.toISOString())
+    .lte("start_at", windowEnd.toISOString())
+    .not("lifecycle_status", "in", '("settled","cancelled","ended")');
+
+  const targetEventIds = (targetEvents ?? []).map((e) => e.event_id);
+  if (targetEventIds.length === 0) {
+    return NextResponse.json({ success: true, processed: 0, succeeded: 0, failed: 0 });
+  }
+
   const { data: reservations } = await admin
     .from("entrance_reservations")
     .select(`
@@ -39,8 +53,7 @@ export async function GET(req: Request) {
     .eq("status", "reserved")
     .not("stripe_payment_method_id", "is", null)
     .is("stripe_payment_intent_id", null) // まだオーソリ未実施
-    .gte("event.start_at", windowStart.toISOString())
-    .lte("event.start_at", windowEnd.toISOString());
+    .in("event_id", targetEventIds);
 
   let processed = 0;
   let succeeded = 0;

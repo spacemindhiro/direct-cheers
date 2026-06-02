@@ -9,11 +9,12 @@ ALTER TABLE public.tickets
 
 -- entrance_reservations に card_error ステータスが既に存在するか確認済み。
 -- checkin_ticket RPC は suspended チケットに対して専用エラーを返すよう更新。
+-- 戻り値型は既存の uuid を維持（RETURNS void への変更は pg で禁止されているため）
 CREATE OR REPLACE FUNCTION public.checkin_ticket(
   p_ticket_code  text,
   p_organizer_id uuid
 )
-RETURNS void
+RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
@@ -48,6 +49,8 @@ BEGIN
          checked_in_at  = now(),
          checked_in_by  = p_organizer_id
    WHERE ticket_id = v_ticket_id;
+
+  RETURN v_ticket_id;
 END;
 $$;
 

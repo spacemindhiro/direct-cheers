@@ -53,32 +53,31 @@ jobs:
         timeout-minutes: 10
 
       # ── 4. .env.test 生成 ──────────────────────────────────────────
-      # Supabase のキーは supabase status から動的に取得
-      # Stripe / Cron / Internal のシークレットは GitHub Secrets から注入
+      # 全シークレットは GitHub Secrets から注入
+      # Supabase CLI v2.x は出力形式が変わったため動的取得せず Secrets を使用
       - name: Generate .env.test
         env:
           STRIPE_SECRET_KEY:                  ${{ secrets.STRIPE_SECRET_KEY }}
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
           STRIPE_WEBHOOK_SECRET:              ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY:      ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY:          ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CRON_SECRET:                        ${{ secrets.CRON_SECRET }}
           INTERNAL_API_SECRET:                ${{ secrets.INTERNAL_API_SECRET }}
         run: |
-          ANON_KEY=$(supabase status | grep 'anon key' | awk '{print $NF}')
-          SERVICE_KEY=$(supabase status | grep 'service_role key' | awk '{print $NF}')
-
           {
             echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}"
             echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}"
             echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}"
             echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
-            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}"
             echo "NEXT_PUBLIC_SITE_URL=http://localhost:3000"
             echo "CRON_SECRET=${CRON_SECRET:-test_cron_secret}"
             echo "INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-test_internal_secret}"
           } > .env.test
 
-          echo "✅ .env.test 生成完了（Supabase URL: http://127.0.0.1:54321）"
+          echo "✅ .env.test 生成完了"
 
       # ── 5. テスト実行（985ケース）──────────────────────────────────
       # 1件でも失敗したら終了コード 1 → ジョブ FAIL → Vercel デプロイ遮断

@@ -127,10 +127,13 @@ GitHub Actions が自動起動
 | `STRIPE_SECRET_KEY` | Stripe ダッシュボード > 開発者 > APIキー | テストモードキー `sk_test_...` |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | 同上 | 公開キー `pk_test_...` |
 | `STRIPE_WEBHOOK_SECRET` | Stripe > Webhooks > エンドポイント | webhook署名検証 |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `.env.test` の値をコピー | ローカル Supabase の公開キー |
+| `SUPABASE_SERVICE_ROLE_KEY` | `.env.test` の値をコピー | ローカル Supabase のサービスロールキー |
 | `CRON_SECRET` | 任意の文字列（例: `dc_cron_ci_secret`）| cron保護 |
 | `INTERNAL_API_SECRET` | 任意の文字列 | 内部API保護 |
 
-> Supabase のキー（ANON_KEY, SERVICE_ROLE_KEY）は CI 内で `supabase status` から動的取得するため、Secrets 登録不要。
+> **なぜ Supabase キーを動的取得しないか:** Supabase CLI v2.x でステータス出力形式が変わり（テーブル形式）、  
+> `grep 'anon key'` が機能しなくなったため。`.env.test` と同じ固定値を Secrets に登録することで解決。
 
 ### 1-5. ワークフローファイル
 

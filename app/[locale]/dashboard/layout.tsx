@@ -7,7 +7,6 @@ import { LogoutButton } from '@/components/logout-button';
 import { Loader2, UserCircle, MessageCircle } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
-import { AdminNav } from '@/components/admin-nav';
 
 const STEP_UP_ROLES = ['artist', 'organizer', 'agent', 'admin'] as const;
 const STEP_UP_TTL_MS = 480 * 60 * 1000;
@@ -66,9 +65,35 @@ async function DashboardNav() {
               Admin
             </span>
           </div>
-          <Suspense fallback={null}>
-            <AdminNav />
-          </Suspense>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/messages"
+              className="relative w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
+            >
+              <MessageCircle size={18} className="text-slate-400 hover:text-pink-500 transition-colors" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-pink-500 rounded-full flex items-center justify-center text-[9px] font-black text-white px-1">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Link>
+            <Link
+              href="/dashboard/profile"
+              className="flex items-center gap-2 group"
+            >
+              <div className="w-9 h-9 bg-slate-800 border border-slate-700 group-hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all overflow-hidden">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt={profile.display_name} className="w-full h-full object-cover" />
+                ) : (
+                  <UserCircle size={18} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
+                )}
+              </div>
+              <span className="text-[10px] font-bold text-slate-500 group-hover:text-pink-500 uppercase tracking-widest hidden sm:block transition-colors">
+                {profile.display_name}
+              </span>
+            </Link>
+            <LogoutButton />
+          </div>
         </div>
       </nav>
     );

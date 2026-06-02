@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BatchReportClient } from "@/components/batch-report-client";
 import { redirect } from "next/navigation";

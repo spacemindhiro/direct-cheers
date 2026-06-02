@@ -58,6 +58,9 @@ export async function POST(req: Request) {
   if (ticket.status === "cancelled") {
     return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
   }
+  if (ticket.status === "suspended") {
+    return NextResponse.json({ error: "TICKET_SUSPENDED" }, { status: 409 });
+  }
 
   // イベントへのアクセス権チェック
   const ev = ticket.event as any;
@@ -138,6 +141,7 @@ export async function POST(req: Request) {
     const msg = checkinError.message ?? "";
     if (msg.includes("ALREADY_USED")) return NextResponse.json({ error: "ALREADY_USED" }, { status: 409 });
     if (msg.includes("TICKET_CANCELLED")) return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
+    if (msg.includes("TICKET_SUSPENDED")) return NextResponse.json({ error: "TICKET_SUSPENDED" }, { status: 409 });
     return NextResponse.json({ error: checkinError.message }, { status: 500 });
   }
 

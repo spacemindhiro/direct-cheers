@@ -280,6 +280,28 @@ export async function sendAdminMessageEmail(opts: {
 // ================================================================
 // 10. ユーザー → Admin 返信
 // ================================================================
+export async function sendCardSuspendedEmail(opts: {
+  to: string;
+  eventTitle: string;
+  productName: string;
+  reservationId: string;
+  reason: "card_error" | "card_check_failed";
+}) {
+  const reasonText = opts.reason === "card_error"
+    ? "カードへの請求処理に失敗しました"
+    : "登録されているカードに問題が検出されました";
+  await send(
+    opts.to,
+    "【Direct Cheers】チケットのお支払い情報をご確認ください",
+    layout(`
+      <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">お支払い情報のご確認をお願いします</h1>
+      ${eventBox(opts.eventTitle, opts.productName)}
+      <p style="color:#cbd5e1;font-size:14px;line-height:1.8;margin:0 0 24px">${reasonText}。チケットは一時的に無効となっています。<br>新しいカード情報をご登録いただくと、チケットが有効に戻ります。</p>
+      ${actionButton(`${SITE_URL}/entrance/reservations/${opts.reservationId}/update-card`, "カードを再登録する")}
+    `),
+  );
+}
+
 export async function sendUserReplyEmail(opts: {
   to: string | string[];
   body: string;

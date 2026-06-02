@@ -92,15 +92,25 @@ export async function POST(req: Request) {
       .update({
         status: "reserved",
         stripe_payment_method_id: paymentMethodId,
+        card_error_message: null,
+        card_error_code: null,
       })
       .eq("reservation_id", reservation.reservation_id);
 
     // /reserve で発行済みのチケットを取得して返す
     const { data: ticket } = await admin
       .from("tickets")
-      .select("ticket_id, ticket_code")
+      .select("ticket_id, ticket_code, status")
       .eq("reservation_id", reservation.reservation_id)
       .maybeSingle();
+
+    // カードエラーで suspended になっていたら valid に復活
+    if (ticket?.status === "suspended") {
+      await admin
+        .from("tickets")
+        .update({ status: "valid" })
+        .eq("ticket_id", ticket.ticket_id);
+    }
 
     return NextResponse.json({
       ok: true,
@@ -255,9 +265,17 @@ async function handleTypeAAuth(
   // ticket_code を取得
   const { data: ticketRow } = await admin
     .from("tickets")
-    .select("ticket_id, ticket_code")
+    .select("ticket_id, ticket_code, status")
     .eq("ticket_id", row?.out_ticket_id)
     .maybeSingle();
+
+  // カードエラーで suspended になっていたら valid に復活
+  if (ticketRow?.status === "suspended") {
+    await admin
+      .from("tickets")
+      .update({ status: "valid" })
+      .eq("ticket_id", ticketRow.ticket_id);
+  }
 
   return NextResponse.json({
     ok: true,

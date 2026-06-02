@@ -88,7 +88,4 @@ jobs:
         env:
           CI: true
 
-      # ── 6. クリーンアップ ──────────────────────────────────────────
-      - name: Stop Supabase
-        if: always()
-        run: supabase stop --no-backup
+      # ランナーは使い捨て VM のためクリーンアップ不要

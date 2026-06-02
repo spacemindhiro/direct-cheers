@@ -92,7 +92,7 @@ GitHub Actions が自動起動
 ┌─────────────────────────────────────────────────┐
 │  Job: 985ケース全テスト                          │
 │                                                 │
-│  1. actions/checkout + Node.js 20.x + npm ci   │
+│  1. actions/checkout + Node.js 25.x + npm ci   │
 │  2. supabase start（Docker起動 + migration適用） │
 │  3. .env.test 生成（GitHub Secrets から注入）   │
 │  4. npm run test:ci（vitest run --reporter=verbose）│

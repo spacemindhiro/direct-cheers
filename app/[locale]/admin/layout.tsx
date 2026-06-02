@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { LogoutButton } from "@/components/logout-button";
@@ -73,7 +74,11 @@ async function AdminHeader() {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
-      <AdminHeader />
+      <Suspense fallback={
+        <div className="h-16 border-b border-slate-800" />
+      }>
+        <AdminHeader />
+      </Suspense>
       <main className="max-w-5xl mx-auto px-6 py-10">
         {children}
       </main>

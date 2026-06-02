@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -78,6 +79,7 @@ export async function GET(req: Request) {
     let matched = 0;
     let mismatched = 0;
     let errors = 0;
+    const reconcileFailures: FailureDetail[] = [];
 
     for (const tx of targets) {
       if (!tx.stripe_payment_intent_id) continue;
@@ -109,6 +111,10 @@ export async function GET(req: Request) {
         if (!grossMatch) {
           mismatched++;
           console.error(`[reconcile] GROSS MISMATCH tx=${tx.transaction_id} expected=${tx.total_gross_amount} actual=${stripeGross} diff=${grossDiff}`);
+          reconcileFailures.push({
+            amount:        Math.abs(grossDiff),
+            failureReason: `Stripe金額（¥${stripeGross.toLocaleString()}）とDB金額（¥${(tx.total_gross_amount ?? 0).toLocaleString()}）が不一致 差額¥${grossDiff}`,
+          });
         } else {
           matched++;
         }
@@ -166,6 +172,10 @@ export async function GET(req: Request) {
       } catch (err: any) {
         errors++;
         console.error(`[reconcile] tx=${tx.transaction_id} error:`, err.message);
+        reconcileFailures.push({
+          amount:        tx.total_gross_amount ?? 0,
+          failureReason: `照合エラー: ${(err.message ?? "").slice(0, 80)}`,
+        });
         // reconciled_at はセットしない → 翌日のCRONで再試行される
         await admin
           .from("transactions")
@@ -217,6 +227,26 @@ export async function GET(req: Request) {
     }
 
     console.log(`[reconcile] done: checked=${targets.length} matched=${matched} mismatched=${mismatched} errors=${errors}`);
+
+    const totalAmount = targets.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+    const matchedAmount = targets
+      .filter((_, i) => {
+        // 簡易: mismatched/errors 以外は成功扱い
+        return true;
+      })
+      .reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+
+    await saveCronReport({
+      taskName:      "Stripe-DB照合バッチ",
+      totalEvents:   touchedEventIds.length,
+      targetCount:   targets.length,
+      targetAmount:  totalAmount,
+      successCount:  matched,
+      successAmount: totalAmount - reconcileFailures.reduce((s, f) => s + f.amount, 0),
+      failedCount:   mismatched + errors,
+      failedAmount:  reconcileFailures.reduce((s, f) => s + f.amount, 0),
+      failures:      reconcileFailures,
+    });
 
     return NextResponse.json({ success: true, checked: targets.length, matched, mismatched, errors });
   } catch (err: any) {

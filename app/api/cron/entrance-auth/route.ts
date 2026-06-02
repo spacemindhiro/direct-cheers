@@ -7,12 +7,15 @@
  *
  * 成功: reservation → charged、transaction 作成（settle で後キャプチャ）
  * 失敗: ticket → suspended、reservation → card_error、予約者メール通知
+ *
+ * 処理結果は daily_business_reports / uncollected_revenue_details に記録する。
  */
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { sendCardSuspendedEmail } from "@/lib/email/notification";
+import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -28,17 +31,26 @@ export async function GET(req: Request) {
   const windowStart = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
   const windowEnd   = new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000);
 
-  // Supabase の joined フィルタは信頼できないため、
-  // 先にウィンドウ内イベントを取得してから reservations を絞り込む
   const { data: targetEvents } = await admin
     .from("events")
-    .select("event_id")
+    .select("event_id, title, profiles!organizer_profile_id(display_name, organizer_name)")
     .gte("start_at", windowStart.toISOString())
     .lte("start_at", windowEnd.toISOString())
     .not("lifecycle_status", "in", '("settled","cancelled","ended")');
 
   const targetEventIds = (targetEvents ?? []).map((e) => e.event_id);
+  const eventNameMap = new Map((targetEvents ?? []).map((e) => [
+    e.event_id,
+    { title: e.title, organizer: (e.profiles as any)?.organizer_name ?? (e.profiles as any)?.display_name ?? "" }
+  ]));
+
   if (targetEventIds.length === 0) {
+    await saveCronReport({
+      taskName: "5日前・前売り決済確定バッチ",
+      totalEvents: 0, targetCount: 0, targetAmount: 0,
+      successCount: 0, successAmount: 0, failedCount: 0, failedAmount: 0,
+      failures: [],
+    });
     return NextResponse.json({ success: true, processed: 0, succeeded: 0, failed: 0 });
   }
 
@@ -52,21 +64,26 @@ export async function GET(req: Request) {
     `)
     .eq("status", "reserved")
     .not("stripe_payment_method_id", "is", null)
-    .is("stripe_payment_intent_id", null) // まだオーソリ未実施
+    .is("stripe_payment_intent_id", null)
     .in("event_id", targetEventIds);
 
-  let processed = 0;
-  let succeeded = 0;
-  let failed = 0;
+  const all = reservations ?? [];
+  const targetCount  = all.length;
+  const targetAmount = all.reduce((s, r) => s + r.charge_amount, 0);
+
+  let successCount = 0;
+  let successAmount = 0;
+  let failedCount = 0;
+  let failedAmount = 0;
+  const failures: FailureDetail[] = [];
 
   const feeConfig = await getFeeConfig();
 
-  for (const rsv of reservations ?? []) {
+  for (const rsv of all) {
     if (!rsv.stripe_payment_method_id || !rsv.stripe_customer_id) continue;
-    processed++;
+    const ev = eventNameMap.get(rsv.event_id);
 
     try {
-      // off_session オーソリ（capture は後ほど settle 時）
       const pi = await stripe.paymentIntents.create({
         amount: rsv.charge_amount,
         currency: "jpy",
@@ -92,7 +109,6 @@ export async function GET(req: Request) {
       const stripeFee   = Math.floor(gross * feeConfig.stripe_rate);
       const platformFee = Math.floor(gross * feeConfig.platform_rate);
 
-      // transaction + reservation.status=charged をアトミックに更新
       const { error: rpcError } = await admin.rpc("complete_entrance_typea_charge", {
         p_stripe_payment_intent_id: pi.id,
         p_product_id:               rsv.product_id,
@@ -107,13 +123,22 @@ export async function GET(req: Request) {
 
       if (rpcError) throw new Error(rpcError.message);
 
-      succeeded++;
+      successCount++;
+      successAmount += rsv.charge_amount;
     } catch (err: any) {
-      failed++;
+      failedCount++;
+      failedAmount += rsv.charge_amount;
       const errMsg: string = err?.message ?? String(err);
       console.error(`[entrance-auth] オーソリ失敗 reservation=${rsv.reservation_id}:`, errMsg);
 
-      // カードエラー → ticket を suspended、reservation を card_error
+      failures.push({
+        eventName:     ev?.title ?? (rsv.event as any)?.title ?? "",
+        organizerName: ev?.organizer ?? "",
+        customerName:  rsv.email,
+        amount:        rsv.charge_amount,
+        failureReason: stripeDeclineToJa(errMsg),
+      });
+
       await admin
         .from("entrance_reservations")
         .update({ status: "card_error", card_error_message: errMsg })
@@ -125,7 +150,6 @@ export async function GET(req: Request) {
         .eq("reservation_id", rsv.reservation_id)
         .eq("status", "valid");
 
-      // 予約者に通知
       if (rsv.email) {
         sendCardSuspendedEmail({
           to: rsv.email,
@@ -138,5 +162,24 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ success: true, processed, succeeded, failed });
+  await saveCronReport({
+    taskName: "5日前・前売り決済確定バッチ",
+    totalEvents: targetEventIds.length,
+    targetCount, targetAmount,
+    successCount, successAmount,
+    failedCount, failedAmount,
+    failures,
+  });
+
+  return NextResponse.json({ success: true, processed: targetCount, succeeded: successCount, failed: failedCount });
+}
+
+function stripeDeclineToJa(msg: string): string {
+  if (msg.includes("insufficient_funds")) return "クレジットカード残高不足";
+  if (msg.includes("card_declined"))      return "カード会社により拒否";
+  if (msg.includes("expired_card"))       return "カード有効期限切れ";
+  if (msg.includes("lost_card"))          return "紛失カード";
+  if (msg.includes("stolen_card"))        return "盗難カード";
+  if (msg.includes("do_not_honor"))       return "カード会社より利用拒否";
+  return `決済エラー: ${msg.slice(0, 50)}`;
 }

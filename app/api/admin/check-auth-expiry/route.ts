@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { saveCronReport } from "@/lib/cron-report";
 
 const AUTH_EXPIRE_DAYS = 7;
 const WARN_DAYS_BEFORE = 2;
@@ -63,6 +64,18 @@ export async function GET(req: Request) {
     });
     notified++;
   }
+
+  await saveCronReport({
+    taskName:      "オーソリ期限アラートバッチ",
+    totalEvents:   (events ?? []).length,
+    targetCount:   notified,
+    targetAmount:  0,
+    successCount:  notified,
+    successAmount: 0,
+    failedCount:   0,
+    failedAmount:  0,
+    failures:      [],
+  });
 
   return NextResponse.json({ success: true, notified });
 }

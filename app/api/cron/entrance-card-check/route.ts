@@ -5,15 +5,13 @@
  * SetupIntent 済み・まだオーソリ前の TypeA 予約に対して
  * Stripe の PaymentMethod を retrieve し、カードが無効化されていないか確認する。
  *
- * 判定基準:
- *   - retrieve 失敗（404等）→ カード削除またはネガティブ VAU/ABU 更新
- *   - exp_month/year が現在より過去 → 有効期限切れ
- * 上記いずれかで: ticket → suspended, reservation → card_error, 予約者メール通知
+ * 処理結果は daily_business_reports / uncollected_revenue_details に記録する。
  */
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendCardSuspendedEmail } from "@/lib/email/notification";
+import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -25,82 +23,98 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   const now = new Date();
 
-  // SetupIntent 済み・オーソリ前・カード登録済みの予約を取得
-  // stripe_payment_intent_id が null = まだ5日前オーソリが走っていない
   const { data: reservations } = await admin
     .from("entrance_reservations")
     .select(`
       reservation_id, email, status, stripe_payment_method_id, charge_amount,
       product:products(name),
-      event:events(title, start_at, lifecycle_status)
+      event:events(title, start_at, lifecycle_status, profiles!organizer_profile_id(display_name, organizer_name))
     `)
     .eq("status", "reserved")
     .not("stripe_payment_method_id", "is", null)
     .is("stripe_payment_intent_id", null);
 
+  const all = reservations ?? [];
   let checked = 0;
   let suspended = 0;
-  let errors = 0;
+  const failures: FailureDetail[] = [];
+  let failedAmount = 0;
 
-  for (const rsv of reservations ?? []) {
+  for (const rsv of all) {
     const ev = rsv.event as any;
-    // 終了済みイベントはスキップ
     if (["settled", "cancelled", "ended"].includes(ev?.lifecycle_status ?? "")) continue;
-    // 過去のイベントもスキップ
     if (ev?.start_at && new Date(ev.start_at) < now) continue;
-
     checked++;
 
     try {
       const pm = await stripe.paymentMethods.retrieve(rsv.stripe_payment_method_id!);
       const card = pm.card;
-
-      // 有効期限チェック
       const isExpired = card
         ? (card.exp_year < now.getFullYear() ||
           (card.exp_year === now.getFullYear() && card.exp_month < now.getMonth() + 1))
         : false;
 
-      if (!isExpired) continue; // 問題なし
+      if (!isExpired) continue;
 
-      // 有効期限切れ → suspend
       await suspendReservation(admin, rsv, "card_check_failed");
       suspended++;
+      failedAmount += rsv.charge_amount;
+      failures.push({
+        eventName:     ev?.title ?? "",
+        organizerName: ev?.profiles?.organizer_name ?? ev?.profiles?.display_name ?? "",
+        customerName:  rsv.email,
+        amount:        rsv.charge_amount,
+        failureReason: "カード有効期限切れ",
+      });
     } catch {
-      // retrieve 失敗 = カード削除 / ネガティブ VAU/ABU 更新
       await suspendReservation(admin, rsv, "card_check_failed");
       suspended++;
+      failedAmount += rsv.charge_amount;
+      failures.push({
+        eventName:     ev?.title ?? "",
+        organizerName: ev?.profiles?.organizer_name ?? ev?.profiles?.display_name ?? "",
+        customerName:  rsv.email,
+        amount:        rsv.charge_amount,
+        failureReason: "カード情報取得失敗（VAU/ABUネガティブ更新または削除済み）",
+      });
     }
   }
 
-  return NextResponse.json({ success: true, checked, suspended, errors });
+  const successCount = checked - suspended;
+  await saveCronReport({
+    taskName: "前売りカード状態日次確認バッチ",
+    targetCount:   checked,
+    targetAmount:  all.filter((r) => {
+      const ev = r.event as any;
+      return !["settled","cancelled","ended"].includes(ev?.lifecycle_status ?? "") &&
+             !(ev?.start_at && new Date(ev.start_at) < now);
+    }).reduce((s, r) => s + r.charge_amount, 0),
+    successCount,
+    successAmount: 0, // カード確認は金額を動かさない
+    failedCount:   suspended,
+    failedAmount,
+    failures,
+  });
+
+  return NextResponse.json({ success: true, checked, suspended });
 }
 
 async function suspendReservation(
   admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
-  rsv: {
-    reservation_id: string;
-    email: string;
-    stripe_payment_method_id?: string | null;
-    product?: any;
-    event?: any;
-  },
+  rsv: { reservation_id: string; email: string; stripe_payment_method_id?: string | null; product?: any; event?: any },
   reason: "card_error" | "card_check_failed",
 ) {
-  // reservation を card_error に
   await admin
     .from("entrance_reservations")
     .update({ status: "card_error", card_error_message: reason })
     .eq("reservation_id", rsv.reservation_id);
 
-  // ticket を suspended に
   await admin
     .from("tickets")
     .update({ status: "suspended" })
     .eq("reservation_id", rsv.reservation_id)
     .eq("status", "valid");
 
-  // 予約者に通知メール
   if (rsv.email) {
     sendCardSuspendedEmail({
       to: rsv.email,

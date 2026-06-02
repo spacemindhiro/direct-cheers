@@ -175,11 +175,13 @@ export async function GET(req: Request) {
 }
 
 function stripeDeclineToJa(msg: string): string {
-  if (msg.includes("insufficient_funds")) return "クレジットカード残高不足";
-  if (msg.includes("card_declined"))      return "カード会社により拒否";
-  if (msg.includes("expired_card"))       return "カード有効期限切れ";
-  if (msg.includes("lost_card"))          return "紛失カード";
-  if (msg.includes("stolen_card"))        return "盗難カード";
-  if (msg.includes("do_not_honor"))       return "カード会社より利用拒否";
+  if (msg.includes("insufficient_funds"))                    return "クレジットカード残高不足";
+  if (msg.includes("card_declined"))                         return "カード会社により拒否";
+  if (msg.includes("expired_card"))                          return "カード有効期限切れ";
+  if (msg.includes("lost_card"))                             return "紛失カード";
+  if (msg.includes("stolen_card"))                           return "盗難カード";
+  if (msg.includes("do_not_honor"))                          return "カード会社より利用拒否";
+  if (msg.includes("authentication_required") ||
+      msg.includes("payment_intent_authentication_failure")) return "🔒【本人認証未完了】セキュリティロック（要再決済案内）";
   return `決済エラー: ${msg.slice(0, 50)}`;
 }

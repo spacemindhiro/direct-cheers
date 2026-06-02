@@ -19,10 +19,11 @@ export async function GET(req: Request) {
     // settled 済みイベントを取得（settle = キャプチャ実行済み = 照合可能）
     const { data: settledEvents } = await admin
       .from("events")
-      .select("event_id")
+      .select("event_id, title")
       .eq("lifecycle_status", "settled");
 
     const settledEventIds = (settledEvents ?? []).map((e) => e.event_id);
+    const eventTitleMap = new Map((settledEvents ?? []).map((e) => [e.event_id, e.title as string]));
     if (settledEventIds.length === 0) {
       console.log("[reconcile] no settled events, skip");
       return NextResponse.json({ success: true, checked: 0, matched: 0, mismatched: 0, errors: 0 });
@@ -92,9 +93,17 @@ export async function GET(req: Request) {
           expand: ["latest_charge.balance_transaction"],
         });
 
-        // requires_capture（未キャプチャ）は settle 後のはずなので警告
+        // requires_capture（未キャプチャ）は settled イベントに存在してはならない
+        // → 資金が回収されないまま残っているリスク。明細に記録して管理者に知らせる
         if (pi.status === "requires_capture") {
-          console.warn(`[reconcile] SKIP (requires_capture) tx=${tx.transaction_id} pi=${piId} — settled event but PI not captured?`);
+          const eventId = qrToEventId.get(tx.qr_config_id!);
+          console.warn(`[reconcile] UNCAPTURED PI tx=${tx.transaction_id} pi=${piId} event=${eventId}`);
+          reconcileFailures.push({
+            eventName:    eventId ? (eventTitleMap.get(eventId) ?? eventId) : undefined,
+            amount:       tx.total_gross_amount ?? 0,
+            failureReason: "❌【未キャプチャ】イベント終了後に資金が未回収のままです",
+          });
+          errors++;
           continue;
         }
 
@@ -132,9 +141,17 @@ export async function GET(req: Request) {
           const agentTotal = allAccruedDists
             .filter((d: any) => d.distribution_role === "agent")
             .reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);
+          const adjustDiff = artistOrgTarget - artistOrgEstimated;
+          const eventId = qrToEventId.get(tx.qr_config_id!);
+          // 分配調整発生を明細に記録
+          reconcileFailures.push({
+            eventName:    eventId ? (eventTitleMap.get(eventId) ?? eventId) : undefined,
+            amount:       Math.abs(adjustDiff),
+            failureReason: `⚠️【分配調整】事後の金額調整が発生しています（差額¥${adjustDiff.toLocaleString()}）`,
+          });
           console.log(
             `[reconcile] ADJUST_DIST tx=${tx.transaction_id}` +
-            ` artist_org_estimated=${artistOrgEstimated} target=${artistOrgTarget} diff=${artistOrgTarget - artistOrgEstimated}` +
+            ` artist_org_estimated=${artistOrgEstimated} target=${artistOrgTarget} diff=${adjustDiff}` +
             ` agent(fixed)=${agentTotal} platform_fee=${platformFee} stripe_net=${stripeNet}`
           );
           const sortedDists = [...artistOrgDists].sort((a: any, b: any) => b.actual_amount - a.actual_amount);

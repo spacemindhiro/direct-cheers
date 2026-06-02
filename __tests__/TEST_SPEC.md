@@ -1,14 +1,15 @@
 # Direct Cheers — 統合テスト仕様書
 
-> **最終更新:** 2026-06-01（test.each マトリクス爆破：95ケース → 844ケースへ拡張）  
+> **最終更新:** 2026-06-02（品質強化フェーズ完了：985ケース・GitHub Actions CI構築）  
 > **対象ブランチ:** develop  
-> **テストランナー:** Vitest 4.x
+> **テストランナー:** Vitest 4.x  
+> **CI:** GitHub Actions（push/PR 時に自動実行・ALL PASS でのみ Vercel デプロイ許可）
 
 ---
 
 ## 0. テストギャップ分析（QA視点）
 
-### 0-1. テストカバレッジサマリー
+### 0-1. テストカバレッジサマリー（2026-06-02 時点）
 
 | テストファイル | 対象モジュール | ケース数 | 主なリスク |
 |---------------|--------------|---------|-----------|
@@ -19,14 +20,24 @@
 | payout.test.ts | /api/payout/request | 3 | 出金・残高照会 |
 | chargeback.test.ts | /api/stripe/webhook | 3 | チャージバック処理 |
 | tax.test.ts | fee-config / 計算ロジック | 9 | 端数精度 |
-| entrance.test.ts | /api/entrance/reserve, checkin | 11 | 入場チケット全体 |
+| entrance.test.ts | /api/entrance/reserve, checkin | 14 | 入場チケット全体 |
 | idempotency.test.ts | /api/pay/complete, webhook | 5 | 二重課金・重複処理 |
-| **tax-matrix.test.ts** | fee-config / 計算ロジック（test.each） | **542** | **境界値×レート×分配率 全掛け算（新規）** |
-| **pay-matrix.test.ts** | /api/pay/cheers（test.each） | **80** | **決済手段×Capability×金額 全掛け算（新規）** |
-| **entrance-matrix.test.ts** | /api/entrance/reserve, checkin（test.each） | **49** | **時間境界値×在庫×権限 全掛け算（新規）** |
-| **refund-matrix.test.ts** | /api/admin/refund（test.each） | **46** | **返金バリデーション×ロール×PI状態（新規）** |
-| **post-pay-matrix.test.ts** | reconcile, payout/request（test.each） | **32** | **照合差分×Payout守衛条件 汚染テスト（新規）** |
-| **合計** | | **844** | |
+| tax-matrix.test.ts | fee-config（test.each） | 542 | 境界値×レート×分配率 全掛け算 |
+| pay-matrix.test.ts | /api/pay/cheers（test.each） | 80 | 決済手段×Capability×金額 全掛け算 |
+| entrance-matrix.test.ts | /api/entrance/reserve, checkin（test.each） | 49 | 時間境界値×在庫×権限 全掛け算 |
+| refund-matrix.test.ts | /api/admin/refund（test.each） | 46 | 返金バリデーション×ロール×PI状態 |
+| post-pay-matrix.test.ts | reconcile, payout/request（test.each） | 32 | 照合差分×Payout守衛条件 汚染テスト |
+| entrance-complete.test.ts | /api/entrance/complete | 14 | TypeA/B/C チケット発行・冪等性 |
+| events-lifecycle.test.ts | events/create, cancel, approve 等 | 21 | ライフサイクル全経路・権限 |
+| admin-ops.test.ts | connect-review, capture-all, cron 等 | 17 | 管理者操作・一括処理 |
+| tax-liverates.test.ts | fee-config（DB実レート） | 22 | 実レート恒等式・nominal乖離検知 |
+| passkeys.test.ts | /api/passkeys/* | 8 | 認証スモークテスト |
+| evidence.test.ts | events/evidence, reset-settle | 12 | エビデンス提出・差戻し・リセット |
+| lifecycle-matrix.test.ts | 全状態×全操作（test.each） | 20 | 不正遷移の全パターン |
+| race-condition.test.ts | entrance/reserve（並行） | 3 | オーバーセル防止・排他ロック |
+| events-detail.test.ts | events PATCH, lineup, invite | 14 | 詳細管理・ラインナップ |
+| entrance-management.test.ts | reservations, cancel, product | 10 | 予約管理・キャンセル |
+| **合計** | **24ファイル** | **985** | |
 
 ### 0-2. テストギャップ一覧と優先度
 
@@ -47,18 +58,87 @@
 上限チェック（3,000円 / 5,000円 / 30,000円）は現在フロントエンドのみの制御。
 API に直接リクエストを送れば上限超えの決済が作れる。将来的にバックエンドでの検証を推奨。
 
-### 0-4. 残存テストギャップ（将来対応）
+### 0-4. テストが発見した本番バグ記録
+
+テストを書くことで発見・修正した実際のバグ。テストの価値を示す記録として残す。
+
+| 発見日 | ファイル | バグ内容 | 修正内容 |
+|--------|---------|---------|---------|
+| 2026-06-02 | `entrance/complete/route.ts` | TypeB冪等チェックで `tickets.eq("transaction_id", PI_id)` → UUID列に文字列PI-IDを比較するため常にnull → 2回目呼び出しで500エラー | transactions → tickets の2段階ルックアップに修正 |
+| 2026-06-02 | `entrance/reserve/route.ts` | `.eq("deleted_at", null)` がtimestamp列に対しPostgRESTエラー → 商品が常に404 | `.is("deleted_at", null)` に修正 |
+
+### 0-5. 残存テストギャップ（将来対応）
 
 ```
-- TC-RACE: reserve_product_stock の同時呼び出しでのオーバーセル防止検証
 - TC-PRICE: スタンダード/メッセージ/入場の金額上限をバックエンドで実装後にテスト
-- TC-LIFECYCLE: イベント状態マトリクス（published/ended/settled × cancel/end/settle の全掛け算）
 - TC-WEBHOOK-RETRY: タイムアウト後のリトライで重複処理が起きないことの網羅
+- stripe/connect/*: オンボーディングフロー（Stripe OAuth が絡むため自動化困難）
+- wallet/*, messages/*, auth/* 等: 低リスク・外部依存が強いため優先度低
 ```
 
 ---
 
-## 1. テスト環境の座組み
+## 1. CI/CD パイプライン（GitHub Actions）
+
+> このセクションは **全員が把握必須**。コードを変更してpushする人間は全員読め。
+
+### 1-1. 仕組み
+
+```
+開発者が git push または PR 作成
+        ↓
+GitHub Actions が自動起動
+        ↓
+┌─────────────────────────────────────────────────┐
+│  Job: 985ケース全テスト                          │
+│                                                 │
+│  1. actions/checkout + Node.js 20.x + npm ci   │
+│  2. supabase start（Docker起動 + migration適用） │
+│  3. .env.test 生成（GitHub Secrets から注入）   │
+│  4. npm run test:ci（vitest run --reporter=verbose）│
+│  5. supabase stop                               │
+└─────────────────────────────────────────────────┘
+        ↓ ALL PASS ✅        ↓ 1件でもFAIL ❌
+  マージ/デプロイ続行      マージ・Vercelデプロイ遮断
+```
+
+### 1-2. トリガー条件
+
+| イベント | 対象ブランチ | 動作 |
+|---------|------------|------|
+| `push` | main, develop | テスト自動実行 |
+| `pull_request` | main, develop | テスト自動実行 |
+| 同一ブランチへの連続push | — | 古いランを自動キャンセル |
+
+### 1-3. ブランチ保護ルール（設定済み）
+
+`main` / `develop` 両ブランチに以下が設定されている:
+
+- **Required status check:** `985ケース全テスト`（このCIジョブ名）
+- 1件でもテストが落ちると → このステータスが FAIL → マージ不可
+- `allow_force_pushes: true`（直接pushは引き続き可能 ※開発利便性のため）
+
+### 1-4. 必要な GitHub Secrets
+
+リポジトリの Settings → Secrets and variables → Actions に登録すること。
+
+| Secret名 | 値の取得先 | 用途 |
+|---------|----------|------|
+| `STRIPE_SECRET_KEY` | Stripe ダッシュボード > 開発者 > APIキー | テストモードキー `sk_test_...` |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | 同上 | 公開キー `pk_test_...` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe > Webhooks > エンドポイント | webhook署名検証 |
+| `CRON_SECRET` | 任意の文字列（例: `dc_cron_ci_secret`）| cron保護 |
+| `INTERNAL_API_SECRET` | 任意の文字列 | 内部API保護 |
+
+> Supabase のキー（ANON_KEY, SERVICE_ROLE_KEY）は CI 内で `supabase status` から動的取得するため、Secrets 登録不要。
+
+### 1-5. ワークフローファイル
+
+`.github/workflows/test.yml` に定義済み。変更する場合はこのファイルを直接編集する。
+
+---
+
+## 2. テスト環境の座組み
 
 | レイヤー | 方針 |
 |----------|------|
@@ -117,6 +197,7 @@ supabase status    # キーと URL を確認
 
 ```bash
 npm test                    # 全テスト（1回実行）
+npm run test:ci             # CI モード（verbose出力、GitHub Actions と同一コマンド）
 npm run test:watch          # ファイル変更監視モード
 npm run test:coverage       # カバレッジ付き実行
 npx vitest run __tests__/integration/tax.test.ts   # 特定ファイルのみ
@@ -124,26 +205,65 @@ npx vitest run __tests__/integration/tax.test.ts   # 特定ファイルのみ
 
 > **TC-TAX のみ** Stripe / DB 不要。他のテストは Stripe テストモードとローカル DB が必要。
 
+### 2-4. 新しいテストを書くときのルール
+
+1. **ファイルの置き場所:** `__tests__/integration/` 配下に配置する
+2. **必ずクリーンアップ:** `afterAll` で挿入した DB レコードを削除する。残留データがあると後続テストが誤作動する
+3. **Stripe は原則モックしない:** 決済ロジックは実 Stripe テストモード API で検証する。モックを使う場合はコメントで理由を明記する
+4. **auth のモック:** `createClient` のみモックし、`createAdminClient` は実 DB に通す。これが既存テスト全体の統一パターン
+5. **テスト ID の命名:** `TC-[カテゴリ]-[サブ]-[連番]` の形式（例: `TC-ENT-A-01`）
+6. **TEST_SPEC.md を更新する:** 新しいテストファイルを追加したら必ずこのドキュメントのカバレッジサマリーを更新する
+
 ---
 
 ## 3. ファイル構成
 
 ```
+.github/
+└── workflows/
+    ├── test.yml            CI: push/PR 時に 985 ケースを自動実行（本ドキュメント参照）
+    └── deploy.yml          CD: Supabase migration を STG/本番に自動適用
+
 __tests__/
+├── TEST_SPEC.md            ← 本ドキュメント（テスト仕様・CI・ルール全て記載）
 ├── helpers/
 │   ├── db-reset.ts         テーブルごとのクリーンアップ・testAdmin クライアント
 │   ├── stripe-fixtures.ts  Connect アカウント作成・PI 作成・Capture・Transfer ヘルパー
-│   └── seed.ts             DB レコード挿入ヘルパー（profiles, events, transactions 等）
-└── integration/
-    ├── pay-cheers.test.ts  TC-PAY    /api/pay/cheers（TC-PAY-05 は settle.test.ts 内に配置）
-    ├── settle.test.ts      TC-SETTLE /api/events/[eventId]/settle（TC-PAY-05 含む）
-    ├── refund.test.ts      TC-REFUND /api/admin/refund（返金5パターン）
-    ├── payout.test.ts      TC-PAYOUT /api/payout/request
-    ├── chargeback.test.ts  TC-CB       /api/stripe/webhook（dispute イベント）
-    ├── tax.test.ts         TC-TAX      手数料計算・端数処理（純ロジック）
-    ├── settle-flow.test.ts TC-POST-PAY  イベント終了→照合→審査ロック→Settle 一気通貫
-    ├── entrance.test.ts    TC-ENT       入場チケット予約・チェックイン・権限チェック
-    └── idempotency.test.ts TC-IDEM      二重課金防止・webhook重複配信・冪等性
+│   └── seed.ts             DB レコード挿入ヘルパー
+│                           （profiles, events, transactions, products, tickets, reservations 等）
+└── integration/            ← 統合テスト本体（985ケース）
+    │
+    │  ── 決済・精算フロー ────────────────────────────────────
+    ├── pay-cheers.test.ts       TC-PAY        /api/pay/cheers
+    ├── pay-matrix.test.ts       TC-PAY-MATRIX 決済手段×Capability×金額（test.each）
+    ├── settle.test.ts           TC-SETTLE     /api/events/[eventId]/settle
+    ├── settle-flow.test.ts      TC-POST-PAY   end→reconcile→settle 一気通貫
+    ├── refund.test.ts           TC-REFUND     /api/admin/refund（実Stripe）
+    ├── refund-matrix.test.ts    TC-REFUND-MTX 返金×ロール×PI状態（test.each）
+    ├── payout.test.ts           TC-PAYOUT     /api/payout/request
+    ├── post-pay-matrix.test.ts  TC-POST-MTX   照合差分×Payout守衛（test.each）
+    ├── chargeback.test.ts       TC-CB         /api/stripe/webhook（dispute）
+    │
+    │  ── 入場チケット ─────────────────────────────────────────
+    ├── entrance.test.ts         TC-ENT        /api/entrance/reserve, checkin
+    ├── entrance-matrix.test.ts  TC-ENT-MTX    時間境界値×在庫×権限（test.each）
+    ├── entrance-complete.test.ts TC-ENT-COMPLETE /api/entrance/complete（TypeA/B/C）
+    ├── entrance-management.test.ts TC-ENT-MGMT reservations/cancel/product
+    ├── race-condition.test.ts   TC-RACE       同時予約・オーバーセル防止
+    │
+    │  ── イベントライフサイクル ───────────────────────────────
+    ├── events-lifecycle.test.ts TC-LIFECYCLE  create/request-review/cancel/approve
+    ├── lifecycle-matrix.test.ts TC-LCM        全状態×全操作マトリクス（test.each）
+    ├── events-detail.test.ts    TC-EVENTS-DT  PATCH/lineup/invite/user-approve
+    ├── evidence.test.ts         TC-EVIDENCE   エビデンス提出・差戻し・reset-settle
+    │
+    │  ── 管理・認証・手数料 ───────────────────────────────────
+    ├── admin-ops.test.ts        TC-ADMIN-OPS  connect-review/force-payout/capture-all/cron
+    ├── passkeys.test.ts         TC-PASSKEYS   認証スモークテスト
+    ├── idempotency.test.ts      TC-IDEM       二重課金防止・webhook冪等性
+    ├── tax.test.ts              TC-TAX        手数料計算（純ロジック、Stripe/DB不要）
+    ├── tax-matrix.test.ts       TC-TAX-MTX    境界値×レート×分配率（test.each）
+    └── tax-liverates.test.ts    TC-TAX-LIVE   DB実レートの恒等式・nominal乖離検知
 ```
 
 ---

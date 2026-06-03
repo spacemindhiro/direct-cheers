@@ -45,7 +45,7 @@ export function SignUpForm({
         password,
         options: {
           emailRedirectTo: callbackUrl.toString(),
-          data: redirectTo ? { post_auth_redirect: redirectTo } : {},
+          data: { post_auth_redirect: redirectTo ?? '/dashboard' },
         },
       });
       if (error) {

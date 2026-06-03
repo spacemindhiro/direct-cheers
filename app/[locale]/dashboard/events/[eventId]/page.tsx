@@ -130,12 +130,20 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
           <span className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-800 border border-slate-700 text-slate-400">
             {LIFECYCLE_LABELS[event.lifecycle_status] ?? event.lifecycle_status}
           </span>
-          {event.lifecycle_status === "settled" && (
+          {event.lifecycle_status === "settled" && (isOrganizer || isAgent) && (
             <Link
               href={`/dashboard/events/${eventId}/settlement`}
               className="flex items-center gap-1.5 px-3 py-1 bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/30 rounded-xl text-[10px] font-black text-emerald-400 hover:text-emerald-300 transition-all"
             >
               <CheckCircle2 size={12} /> 確定精算レポート
+            </Link>
+          )}
+          {event.lifecycle_status === "settled" && isArtist && (
+            <Link
+              href={`/dashboard/events/${eventId}/artist-settlement`}
+              className="flex items-center gap-1.5 px-3 py-1 bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/30 rounded-xl text-[10px] font-black text-emerald-400 hover:text-emerald-300 transition-all"
+            >
+              <CheckCircle2 size={12} /> 個人精算証明書
             </Link>
           )}
         </div>

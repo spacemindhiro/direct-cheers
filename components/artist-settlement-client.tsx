@@ -144,7 +144,10 @@ export function ArtistSettlementClient({
               <div key={qr.qr_config_id} className={`bg-slate-900 border rounded-2xl overflow-hidden print:bg-white ${qr.myIsFrozen ? "border-red-500/30 print:border-red-200" : "border-slate-800 print:border-slate-300"}`}>
                 {/* QR ヘッダー */}
                 <div className="flex items-center justify-between px-5 py-3 bg-slate-800/60 border-b border-slate-700/50 print:bg-slate-100 print:border-slate-200">
-                  <p className="text-xs font-black text-white print:text-black">{qr.label}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-black text-white print:text-black">{qr.label}</p>
+                    <span className="text-xs text-pink-400 font-bold print:text-pink-600">{qr.txCount.toLocaleString()}チア</span>
+                  </div>
                   <p className="text-xs text-slate-500 print:text-slate-600">配分原資 {yen(qr.qrNet)}</p>
                 </div>
                 {/* 配分バー */}

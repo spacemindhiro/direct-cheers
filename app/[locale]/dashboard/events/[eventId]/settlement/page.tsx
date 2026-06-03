@@ -18,6 +18,7 @@ export type DistributionRow = {
 export type QRGroupRow = {
   qr_config_id: string;
   label: string;
+  txCount: number;
   totalGross: number;
   totalStripeFee: number;
   totalPlatformFee: number;
@@ -120,10 +121,11 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
   ]));
 
   // QR ごとにグルーピング
-  const qrGrossMap    = new Map<string, number>();
+  const qrGrossMap     = new Map<string, number>();
   const qrStripeFeeMap = new Map<string, number>();
   const qrPlatformFeeMap = new Map<string, number>();
-  const qrNetMap      = new Map<string, number>();
+  const qrNetMap       = new Map<string, number>();
+  const qrTxCountMap   = new Map<string, number>();
 
   for (const tx of allTxs) {
     const qid = tx.qr_config_id;
@@ -131,6 +133,7 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
     qrStripeFeeMap.set(qid,   (qrStripeFeeMap.get(qid) ?? 0)   + (tx.stripe_fee ?? 0));
     qrPlatformFeeMap.set(qid, (qrPlatformFeeMap.get(qid) ?? 0) + (tx.platform_fee ?? 0));
     qrNetMap.set(qid,         (qrNetMap.get(qid) ?? 0)         + (tx.net_amount ?? 0));
+    qrTxCountMap.set(qid,     (qrTxCountMap.get(qid) ?? 0)     + 1);
   }
 
   // QR別・プロフィール別に配分を集計
@@ -173,6 +176,7 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
     return {
       qr_config_id:   qr.qr_config_id,
       label:          qr.label ?? `QR設定`,
+      txCount:        qrTxCountMap.get(qr.qr_config_id) ?? 0,
       totalGross:     qrGrossMap.get(qr.qr_config_id) ?? 0,
       totalStripeFee: qrStripeFeeMap.get(qr.qr_config_id) ?? 0,
       totalPlatformFee: qrPlatformFeeMap.get(qr.qr_config_id) ?? 0,

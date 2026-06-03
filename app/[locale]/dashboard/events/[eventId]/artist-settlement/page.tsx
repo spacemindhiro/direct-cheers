@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 export type ArtistQRGroup = {
   qr_config_id: string;
   label: string;
+  txCount: number;
   qrNet: number;
   myAmount: number;
   myRatio: number;       // 自分の配分比率（0〜1）
@@ -81,9 +82,11 @@ async function ArtistSettlementContent({ params }: { params: Promise<{ eventId: 
   }
   const txIds = allTxs.map(t => t.transaction_id);
   const txToQr = new Map(allTxs.map(t => [t.transaction_id, t.qr_config_id as string]));
-  const qrNetMap = new Map<string, number>();
+  const qrNetMap      = new Map<string, number>();
+  const qrTxCountMap  = new Map<string, number>();
   for (const tx of allTxs) {
-    qrNetMap.set(tx.qr_config_id, (qrNetMap.get(tx.qr_config_id) ?? 0) + (tx.net_amount ?? 0));
+    qrNetMap.set(tx.qr_config_id,     (qrNetMap.get(tx.qr_config_id) ?? 0)    + (tx.net_amount ?? 0));
+    qrTxCountMap.set(tx.qr_config_id, (qrTxCountMap.get(tx.qr_config_id) ?? 0) + 1);
   }
 
   // 全配分（自分+他者）
@@ -137,6 +140,7 @@ async function ArtistSettlementContent({ params }: { params: Promise<{ eventId: 
       return {
         qr_config_id: qid,
         label:        qr.label ?? "QR設定",
+        txCount:      qrTxCountMap.get(qid) ?? 0,
         qrNet,
         myAmount,
         myRatio,

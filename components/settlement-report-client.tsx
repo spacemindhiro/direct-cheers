@@ -316,6 +316,7 @@ export function SettlementReportClient(props: any) {
           <div className="flex items-center justify-between">
             <p className="text-[10px] text-slate-700 print:text-slate-500">
               本レポートはシステムが自動生成した公式確定レポートです。配分額は事前に審査・登録されたルールに従い自動算出されており、手動変更は不可です。
+              各決済のチャージバック（異議申し立て）待機期間中に新たなチャージバックが発生した場合、レポートの内容が変更される可能性があります。
             </p>
             <p className="text-[10px] text-slate-700 print:text-slate-500 ml-6 shrink-0">
               Direct Cheers {reportVersion}

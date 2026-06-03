@@ -270,6 +270,7 @@ export function ArtistSettlementClient({
               記載の金額は事前に審査・登録された配分ルールに基づきシステムが自動算出したものであり、
               税務処理・確定申告等の財務エビデンスとしてご使用いただけます。
               他の出演者の情報・イベント総売上等は本書には含まれていません。
+              各決済のチャージバック（異議申し立て）待機期間中に新たなチャージバックが発生した場合、記載内容が変更される可能性があります。
             </p>
             <p className="text-[10px] text-slate-700 shrink-0 print:text-slate-400">
               Direct Cheers {reportVersion}

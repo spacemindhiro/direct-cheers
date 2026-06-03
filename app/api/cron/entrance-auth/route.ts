@@ -136,7 +136,7 @@ export async function GET(req: Request) {
         organizerName: ev?.organizer ?? "",
         customerName:  rsv.email,
         amount:        rsv.charge_amount,
-        failureReason: stripeDeclineToJa(errMsg),
+        failureReason: stripeDeclineToJa(err),
       });
 
       await admin
@@ -174,14 +174,34 @@ export async function GET(req: Request) {
   return NextResponse.json({ success: true, processed: targetCount, succeeded: successCount, failed: failedCount });
 }
 
-function stripeDeclineToJa(msg: string): string {
-  if (msg.includes("insufficient_funds"))                    return "クレジットカード残高不足";
-  if (msg.includes("card_declined"))                         return "カード会社により拒否";
-  if (msg.includes("expired_card"))                          return "カード有効期限切れ";
-  if (msg.includes("lost_card"))                             return "紛失カード";
-  if (msg.includes("stolen_card"))                           return "盗難カード";
-  if (msg.includes("do_not_honor"))                          return "カード会社より利用拒否";
-  if (msg.includes("authentication_required") ||
-      msg.includes("payment_intent_authentication_failure")) return "🔒【本人認証未完了】セキュリティロック（要再決済案内）";
+/**
+ * Stripe エラーオブジェクトを日本語業務メッセージに変換する。
+ * err.decline_code / err.code / err.message の優先順でチェックする。
+ * ※ Stripe の実エラー構造：
+ *   message = "Your card has insufficient funds."（自然文）
+ *   code = "card_declined"
+ *   decline_code = "insufficient_funds"  ← ここにマシンリーダブルコードが入る
+ */
+function stripeDeclineToJa(err: any): string {
+  const code    = err?.decline_code ?? err?.code ?? "";
+  const msg     = err?.message ?? String(err);
+
+  if (code === "insufficient_funds")
+    return "❌【決済失敗】カードの残高不足です（要現地回収）";
+  if (code === "authentication_required" || code === "payment_intent_authentication_failure")
+    return "🔒【本人認証未完了】セキュリティロック（要再決済案内）";
+  if (code === "expired_card")
+    return "カード有効期限切れ";
+  if (code === "lost_card")
+    return "紛失カード";
+  if (code === "stolen_card")
+    return "盗難カード";
+  if (code === "do_not_honor")
+    return "カード会社より利用拒否";
+  if (code === "card_declined")
+    return "カード会社により拒否";
+  // フォールバック: メッセージテキスト検索（後方互換）
+  if (msg.includes("insufficient_funds"))       return "❌【決済失敗】カードの残高不足です（要現地回収）";
+  if (msg.includes("authentication_required"))  return "🔒【本人認証未完了】セキュリティロック（要再決済案内）";
   return `決済エラー: ${msg.slice(0, 50)}`;
 }

@@ -29,6 +29,7 @@ type Props = {
     stripe_processing_fee: number | null; status: string;
     stripe_dispute_id: string | null; created_at: string;
   }>;
+  totalTaxAmount: number;
   frozenDists: Array<{
     transaction_distribution_id: string; transaction_id: string;
     actual_amount: number; is_frozen: boolean;
@@ -36,12 +37,13 @@ type Props = {
   }>;
 };
 
-export function ArtistSettlementClient({
-  event, artistName, reportVersion, approvedAtStr,
-  totalDistAmount, frozenDistTotal, grossHoldTotal,
-  myCbFeeTotal, myProcFeeTotal, totalHold, confirmedAmount,
-  settledAmount, myClaims, frozenDists,
-}: Props) {
+export function ArtistSettlementClient(props: Props) {
+  const {
+    event, artistName, reportVersion, approvedAtStr,
+    totalDistAmount, frozenDistTotal, grossHoldTotal,
+    myCbFeeTotal, myProcFeeTotal, totalHold, confirmedAmount,
+    settledAmount, myClaims, frozenDists,
+  } = props;
   const hasCb   = myClaims.length > 0;
   const isClean = totalHold === 0;
 
@@ -164,6 +166,28 @@ export function ArtistSettlementClient({
             </div>
           ))}
         </div>
+
+        {/* ── 消費税明細 ───────────────────────────────────────────────── */}
+        {props.totalTaxAmount > 0 && (
+          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl px-5 py-4 mb-8 print:mb-6 print:bg-slate-50 print:border-slate-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1 print:text-slate-600">
+                  消費税額（明細合計）
+                </p>
+                <p className="text-xs text-slate-600 print:text-slate-500">
+                  各明細に計上された消費税の合計です。<br />
+                  インボイス登録事業者の方は申告の際にご参照ください。Direct Cheers は免税事業者のため消費税の請求・納付は行いません。
+                </p>
+              </div>
+              <div className="text-right ml-6 shrink-0">
+                <p className="text-2xl font-black text-slate-300 print:text-black">
+                  {yen(props.totalTaxAmount)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── CB 係争明細 ───────────────────────────────────────────────── */}
         {myClaims.length > 0 && (

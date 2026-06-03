@@ -55,7 +55,7 @@ async function ArtistSettlementContent({
   const { data: myDists } = await admin
     .from("transaction_distributions")
     .select(
-      "transaction_distribution_id, transaction_id, actual_amount, is_frozen, hold_released, distribution_status"
+      "transaction_distribution_id, transaction_id, actual_amount, tax_amount, is_frozen, hold_released, distribution_status"
     )
     .eq("event_id", eventId)
     .eq("profile_id", user.id);
@@ -107,6 +107,7 @@ async function ArtistSettlementContent({
 
   // ── 集計 ──────────────────────────────────────────────────────────
   const totalDistAmount = dists.reduce((s, d) => s + (d.actual_amount ?? 0), 0);
+  const totalTaxAmount  = dists.reduce((s, d) => s + ((d as any).tax_amount ?? 0), 0);
   const frozenDists     = dists.filter((d) => d.is_frozen);
   const frozenDistTotal = frozenDists.reduce((s, d) => s + (d.actual_amount ?? 0), 0);
 
@@ -161,6 +162,7 @@ async function ArtistSettlementContent({
       totalHold={totalHold}
       confirmedAmount={confirmedAmount}
       settledAmount={settledAmount}
+      totalTaxAmount={totalTaxAmount}
       myClaims={myClaims}
       frozenDists={frozenDistsWithTx}
     />

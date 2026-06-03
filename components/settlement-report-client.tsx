@@ -155,6 +155,27 @@ export function SettlementReportClient(props: any) {
           ))}
         </div>
 
+        {/* ── 消費税明細 ───────────────────────────────────────────────── */}
+        {(props as any).totalTaxAmount > 0 && (
+          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl px-5 py-4 mb-8 print:mb-6 print:bg-slate-50 print:border-slate-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-1 print:text-slate-600">
+                  消費税額（明細合計）
+                </p>
+                <p className="text-xs text-slate-600 print:text-slate-500">
+                  各配分明細に計上された消費税の合計です。Direct Cheers は免税事業者のため消費税の請求・納付は行いません。受取側がインボイス登録事業者の場合は申告の際にご参照ください。
+                </p>
+              </div>
+              <div className="text-right ml-6 shrink-0">
+                <p className="text-2xl font-black text-slate-300 print:text-black">
+                  {yen((props as any).totalTaxAmount)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── 配分明細 ─────────────────────────────────────────────────── */}
         <div className="mb-8 print:mb-6">
           <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-4 print:text-slate-600">

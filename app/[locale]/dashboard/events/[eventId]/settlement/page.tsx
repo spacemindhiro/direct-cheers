@@ -88,7 +88,7 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
   const { data: rawDists } = txIds.length > 0
     ? await admin
         .from("transaction_distributions")
-        .select("profile_id, distribution_role, actual_amount, is_frozen, hold_released, distribution_status")
+        .select("profile_id, distribution_role, actual_amount, tax_amount, is_frozen, hold_released, distribution_status")
         .in("transaction_id", txIds)
     : { data: [] };
 
@@ -176,6 +176,7 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
 
   // ── 集計 ───────────────────────────────────────────────────────────────
   const totalGross    = (transactions ?? []).reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+  const totalTaxAmount = (rawDists ?? []).reduce((s, d) => s + ((d as any).tax_amount ?? 0), 0);
   const totalStripeFee = (transactions ?? []).reduce((s, t) => s + (t.stripe_fee ?? 0), 0);
   const totalPlatformFee = (transactions ?? []).reduce((s, t) => s + (t.platform_fee ?? 0), 0);
   const totalNet      = totalGross - totalStripeFee - totalPlatformFee;
@@ -231,6 +232,7 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
       totalStripeFee={totalStripeFee}
       totalPlatformFee={totalPlatformFee}
       totalNet={totalNet}
+      totalTaxAmount={totalTaxAmount}
       distributions={distributions}
       debtClaims={debtClaims}
       activeClaims={activeClaims}

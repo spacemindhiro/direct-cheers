@@ -114,13 +114,15 @@ type AuthLabel = "own_organizer" | "other_organizer" | "no_auth";
 // ルートはステータスチェック → 権限チェックの順に実行する（コメント参照）。
 // そのため other_organizer × used/cancelled は、権限確認より先にステータス応答が返る。
 // 未認証は user=null で最初に 401 が返るため、チケット状態に関わらず 401。
+// 再入場仕様: used は 409 ではなく 200 (re_entry=true) で返す
+// own_organizer は権限あり → 再入場通過
+// other_organizer は権限チェックが先（usedでも権限確認が走る）→ 403
 const AUTH_TICKET_CASES: Array<{ authLabel: AuthLabel; ticketStatus: "valid" | "used" | "cancelled"; expectedStatus: number }> = [
   { authLabel: "own_organizer", ticketStatus: "valid", expectedStatus: 200 },
-  { authLabel: "own_organizer", ticketStatus: "used", expectedStatus: 409 },
+  { authLabel: "own_organizer", ticketStatus: "used", expectedStatus: 200 },   // 再入場
   { authLabel: "own_organizer", ticketStatus: "cancelled", expectedStatus: 409 },
   { authLabel: "other_organizer", ticketStatus: "valid", expectedStatus: 403 },
-  // ステータスチェックが権限チェックより先 → used/cancelled は 409 が返る
-  { authLabel: "other_organizer", ticketStatus: "used", expectedStatus: 409 },
+  { authLabel: "other_organizer", ticketStatus: "used", expectedStatus: 403 }, // 権限なし
   { authLabel: "other_organizer", ticketStatus: "cancelled", expectedStatus: 409 },
   { authLabel: "no_auth", ticketStatus: "valid", expectedStatus: 401 },
   { authLabel: "no_auth", ticketStatus: "used", expectedStatus: 401 },
@@ -337,7 +339,7 @@ describe("TC-ENT-IDEM: チェックイン冪等性 — valid チケットを3回
     expect(data.ok).toBe(true);
   });
 
-  it("2回目: used → 409 ALREADY_USED", async () => {
+  it("2回目: used → 200 re_entry=true（再入場仕様）", async () => {
     mockOrganizerAuth();
     const req = new Request("http://localhost", {
       method: "POST",
@@ -345,12 +347,13 @@ describe("TC-ENT-IDEM: チェックイン冪等性 — valid チケットを3回
       body: JSON.stringify({ ticket_code: idempotentTicketCode }),
     });
     const res = await checkinPOST(req);
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.error).toBe("ALREADY_USED");
+    expect(data.ok).toBe(true);
+    expect(data.re_entry).toBe(true);
   });
 
-  it("3回目: 依然 409 ALREADY_USED（冪等）", async () => {
+  it("3回目: 依然 200 re_entry=true（冪等・何度でも再入場可）", async () => {
     mockOrganizerAuth();
     const req = new Request("http://localhost", {
       method: "POST",
@@ -358,9 +361,9 @@ describe("TC-ENT-IDEM: チェックイン冪等性 — valid チケットを3回
       body: JSON.stringify({ ticket_code: idempotentTicketCode }),
     });
     const res = await checkinPOST(req);
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.error).toBe("ALREADY_USED");
+    expect(data.re_entry).toBe(true);
   });
 });
 

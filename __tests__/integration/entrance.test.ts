@@ -433,7 +433,7 @@ describe("TC-ENT-D: チェックイン正常系", () => {
 
 // ── TC-ENT-E: チェックイン異常系 ──────────────────────────────────────────
 describe("TC-ENT-E: チェックイン異常系", () => {
-  it("TC-ENT-E-01: 使用済みチケット → 409 ALREADY_USED", async () => {
+  it("TC-ENT-E-01: 使用済みチケットの再スキャン → 200 re_entry=true（再入場仕様）", async () => {
     const productId = await insertProduct({ eventId, paymentType: "B" });
     cleanup.productIds.push(productId);
 
@@ -451,9 +451,11 @@ describe("TC-ENT-E: チェックイン異常系", () => {
       body: JSON.stringify({ ticket_code: ticketCode }),
     });
     const res = await checkinPOST(req);
-    expect(res.status).toBe(409);
+    // 再入場仕様: 409 ではなく 200 で re_entry=true を返す
+    expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.error).toBe("ALREADY_USED");
+    expect(data.ok).toBe(true);
+    expect(data.re_entry).toBe(true);
   });
 
   it("TC-ENT-E-02: キャンセル済みチケット → 409 TICKET_CANCELLED", async () => {

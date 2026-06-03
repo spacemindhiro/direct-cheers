@@ -51,9 +51,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "TICKET_NOT_FOUND" }, { status: 404 });
   }
 
-  // ステータスチェックを権限チェックより先に（ALREADY_USEDを確実に返すため）
+  // ステータスチェック
+  // used は「再入場」として通す（QRを維持しているため再スキャンが起きる）
   if (ticket.status === "used") {
-    return NextResponse.json({ error: "ALREADY_USED", ticket }, { status: 409 });
+    // 権限チェック（再入場も担当スタッフのみ許可）
+    const ev2 = ticket.event as any;
+    if (
+      ev2?.organizer_profile_id !== user.id &&
+      ev2?.agent_id !== user.id &&
+      profile?.role !== "admin"
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    // 再入場を記録（checked_in_at を現在時刻に上書き）
+    await admin
+      .from("tickets")
+      .update({ checked_in_at: new Date().toISOString(), checked_in_by: user.id })
+      .eq("ticket_id", ticket.ticket_id);
+    // Wallet パスも更新（入場時刻を最新化）
+    pushWalletUpdateBySerial(ticket.ticket_id).catch(() => {});
+    return NextResponse.json({
+      ok: true,
+      re_entry: true,
+      ticket_id: ticket.ticket_id,
+      event_title: ev2?.title ?? "",
+      product_name: (ticket.product as any)?.name ?? "",
+      email: ticket.email,
+    });
   }
   if (ticket.status === "cancelled") {
     return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
@@ -139,7 +163,7 @@ export async function POST(req: Request) {
 
   if (checkinError) {
     const msg = checkinError.message ?? "";
-    if (msg.includes("ALREADY_USED")) return NextResponse.json({ error: "ALREADY_USED" }, { status: 409 });
+    // ALREADY_USED はルート層で先に処理済み（再入場として通す）
     if (msg.includes("TICKET_CANCELLED")) return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
     if (msg.includes("TICKET_SUSPENDED")) return NextResponse.json({ error: "TICKET_SUSPENDED" }, { status: 409 });
     return NextResponse.json({ error: checkinError.message }, { status: 500 });

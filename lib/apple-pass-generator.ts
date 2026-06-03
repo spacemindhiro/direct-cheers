@@ -41,7 +41,7 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
   const { data: ticket, error } = await admin
     .from("tickets")
     .select(`
-      ticket_id, ticket_code, status, created_at,
+      ticket_id, ticket_code, status, created_at, checked_in_at,
       product:products!product_id(name, payment_type, min_amount),
       event:events!event_id(title, venue, start_at),
       transaction:transactions!transaction_id(total_gross_amount, qr_config_id)
@@ -56,9 +56,19 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
   const isUsed      = ticket.status === "used";
   const isSuspended = ticket.status === "suspended";
 
-  // 入場済: ダークグレー・QRなし・USED バッジ
-  // 支払い問題: アンバー系警告色
+  // 入場済: ダークグリーン・QR維持・入場済バッジ＋入場時刻
+  // 支払い問題: アンバー系警告色・QR非表示
   // 有効: 通常色（QRデザインから取得）
+
+  // 入場時刻フォーマット（入場済の場合のみ）
+  const checkedInAt = (ticket as any).checked_in_at as string | null;
+  const checkedInStr = checkedInAt
+    ? new Date(checkedInAt).toLocaleString("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit",
+      }).replace(/\//g, "/")
+    : null;
 
   const qrConfigId = (ticket.transaction as any)?.qr_config_id as string | null;
   const { data: qrDesign } = qrConfigId
@@ -94,11 +104,11 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
       })
     : "";
 
-  const statusBgHex = isUsed      ? "#1c1c1e"   // 入場済: ほぼ黒
+  const statusBgHex = isUsed      ? "#14532d"   // 入場済: ダークグリーン（有効との差別化）
                     : isSuspended ? "#78350f"   // 要確認: アンバー
                     : null;                     // 有効: QRデザインから取得
 
-  const statusFgHex = isUsed      ? "#636366"   // 入場済: グレー文字
+  const statusFgHex = isUsed      ? "#bbf7d0"   // 入場済: ライトグリーン文字
                     : isSuspended ? "#fcd34d"   // 要確認: 黄色文字
                     : null;
 
@@ -125,8 +135,8 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
     foregroundColor: hexToRgb(fgColorHex),
     labelColor: hexToRgb(lblColorHex),
     logoText: "direct cheers",
-    // 入場済・支払い問題の場合はQRコードを表示しない
-    ...(!isUsed && !isSuspended ? {
+    // 支払い問題の場合のみQRを非表示（入場済はQR維持＝再入場対応）
+    ...(!isSuspended ? {
       barcodes: [{
         message: ticket.ticket_code,
         format: "PKBarcodeFormatQR",
@@ -136,7 +146,7 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
     } : {}),
     eventTicket: {
       headerFields: [
-        ...(isUsed      ? [{ key: "badge", label: "", value: "✅ 入場済" }] : []),
+        ...(isUsed      ? [{ key: "badge", label: "", value: "✅ 入場済（再入場可）" }] : []),
         ...(isSuspended ? [{ key: "badge", label: "", value: "⚠️ 支払いご確認ください" }] : []),
       ],
       primaryFields: [
@@ -151,6 +161,10 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
         { key: "amount", label: "AMOUNT", value: amount === 0 ? "Invitation" : `¥${amount.toLocaleString("ja-JP")}` },
       ],
       backFields: [
+        // 入場済の場合は入場時刻を先頭に表示
+        ...(isUsed && checkedInStr
+          ? [{ key: "checkedin", label: "入場時刻", value: checkedInStr }]
+          : []),
         { key: "ticketid", label: "Ticket ID", value: ticket.ticket_id },
         { key: "site", label: "direct cheers", value: "https://direct-cheers.com" },
       ],

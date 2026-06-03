@@ -52,6 +52,14 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
   if (error || !ticket) throw Object.assign(new Error("Not found"), { status: 404 });
   if (ticket.status === "cancelled") throw Object.assign(new Error("Ticket cancelled"), { status: 410 });
 
+  // ── ステータスに応じた外観設定 ──────────────────────────────────────
+  const isUsed      = ticket.status === "used";
+  const isSuspended = ticket.status === "suspended";
+
+  // 入場済: ダークグレー・QRなし・USED バッジ
+  // 支払い問題: アンバー系警告色
+  // 有効: 通常色（QRデザインから取得）
+
   const qrConfigId = (ticket.transaction as any)?.qr_config_id as string | null;
   const { data: qrDesign } = qrConfigId
     ? await admin.from("qr_configs").select("strip_image_url, bg_color, fg_color, label_color").eq("qr_config_id", qrConfigId).single()
@@ -86,6 +94,14 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
       })
     : "";
 
+  const statusBgHex = isUsed      ? "#1c1c1e"   // 入場済: ほぼ黒
+                    : isSuspended ? "#78350f"   // 要確認: アンバー
+                    : null;                     // 有効: QRデザインから取得
+
+  const statusFgHex = isUsed      ? "#636366"   // 入場済: グレー文字
+                    : isSuspended ? "#fcd34d"   // 要確認: 黄色文字
+                    : null;
+
   const hexToRgb = (hex: string) => {
     const h = hex.replace("#", "");
     const r = parseInt(h.slice(0, 2), 16);
@@ -93,9 +109,9 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
     const b = parseInt(h.slice(4, 6), 16);
     return `rgb(${r}, ${g}, ${b})`;
   };
-  const bgColorHex = qrDesign?.bg_color ?? "#0f172a";
-  const fgColorHex = qrDesign?.fg_color ?? "#ffffff";
-  const lblColorHex = qrDesign?.label_color ?? "#94a3b8";
+  const bgColorHex  = statusBgHex  ?? qrDesign?.bg_color  ?? "#0f172a";
+  const fgColorHex  = statusFgHex  ?? qrDesign?.fg_color  ?? "#ffffff";
+  const lblColorHex = isSuspended ? "#92400e" : (qrDesign?.label_color ?? "#94a3b8");
   const stripImageUrl = qrDesign?.strip_image_url ?? null;
 
   const passJson: Record<string, unknown> = {
@@ -109,15 +125,20 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
     foregroundColor: hexToRgb(fgColorHex),
     labelColor: hexToRgb(lblColorHex),
     logoText: "direct cheers",
-    barcodes: [
-      {
+    // 入場済・支払い問題の場合はQRコードを表示しない
+    ...(!isUsed && !isSuspended ? {
+      barcodes: [{
         message: ticket.ticket_code,
         format: "PKBarcodeFormatQR",
         messageEncoding: "iso-8859-1",
         altText: ticket.ticket_code.slice(0, 8).toUpperCase(),
-      },
-    ],
+      }],
+    } : {}),
     eventTicket: {
+      headerFields: [
+        ...(isUsed      ? [{ key: "badge", label: "", value: "✅ 入場済" }] : []),
+        ...(isSuspended ? [{ key: "badge", label: "", value: "⚠️ 支払いご確認ください" }] : []),
+      ],
       primaryFields: [
         { key: "event", label: "EVENT", value: eventTitle },
       ],

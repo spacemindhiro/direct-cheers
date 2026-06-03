@@ -16,6 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { sendCardSuspendedEmail } from "@/lib/email/notification";
 import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
+import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -149,6 +150,14 @@ export async function GET(req: Request) {
         .update({ status: "suspended" })
         .eq("reservation_id", rsv.reservation_id)
         .eq("status", "valid");
+
+      // Wallet パスを即時更新（suspended → 支払い警告表示）
+      const { data: tkt } = await admin
+        .from("tickets")
+        .select("ticket_id")
+        .eq("reservation_id", rsv.reservation_id)
+        .maybeSingle();
+      if (tkt?.ticket_id) pushWalletUpdateBySerial(tkt.ticket_id).catch(() => {});
 
       if (rsv.email) {
         sendCardSuspendedEmail({

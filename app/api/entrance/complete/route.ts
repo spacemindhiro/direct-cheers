@@ -17,6 +17,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
+import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -104,12 +105,13 @@ export async function POST(req: Request) {
       .eq("reservation_id", reservation.reservation_id)
       .maybeSingle();
 
-    // カードエラーで suspended になっていたら valid に復活
+    // カードエラーで suspended になっていたら valid に復活 + Wallet 即時更新
     if (ticket?.status === "suspended") {
       await admin
         .from("tickets")
         .update({ status: "valid" })
         .eq("ticket_id", ticket.ticket_id);
+      pushWalletUpdateBySerial(ticket.ticket_id).catch(() => {});
     }
 
     return NextResponse.json({
@@ -269,12 +271,13 @@ async function handleTypeAAuth(
     .eq("ticket_id", row?.out_ticket_id)
     .maybeSingle();
 
-  // カードエラーで suspended になっていたら valid に復活
+  // カードエラーで suspended になっていたら valid に復活 + Wallet 即時更新
   if (ticketRow?.status === "suspended") {
     await admin
       .from("tickets")
       .update({ status: "valid" })
       .eq("ticket_id", ticketRow.ticket_id);
+    pushWalletUpdateBySerial(ticketRow.ticket_id).catch(() => {});
   }
 
   return NextResponse.json({

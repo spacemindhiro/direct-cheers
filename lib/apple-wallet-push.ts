@@ -79,6 +79,7 @@ export async function sendWalletPush(pushToken: string): Promise<void> {
 }
 
 // serial_number（ticket_id または transaction_id）に紐づく全デバイスへpush
+// pass_updated_at を現在時刻に更新して passesUpdatedSince フィルタに対応する
 export async function pushWalletUpdateBySerial(serialNumber: string): Promise<void> {
   const admin = createAdminClient();
   const { data: devices } = await admin
@@ -89,8 +90,18 @@ export async function pushWalletUpdateBySerial(serialNumber: string): Promise<vo
   const tokens = [...new Set((devices ?? []).map((d) => d.push_token))];
   if (tokens.length === 0) return;
 
-  const results = await Promise.allSettled(tokens.map((t) => sendWalletPush(t)));
-  results.forEach((r) => {
+  const now = new Date().toISOString();
+
+  const [pushResults] = await Promise.all([
+    Promise.allSettled(tokens.map((t) => sendWalletPush(t))),
+    // pass_updated_at を更新して passesUpdatedSince で正しくフィルタされるようにする
+    admin
+      .from("wallet_device_registrations")
+      .update({ pass_updated_at: now })
+      .eq("serial_number", serialNumber),
+  ]);
+
+  pushResults.forEach((r) => {
     if (r.status === "rejected") console.error("[wallet/push] failed:", r.reason);
   });
 }

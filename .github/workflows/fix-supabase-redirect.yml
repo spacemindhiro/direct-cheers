@@ -1,0 +1,41 @@
+name: Fix Supabase Redirect URL
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Update Supabase redirect URL allowlist
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROD_PROJECT_ID: ${{ secrets.PROD_SUPABASE_PROJECT_ID }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.request
+
+          token      = os.environ["SUPABASE_ACCESS_TOKEN"]
+          project_id = os.environ["PROD_PROJECT_ID"]
+
+          # ワイルドカードでドメイン全体を許可（クエリパラメータ付きURLも通る）
+          payload = json.dumps({
+            "uri_allow_list": "https://direct-cheers.com/**"
+          }).encode()
+
+          req = urllib.request.Request(
+            f"https://api.supabase.com/v1/projects/{project_id}/config/auth",
+            data=payload,
+            method="PATCH",
+            headers={
+              "Authorization": f"Bearer {token}",
+              "Content-Type": "application/json",
+            }
+          )
+          with urllib.request.urlopen(req) as res:
+            result = json.loads(res.read().decode())
+            print("uri_allow_list:", result.get("uri_allow_list"))
+            print("Done.")
+          EOF

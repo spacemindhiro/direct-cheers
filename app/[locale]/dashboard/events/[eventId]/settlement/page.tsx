@@ -190,10 +190,16 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
   const totalHold     = frozenDistTotal + cbFeeTotal + cbFeeShortage;
 
   // レポートバージョン
-  const cbVersion     = debtClaims.length;
+  // v1.0 = 精算確定時点（CBが先着していても初回は常に v1.0）
+  // v1.1, v1.2... = 精算確定日（approved_at）以降に新たに発生したCB件数
+  const approvedAtDate = summary?.approved_at ? new Date(summary.approved_at) : null;
+  const cbAfterSettlement = debtClaims.filter(c =>
+    !approvedAtDate || new Date(c.created_at) > approvedAtDate
+  );
+  const cbVersion     = cbAfterSettlement.length;
   const reportVersion = `v1.${cbVersion}`;
-  const lastCbAt      = debtClaims.length > 0
-    ? new Date(debtClaims[debtClaims.length - 1].created_at).toLocaleString("ja-JP", {
+  const lastCbAt      = cbAfterSettlement.length > 0
+    ? new Date(cbAfterSettlement[cbAfterSettlement.length - 1].created_at).toLocaleString("ja-JP", {
         timeZone: "Asia/Tokyo",
         year: "numeric", month: "2-digit", day: "2-digit",
         hour: "2-digit", minute: "2-digit",

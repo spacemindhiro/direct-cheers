@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw } from 'lucide-react';
+import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { ArtistSalesDashboard } from '@/components/artist-sales-dashboard';
@@ -930,6 +930,27 @@ async function DashboardContent() {
             </div>
           </Link>
         </div>
+      )}
+
+      {/* Admin: Batch Reports */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/batch-reports"
+          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
+              <Activity size={22} className="text-pink-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
+                バッチ処理レポート
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">Cron処理結果・未回収リスク確認</p>
+            </div>
+          </div>
+        </Link>
       )}
 
       {/* Admin: Refunds */}

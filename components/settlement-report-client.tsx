@@ -237,14 +237,17 @@ export function SettlementReportClient(props: any) {
               {debtClaims.map((cb: any, i: number) => {
                 const cbFee  = cb.stripe_dispute_fee  ?? 1500;
                 const pfFee  = cb.stripe_processing_fee ?? 0;
-                const isActive = cb.status === "active";
+                const isActive = cb.status !== "closed_won";
                 return (
                   <div key={cb.claim_id} className={`rounded-2xl border p-4 print:bg-white ${isActive ? "bg-red-950/20 border-red-500/30 print:border-red-300" : "bg-slate-900 border-slate-800 print:border-slate-300"}`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black text-slate-500 print:text-slate-600">#{i + 1}</span>
                         <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${isActive ? "text-red-400 bg-red-950/50 border-red-500/30 print:text-red-600" : "text-emerald-400 bg-emerald-950/30 border-emerald-500/30 print:text-emerald-700"}`}>
-                          {isActive ? "係争中" : "解決済み"}
+                          {cb.status === "active"     ? "係争中"
+                        : cb.status === "written_off" ? "敗訴・損失確定"
+                        : cb.status === "recovered"   ? "回収済み"
+                        : "解決済み"}
                         </span>
                         <span className="text-xs text-slate-500 print:text-slate-600">
                           {new Date(cb.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })}

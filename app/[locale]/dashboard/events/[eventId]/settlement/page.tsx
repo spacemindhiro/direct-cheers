@@ -181,7 +181,8 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
   const totalNet      = totalGross - totalStripeFee - totalPlatformFee;
 
   // CB 関連ホールド
-  const activeClaims  = debtClaims.filter(c => c.status === "active");
+  // 勝訴（closed_won）は費用なし → 除外。係争中・敗訴（written_off）・回収済（recovered）は表示対象
+  const activeClaims  = debtClaims.filter(c => c.status !== "closed_won");
   const cbFeeTotal    = activeClaims.reduce((s, c) => s + (c.stripe_dispute_fee ?? 1500), 0);
   const cbFeeShortage = activeClaims.reduce((s, c) => s + (c.stripe_processing_fee ?? 0), 0);
   const frozenDistTotal = distributions

@@ -33,7 +33,12 @@ type Props = {
     stripe_processing_fee: number | null; status: string;
     stripe_dispute_id: string | null; created_at: string;
   }>;
-  activeClaims: typeof Props extends { activeClaims: infer T } ? T : never[];
+  activeClaims: Array<{
+    claim_id: string; original_transaction_id: string;
+    claim_amount: number; stripe_dispute_fee: number | null;
+    stripe_processing_fee: number | null; status: string;
+    stripe_dispute_id: string | null; created_at: string;
+  }>;
   cbFeeTotal: number;
   cbFeeShortage: number;
   frozenDistTotal: number;

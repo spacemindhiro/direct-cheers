@@ -21,7 +21,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v2
         with:
-          version: latest
+          version: 2.84.2
 
       # 1. どっちにデプロイするか判定
       - name: Set Environment Variables

@@ -1,5 +1,6 @@
 'use client';
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useEffect, useState, useTransition, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -511,7 +512,7 @@ export default function ProfileEditPage() {
               <div>
                 <p className="text-xs font-black text-indigo-300">調印済み文書</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">
-                  {new Date(signedDoc.signed_at).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  {new Date(signedDoc.signed_at).toLocaleDateString('ja-JP', { timeZone: DISPLAY_TZ, year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
               </div>
               <Link

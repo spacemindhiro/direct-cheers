@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtDate } from "@/lib/display-tz";
 import { useState, useEffect } from "react";
 import { Fingerprint, Trash2, Pencil, Check, X, PlusCircle, Loader2, ShieldCheck, Cloud } from "lucide-react";
 import Link from "next/link";
@@ -158,7 +159,7 @@ export default function PasskeysPage() {
                           </span>
                         )}
                         <span className="text-[10px] text-slate-600">
-                          {new Date(cred.created_at).toLocaleDateString("ja-JP")} 登録
+                          {fmtDate(cred.created_at)} 登録
                         </span>
                       </div>
                     </>

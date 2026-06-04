@@ -1,5 +1,6 @@
 "use client";
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState, useTransition } from "react";
 import {
   Clock,
@@ -103,7 +104,7 @@ function InvitationItem({
               <span className="text-slate-400 font-bold mr-1">{ROLE_LABELS[inv.target_role] ?? inv.target_role} ·</span>
             )}
             {inv.target_email ?? "メールなし"} ·{" "}
-            {new Date(inv.created_at).toLocaleDateString("ja-JP")}
+            {new Date(inv.created_at).toLocaleDateString("ja-JP", { timeZone: DISPLAY_TZ })}
           </p>
         </div>
         <span

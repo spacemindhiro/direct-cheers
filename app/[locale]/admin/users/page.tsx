@@ -1,3 +1,4 @@
+import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -143,7 +144,7 @@ async function AdminUsersContent() {
                     <p className="text-sm font-bold text-white">{u.display_name}</p>
                     <p className="text-xs text-slate-500">
                       {ROLE_LABELS[u.role] ?? u.role} ·{" "}
-                      {new Date(u.created_at).toLocaleDateString("ja-JP")}
+                      {fmtDate(u.created_at)}
                     </p>
                     {(() => {
                       const ts = termsStatusMap.get(u.profile_id);
@@ -202,7 +203,7 @@ async function AdminUsersContent() {
                   <p className="text-sm font-bold text-white">{u.display_name}</p>
                   <p className="text-xs text-slate-500">
                     {ROLE_LABELS[u.role] ?? u.role} ·{" "}
-                    {new Date(u.created_at).toLocaleDateString("ja-JP")}
+                    {fmtDate(u.created_at)}
                   </p>
                 </div>
                 <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">

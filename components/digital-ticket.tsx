@@ -1,5 +1,6 @@
 "use client";
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, MapPin, CheckCircle, XCircle, Clock, Loader2 } from "lucide-react";
@@ -179,6 +180,7 @@ export function DigitalTicket({
             <div className="flex items-center gap-2 text-xs" style={{ color: labelColor }}>
               <Calendar size={12} className="shrink-0" style={{ color: labelColor }} />
               {new Date(startAt).toLocaleString("ja-JP", {
+                timeZone: DISPLAY_TZ,
                 year: "numeric",
                 month: "long",
                 day: "numeric",
@@ -246,6 +248,7 @@ export function DigitalTicket({
             <Clock size={12} className="text-green-400 shrink-0" />
             <p className="text-xs text-green-400 font-bold">
               {new Date(checkedInAt).toLocaleString("ja-JP", {
+                timeZone: DISPLAY_TZ,
                 month: "numeric",
                 day: "numeric",
                 hour: "2-digit",

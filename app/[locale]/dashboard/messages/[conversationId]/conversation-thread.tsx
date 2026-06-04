@@ -1,3 +1,4 @@
+import { DISPLAY_TZ } from "@/lib/display-tz";
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -44,10 +45,10 @@ function Avatar({ url, name, size = 8 }: { url?: string | null; name?: string | 
 }
 
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('ja-JP', { timeZone: DISPLAY_TZ, hour: '2-digit', minute: '2-digit' });
 }
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' });
+  return new Date(iso).toLocaleDateString('ja-JP', { timeZone: DISPLAY_TZ, month: 'long', day: 'numeric', weekday: 'short' });
 }
 
 export function ConversationThread({ conversationId }: { conversationId: string }) {

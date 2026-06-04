@@ -1,5 +1,6 @@
 "use client";
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   TrendingUp, Zap, RefreshCw, Wifi, WifiOff,
@@ -64,7 +65,7 @@ function formatJPY(n: number) {
 
 function formatTime(iso: string | null) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return new Date(iso).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 type CheeringToast = { id: number; amount: number; sender: string | null };
@@ -444,7 +445,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
       {lastFetched && (
         <p className="text-center text-[10px] text-slate-700 flex items-center justify-center gap-1.5">
           <RefreshCw size={9} />
-          {lastFetched.toLocaleTimeString("ja-JP")} 更新
+          {lastFetched.toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ })} 更新
           {stats.is_live && <span className="text-pink-600">· 5秒ごと自動更新</span>}
         </p>
       )}

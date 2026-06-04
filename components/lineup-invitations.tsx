@@ -1,5 +1,6 @@
 "use client";
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState } from "react";
 import { Mic2, Check, X, Loader2, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -65,6 +66,7 @@ export function LineupInvitations({
           const isLoading = loading[inv.event_id];
           const startDate = inv.event?.start_at
             ? new Date(inv.event.start_at).toLocaleDateString("ja-JP", {
+                timeZone: DISPLAY_TZ,
                 year: "numeric",
                 month: "short",
                 day: "numeric",

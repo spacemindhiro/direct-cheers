@@ -1,3 +1,4 @@
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -192,6 +193,7 @@ async function CollectionContent() {
 
                   <p className="text-[10px] text-slate-600 text-right">
                     {new Date(tx.created_at).toLocaleDateString("ja-JP", {
+                      timeZone: DISPLAY_TZ,
                       year: "numeric",
                       month: "short",
                       day: "numeric",

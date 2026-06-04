@@ -1,5 +1,6 @@
 "use client";
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState } from "react";
 import { CheckCircle, XCircle, Loader2, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -72,7 +73,7 @@ export function AdminConnectReview({ users }: { users: PendingUser[] }) {
                 {u.display_name ?? "—"} <ChevronRight size={13} className="text-slate-600 group-hover:text-indigo-400" />
               </p>
               <p className="text-xs text-slate-500">
-                {ROLE_LABELS[u.role] ?? u.role} · {new Date(u.created_at).toLocaleDateString("ja-JP")}
+                {ROLE_LABELS[u.role] ?? u.role} · {new Date(u.created_at).toLocaleDateString("ja-JP", { timeZone: DISPLAY_TZ })}
               </p>
               {u.stripe_connect_id && (
                 <p className="text-[10px] text-indigo-400 font-mono">{u.stripe_connect_id}</p>

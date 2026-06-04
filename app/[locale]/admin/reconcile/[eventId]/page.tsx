@@ -1,3 +1,4 @@
+import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -77,7 +78,7 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
         ]} />
         <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter truncate">{event.title}</h1>
         <p className="text-xs text-slate-500">
-          終了: {new Date(event.end_at).toLocaleDateString("ja-JP")}
+          終了: {fmtDate(event.end_at)}
           　{event.lifecycle_status === "settled" ? "精算済み" : event.lifecycle_status === "ended" ? "終了" : event.lifecycle_status}
           {event.reconciled_at && (
             <span className="ml-2 text-emerald-400">照合完了</span>

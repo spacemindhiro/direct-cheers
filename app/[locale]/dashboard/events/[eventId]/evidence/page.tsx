@@ -1,3 +1,4 @@
+import { fmtDate, fmtDateTime } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -68,7 +69,7 @@ async function EvidencePageContent({
             )}
             <span className="flex items-center gap-1">
               <Calendar size={11} />
-              {new Date(event.end_at).toLocaleDateString("ja-JP")}終了
+              {fmtDate(event.end_at)}終了
             </span>
           </div>
           {!hasEnded && (
@@ -88,7 +89,7 @@ async function EvidencePageContent({
                 <div className="flex items-center gap-2 flex-wrap">
                   <CheckCircle2 size={14} className="text-green-400 shrink-0" />
                   <p className="text-xs text-slate-400">
-                    {new Date(ev.created_at).toLocaleString("ja-JP", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}提出
+                    {fmtDateTime(ev.created_at, { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}提出
                   </p>
                   {ev.attendance_count != null && (
                     <span className="text-xs font-bold text-slate-300 bg-slate-800 border border-slate-700 rounded-lg px-2 py-0.5">

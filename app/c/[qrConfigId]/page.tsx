@@ -1,3 +1,4 @@
+import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -165,7 +166,7 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
               )}
               <span className="flex items-center gap-1">
                 <Calendar size={11} />
-                {new Date(event.start_at).toLocaleDateString("ja-JP")}
+                {fmtDate(event.start_at)}
               </span>
             </div>
           </div>

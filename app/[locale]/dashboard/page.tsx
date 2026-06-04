@@ -1,3 +1,4 @@
+import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from 'react';
 import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -696,7 +697,7 @@ async function DashboardContent() {
                       </p>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {tx.product?.artist?.display_name && <span className="mr-2">{tx.product.artist.display_name}</span>}
-                        {new Date(tx.created_at).toLocaleDateString('ja-JP')}
+                        {fmtDate(tx.created_at)}
                       </p>
                       {tx.sender_comment && (
                         <p className="text-xs text-slate-400 mt-1 italic">"{tx.sender_comment}"</p>

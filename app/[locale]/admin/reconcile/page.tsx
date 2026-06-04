@@ -1,3 +1,4 @@
+import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -219,7 +220,7 @@ async function ReconcileContent() {
                         {event.title}
                       </Link>
                       <p className="text-[10px] text-slate-500 mt-0.5">
-                        終了: {new Date(event.end_at).toLocaleDateString("ja-JP")}
+                        終了: {fmtDate(event.end_at)}
                         　{event.lifecycle_status === "settled" ? "精算済み" : "未精算"}
                       </p>
                     </div>

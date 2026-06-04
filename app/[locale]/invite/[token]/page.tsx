@@ -1,3 +1,4 @@
+import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { InviteAcceptSection } from "@/components/invite-accept-section";
@@ -72,7 +73,7 @@ async function InviteContent({
 
   const inviterName = (invitation.invited_by as any)?.display_name ?? "Unknown";
   const roleLabel = ROLE_LABELS[invitation.target_role] ?? invitation.target_role;
-  const expiresAt = new Date(invitation.expires_at).toLocaleDateString("ja-JP");
+  const expiresAt = fmtDate(invitation.expires_at);
 
   return (
     <div className="min-h-screen bg-slate-950 font-sans flex flex-col">

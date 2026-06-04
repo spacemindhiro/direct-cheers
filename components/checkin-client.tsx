@@ -1,5 +1,6 @@
 "use client";
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { CheckCircle, XCircle, AlertCircle, QrCode, Loader2, ArrowLeft, Users } from "lucide-react";
@@ -69,7 +70,7 @@ export function CheckinClient() {
       showOverlay(status, data);
       setLog((prev) => [{
         id: `${Date.now()}-${Math.random()}`,
-        time: new Date().toLocaleTimeString("ja-JP"),
+        time: new Date().toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ }),
         code: code.slice(0, 8) + "...",
         result: data,
         status,
@@ -79,7 +80,7 @@ export function CheckinClient() {
       showOverlay("error", data);
       setLog((prev) => [{
         id: `${Date.now()}`,
-        time: new Date().toLocaleTimeString("ja-JP"),
+        time: new Date().toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ }),
         code: code.slice(0, 8) + "...",
         result: data,
         status: "error",
@@ -204,7 +205,7 @@ export function CheckinClient() {
                     <p className="text-white font-black text-sm leading-tight">
                       {overlay.status === "success" ? "入場OK" :
                        overlay.status === "warn"
-                         ? `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}）` : ""}`
+                         ? `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
                          : errorMessage(overlay.result.error)}
                     </p>
                     {overlay.result.email && overlay.status !== "warn" && (
@@ -272,7 +273,7 @@ export function CheckinClient() {
                   </span>
                   {entry.status === "warn" && entry.result.ticket?.checked_in_at && (
                     <span className="text-amber-500/70 shrink-0">
-                      {new Date(entry.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}入場
+                      {new Date(entry.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}入場
                     </span>
                   )}
                   {entry.result.email && entry.status !== "warn" && <span className="text-slate-500 truncate">{entry.result.email}</span>}

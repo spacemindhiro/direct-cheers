@@ -1,3 +1,4 @@
+import { fmtDate, fmtDateTime } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -125,7 +126,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
           <span className="flex items-center gap-1.5"><MapPin size={14} />{event.venue ?? "—"}</span>
           <span className="flex items-center gap-1.5">
             <Calendar size={14} />
-            {new Date(event.start_at).toLocaleString("ja-JP", { dateStyle: "short", timeStyle: "short" })}
+            {fmtDateTime(event.start_at, { dateStyle: "short", timeStyle: "short" })}
           </span>
           <span className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-800 border border-slate-700 text-slate-400">
             {LIFECYCLE_LABELS[event.lifecycle_status] ?? event.lifecycle_status}
@@ -361,7 +362,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
               <Link key={qr.qr_config_id} href={`/dashboard/events/${eventId}/qr/${qr.qr_config_id}`} className="bg-slate-900 border border-slate-800 hover:border-slate-600 rounded-[1.5rem] px-6 py-4 flex items-center justify-between transition-colors">
                 <div>
                   <p className="font-bold text-white text-sm">{qr.label ?? "QRコード"}</p>
-                  <p className="text-xs text-slate-500">{new Date(qr.created_at).toLocaleDateString("ja-JP")}</p>
+                  <p className="text-xs text-slate-500">{fmtDate(qr.created_at)}</p>
                 </div>
                 <QrCode size={20} className="text-slate-500" />
               </Link>

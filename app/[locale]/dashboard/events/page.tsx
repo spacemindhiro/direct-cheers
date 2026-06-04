@@ -1,3 +1,4 @@
+import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -78,7 +79,7 @@ async function EventsContent() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar size={11} />
-                        {new Date(ev.start_at).toLocaleDateString("ja-JP")}
+                        {fmtDate(ev.start_at)}
                       </span>
                     </div>
                   </div>

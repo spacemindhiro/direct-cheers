@@ -1,5 +1,6 @@
 "use client";
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -246,6 +247,7 @@ function ReservationsContent() {
                       <div className="flex items-center gap-2 text-xs text-slate-400">
                         <Calendar size={11} className="text-indigo-400" />
                         {new Date(r.start_at).toLocaleString("ja-JP", {
+                          timeZone: DISPLAY_TZ,
                           month: "long",
                           day: "numeric",
                           weekday: "short",

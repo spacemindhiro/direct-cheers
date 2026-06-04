@@ -1,5 +1,6 @@
 "use client";
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
@@ -58,7 +59,7 @@ export function SettlementDetails({ gross, net, netRateLabel, txGroups, distribu
                   {g.transactions.map((tx) => (
                     <div key={tx.transaction_id} className="flex items-center justify-between text-[10px] text-slate-500">
                       <span>
-                        {new Date(tx.created_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        {new Date(tx.created_at).toLocaleString("ja-JP", { timeZone: DISPLAY_TZ, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                         {tx.sender_name ? ` · ${tx.sender_name}` : ""}
                       </span>
                       <span>¥{tx.amount.toLocaleString()}</span>

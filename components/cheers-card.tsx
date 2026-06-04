@@ -1,5 +1,6 @@
 "use client";
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState } from "react";
 import { Heart, RotateCcw, ExternalLink, Gift } from "lucide-react";
 
@@ -43,8 +44,8 @@ export function CheersCard({
   const [flipped, setFlipped] = useState(false);
 
   const dateStr = paidAt
-    ? new Date(paidAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
-    : new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    ? new Date(paidAt).toLocaleDateString("ja-JP", { timeZone: DISPLAY_TZ, year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : new Date().toLocaleDateString("ja-JP", { timeZone: DISPLAY_TZ, year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
   const hasThanks = thanks && (thanks.thanks_message || thanks.thanks_link_url || thanks.thanks_media_url);
 

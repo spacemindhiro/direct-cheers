@@ -1,3 +1,4 @@
+import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -244,7 +245,7 @@ async function SettlementsContent() {
                       )}
                       <span className="flex items-center gap-1">
                         <Calendar size={10} />
-                        {new Date(event.end_at).toLocaleDateString("ja-JP")}
+                        {fmtDate(event.end_at)}
                       </span>
                       <span>{(event.organizer as any)?.display_name}</span>
                     </div>
@@ -283,7 +284,7 @@ async function SettlementsContent() {
                             {ev.attendance_count != null && (
                               <span>動員 {ev.attendance_count}人</span>
                             )}
-                            <span>{new Date(ev.created_at).toLocaleDateString("ja-JP")}</span>
+                            <span>{fmtDate(ev.created_at)}</span>
                           </div>
                           {paths.length > 0 && (
                             <div className="flex flex-wrap gap-2">
@@ -313,7 +314,7 @@ async function SettlementsContent() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-4">
                       <p className="text-[10px] text-slate-500">
-                        精算済み · {summary.approved_at ? new Date(summary.approved_at).toLocaleDateString("ja-JP") : ""}
+                        精算済み · {summary.approved_at ? fmtDate(summary.approved_at) : ""}
                       </p>
                       <AdminForcePayoutButton
                         eventId={event.event_id}

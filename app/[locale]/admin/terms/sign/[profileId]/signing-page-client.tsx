@@ -1,5 +1,6 @@
 'use client';
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, FileText, CheckCircle2, ArrowLeft } from 'lucide-react';
@@ -66,7 +67,7 @@ export function SigningPageClient({ profileId }: { profileId: string }) {
 
   const requiredTypes = profile ? getRequiredTermsTypes(profile.role) : [];
   const today = new Date().toLocaleDateString('ja-JP', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+    timeZone: DISPLAY_TZ, year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
 
   const handleSubmit = async () => {

@@ -1,3 +1,4 @@
+import { fmtDate, fmtDateTime } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -139,7 +140,7 @@ async function AdminSalesContent() {
           <div className="space-y-2">
             {completed.slice(0, 20).map((tx, i) => (
               <div key={i} className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-6 py-4 flex items-center justify-between">
-                <p className="text-xs text-slate-400">{new Date(tx.created_at).toLocaleString("ja-JP")}</p>
+                <p className="text-xs text-slate-400">{fmtDateTime(tx.created_at)}</p>
                 <p className="font-black text-white text-sm">¥{(tx.total_gross_amount ?? 0).toLocaleString()}</p>
               </div>
             ))}

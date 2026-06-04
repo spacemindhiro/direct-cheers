@@ -1,5 +1,6 @@
 "use client";
 
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState, useEffect, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -296,6 +297,7 @@ function EntrancePageContent() {
             <div className="flex items-center gap-2.5 text-sm text-slate-300">
               <Calendar size={14} className="text-indigo-400 shrink-0" />
               {new Date(product.event.start_at).toLocaleString("ja-JP", {
+                timeZone: DISPLAY_TZ,
                 year: "numeric",
                 month: "long",
                 day: "numeric",

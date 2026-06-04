@@ -1,3 +1,4 @@
+import { DISPLAY_TZ } from "@/lib/display-tz";
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -70,7 +71,7 @@ async function DocumentsContent() {
                   <p className="text-sm font-black text-white">{subject?.display_name ?? '—'}</p>
                   <p className="text-[10px] text-slate-500">
                     {new Date(doc.signed_at).toLocaleDateString('ja-JP', {
-                      year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+                      timeZone: DISPLAY_TZ, year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
                     })}
                     {' · '}承認者: {signer?.display_name ?? '—'}
                   </p>

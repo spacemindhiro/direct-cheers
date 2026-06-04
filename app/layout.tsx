@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     startupImage: "/logo-emblem.png",
   },
   icons: {
-    apple: "/logo-emblem.png",
+    apple: "/icon-192.png",
   },
 };
 

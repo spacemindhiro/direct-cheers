@@ -38,6 +38,16 @@ export type QRGroupRow = {
   distributions: DistributionRow[];
 };
 
+export type MessageRow = {
+  transaction_id: string;
+  sender_name: string | null;
+  sender_comment: string | null;
+  total_gross_amount: number;
+  created_at: string;
+  recipient_profile_id: string | null;
+  recipient_name: string | null;
+};
+
 export type DebtClaimRow = {
   claim_id: string; original_transaction_id: string;
   claim_amount: number; stripe_dispute_fee: number | null;
@@ -240,6 +250,49 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
     ? new Date(event.start_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "long", day: "numeric", weekday: "short" })
     : "";
 
+  // メッセージ受信一覧
+  const { data: msgProducts } = await admin
+    .from("products").select("product_id")
+    .eq("event_id", eventId).eq("type", "message").is("deleted_at", null);
+  const msgProductIds = (msgProducts ?? []).map(p => p.product_id);
+  let messageRows: MessageRow[] = [];
+  if (msgProductIds.length > 0) {
+    const { data: msgQrs } = await admin
+      .from("qr_configs").select("qr_config_id, recipient_profile_id")
+      .in("product_id", msgProductIds).is("deleted_at", null);
+    const msgQrIds = (msgQrs ?? []).map(q => q.qr_config_id);
+    const qrToRecipient = new Map((msgQrs ?? []).map(q => [q.qr_config_id, q.recipient_profile_id as string | null]));
+    if (msgQrIds.length > 0) {
+      let msgTxsRaw: { transaction_id: string; sender_name: string | null; sender_comment: string | null; total_gross_amount: number; created_at: string; qr_config_id: string }[] = [];
+      for (let i = 0; i < msgQrIds.length; i += BATCH) {
+        const { data } = await admin.from("transactions")
+          .select("transaction_id, sender_name, sender_comment, total_gross_amount, created_at, qr_config_id")
+          .in("qr_config_id", msgQrIds.slice(i, i + BATCH))
+          .eq("status", "completed").order("created_at", { ascending: true });
+        msgTxsRaw.push(...(data ?? []));
+      }
+      const recipientIds = [...new Set([...qrToRecipient.values()].filter((v): v is string => v !== null))];
+      const { data: recipientProfs } = recipientIds.length > 0
+        ? await admin.from("profiles").select("profile_id, display_name, artist_name, credit_name").in("profile_id", recipientIds)
+        : { data: [] };
+      const recipientMap = new Map((recipientProfs ?? []).map(p => [
+        p.profile_id, p.credit_name ?? p.artist_name ?? p.display_name ?? "不明",
+      ]));
+      messageRows = msgTxsRaw.map(tx => {
+        const rid = qrToRecipient.get(tx.qr_config_id) ?? null;
+        return {
+          transaction_id:     tx.transaction_id,
+          sender_name:        tx.sender_name,
+          sender_comment:     tx.sender_comment,
+          total_gross_amount: tx.total_gross_amount,
+          created_at:         tx.created_at,
+          recipient_profile_id: rid,
+          recipient_name:     rid ? (recipientMap.get(rid) ?? null) : null,
+        };
+      });
+    }
+  }
+
   const { data: riskReports } = await admin
     .from("daily_business_reports")
     .select("failed_count, failed_amount, task_name, process_date")
@@ -265,6 +318,7 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
       frozenDistTotal={frozenDistTotal}
       totalHold={totalHold}
       riskReports={riskReports ?? []}
+      messageRows={messageRows}
     />
   );
 }

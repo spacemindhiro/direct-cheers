@@ -1,7 +1,8 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, Lock, Printer, Shield, TrendingUp } from "lucide-react";
-import type { QRGroupRow, DebtClaimRow, EventRecipientRow } from "@/app/[locale]/dashboard/events/[eventId]/settlement/page";
+import type { QRGroupRow, DebtClaimRow, EventRecipientRow, MessageRow } from "@/app/[locale]/dashboard/events/[eventId]/settlement/page";
+import { MessageListSection } from "@/components/message-list-section";
 
 const yen  = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
 const pct  = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : "—";
@@ -49,13 +50,14 @@ type Props = {
   frozenDistTotal: number;
   totalHold: number;
   riskReports: Array<{ failed_count: number; failed_amount: number; task_name: string; process_date: string }>;
+  messageRows: MessageRow[];
 };
 
 export function SettlementReportClient({
   event, reportVersion, approvedAtStr, lastCbAt,
   totalGross, totalStripeFee, totalPlatformFee, totalNet, totalTaxAmount,
   eventRecipients, qrGroups, debtClaims, activeClaims,
-  cbFeeTotal, cbFeeShortage, frozenDistTotal, totalHold, riskReports,
+  cbFeeTotal, cbFeeShortage, frozenDistTotal, totalHold, riskReports, messageRows,
 }: Props) {
   const hasCb     = activeClaims.length > 0;
   const riskCount = riskReports.reduce((s, r) => s + r.failed_count, 0);
@@ -288,6 +290,9 @@ export function SettlementReportClient({
             </div>
           </div>
         )}
+
+        {/* メッセージ受信一覧 */}
+        <MessageListSection rows={messageRows} showRecipient={true} />
 
         {/* フッター */}
         <div className="border-t border-slate-800 pt-6 print:border-slate-300">

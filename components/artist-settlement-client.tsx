@@ -2,6 +2,8 @@
 
 import { AlertTriangle, CheckCircle2, Clock, Lock, Printer, Shield } from "lucide-react";
 import type { ArtistQRGroup } from "@/app/[locale]/dashboard/events/[eventId]/artist-settlement/page";
+import type { MessageRow } from "@/app/[locale]/dashboard/events/[eventId]/settlement/page";
+import { MessageListSection } from "@/components/message-list-section";
 
 const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
 const pctStr = (r: number) => `${(r * 100).toFixed(1)}%`;
@@ -31,13 +33,14 @@ type Props = {
     stripe_processing_fee: number | null; status: string;
     stripe_dispute_id: string | null; created_at: string;
   }>;
+  messageRows: MessageRow[];
 };
 
 export function ArtistSettlementClient({
   event, artistName, reportVersion, approvedAtStr,
   totalDistAmount, totalTaxAmount, frozenDistTotal,
   myCbFeeTotal, myProcFeeTotal, cbHoldTotal,
-  settledAmount, qrGroups, myClaims,
+  settledAmount, qrGroups, myClaims, messageRows,
 }: Props) {
   const hasCb = myClaims.length > 0;
 
@@ -201,6 +204,9 @@ export function ArtistSettlementClient({
             </div>
           </div>
         )}
+
+        {/* メッセージ受信一覧 */}
+        <MessageListSection rows={messageRows} showRecipient={false} />
 
         {/* フッター */}
         <div className="border-t border-slate-800 pt-6 print:border-slate-200">

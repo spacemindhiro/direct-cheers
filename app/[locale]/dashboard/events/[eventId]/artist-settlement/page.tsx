@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ArtistSettlementClient } from "@/components/artist-settlement-client";
+import type { MessageRow } from "@/app/[locale]/dashboard/events/[eventId]/settlement/page";
 import { Loader2 } from "lucide-react";
 
 export type ArtistQRGroup = {
@@ -148,6 +149,40 @@ async function ArtistSettlementContent({ params }: { params: Promise<{ eventId: 
     .from("settle_transfers").select("amount").eq("event_id", eventId).eq("profile_id", user.id);
   const settledAmount = (settleTransfers ?? []).reduce((s, t) => s + (t.amount ?? 0), 0);
 
+  // メッセージ受信一覧（自分宛のみ）
+  const { data: msgProducts } = await admin
+    .from("products").select("product_id")
+    .eq("event_id", eventId).eq("type", "message").is("deleted_at", null);
+  const msgProductIds = (msgProducts ?? []).map(p => p.product_id);
+  let messageRows: MessageRow[] = [];
+  if (msgProductIds.length > 0) {
+    const { data: msgQrs } = await admin
+      .from("qr_configs").select("qr_config_id")
+      .in("product_id", msgProductIds)
+      .eq("recipient_profile_id", user.id)
+      .is("deleted_at", null);
+    const msgQrIds = (msgQrs ?? []).map(q => q.qr_config_id);
+    if (msgQrIds.length > 0) {
+      let msgTxsRaw: { transaction_id: string; sender_name: string | null; sender_comment: string | null; total_gross_amount: number; created_at: string }[] = [];
+      for (let i = 0; i < msgQrIds.length; i += BATCH) {
+        const { data } = await admin.from("transactions")
+          .select("transaction_id, sender_name, sender_comment, total_gross_amount, created_at")
+          .in("qr_config_id", msgQrIds.slice(i, i + BATCH))
+          .eq("status", "completed").order("created_at", { ascending: true });
+        msgTxsRaw.push(...(data ?? []));
+      }
+      messageRows = msgTxsRaw.map(tx => ({
+        transaction_id:     tx.transaction_id,
+        sender_name:        tx.sender_name,
+        sender_comment:     tx.sender_comment,
+        total_gross_amount: tx.total_gross_amount,
+        created_at:         tx.created_at,
+        recipient_profile_id: user.id,
+        recipient_name:     null,
+      }));
+    }
+  }
+
   const approvedAtDate    = summary?.approved_at ? new Date(summary.approved_at) : null;
   const cbAfterSettlement = myClaims.filter(c => !approvedAtDate || new Date(c.created_at) > approvedAtDate);
   const reportVersion = `v1.${cbAfterSettlement.length}`;
@@ -173,6 +208,7 @@ async function ArtistSettlementContent({ params }: { params: Promise<{ eventId: 
       settledAmount={settledAmount}
       qrGroups={qrGroups}
       myClaims={myClaims}
+      messageRows={messageRows}
     />
   );
 }

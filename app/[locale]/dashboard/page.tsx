@@ -2,10 +2,9 @@ import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from 'react';
 import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Zap, Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw, Activity } from 'lucide-react';
+import { Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
-import { ArtistSalesDashboard } from '@/components/artist-sales-dashboard';
 import { LineupInvitations } from '@/components/lineup-invitations';
 import { FollowButton } from '@/components/follow-button';
 import { FollowerHero } from '@/components/follower-hero';
@@ -175,7 +174,6 @@ async function DashboardContent() {
   const role = profile?.role ?? 'user';
   const isAdmin = role === 'admin';
   const userEmail = user!.email!;
-  const isRoleEarner = ['agent', 'organizer', 'artist'].includes(role);
   const isOrganizerOrAdmin = ['organizer', 'admin'].includes(role);
   const isAgentOrAdmin = ['agent', 'admin'].includes(role);
   const isPerformerRole = ['artist', 'agent', 'organizer'].includes(role);
@@ -185,7 +183,6 @@ async function DashboardContent() {
     followsResult,
     byProfileResult,
     byEmailResult,
-    myDistResult,
     notifsResult,
     rejectedNotifsResult,
     adminMsgCountResult,
@@ -218,10 +215,6 @@ async function DashboardContent() {
           product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
           qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
         `).eq('sender_email', userEmail).eq('status', 'completed').neq('transaction_type', 'invitation').order('created_at', { ascending: false }).limit(50)
-      : Promise.resolve({ data: null }),
-
-    isRoleEarner
-      ? admin.from('transaction_distributions').select('actual_amount, transaction:transactions!transaction_id(status)').eq('profile_id', user!.id).is('deleted_at', null)
       : Promise.resolve({ data: null }),
 
     isOrganizerOrAdmin
@@ -303,7 +296,6 @@ async function DashboardContent() {
   const follows = ((followsResult.data ?? []) as any[]).map((f) => f.followee).filter(Boolean);
 
   let cheersHistory: any[] = [];
-  let totalCheersAmount = 0;
   if (!isAdmin) {
     const seen = new Set<string>();
     for (const tx of [...((byProfileResult.data as any[]) ?? []), ...((byEmailResult.data as any[]) ?? [])]) {
@@ -314,7 +306,6 @@ async function DashboardContent() {
     }
     cheersHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     cheersHistory = cheersHistory.slice(0, 20);
-    totalCheersAmount = cheersHistory.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
   }
 
   const hasLinkRegistered = !isAdmin && !!(provisionalUserResult as any)?.data?.stripe_customer_id;
@@ -330,13 +321,6 @@ async function DashboardContent() {
     } else if (latest.payment_method === 'card') {
       paymentPattern = 'B';
     }
-  }
-
-  let projectedNet = 0;
-  if (isRoleEarner) {
-    projectedNet = ((myDistResult.data as any[]) ?? [])
-      .filter((d) => (d.transaction as any)?.status === 'completed')
-      .reduce((s, d) => s + (d.actual_amount ?? 0), 0);
   }
 
   const pendingNotifications = ((notifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
@@ -618,63 +602,9 @@ async function DashboardContent() {
         </p>
       </div>
 
-      {/* 受け取り金額セクション（artist / organizer / agent のみ） */}
-      {['organizer', 'artist', 'agent'].includes(profile?.role ?? '') && (
-        <div className="space-y-3">
-          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-            <Zap size={14} className="text-emerald-400" /> 受け取り金額
-          </h2>
-          <Link
-            href="/dashboard/payout"
-            className="block bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-[2rem] p-6 transition-all group"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Projected Net（着金予測）</p>
-                <p className="text-4xl font-black text-emerald-400 italic tracking-tighter">
-                  ¥{projectedNet.toLocaleString('ja-JP')}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all shrink-0">
-                <Zap size={22} className="text-emerald-400" />
-              </div>
-            </div>
-            <p className="text-[10px] text-slate-600 mt-3">タップして出金管理へ →</p>
-          </Link>
-        </div>
-      )}
-
       {/* Cheers送信セクション・履歴・コレクション（admin非表示） */}
       {!isAdmin && (
         <>
-          <div className="space-y-4">
-            <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-              <Heart size={14} className="text-pink-500" /> 送ったチア
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-2">
-                <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20">
-                  <Heart size={18} className="text-pink-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Cheers</p>
-                  <p className="text-3xl font-black text-white italic tracking-tighter">{cheersHistory?.length ?? 0}</p>
-                </div>
-              </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-2">
-                <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20">
-                  <TrendingUp size={18} className="text-pink-400" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Amount</p>
-                  <p className="text-3xl font-black text-white italic tracking-tighter">
-                    ¥{totalCheersAmount.toLocaleString('ja-JP')}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* 決済スピード最適化セクション */}
           <PaymentOptimizationSection pattern={paymentPattern} linkRegistered={hasLinkRegistered} />
 
@@ -787,13 +717,6 @@ async function DashboardContent() {
         <LineupInvitations invites={lineupInvites} artistId={user!.id} />
       )}
 
-
-      {/* アーティスト売上ダッシュボード */}
-      {profile?.role === 'artist' && (
-        <Suspense fallback={<div className="h-40 bg-slate-900 border border-slate-800 rounded-[2rem] animate-pulse" />}>
-          <ArtistSalesDashboard profileId={user!.id} />
-        </Suspense>
-      )}
 
       {/* イベント */}
       {['organizer', 'agent', 'admin'].includes(profile?.role ?? '') && (

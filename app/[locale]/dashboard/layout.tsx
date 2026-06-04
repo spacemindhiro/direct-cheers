@@ -4,7 +4,7 @@ import { cookies, headers } from 'next/headers';
 import { createClient, getUser } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { LogoutButton } from '@/components/logout-button';
-import { Loader2, UserCircle, MessageCircle } from 'lucide-react';
+import { Loader2, UserCircle, MessageCircle, BarChart2 } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
 
@@ -114,6 +114,13 @@ async function DashboardNav() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/statistics"
+              className="w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
+              title="統計"
+            >
+              <BarChart2 size={16} className="text-slate-400 hover:text-pink-500 transition-colors" />
+            </Link>
             <Link
               href="/dashboard/messages"
               className="relative w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"

@@ -1,19 +1,19 @@
 name: Integration Test Suite
 
 # ──────────────────────────────────────────────────────────────────
-# トリガー: main / develop へのプッシュ、および同ブランチへのPR
+# トリガー: main への PR 作成・更新時のみ
 #
-# このワークフローが「Required status check」に設定されていれば
-# Vercel 本番デプロイの遮断ガードレールとして機能する。
-# 設定手順: GitHub → Settings → Branches → Branch protection rules
+# 通常の develop push では実行しない（ローカルテストで代替）。
+# main への PR がマージゲートとして機能する。
+#
+# branch protection 設定:
 #   ✅ Require status checks to pass before merging
-#   ✅ "test / 985ケース全テスト (push)" を必須ステータスに追加
+#   ✅ "test / 985ケース全テスト" を必須ステータスに追加
 # ──────────────────────────────────────────────────────────────────
 on:
-  push:
-    branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
 # 同一ブランチへの連続プッシュ時は古いランを自動キャンセル
 concurrency:

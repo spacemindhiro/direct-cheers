@@ -319,6 +319,7 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
       totalHold={totalHold}
       riskReports={riskReports ?? []}
       messageRows={messageRows}
+      isInsider={isAdmin || isAgent}
     />
   );
 }

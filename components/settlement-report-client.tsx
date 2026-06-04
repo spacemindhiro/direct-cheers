@@ -51,15 +51,17 @@ type Props = {
   totalHold: number;
   riskReports: Array<{ failed_count: number; failed_amount: number; task_name: string; process_date: string }>;
   messageRows: MessageRow[];
+  isInsider: boolean;
 };
 
 export function SettlementReportClient({
   event, reportVersion, approvedAtStr, lastCbAt,
   totalGross, totalStripeFee, totalPlatformFee, totalNet, totalTaxAmount,
   eventRecipients, qrGroups, debtClaims, activeClaims,
-  cbFeeTotal, cbFeeShortage, frozenDistTotal, totalHold, riskReports, messageRows,
+  cbFeeTotal, cbFeeShortage, frozenDistTotal, totalHold, riskReports, messageRows, isInsider,
 }: Props) {
   const hasCb     = activeClaims.length > 0;
+  const agentTotal = eventRecipients.filter(r => r.role === "agent").reduce((s, r) => s + r.total_amount, 0);
   const riskCount = riskReports.reduce((s, r) => s + r.failed_count, 0);
   const totalRisk = riskReports.reduce((s, r) => s + r.failed_amount, 0);
   const versionTs = lastCbAt ? `${lastCbAt} 時点のCBを反映` : approvedAtStr ? `${approvedAtStr} 精算確定` : "精算確定済み";
@@ -125,9 +127,15 @@ export function SettlementReportClient({
             <p className="text-xs text-slate-600 mt-1 print:text-slate-500">{pct(totalStripeFee, totalGross)}</p>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 print:bg-slate-50 print:border-slate-300">
-            <div className="flex items-center gap-1.5 mb-2"><Shield size={12} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">プラットフォーム利用料</p></div>
+            <div className="flex items-center gap-1.5 mb-2"><Shield size={12} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">プラットフォーム手数料</p></div>
             <p className="text-2xl font-black text-slate-400 print:text-black">{yen(totalPlatformFee)}</p>
-            <p className="text-xs text-slate-600 mt-1 print:text-slate-500">{pct(totalPlatformFee, totalGross)}</p>
+            {isInsider ? (
+              <div className="mt-1 space-y-0.5">
+                <p className="text-xs text-slate-600 print:text-slate-500">DC取り分 {yen(totalPlatformFee - agentTotal)} / エージェント {yen(agentTotal)}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-600 mt-1 print:text-slate-500">{pct(totalPlatformFee, totalGross)}</p>
+            )}
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 print:bg-slate-50 print:border-slate-300">
             <div className="flex items-center gap-1.5 mb-2"><CheckCircle2 size={12} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">主催者受取総額</p></div>
@@ -152,7 +160,7 @@ export function SettlementReportClient({
                 </tr>
               </thead>
               <tbody>
-                {eventRecipients.map(r => (
+                {eventRecipients.filter(r => isInsider || r.role !== "agent").map(r => (
                   <tr key={r.profile_id} className={`border-b border-slate-800/50 print:border-slate-100 ${r.frozen_amount > 0 ? "bg-red-950/10 print:bg-red-50" : ""}`}>
                     <td className="px-5 py-3 font-bold text-white print:text-black">{r.display_name}</td>
                     <td className="px-5 py-3 text-slate-400 text-xs print:text-slate-600">{ROLE_LABEL[r.role] ?? r.role}</td>
@@ -176,7 +184,7 @@ export function SettlementReportClient({
               <tfoot>
                 <tr className="border-t border-slate-700 print:border-slate-300">
                   <td colSpan={2} className="px-5 py-2 text-xs font-black text-slate-500 print:text-slate-600">合計</td>
-                  <td className="px-5 py-2 font-black text-white text-right print:text-black">{yen(eventRecipients.reduce((s, r) => s + r.total_amount, 0))}</td>
+                  <td className="px-5 py-2 font-black text-white text-right print:text-black">{yen(eventRecipients.filter(r => isInsider || r.role !== "agent").reduce((s, r) => s + r.total_amount, 0))}</td>
                   <td className="px-5 py-2 text-right">
                     {frozenDistTotal > 0 && <span className="text-red-400 font-bold text-xs print:text-red-600">{yen(frozenDistTotal)}</span>}
                   </td>
@@ -202,7 +210,7 @@ export function SettlementReportClient({
                       <span className="text-xs text-pink-400 font-bold print:text-pink-600">{qr.txCount.toLocaleString()}チア</span>
                     </div>
                     <p className="text-xs text-slate-500 print:text-slate-600">
-                      売上 {yen(qr.totalGross)} → Stripe {yen(qr.totalStripeFee)} + PF {yen(qr.totalPlatformFee)} = 配分原資 {yen(qr.totalNet)}
+                      売上 {yen(qr.totalGross)} → Stripe {yen(qr.totalStripeFee)} + 手数料 {yen(qr.totalPlatformFee)} = 配分原資 {yen(qr.totalNet)}
                     </p>
                   </div>
                   {qr.totalTaxAmount > 0 && <p className="text-xs text-slate-500 print:text-slate-600">消費税 {yen(qr.totalTaxAmount)}</p>}
@@ -216,7 +224,7 @@ export function SettlementReportClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {qr.distributions.map(d => (
+                    {qr.distributions.filter(d => isInsider || d.role !== "agent").map(d => (
                       <tr key={d.profile_id} className={`border-b border-slate-800/50 print:border-slate-100 ${d.frozen_amount > 0 ? "bg-red-950/15 print:bg-red-50" : ""}`}>
                         <td className="px-5 py-3 font-bold text-sm text-white print:text-black">{d.display_name}</td>
                         <td className="px-5 py-3 text-slate-400 text-xs print:text-slate-600">{ROLE_LABEL[d.role] ?? d.role}</td>

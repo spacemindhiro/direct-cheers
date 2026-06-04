@@ -22,3 +22,21 @@ export function utcIsoToJstLocal(iso: string): string {
   const jst = new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000);
   return jst.toISOString().slice(0, 16);
 }
+
+// datetime-local 文字列（"YYYY-MM-DDTHH:mm"）に指定時間を加算。タイムゾーン非依存。
+export function addHoursToLocalDT(localDT: string, hours: number): string {
+  if (!localDT) return "";
+  const [datePart, timePart] = localDT.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hh, mm] = timePart.split(":").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day, hh, mm));
+  d.setUTCHours(d.getUTCHours() + hours);
+  return [
+    d.getUTCFullYear(),
+    String(d.getUTCMonth() + 1).padStart(2, "0"),
+    String(d.getUTCDate()).padStart(2, "0"),
+  ].join("-") + "T" + [
+    String(d.getUTCHours()).padStart(2, "0"),
+    String(d.getUTCMinutes()).padStart(2, "0"),
+  ].join(":");
+}

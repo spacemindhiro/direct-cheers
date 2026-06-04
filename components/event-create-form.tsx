@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { jstLocalToUtcIso } from "@/lib/utils";
+import { jstLocalToUtcIso, addHoursToLocalDT } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Loader2, MapPin, Music, Search, X, Plus } from "lucide-react";
 
@@ -19,6 +19,8 @@ export function EventCreateForm({
   const [selectedArtists, setSelectedArtists] = useState<Artist[]>([]);
   const [artistMessages, setArtistMessages] = useState<Record<string, string>>({});
   const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
+  const endBeforeStart = !!(startAt && endAt && endAt <= startAt);
 
 
   // 新規アーティスト検索
@@ -65,6 +67,10 @@ export function EventCreateForm({
     const start_at = fd.get("start_at") as string;
     const end_at = fd.get("end_at") as string;
 
+    if (!end_at || !start_at || end_at <= start_at) {
+      setError("終了日時は開始日時より後にしてください");
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const res = await fetch("/api/events/create", {
@@ -129,7 +135,14 @@ export function EventCreateForm({
               type="datetime-local"
               required
               value={startAt}
-              onChange={(e) => setStartAt(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setStartAt(v);
+                // 終了が未入力 or 開始以前なら3時間後を自動セット
+                if (!endAt || endAt <= v) {
+                  setEndAt(addHoursToLocalDT(v, 3));
+                }
+              }}
               className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
             />
           </div>
@@ -141,9 +154,16 @@ export function EventCreateForm({
               name="end_at"
               type="datetime-local"
               required
+              value={endAt}
+              onChange={(e) => setEndAt(e.target.value)}
               min={startAt || undefined}
-              className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
+              className={`block w-full min-h-[3.5rem] bg-slate-950/50 border rounded-2xl px-5 py-3 text-sm text-white focus:outline-none ${
+                endBeforeStart ? "border-red-500 focus:border-red-500" : "border-slate-700 focus:border-pink-500"
+              }`}
             />
+            {endBeforeStart && (
+              <p className="text-[10px] font-bold text-red-400">終了は開始より後にしてください</p>
+            )}
           </div>
         </div>
 
@@ -291,7 +311,7 @@ export function EventCreateForm({
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || endBeforeStart}
         className="mt-6 w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>イベントを作成 <ArrowRight size={18} /></>}

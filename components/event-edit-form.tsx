@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { jstLocalToUtcIso } from "@/lib/utils";
+import { jstLocalToUtcIso, addHoursToLocalDT } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Loader2, Search, X, Plus } from "lucide-react";
 
@@ -32,6 +32,9 @@ export function EventEditForm({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [startAt, setStartAt] = useState(defaultValues.start_at);
+  const [endAt, setEndAt] = useState(defaultValues.end_at);
+  const endBeforeStart = !!(startAt && endAt && endAt <= startAt);
   const [selectedArtists, setSelectedArtists] = useState<Artist[]>(currentArtists);
   const [artistMessages, setArtistMessages] = useState<Record<string, string>>({});
 
@@ -79,6 +82,10 @@ export function EventEditForm({
     const start_at = fd.get("start_at") as string;
     const end_at = fd.get("end_at") as string;
 
+    if (!end_at || !start_at || end_at <= start_at) {
+      setError("終了日時は開始日時より後にしてください");
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const res = await fetch(`/api/events/${eventId}`, {
@@ -152,8 +159,16 @@ export function EventEditForm({
             <input
               name="start_at"
               type="datetime-local"
-              defaultValue={defaultValues.start_at}
               required
+              value={startAt}
+              onChange={(e) => {
+                const v = e.target.value;
+                setStartAt(v);
+                // 終了が開始以前になった場合は3時間後を自動セット
+                if (!endAt || endAt <= v) {
+                  setEndAt(addHoursToLocalDT(v, 3));
+                }
+              }}
               className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
             />
           </div>
@@ -164,10 +179,17 @@ export function EventEditForm({
             <input
               name="end_at"
               type="datetime-local"
-              defaultValue={defaultValues.end_at}
               required
-              className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
+              value={endAt}
+              onChange={(e) => setEndAt(e.target.value)}
+              min={startAt || undefined}
+              className={`block w-full min-h-[3.5rem] bg-slate-950/50 border rounded-2xl px-5 py-3 text-sm text-white focus:outline-none ${
+                endBeforeStart ? "border-red-500 focus:border-red-500" : "border-slate-700 focus:border-pink-500"
+              }`}
             />
+            {endBeforeStart && (
+              <p className="text-[10px] font-bold text-red-400">終了は開始より後にしてください</p>
+            )}
           </div>
         </div>
 
@@ -314,7 +336,7 @@ export function EventEditForm({
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || endBeforeStart}
         className="mt-6 w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>変更を保存 <ArrowRight size={18} /></>}

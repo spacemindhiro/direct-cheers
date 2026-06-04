@@ -14,6 +14,27 @@ type QRState = {
   artist_name?: string;
 };
 
+type DisplaySchedule = {
+  schedule_id: string;
+  qr_config_id: string | null;
+  start_at: string;
+  end_at: string;
+  label: string | null;
+  qr_config: {
+    qr_config_id: string;
+    label: string | null;
+    image_url: string | null;
+    product: { name: string; type: string; artist: { display_name: string } | null } | null;
+  } | null;
+};
+
+// タイムテーブルから現在時刻に該当するスロットを返す
+function getActiveSchedule(schedules: DisplaySchedule[], now: Date): DisplaySchedule | null {
+  return schedules.find(s =>
+    new Date(s.start_at) <= now && now < new Date(s.end_at)
+  ) ?? null;
+}
+
 type FloatingHeart = {
   id: string;
   x: number;       // vw%
@@ -79,6 +100,14 @@ export function QRBoardDisplay({
   });
   const [flash, setFlash] = useState(false);
   const [connected, setConnected] = useState(false);
+
+  // タイムテーブル
+  const [schedules, setSchedules] = useState<DisplaySchedule[]>([]);
+  const [isForcedOverride, setIsForcedOverride] = useState(false);
+  const [defaultQrState, setDefaultQrState] = useState<QRState | null>(null);
+  const schedulesRef = useRef<DisplaySchedule[]>([]);
+  const isForcedRef  = useRef(false);
+  const siteUrlRef   = useRef(typeof window !== "undefined" ? window.location.origin : "");
   const [deviceName] = useState(() => {
     try {
       const stored = localStorage.getItem(DEVICE_NAME_KEY);
@@ -148,6 +177,55 @@ export function QRBoardDisplay({
       surgeTimerRef.current = setTimeout(() => setSurgeGlow(false), 3000);
     }
   }, [spawnHearts]);
+
+  // スケジュール取得 + タイマー自動切り替え（30秒間隔）
+  useEffect(() => {
+    const applySchedule = (scheds: DisplaySchedule[]) => {
+      if (isForcedRef.current) return;
+      const now = new Date();
+      const active = getActiveSchedule(scheds, now);
+      if (active?.qr_config) {
+        const qc = active.qr_config;
+        const next: QRState = {
+          qr_config_id: qc.qr_config_id,
+          qr_url: `${siteUrlRef.current}/c/${qc.qr_config_id}`,
+          product_name: qc.product?.name ?? "",
+          label: active.label ?? qc.label ?? qc.product?.name ?? "",
+          artist_name: qc.product?.artist?.display_name ?? "",
+        };
+        setQrState(prev => {
+          if (prev?.qr_config_id === next.qr_config_id) return prev;
+          setFlash(true);
+          setTimeout(() => setFlash(false), 350);
+          try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
+          return next;
+        });
+      } else {
+        // スロット外 → デフォルトQRに戻す
+        setQrState(prev => {
+          const def = defaultQrState;
+          if (!def || prev?.qr_config_id === def.qr_config_id) return prev;
+          setFlash(true);
+          setTimeout(() => setFlash(false), 350);
+          try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(def)); } catch {}
+          return def;
+        });
+      }
+    };
+
+    fetch(`/api/events/${eventId}/display-schedules`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: DisplaySchedule[]) => {
+        schedulesRef.current = data;
+        setSchedules(data);
+        applySchedule(data);
+      })
+      .catch(() => {});
+
+    const timer = setInterval(() => applySchedule(schedulesRef.current), 30_000);
+    return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, defaultQrState]);
 
   // PWAキオスクモード: OS/ブラウザのバックナビゲーションをブロック
   useEffect(() => {
@@ -226,9 +304,40 @@ export function QRBoardDisplay({
     });
 
     channel.on("broadcast", { event: "qr-switch" }, ({ payload }) => {
-      const next = payload as QRState;
-      setQrState(next);
-      try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
+      const { is_forced, cancel_forced, ...qrData } = payload as QRState & { is_forced?: boolean; cancel_forced?: boolean };
+      if (cancel_forced) {
+        // 強制モード解除 → タイムテーブルに戻す
+        isForcedRef.current = false;
+        setIsForcedOverride(false);
+        const active = getActiveSchedule(schedulesRef.current, new Date());
+        if (active?.qr_config) {
+          const qc = active.qr_config;
+          const next: QRState = {
+            qr_config_id: qc.qr_config_id,
+            qr_url: `${siteUrlRef.current}/c/${qc.qr_config_id}`,
+            product_name: qc.product?.name ?? "",
+            label: active.label ?? qc.label ?? qc.product?.name ?? "",
+            artist_name: qc.product?.artist?.display_name ?? "",
+          };
+          setQrState(next);
+          try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
+        } else {
+          setQrState(defaultQrState);
+          if (defaultQrState) {
+            try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(defaultQrState)); } catch {}
+          }
+        }
+        setFlash(true);
+        setTimeout(() => setFlash(false), 350);
+        return;
+      }
+      // 通常の強制切り替え
+      if (is_forced) {
+        isForcedRef.current = true;
+        setIsForcedOverride(true);
+      }
+      setQrState(qrData);
+      try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(qrData)); } catch {}
       setFlash(true);
       setTimeout(() => setFlash(false), 350);
     });
@@ -360,7 +469,13 @@ export function QRBoardDisplay({
         )}
 
         {/* 接続インジケーター */}
-        <div className="absolute top-4 right-4 z-10 pointer-events-none">
+        <div className="absolute top-4 right-4 z-10 pointer-events-none flex items-center gap-2">
+          {isForcedOverride && (
+            <span className="text-[9px] font-black text-amber-400/70 uppercase tracking-widest">MANUAL</span>
+          )}
+          {schedules.length > 0 && !isForcedOverride && (
+            <span className="text-[9px] font-black text-indigo-400/60 uppercase tracking-widest">AUTO</span>
+          )}
           {connected
             ? <Wifi size={14} className="text-green-400/50" />
             : <WifiOff size={14} className="text-red-400/50" />}

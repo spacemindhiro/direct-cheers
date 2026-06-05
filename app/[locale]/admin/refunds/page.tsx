@@ -23,7 +23,7 @@ async function RefundsContent() {
     <div className="space-y-8">
       {/* ヘッダー */}
       <div className="space-y-1">
-        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Refunds" }]} />
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/dashboard" }, { label: "Refunds" }]} />
         <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">
           返金管理
         </h1>

@@ -103,7 +103,7 @@ async function AdminUsersContent() {
   return (
     <div className="space-y-10">
       <div className="space-y-1">
-        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Users" }]} />
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/dashboard" }, { label: "Users" }]} />
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
           User Management
         </h1>

@@ -96,7 +96,7 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
       {/* ヘッダー */}
       <div className="space-y-1">
         <AdminBreadcrumb crumbs={[
-          { label: "Admin", href: "/admin/users" },
+          { label: "Admin", href: "/dashboard" },
           { label: "口座審査", href: "/admin/connect-review" },
           { label: profile.display_name ?? "—" },
         ]} />

@@ -72,7 +72,7 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
       {/* ヘッダー */}
       <div className="space-y-1">
         <AdminBreadcrumb crumbs={[
-          { label: "Admin", href: "/admin/users" },
+          { label: "Admin", href: "/dashboard" },
           { label: "Reconcile", href: "/admin/reconcile" },
           { label: event.title },
         ]} />

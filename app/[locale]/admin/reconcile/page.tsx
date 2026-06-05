@@ -115,7 +115,7 @@ async function ReconcileContent() {
   return (
     <div className="space-y-10">
       <div className="space-y-1">
-        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Reconcile" }]} />
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/dashboard" }, { label: "Reconcile" }]} />
         <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">照合管理</h1>
         <p className="text-sm text-slate-500">Stripe照合バッチの実行ログとイベント別照合状況</p>
       </div>

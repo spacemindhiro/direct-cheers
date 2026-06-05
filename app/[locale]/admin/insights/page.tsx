@@ -59,7 +59,7 @@ async function InsightsContent() {
   return (
     <div className="space-y-10 pb-20">
       <div className="space-y-1">
-        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Insights" }]} />
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/dashboard" }, { label: "Insights" }]} />
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
           Follower Insights
         </h1>

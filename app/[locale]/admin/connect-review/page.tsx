@@ -41,7 +41,7 @@ export default function AdminConnectReviewPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-8 pb-20">
       <div className="space-y-1">
-        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "口座審査" }]} />
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/dashboard" }, { label: "口座審査" }]} />
         <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter flex items-center gap-2">
           <ShieldCheck size={22} className="text-indigo-400" /> 口座開設審査
         </h1>

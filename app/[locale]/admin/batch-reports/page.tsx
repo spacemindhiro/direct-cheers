@@ -4,6 +4,7 @@ import { BatchReportClient } from "@/components/batch-report-client";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 
 async function BatchReportsContent() {
   const supabase = await createClient();
@@ -38,6 +39,7 @@ async function BatchReportsContent() {
     <div className="space-y-8">
       <div className="flex items-start justify-between">
         <div>
+          <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/dashboard" }, { label: "Batch Reports" }]} />
           <h1 className="text-2xl font-black text-white tracking-tight">バッチ処理レポート</h1>
           <p className="text-sm text-slate-500 mt-1">全Cron処理の実行結果・未回収リスクをビジネス視点で確認する</p>
         </div>

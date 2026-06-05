@@ -46,7 +46,7 @@ async function DocumentsContent() {
   return (
     <div className="space-y-10">
       <div className="space-y-1">
-        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Documents" }]} />
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/dashboard" }, { label: "Documents" }]} />
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">Documents</h1>
         <p className="text-xs text-slate-500">署名済み利用規約同意書 一覧</p>
       </div>

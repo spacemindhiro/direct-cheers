@@ -71,7 +71,7 @@ async function AdminSalesContent() {
   return (
     <div className="space-y-10">
       <div className="space-y-1">
-        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Sales" }]} />
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/dashboard" }, { label: "Sales" }]} />
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">Sales Overview</h1>
       </div>
 

@@ -90,7 +90,7 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
       {/* ヘッダー */}
       <div className="space-y-1">
         <AdminBreadcrumb crumbs={[
-          { label: "Admin", href: "/admin/users" },
+          { label: "Admin", href: "/dashboard" },
           { label: "Documents", href: "/admin/documents" },
           { label: subject?.display_name ?? "Document" },
         ]} />

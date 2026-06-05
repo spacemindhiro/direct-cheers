@@ -144,7 +144,7 @@ async function SettlementsContent() {
     <div className="space-y-8">
 
       <div className="space-y-1">
-        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/admin/users" }, { label: "Settlements" }]} />
+        <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/dashboard" }, { label: "Settlements" }]} />
         <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">精算管理</h1>
         <p className="text-sm text-slate-500">終了したイベントのエビデンスを確認し、精算を承認します</p>
       </div>

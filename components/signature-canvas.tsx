@@ -23,14 +23,14 @@ function svgPath(poly: number[][]): string {
 }
 
 const OPT = {
-  size: 16,
-  thinning: 0.72,
+  size: 8,          // 16→8: 細めのペン
+  thinning: 0.4,    // 0.72→0.4: 筆圧変化を控えめに（毛筆感を抑える）
   smoothing: 0.5,
   streamline: 0,
   simulatePressure: false,
   easing: (t: number) => Math.sin((t * Math.PI) / 2),
-  start: { cap: true, taper: 4,  easing: (t: number) => t * t },
-  end:   { cap: true, taper: 22, easing: (t: number) => t * t },
+  start: { cap: true, taper: 2,  easing: (t: number) => t * t },
+  end:   { cap: true, taper: 8,  easing: (t: number) => t * t }, // 22→8: 払いを短く
 };
 
 // Apple Pencil のタッチを識別する

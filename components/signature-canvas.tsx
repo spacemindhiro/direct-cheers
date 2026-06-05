@@ -40,6 +40,20 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
   const rafRef     = useRef<number | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
+  // コンポーネントがマウントされている間、document全体の選択を封じる
+  // （イベントハンドラ内でstyle変更するとiOSがpointercancelを発火するため）
+  useEffect(() => {
+    const prev = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+    (document.body.style as any).webkitUserSelect = "none";
+    (document.body.style as any).webkitTouchCallout = "none";
+    return () => {
+      document.body.style.userSelect = prev;
+      (document.body.style as any).webkitUserSelect = prev;
+      (document.body.style as any).webkitTouchCallout = "";
+    };
+  }, []);
+
   const paint = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -120,25 +134,10 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       onSignature(exp.toDataURL("image/png"));
     };
 
-    // 描画中はdocument全体の選択を封じる（iOS Safariがdocumentレベルで発動するため）
-    const lockSelection = () => {
-      document.body.style.userSelect = "none";
-      (document.body.style as any).webkitUserSelect = "none";
-      (document.body.style as any).webkitTouchCallout = "none";
-    };
-    const unlockSelection = () => {
-      document.body.style.userSelect = "";
-      (document.body.style as any).webkitUserSelect = "";
-      (document.body.style as any).webkitTouchCallout = "";
-      // 描き終わり後に残存選択をクリア
-      window.getSelection()?.removeAllRanges();
-    };
-
     const onDown = (e: PointerEvent) => {
       if (e.pointerType !== "pen") return;
       e.preventDefault();
       e.stopPropagation();
-      lockSelection();
       canvas.setPointerCapture(e.pointerId);
       currentRef.current = { pts: [pt(e)] };
       schedule();
@@ -160,7 +159,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
 
     const onUp = (e: PointerEvent) => {
       if (e.pointerType !== "pen") return;
-      unlockSelection();
+      window.getSelection()?.removeAllRanges();
       const cur = currentRef.current;
       currentRef.current = null;
       if (!cur || cur.pts.length < 2) { schedule(); return; }
@@ -172,7 +171,6 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
 
     const onCancel = (e: PointerEvent) => {
       if (e.pointerType !== "pen") return;
-      unlockSelection();
       currentRef.current = null;
       schedule();
     };
@@ -188,7 +186,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
     document.addEventListener("contextmenu", prevent,  { passive: false });
 
     return () => {
-      unlockSelection();
+      window.getSelection()?.removeAllRanges();
       canvas.removeEventListener("pointerdown",   onDown);
       canvas.removeEventListener("pointermove",   onMove);
       canvas.removeEventListener("pointerup",     onUp);

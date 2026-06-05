@@ -120,10 +120,25 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       onSignature(exp.toDataURL("image/png"));
     };
 
+    // 描画中はdocument全体の選択を封じる（iOS Safariがdocumentレベルで発動するため）
+    const lockSelection = () => {
+      document.body.style.userSelect = "none";
+      (document.body.style as any).webkitUserSelect = "none";
+      (document.body.style as any).webkitTouchCallout = "none";
+    };
+    const unlockSelection = () => {
+      document.body.style.userSelect = "";
+      (document.body.style as any).webkitUserSelect = "";
+      (document.body.style as any).webkitTouchCallout = "";
+      // 描き終わり後に残存選択をクリア
+      window.getSelection()?.removeAllRanges();
+    };
+
     const onDown = (e: PointerEvent) => {
       if (e.pointerType !== "pen") return;
       e.preventDefault();
       e.stopPropagation();
+      lockSelection();
       canvas.setPointerCapture(e.pointerId);
       currentRef.current = { pts: [pt(e)] };
       schedule();
@@ -134,6 +149,8 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       if (!currentRef.current) return;
       e.preventDefault();
       e.stopPropagation();
+      // 動き中に選択が始まっても即クリア
+      window.getSelection()?.removeAllRanges();
       const events = e.getCoalescedEvents?.() ?? [e];
       for (const ev of events) {
         currentRef.current.pts.push(pt(ev as PointerEvent));
@@ -143,6 +160,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
 
     const onUp = (e: PointerEvent) => {
       if (e.pointerType !== "pen") return;
+      unlockSelection();
       const cur = currentRef.current;
       currentRef.current = null;
       if (!cur || cur.pts.length < 2) { schedule(); return; }
@@ -152,22 +170,31 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       requestAnimationFrame(exportPng);
     };
 
-    const preventSelect = (e: Event) => e.preventDefault();
+    const onCancel = (e: PointerEvent) => {
+      if (e.pointerType !== "pen") return;
+      unlockSelection();
+      currentRef.current = null;
+      schedule();
+    };
 
-    canvas.addEventListener("pointerdown",   onDown,        { passive: false });
-    canvas.addEventListener("pointermove",   onMove,        { passive: false });
+    const prevent = (e: Event) => e.preventDefault();
+
+    canvas.addEventListener("pointerdown",   onDown,   { passive: false });
+    canvas.addEventListener("pointermove",   onMove,   { passive: false });
     canvas.addEventListener("pointerup",     onUp);
-    canvas.addEventListener("pointercancel", onUp);
-    canvas.addEventListener("contextmenu",   preventSelect, { passive: false });
-    canvas.addEventListener("selectstart",   preventSelect, { passive: false });
+    canvas.addEventListener("pointercancel", onCancel);
+    // document レベルでも選択・コンテキストメニューをブロック
+    document.addEventListener("selectstart", prevent,  { passive: false });
+    document.addEventListener("contextmenu", prevent,  { passive: false });
 
     return () => {
+      unlockSelection();
       canvas.removeEventListener("pointerdown",   onDown);
       canvas.removeEventListener("pointermove",   onMove);
       canvas.removeEventListener("pointerup",     onUp);
-      canvas.removeEventListener("pointercancel", onUp);
-      canvas.removeEventListener("contextmenu",   preventSelect);
-      canvas.removeEventListener("selectstart",   preventSelect);
+      canvas.removeEventListener("pointercancel", onCancel);
+      document.removeEventListener("selectstart", prevent);
+      document.removeEventListener("contextmenu", prevent);
     };
   }, [onSignature, schedule]);
 

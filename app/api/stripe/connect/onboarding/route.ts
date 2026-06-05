@@ -6,14 +6,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com").replace(/\/$/, "");
 
-// ひらがな→カタカナ変換 + Stripe kana フィールドで許可されていない文字を除去
 function toStripeKana(str: string | null | undefined): string | undefined {
   if (!str) return undefined;
-  const katakana = str.replace(/[\u3041-\u3096]/g, (c) =>
+  const katakana = str.replace(/[ぁ-ゖ]/g, (c) =>
     String.fromCharCode(c.charCodeAt(0) + 0x60),
   );
-  // 全角カタカナ・長音符・半角数字・全角数字・スペース・ハイフン・ドットを残す
-  const cleaned = katakana.replace(/[^\u30A1-\u30FC\uFF10-\uFF19\u0030-\u0039\s\-\.]/g, "").trim();
+  const cleaned = katakana.replace(/[^ァ-ー０-９0-9\s\-\.]/g, "").trim();
   return cleaned || undefined;
 }
 
@@ -24,37 +22,50 @@ function toE164JP(phone: string): string {
   return phone;
 }
 
-export async function POST() {
+// POSTボディで受け取るフォームデータ型（bank-setup から直接渡す）
+type OnboardingBody = {
+  business_type?: string;
+  last_name?: string; first_name?: string;
+  last_name_kanji?: string; first_name_kanji?: string;
+  last_name_kana?: string; first_name_kana?: string;
+  business_name?: string; company_name_kanji?: string; company_name_kana?: string;
+  dob_year?: number; dob_month?: number; dob_day?: number;
+  phone?: string;
+  postal_code?: string; prefecture?: string; city?: string;
+  address_town?: string; street_address?: string;
+  address_kana_state?: string; address_kana_city?: string;
+  address_kana_town?: string; address_kana_line1?: string;
+  product_description?: string; website?: string;
+  statement_descriptor_kanji?: string; statement_descriptor_kana?: string;
+};
+
+export async function POST(req: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: profile } = await supabase
+    // ロールとconnectId だけを取得（最小SELECT）
+    const { data: me } = await supabase
       .from("profiles")
-      .select(`
-        role, stripe_connect_id, display_name, social_links,
-        first_name, last_name, first_name_kanji, last_name_kanji, first_name_kana, last_name_kana,
-        phone, dob_year, dob_month, dob_day,
-        postal_code, prefecture, city, address_town, street_address,
-        address_kana_state, address_kana_city, address_kana_town, address_kana_line1,
-        business_type, business_name, company_name_kanji, company_name_kana,
-        product_description, statement_descriptor_kanji, statement_descriptor_kana
-      `)
+      .select("role, stripe_connect_id, display_name")
       .eq("profile_id", user.id)
       .single();
 
-    if (!profile || !["artist", "organizer", "agent"].includes(profile.role)) {
+    if (!me || !["artist", "organizer", "agent"].includes(me.role)) {
       return NextResponse.json({ error: "Artist, organizer or agent only" }, { status: 403 });
     }
 
+    // POSTボディからフォームデータを取得（bank-setup から直接渡される場合）
+    let body: OnboardingBody = {};
+    try { body = await req.json(); } catch { /* body なし = 旧来の呼び出し */ }
+
     const admin = createAdminClient();
-    let connectId = profile.stripe_connect_id;
+    let connectId = me.stripe_connect_id;
 
     if (!connectId) {
-      const isCompany = profile.business_type === "company";
-
-      const websiteUrl: string | undefined = (profile.social_links as Record<string, string> | null)?.website || undefined;
+      const isCompany = body.business_type === "company";
+      const websiteUrl = body.website || undefined;
 
       const accountParams: Stripe.AccountCreateParams = {
         type: "express",
@@ -62,133 +73,195 @@ export async function POST() {
         email: user.email,
         capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
         business_type: isCompany ? "company" : "individual",
-        metadata: { profile_id: user.id, display_name: profile.display_name ?? "" },
+        metadata: { profile_id: user.id, display_name: me.display_name ?? "" },
         business_profile: {
           mcc: "7929",
           url: websiteUrl,
-          product_description: profile.product_description ?? undefined,
+          product_description: body.product_description ?? undefined,
         },
       };
 
-      if (profile.statement_descriptor_kanji || profile.statement_descriptor_kana) {
+      if (body.statement_descriptor_kanji || body.statement_descriptor_kana) {
         accountParams.settings = { payments: {} };
-        if (profile.statement_descriptor_kanji)
-          (accountParams.settings.payments as Record<string, string>).statement_descriptor_kanji = profile.statement_descriptor_kanji;
-        const sdKana = toStripeKana(profile.statement_descriptor_kana);
+        if (body.statement_descriptor_kanji)
+          (accountParams.settings.payments as Record<string, string>).statement_descriptor_kanji = body.statement_descriptor_kanji;
+        const sdKana = toStripeKana(body.statement_descriptor_kana);
         if (sdKana)
           (accountParams.settings.payments as Record<string, string>).statement_descriptor_kana = sdKana;
       }
 
       if (!isCompany) {
-        accountParams.individual = {
-          email: user.email,
-        };
-        if (profile.first_name)       accountParams.individual.first_name       = profile.first_name;
-        if (profile.last_name)        accountParams.individual.last_name        = profile.last_name;
-        if (profile.first_name_kanji) accountParams.individual.first_name_kanji = profile.first_name_kanji;
-        if (profile.last_name_kanji)  accountParams.individual.last_name_kanji  = profile.last_name_kanji;
-        const fnKana = toStripeKana(profile.first_name_kana);
-        const lnKana = toStripeKana(profile.last_name_kana);
+        accountParams.individual = { email: user.email };
+        if (body.first_name)       accountParams.individual.first_name       = body.first_name;
+        if (body.last_name)        accountParams.individual.last_name        = body.last_name;
+        if (body.first_name_kanji) accountParams.individual.first_name_kanji = body.first_name_kanji;
+        if (body.last_name_kanji)  accountParams.individual.last_name_kanji  = body.last_name_kanji;
+        const fnKana = toStripeKana(body.first_name_kana);
+        const lnKana = toStripeKana(body.last_name_kana);
         if (fnKana) accountParams.individual.first_name_kana = fnKana;
         if (lnKana) accountParams.individual.last_name_kana  = lnKana;
-        if (profile.phone)            accountParams.individual.phone            = toE164JP(profile.phone);
-        if (profile.dob_year && profile.dob_month && profile.dob_day) {
-          accountParams.individual.dob = {
-            year:  profile.dob_year,
-            month: profile.dob_month,
-            day:   profile.dob_day,
-          };
+        if (body.phone)            accountParams.individual.phone = toE164JP(body.phone);
+        if (body.dob_year && body.dob_month && body.dob_day) {
+          accountParams.individual.dob = { year: body.dob_year, month: body.dob_month, day: body.dob_day };
         }
-        if (profile.postal_code || profile.city || profile.street_address) {
+        if (body.postal_code || body.city || body.street_address) {
           accountParams.individual.address = {
-            country:     "JP",
-            postal_code: profile.postal_code ?? undefined,
-            state:       profile.prefecture ?? undefined,
-            city:        profile.city ?? undefined,
-            line1:       profile.street_address ?? undefined,
+            country: "JP",
+            postal_code: body.postal_code ?? undefined,
+            state:       body.prefecture   ?? undefined,
+            city:        body.city         ?? undefined,
+            line1:       body.street_address ?? undefined,
           };
         }
-        if (profile.prefecture || profile.city || profile.address_town || profile.street_address) {
+        if (body.prefecture || body.city || body.address_town || body.street_address) {
           accountParams.individual.address_kanji = {
-            country:     "JP",
-            postal_code: profile.postal_code ?? undefined,
-            state:       profile.prefecture ?? undefined,
-            city:        profile.city ?? undefined,
-            town:        profile.address_town ?? undefined,
-            line1:       profile.street_address ?? undefined,
+            country: "JP",
+            postal_code: body.postal_code    ?? undefined,
+            state:       body.prefecture     ?? undefined,
+            city:        body.city           ?? undefined,
+            town:        body.address_town   ?? undefined,
+            line1:       body.street_address ?? undefined,
           };
         }
-        const kanaState = toStripeKana(profile.address_kana_state);
-        const kanaCity  = toStripeKana(profile.address_kana_city);
-        const kanaTown  = toStripeKana(profile.address_kana_town);
-        const kanaLine1 = toStripeKana(profile.address_kana_line1);
-        if (kanaState || kanaCity || kanaTown || kanaLine1) {
+        const ks = toStripeKana(body.address_kana_state);
+        const kc = toStripeKana(body.address_kana_city);
+        const kt = toStripeKana(body.address_kana_town);
+        const kl = toStripeKana(body.address_kana_line1);
+        if (ks || kc || kt || kl) {
           accountParams.individual.address_kana = {
-            country:     "JP",
-            postal_code: profile.postal_code ?? undefined,
-            state:       kanaState,
-            city:        kanaCity,
-            town:        kanaTown,
-            line1:       kanaLine1,
+            country: "JP", postal_code: body.postal_code ?? undefined,
+            state: ks, city: kc, town: kt, line1: kl,
           };
         }
       } else {
         accountParams.company = {};
-        if (profile.business_name)    accountParams.company.name       = profile.business_name;
-        if (profile.company_name_kanji) accountParams.company.name_kanji = profile.company_name_kanji;
-        const coKana = toStripeKana(profile.company_name_kana);
+        if (body.business_name)      accountParams.company.name        = body.business_name;
+        if (body.company_name_kanji) accountParams.company.name_kanji  = body.company_name_kanji;
+        const coKana = toStripeKana(body.company_name_kana);
         if (coKana) accountParams.company.name_kana = coKana;
-        if (profile.phone)            accountParams.company.phone      = toE164JP(profile.phone);
-        if (profile.postal_code || profile.city || profile.street_address) {
+        if (body.phone) accountParams.company.phone = toE164JP(body.phone);
+        if (body.postal_code || body.city || body.street_address) {
           accountParams.company.address = {
-            country:     "JP",
-            postal_code: profile.postal_code ?? undefined,
-            state:       profile.prefecture ?? undefined,
-            city:        profile.city ?? undefined,
-            line1:       profile.street_address ?? undefined,
+            country: "JP",
+            postal_code: body.postal_code    ?? undefined,
+            state:       body.prefecture     ?? undefined,
+            city:        body.city           ?? undefined,
+            line1:       body.street_address ?? undefined,
           };
         }
-        if (profile.prefecture || profile.city || profile.address_town || profile.street_address) {
+        if (body.prefecture || body.city || body.address_town || body.street_address) {
           accountParams.company.address_kanji = {
-            country:     "JP",
-            postal_code: profile.postal_code ?? undefined,
-            state:       profile.prefecture ?? undefined,
-            city:        profile.city ?? undefined,
-            town:        profile.address_town ?? undefined,
-            line1:       profile.street_address ?? undefined,
+            country: "JP",
+            postal_code: body.postal_code    ?? undefined,
+            state:       body.prefecture     ?? undefined,
+            city:        body.city           ?? undefined,
+            town:        body.address_town   ?? undefined,
+            line1:       body.street_address ?? undefined,
           };
         }
-        const coKanaState = toStripeKana(profile.address_kana_state);
-        const coKanaCity  = toStripeKana(profile.address_kana_city);
-        const coKanaTown  = toStripeKana(profile.address_kana_town);
-        const coKanaLine1 = toStripeKana(profile.address_kana_line1);
-        if (coKanaState || coKanaCity || coKanaTown || coKanaLine1) {
+        const cs = toStripeKana(body.address_kana_state);
+        const cc = toStripeKana(body.address_kana_city);
+        const ckt = toStripeKana(body.address_kana_town);
+        const cl = toStripeKana(body.address_kana_line1);
+        if (cs || cc || ckt || cl) {
           accountParams.company.address_kana = {
-            country:     "JP",
-            postal_code: profile.postal_code ?? undefined,
-            state:       coKanaState,
-            city:        coKanaCity,
-            town:        coKanaTown,
-            line1:       coKanaLine1,
+            country: "JP", postal_code: body.postal_code ?? undefined,
+            state: cs, city: cc, town: ckt, line1: cl,
           };
         }
       }
 
+      // stripe.accounts.create は先行必須（connectId が必要）
       const account = await stripe.accounts.create(accountParams);
       connectId = account.id;
 
-      await admin
-        .from("profiles")
-        .update({ stripe_connect_id: connectId })
-        .eq("profile_id", user.id);
+      // DB保存と accountLinks 生成を並列実行
+      const socialLinks = body.website ? { website: body.website } : undefined;
+      const [, accountLink] = await Promise.all([
+        admin.from("profiles").update({
+          stripe_connect_id: connectId,
+          ...(Object.keys(body).length > 0 ? {
+            business_type:               body.business_type              ?? null,
+            last_name:                   body.last_name                  ?? null,
+            first_name:                  body.first_name                 ?? null,
+            last_name_kanji:             body.last_name_kanji            ?? null,
+            first_name_kanji:            body.first_name_kanji           ?? null,
+            last_name_kana:              body.last_name_kana             ?? null,
+            first_name_kana:             body.first_name_kana            ?? null,
+            business_name:               body.business_name              ?? null,
+            company_name_kanji:          body.company_name_kanji         ?? null,
+            company_name_kana:           body.company_name_kana          ?? null,
+            dob_year:                    body.dob_year                   ?? null,
+            dob_month:                   body.dob_month                  ?? null,
+            dob_day:                     body.dob_day                    ?? null,
+            phone:                       body.phone                      ?? null,
+            postal_code:                 body.postal_code                ?? null,
+            prefecture:                  body.prefecture                 ?? null,
+            city:                        body.city                       ?? null,
+            address_town:                body.address_town               ?? null,
+            street_address:              body.street_address             ?? null,
+            address_kana_state:          body.address_kana_state         ?? null,
+            address_kana_city:           body.address_kana_city          ?? null,
+            address_kana_town:           body.address_kana_town          ?? null,
+            address_kana_line1:          body.address_kana_line1         ?? null,
+            product_description:         body.product_description        ?? null,
+            statement_descriptor_kanji:  body.statement_descriptor_kanji ?? null,
+            statement_descriptor_kana:   body.statement_descriptor_kana  ?? null,
+            ...(socialLinks ? { social_links: socialLinks } : {}),
+          } : {}),
+        }).eq("profile_id", user.id),
+        stripe.accountLinks.create({
+          account: connectId,
+          refresh_url: `${SITE_URL}/dashboard/profile/connect-return?refresh=1`,
+          return_url:  `${SITE_URL}/dashboard/profile/connect-return?success=1`,
+          type: "account_onboarding",
+        }),
+      ]);
+
+      return NextResponse.json({ url: accountLink.url });
     }
 
-    const accountLink = await stripe.accountLinks.create({
-      account: connectId,
-      refresh_url: `${SITE_URL}/dashboard/profile/connect-return?refresh=1`,
-      return_url:  `${SITE_URL}/dashboard/profile/connect-return?success=1`,
-      type: "account_onboarding",
-    });
+    // 既存connectId がある場合：DB更新と accountLinks 生成を並列
+    const socialLinks = body.website ? { website: body.website } : undefined;
+    const [, accountLink] = await Promise.all([
+      Object.keys(body).length > 0
+        ? admin.from("profiles").update({
+            business_type:               body.business_type              ?? null,
+            last_name:                   body.last_name                  ?? null,
+            first_name:                  body.first_name                 ?? null,
+            last_name_kanji:             body.last_name_kanji            ?? null,
+            first_name_kanji:            body.first_name_kanji           ?? null,
+            last_name_kana:              body.last_name_kana             ?? null,
+            first_name_kana:             body.first_name_kana            ?? null,
+            business_name:               body.business_name              ?? null,
+            company_name_kanji:          body.company_name_kanji         ?? null,
+            company_name_kana:           body.company_name_kana          ?? null,
+            dob_year:                    body.dob_year                   ?? null,
+            dob_month:                   body.dob_month                  ?? null,
+            dob_day:                     body.dob_day                    ?? null,
+            phone:                       body.phone                      ?? null,
+            postal_code:                 body.postal_code                ?? null,
+            prefecture:                  body.prefecture                 ?? null,
+            city:                        body.city                       ?? null,
+            address_town:                body.address_town               ?? null,
+            street_address:              body.street_address             ?? null,
+            address_kana_state:          body.address_kana_state         ?? null,
+            address_kana_city:           body.address_kana_city          ?? null,
+            address_kana_town:           body.address_kana_town          ?? null,
+            address_kana_line1:          body.address_kana_line1         ?? null,
+            product_description:         body.product_description        ?? null,
+            statement_descriptor_kanji:  body.statement_descriptor_kanji ?? null,
+            statement_descriptor_kana:   body.statement_descriptor_kana  ?? null,
+            ...(socialLinks ? { social_links: socialLinks } : {}),
+          }).eq("profile_id", user.id)
+        : Promise.resolve(null),
+      stripe.accountLinks.create({
+        account: connectId,
+        refresh_url: `${SITE_URL}/dashboard/profile/connect-return?refresh=1`,
+        return_url:  `${SITE_URL}/dashboard/profile/connect-return?success=1`,
+        type: "account_onboarding",
+      }),
+    ]);
 
     return NextResponse.json({ url: accountLink.url });
   } catch (err) {

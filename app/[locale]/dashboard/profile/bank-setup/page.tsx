@@ -218,59 +218,41 @@ export default function BankSetupPage() {
 
     setSubmitting(true);
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/auth/login'); return; }
-
-      const { data: current } = await supabase
-        .from('profiles')
-        .select('social_links')
-        .eq('profile_id', user.id)
-        .single();
-      const socialLinks = { ...(current?.social_links as Record<string, string> | null ?? {}) };
-      if (form.website.trim()) socialLinks.website = form.website.trim();
-
-      const res = await fetch('/api/profile', {
-        method: 'PATCH',
+      // フォームデータをonboardingに直接渡す（別途PATCHを送らない）
+      // onboarding側でDB保存とStripe処理を並列実行する
+      const stripeRes = await fetch('/api/stripe/connect/onboarding', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          business_type: form.businessType,
-          last_name: form.lastName.trim() || null,
-          first_name: form.firstName.trim() || null,
-          last_name_kanji: form.lastNameKanji.trim() || null,
-          first_name_kanji: form.firstNameKanji.trim() || null,
-          last_name_kana: form.lastNameKana.trim() || null,
-          first_name_kana: form.firstNameKana.trim() || null,
-          business_name: form.businessType === 'company' ? (form.businessName.trim() || null) : null,
-          company_name_kanji: form.businessType === 'company' ? (form.companyNameKanji.trim() || null) : null,
-          company_name_kana: form.businessType === 'company' ? (form.companyNameKana.trim() || null) : null,
-          dob_year: form.dobYear ? Number(form.dobYear) : null,
-          dob_month: form.dobMonth ? Number(form.dobMonth) : null,
-          dob_day: form.dobDay ? Number(form.dobDay) : null,
-          phone: form.phone.trim() || null,
-          postal_code: form.postalCode.trim() || null,
-          prefecture: form.prefecture.trim() || null,
-          city: form.city.trim() || null,
-          address_town: form.addressTown.trim() || null,
-          street_address: form.streetAddress.trim() || null,
-          address_kana_state: form.addressKanaState.trim() || null,
-          address_kana_city: form.addressKanaCity.trim() || null,
-          address_kana_town: form.addressKanaTown.trim() || null,
-          address_kana_line1: form.addressKanaLine1.trim() || null,
-          product_description: form.productDescription.trim() || null,
-          statement_descriptor_kanji: form.statementDescriptorKanji.trim() || null,
-          statement_descriptor_kana: form.statementDescriptorKana.trim() || null,
-          social_links: socialLinks,
+          business_type:               form.businessType,
+          last_name:                   form.lastName.trim()                 || null,
+          first_name:                  form.firstName.trim()                || null,
+          last_name_kanji:             form.lastNameKanji.trim()            || null,
+          first_name_kanji:            form.firstNameKanji.trim()           || null,
+          last_name_kana:              form.lastNameKana.trim()             || null,
+          first_name_kana:             form.firstNameKana.trim()            || null,
+          business_name:               form.businessType === 'company' ? (form.businessName.trim()      || null) : null,
+          company_name_kanji:          form.businessType === 'company' ? (form.companyNameKanji.trim()  || null) : null,
+          company_name_kana:           form.businessType === 'company' ? (form.companyNameKana.trim()   || null) : null,
+          dob_year:                    form.dobYear  ? Number(form.dobYear)  : null,
+          dob_month:                   form.dobMonth ? Number(form.dobMonth) : null,
+          dob_day:                     form.dobDay   ? Number(form.dobDay)   : null,
+          phone:                       form.phone.trim()                    || null,
+          postal_code:                 form.postalCode.trim()               || null,
+          prefecture:                  form.prefecture.trim()               || null,
+          city:                        form.city.trim()                     || null,
+          address_town:                form.addressTown.trim()              || null,
+          street_address:              form.streetAddress.trim()            || null,
+          address_kana_state:          form.addressKanaState.trim()         || null,
+          address_kana_city:           form.addressKanaCity.trim()          || null,
+          address_kana_town:           form.addressKanaTown.trim()          || null,
+          address_kana_line1:          form.addressKanaLine1.trim()         || null,
+          product_description:         form.productDescription.trim()       || null,
+          statement_descriptor_kanji:  form.statementDescriptorKanji.trim() || null,
+          statement_descriptor_kana:   form.statementDescriptorKana.trim()  || null,
+          website:                     form.website.trim()                  || null,
         }),
       });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error ?? '保存に失敗しました');
-        return;
-      }
-
-      const stripeRes = await fetch('/api/stripe/connect/onboarding', { method: 'POST' });
       const stripeData = await stripeRes.json();
       if (stripeData.url) {
         window.location.href = stripeData.url;

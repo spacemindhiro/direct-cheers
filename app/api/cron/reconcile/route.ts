@@ -26,6 +26,7 @@ export async function GET(req: Request) {
     const eventTitleMap = new Map((settledEvents ?? []).map((e) => [e.event_id, e.title as string]));
     if (settledEventIds.length === 0) {
       console.log("[reconcile] no settled events, skip");
+      await saveCronReport({ taskName: "照合バッチ", targetCount: 0, targetAmount: 0, successCount: 0, successAmount: 0, failedCount: 0, failedAmount: 0, failures: [] });
       return NextResponse.json({ success: true, checked: 0, matched: 0, mismatched: 0, errors: 0 });
     }
 
@@ -47,6 +48,7 @@ export async function GET(req: Request) {
 
     if (settledQrConfigIds.length === 0) {
       console.log("[reconcile] no qr_configs for settled events, skip");
+      await saveCronReport({ taskName: "照合バッチ", targetCount: 0, targetAmount: 0, successCount: 0, successAmount: 0, failedCount: 0, failedAmount: 0, failures: [] });
       return NextResponse.json({ success: true, checked: 0, matched: 0, mismatched: 0, errors: 0 });
     }
 

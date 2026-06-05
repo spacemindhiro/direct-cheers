@@ -1,0 +1,62 @@
+name: Cron Jobs (Vercel Hobbyプラン代替)
+
+on:
+  schedule:
+    # UTC表記。JST = UTC+9
+    - cron: '0 0 * * *'   # 09:00 JST  → entrance-card-check
+    - cron: '0 1 * * *'   # 10:00 JST  → entrance-auth + check-auth-expiry
+    - cron: '0 11 * * *'  # 20:00 JST  → reconcile
+  workflow_dispatch:      # 手動実行も可能
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  STG_URL: https://stg.direct-cheers.com
+
+jobs:
+  card-check:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 0 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 前売りカード状態確認バッチ (09:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$STG_URL/api/cron/entrance-card-check" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  entrance-auth:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 1 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 5日前オーソリバッチ (10:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$STG_URL/api/cron/entrance-auth" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  auth-expiry:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 1 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 認証期限チェック (10:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$STG_URL/api/admin/check-auth-expiry" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  reconcile:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 11 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 照合バッチ (20:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$STG_URL/api/cron/reconcile" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1

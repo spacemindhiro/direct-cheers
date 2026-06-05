@@ -26,7 +26,7 @@ const OPT = {
   size: 16,
   thinning: 0.72,
   smoothing: 0.5,
-  streamline: 0.45,
+  streamline: 0,    // 0 = 遅延なし即時追従（0.45だとペン位置に遅れて付いてくる）
   simulatePressure: false,
   easing: (t: number) => Math.sin((t * Math.PI) / 2),
   start: { cap: true, taper: 4,  easing: (t: number) => t * t },

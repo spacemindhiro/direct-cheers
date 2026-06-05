@@ -26,19 +26,33 @@ const OPT = {
   size: 16,
   thinning: 0.72,
   smoothing: 0.5,
-  streamline: 0,    // 0 = 遅延なし即時追従（0.45だとペン位置に遅れて付いてくる）
+  streamline: 0,
   simulatePressure: false,
   easing: (t: number) => Math.sin((t * Math.PI) / 2),
   start: { cap: true, taper: 4,  easing: (t: number) => t * t },
   end:   { cap: true, taper: 22, easing: (t: number) => t * t },
 };
 
+// Apple Pencil のタッチを識別する
+// touchType === "stylus" が明示的なPencil判定（iOS標準）
+// フォールバック: 接触半径が小さく圧力がある = Pencilの可能性が高い
+function findPencil(touches: TouchList): Touch | null {
+  for (const t of Array.from(touches)) {
+    if ((t as any).touchType === "stylus") return t;
+  }
+  // touchType非対応環境向けフォールバック
+  for (const t of Array.from(touches)) {
+    if (t.radiusX < 3 && t.force > 0) return t;
+  }
+  return null;
+}
+
 export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
-  const canvasRef  = useRef<HTMLCanvasElement>(null);
-  const strokesRef = useRef<Stroke[]>([]);
-  const currentRef = useRef<Stroke | null>(null);
-  const rafRef     = useRef<number | null>(null);
-  const drawingRef = useRef(false); // 描画中フラグ
+  const canvasRef      = useRef<HTMLCanvasElement>(null);
+  const strokesRef     = useRef<Stroke[]>([]);
+  const currentRef     = useRef<Stroke | null>(null);
+  const rafRef         = useRef<number | null>(null);
+  const activeTouchId  = useRef<number | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
   const paint = useCallback(() => {
@@ -52,13 +66,11 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
     ctx.scale(dpr, dpr);
     ctx.fillStyle = "#ffffff";
     for (const { pts } of strokesRef.current) {
-      const poly = getStroke(pts, { ...OPT, last: true });
-      ctx.fill(new Path2D(svgPath(poly)));
+      ctx.fill(new Path2D(svgPath(getStroke(pts, { ...OPT, last: true }))));
     }
     const cur = currentRef.current;
     if (cur && cur.pts.length > 0) {
-      const poly = getStroke(cur.pts, { ...OPT, last: false });
-      ctx.fill(new Path2D(svgPath(poly)));
+      ctx.fill(new Path2D(svgPath(getStroke(cur.pts, { ...OPT, last: false }))));
     }
     ctx.restore();
   }, []);
@@ -92,6 +104,8 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const r = () => canvas.getBoundingClientRect();
+
     const exportPng = () => {
       const exp = document.createElement("canvas");
       exp.width  = canvas.width;
@@ -104,55 +118,14 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       ctx.scale(dpr, dpr);
       ctx.fillStyle = "#ffffff";
       for (const { pts } of strokesRef.current) {
-        const poly = getStroke(pts, { ...OPT, last: true });
-        ctx.fill(new Path2D(svgPath(poly)));
+        ctx.fill(new Path2D(svgPath(getStroke(pts, { ...OPT, last: true }))));
       }
       ctx.restore();
       onSignature(exp.toDataURL("image/png"));
     };
 
-    const ptInCanvas = (e: PointerEvent): Point | null => {
-      const r = canvas.getBoundingClientRect();
-      const x = e.clientX - r.left;
-      const y = e.clientY - r.top;
-      // キャンバス外でも描画中は追跡する（ペンが少しはみ出ても途切れない）
-      return [x, y, e.pressure || 0.5];
-    };
-
-    // documentレベルで登録 → iOSが最初のイベントを別要素にルーティングしても必ずキャッチ
-    const onDown = (e: PointerEvent) => {
-      if (e.pointerType !== "pen") return;
-      // canvasの範囲内のみ開始
-      const r = canvas.getBoundingClientRect();
-      if (e.clientX < r.left - 20 || e.clientX > r.right + 20 ||
-          e.clientY < r.top  - 20 || e.clientY > r.bottom + 20) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-      // 選択をリセット
-      window.getSelection()?.removeAllRanges();
-      drawingRef.current = true;
-      try { canvas.setPointerCapture(e.pointerId); } catch {}
-      currentRef.current = { pts: [ptInCanvas(e)!] };
-      schedule();
-    };
-
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerType !== "pen") return;
-      if (!drawingRef.current || !currentRef.current) return;
-      e.preventDefault();
-      e.stopPropagation();
-      window.getSelection()?.removeAllRanges();
-      const events = e.getCoalescedEvents?.() ?? [e];
-      for (const ev of events) {
-        const p = ptInCanvas(ev as PointerEvent);
-        if (p) currentRef.current.pts.push(p);
-      }
-      schedule();
-    };
-
     const commitStroke = () => {
-      drawingRef.current = false;
+      activeTouchId.current = null;
       const cur = currentRef.current;
       currentRef.current = null;
       if (cur && cur.pts.length > 0) {
@@ -165,38 +138,78 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       }
     };
 
-    const onUp     = (e: PointerEvent) => { if (e.pointerType !== "pen") return; commitStroke(); };
-    const onCancel = (e: PointerEvent) => { if (e.pointerType !== "pen") return; commitStroke(); };
+    // ── Touch Events（iOS Apple Pencil 最優先） ──────────────────────────
+    const onTouchStart = (e: TouchEvent) => {
+      const pencil = findPencil(e.changedTouches);
+      if (!pencil) return;
+      e.preventDefault();
+      e.stopPropagation();
+      activeTouchId.current = pencil.identifier;
+      const rect = r();
+      currentRef.current = { pts: [[
+        pencil.clientX - rect.left,
+        pencil.clientY - rect.top,
+        pencil.force || 0.5,
+      ]] };
+      schedule();
+    };
 
-    // 選択・コンテキストメニューをdocumentで封じる
-    const prevent = (e: Event) => { if (drawingRef.current) e.preventDefault(); };
-    const preventAll = (e: Event) => e.preventDefault();
+    const onTouchMove = (e: TouchEvent) => {
+      if (activeTouchId.current === null || !currentRef.current) return;
+      const touch = Array.from(e.changedTouches).find(
+        t => t.identifier === activeTouchId.current
+      );
+      if (!touch) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = r();
+      currentRef.current.pts.push([
+        touch.clientX - rect.left,
+        touch.clientY - rect.top,
+        touch.force || 0.5,
+      ]);
+      schedule();
+    };
 
-    // capture:true で他のハンドラより先に取得
-    document.addEventListener("pointerdown",   onDown,      { capture: true, passive: false });
-    document.addEventListener("pointermove",   onMove,      { capture: true, passive: false });
-    document.addEventListener("pointerup",     onUp,        { capture: true });
-    document.addEventListener("pointercancel", onCancel,    { capture: true });
-    document.addEventListener("selectstart",   preventAll,  { passive: false });
-    document.addEventListener("contextmenu",   preventAll,  { passive: false });
-    // 描画中のスクロールを防ぐ
-    document.addEventListener("touchmove",     prevent,     { passive: false });
+    const onTouchEnd = (e: TouchEvent) => {
+      if (activeTouchId.current === null) return;
+      const touch = Array.from(e.changedTouches).find(
+        t => t.identifier === activeTouchId.current
+      );
+      if (!touch) return;
+      commitStroke();
+    };
+
+    const onTouchCancel = (e: TouchEvent) => {
+      if (activeTouchId.current === null) return;
+      commitStroke(); // キャンセルでも保存
+    };
+
+    // ── 選択モード封じ ────────────────────────────────────────────────────
+    const prevent = (e: Event) => e.preventDefault();
+
+    // canvasに直接登録（passive:falseでpreventDefault可能に）
+    canvas.addEventListener("touchstart",   onTouchStart,  { passive: false });
+    canvas.addEventListener("touchmove",    onTouchMove,   { passive: false });
+    canvas.addEventListener("touchend",     onTouchEnd,    { passive: false });
+    canvas.addEventListener("touchcancel",  onTouchCancel, { passive: false });
+    document.addEventListener("selectstart", prevent, { passive: false });
+    document.addEventListener("contextmenu", prevent, { passive: false });
 
     return () => {
-      document.removeEventListener("pointerdown",   onDown,     { capture: true });
-      document.removeEventListener("pointermove",   onMove,     { capture: true });
-      document.removeEventListener("pointerup",     onUp,       { capture: true });
-      document.removeEventListener("pointercancel", onCancel,   { capture: true });
-      document.removeEventListener("selectstart",   preventAll);
-      document.removeEventListener("contextmenu",   preventAll);
-      document.removeEventListener("touchmove",     prevent);
+      canvas.removeEventListener("touchstart",   onTouchStart);
+      canvas.removeEventListener("touchmove",    onTouchMove);
+      canvas.removeEventListener("touchend",     onTouchEnd);
+      canvas.removeEventListener("touchcancel",  onTouchCancel);
+      document.removeEventListener("selectstart", prevent);
+      document.removeEventListener("contextmenu", prevent);
     };
   }, [onSignature, schedule]);
 
   const clear = () => {
     strokesRef.current = [];
     currentRef.current = null;
-    drawingRef.current = false;
+    activeTouchId.current = null;
     setIsEmpty(true);
     onSignature(null);
     schedule();
@@ -208,7 +221,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
         <canvas
           ref={canvasRef}
           className="w-full h-72 bg-slate-950 border-2 border-slate-700 rounded-2xl cursor-crosshair block"
-          style={{ touchAction: "none" }}
+          style={{ touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
         />
         {isEmpty && (
           <p className="absolute inset-0 flex items-center justify-center text-slate-600 text-base font-bold pointer-events-none select-none">

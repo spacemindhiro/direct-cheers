@@ -74,8 +74,7 @@ CREATE INDEX IF NOT EXISTS display_schedules_event_id_time_idx
 -- ── entrance_reservations ────────────────────────────────────────────────
 -- reservations ページで profile_id フィルタ
 CREATE INDEX IF NOT EXISTS entrance_reservations_profile_id_idx
-  ON public.entrance_reservations (profile_id)
-  WHERE deleted_at IS NULL;
+  ON public.entrance_reservations (profile_id);
 
 -- ── debt_claims ───────────────────────────────────────────────────────────
 -- settlement report で original_transaction_id IN (...) のJOIN

@@ -40,17 +40,23 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
   const rafRef     = useRef<number | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
-  // コンポーネントがマウントされている間、document全体の選択を封じる
-  // （イベントハンドラ内でstyle変更するとiOSがpointercancelを発火するため）
+  // マウント中は document 全体の選択を封じる
+  // ※ イベントハンドラ内でスタイル変更すると iOS が pointercancel を発火して
+  //   1画目が消えるため、マウント時に一括適用する
   useEffect(() => {
     const prev = document.body.style.userSelect;
     document.body.style.userSelect = "none";
-    (document.body.style as any).webkitUserSelect = "none";
-    (document.body.style as any).webkitTouchCallout = "none";
+    (document.body.style as any).webkitUserSelect    = "none";
+    (document.body.style as any).webkitTouchCallout  = "none";
+    const preventSelect = (e: Event) => e.preventDefault();
+    document.addEventListener("selectstart", preventSelect, { passive: false });
+    document.addEventListener("contextmenu", preventSelect, { passive: false });
     return () => {
       document.body.style.userSelect = prev;
-      (document.body.style as any).webkitUserSelect = prev;
+      (document.body.style as any).webkitUserSelect   = prev;
       (document.body.style as any).webkitTouchCallout = "";
+      document.removeEventListener("selectstart", preventSelect);
+      document.removeEventListener("contextmenu", preventSelect);
     };
   }, []);
 
@@ -72,7 +78,7 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
     }
 
     const cur = currentRef.current;
-    if (cur && cur.pts.length > 1) {
+    if (cur && cur.pts.length > 0) {
       const poly = getStroke(cur.pts, { ...OPT, last: false });
       ctx.fill(new Path2D(svgPath(poly)));
     }
@@ -138,7 +144,8 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       if (e.pointerType !== "pen") return;
       e.preventDefault();
       e.stopPropagation();
-      canvas.setPointerCapture(e.pointerId);
+      // setPointerCapture 失敗でも描画は続ける
+      try { canvas.setPointerCapture(e.pointerId); } catch {}
       currentRef.current = { pts: [pt(e)] };
       schedule();
     };
@@ -148,7 +155,6 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       if (!currentRef.current) return;
       e.preventDefault();
       e.stopPropagation();
-      // 動き中に選択が始まっても即クリア
       window.getSelection()?.removeAllRanges();
       const events = e.getCoalescedEvents?.() ?? [e];
       for (const ev of events) {
@@ -162,7 +168,8 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
       window.getSelection()?.removeAllRanges();
       const cur = currentRef.current;
       currentRef.current = null;
-      if (!cur || cur.pts.length < 2) { schedule(); return; }
+      // 1点（タップ）も有効なストロークとして保存する
+      if (!cur || cur.pts.length === 0) { schedule(); return; }
       strokesRef.current.push(cur);
       setIsEmpty(false);
       schedule();
@@ -171,28 +178,27 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
 
     const onCancel = (e: PointerEvent) => {
       if (e.pointerType !== "pen") return;
+      // キャンセル時もストロークを保存（選択モード割り込みで途切れた画を救う）
+      const cur = currentRef.current;
       currentRef.current = null;
+      if (cur && cur.pts.length > 0) {
+        strokesRef.current.push(cur);
+        setIsEmpty(false);
+        requestAnimationFrame(exportPng);
+      }
       schedule();
     };
 
-    const prevent = (e: Event) => e.preventDefault();
-
-    canvas.addEventListener("pointerdown",   onDown,   { passive: false });
-    canvas.addEventListener("pointermove",   onMove,   { passive: false });
+    canvas.addEventListener("pointerdown",   onDown, { passive: false });
+    canvas.addEventListener("pointermove",   onMove, { passive: false });
     canvas.addEventListener("pointerup",     onUp);
     canvas.addEventListener("pointercancel", onCancel);
-    // document レベルでも選択・コンテキストメニューをブロック
-    document.addEventListener("selectstart", prevent,  { passive: false });
-    document.addEventListener("contextmenu", prevent,  { passive: false });
 
     return () => {
-      window.getSelection()?.removeAllRanges();
       canvas.removeEventListener("pointerdown",   onDown);
       canvas.removeEventListener("pointermove",   onMove);
       canvas.removeEventListener("pointerup",     onUp);
       canvas.removeEventListener("pointercancel", onCancel);
-      document.removeEventListener("selectstart", prevent);
-      document.removeEventListener("contextmenu", prevent);
     };
   }, [onSignature, schedule]);
 
@@ -205,24 +211,12 @@ export function SignatureCanvas({ onSignature }: SignatureCanvasProps) {
   };
 
   return (
-    <div
-      className="space-y-3"
-      style={{
-        touchAction: "none",
-        userSelect: "none",
-        WebkitUserSelect: "none",
-        WebkitTouchCallout: "none" as any,
-      }}
-      onContextMenu={e => e.preventDefault()}
-    >
-      <div
-        className="relative"
-        style={{ touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
-      >
+    <div className="space-y-3">
+      <div className="relative">
         <canvas
           ref={canvasRef}
           className="w-full h-72 bg-slate-950 border-2 border-slate-700 rounded-2xl cursor-crosshair block"
-          style={{ touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
+          style={{ touchAction: "none" }}
         />
         {isEmpty && (
           <p className="absolute inset-0 flex items-center justify-center text-slate-600 text-base font-bold pointer-events-none select-none">

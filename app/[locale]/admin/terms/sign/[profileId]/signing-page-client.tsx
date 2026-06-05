@@ -111,7 +111,7 @@ export function SigningPageClient({ profileId }: { profileId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans" style={{ touchAction: "none" }}>
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
       {/* ヘッダー */}
       <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center gap-4">
         <Link href="/admin/users" className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white transition-colors shrink-0">

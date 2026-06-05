@@ -17,11 +17,6 @@ CREATE INDEX IF NOT EXISTS transactions_status_idx
   ON public.transactions (status)
   WHERE deleted_at IS NULL;
 
--- event_id 直接参照（cron/reconcile等）
-CREATE INDEX IF NOT EXISTS transactions_event_id_idx
-  ON public.transactions (event_id)
-  WHERE deleted_at IS NULL;
-
 -- ── transaction_distributions ──────────────────────────────────────────────
 -- payout・statistics・dashboard で profile_id = userId で毎回ヒット
 CREATE INDEX IF NOT EXISTS tx_distributions_profile_id_idx

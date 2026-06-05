@@ -55,28 +55,34 @@ async function AdminUsersContent() {
   if (me?.role !== "admin") redirect("/dashboard");
 
   const admin = createAdminClient();
-  const { data: users } = await admin
-    .from("profiles")
-    .select("profile_id, display_name, role, status, created_at")
-    .neq("role", "user")
-    .neq("role", "admin")
-    .neq("status", "active")
-    .order("created_at", { ascending: false });
 
-  // 承認済みも別途表示
-  const { data: activeUsers } = await admin
-    .from("profiles")
-    .select("profile_id, display_name, role, status, created_at")
-    .neq("role", "user")
-    .neq("role", "admin")
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  // 規約同意状況（organizer/agent は confirmed_at も必要）
-  const { data: agreements } = await admin
-    .from("terms_agreements")
-    .select("profile_id, terms_type, agreed_at, confirmed_at");
+  // 4クエリを並列実行（互いに依存なし）
+  const [
+    { data: users },
+    { data: activeUsers },
+    { data: agreements },
+    { data: connectPending },
+  ] = await Promise.all([
+    // 審査待ち
+    admin.from("profiles")
+      .select("profile_id, display_name, role, status, created_at")
+      .neq("role", "user").neq("role", "admin").neq("status", "active")
+      .order("created_at", { ascending: false }),
+    // 承認済み
+    admin.from("profiles")
+      .select("profile_id, display_name, role, status, created_at")
+      .neq("role", "user").neq("role", "admin").eq("status", "active")
+      .order("created_at", { ascending: false }).limit(20),
+    // 規約同意状況（organizer/agent は confirmed_at も必要）
+    admin.from("terms_agreements")
+      .select("profile_id, terms_type, agreed_at, confirmed_at"),
+    // Stripe Connect審査待ち
+    admin.from("profiles")
+      .select("profile_id, display_name, role, stripe_connect_id, created_at")
+      .in("role", ["artist", "organizer", "agent"])
+      .eq("verification_status", "pending")
+      .order("created_at", { ascending: false }),
+  ]);
 
   // profile_id ごとに: デジタル同意済み / 面談承認待ち / 完了
   type TermsStatusSummary = { digitallySigned: boolean; needsConfirmation: boolean; confirmed: boolean };
@@ -90,14 +96,6 @@ async function AdminUsersContent() {
       confirmed: prev.confirmed || (requiresConfirm && !!a.confirmed_at),
     });
   }
-
-  // Stripe Connect審査待ち（verification_status=pending）
-  const { data: connectPending } = await admin
-    .from("profiles")
-    .select("profile_id, display_name, role, stripe_connect_id, created_at")
-    .in("role", ["artist", "organizer", "agent"])
-    .eq("verification_status", "pending")
-    .order("created_at", { ascending: false });
 
   const pendingUsers = users ?? [];
   const approvedUsers = activeUsers ?? [];

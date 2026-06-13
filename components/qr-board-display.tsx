@@ -14,18 +14,21 @@ type QRState = {
   artist_name?: string;
 };
 
+type QrConfigInfo = {
+  qr_config_id: string;
+  label: string | null;
+  image_url: string | null;
+  product: { name: string; type: string; artist: { display_name: string } | null } | null;
+} | null;
+
 type DisplaySchedule = {
   schedule_id: string;
   qr_config_id: string | null;
+  track_id: string | null;
   start_at: string;
   end_at: string;
   label: string | null;
-  qr_config: {
-    qr_config_id: string;
-    label: string | null;
-    image_url: string | null;
-    product: { name: string; type: string; artist: { display_name: string } | null } | null;
-  } | null;
+  qr_config: QrConfigInfo;
 };
 
 // タイムテーブルから現在時刻に該当するスロットを返す
@@ -33,6 +36,18 @@ function getActiveSchedule(schedules: DisplaySchedule[], now: Date): DisplaySche
   return schedules.find(s =>
     new Date(s.start_at) <= now && now < new Date(s.end_at)
   ) ?? null;
+}
+
+// qr_config情報からQR表示状態を構築（タイムテーブルスロット・トラックのデフォルトQR共通）
+function qrConfigToState(qc: QrConfigInfo, siteUrl: string, overrideLabel?: string | null): QRState | null {
+  if (!qc) return null;
+  return {
+    qr_config_id: qc.qr_config_id,
+    qr_url: `${siteUrl}/c/${qc.qr_config_id}`,
+    product_name: qc.product?.name ?? "",
+    label: overrideLabel ?? qc.label ?? qc.product?.name ?? "",
+    artist_name: qc.product?.artist?.display_name ?? "",
+  };
 }
 
 type FloatingHeart = {
@@ -104,9 +119,11 @@ export function QRBoardDisplay({
   // タイムテーブル
   const [schedules, setSchedules] = useState<DisplaySchedule[]>([]);
   const [isForcedOverride, setIsForcedOverride] = useState(false);
-  const [defaultQrState, setDefaultQrState] = useState<QRState | null>(null);
+  const [, setDefaultQrState] = useState<QRState | null>(null);
   const schedulesRef = useRef<DisplaySchedule[]>([]);
   const isForcedRef  = useRef(false);
+  const trackIdRef   = useRef<string | null>(null);
+  const defaultQrStateRef = useRef<QRState | null>(null);
   const siteUrlRef   = useRef(typeof window !== "undefined" ? window.location.origin : "");
   const [deviceName] = useState(() => {
     try {
@@ -178,42 +195,41 @@ export function QRBoardDisplay({
     }
   }, [spawnHearts]);
 
-  // スケジュール取得 + タイマー自動切り替え（30秒間隔）
-  useEffect(() => {
-    const applySchedule = (scheds: DisplaySchedule[]) => {
-      if (isForcedRef.current) return;
-      const now = new Date();
-      const active = getActiveSchedule(scheds, now);
-      if (active?.qr_config) {
-        const qc = active.qr_config;
-        const next: QRState = {
-          qr_config_id: qc.qr_config_id,
-          qr_url: `${siteUrlRef.current}/c/${qc.qr_config_id}`,
-          product_name: qc.product?.name ?? "",
-          label: active.label ?? qc.label ?? qc.product?.name ?? "",
-          artist_name: qc.product?.artist?.display_name ?? "",
-        };
-        setQrState(prev => {
-          if (prev?.qr_config_id === next.qr_config_id) return prev;
-          setFlash(true);
-          setTimeout(() => setFlash(false), 350);
-          try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
-          return next;
-        });
-      } else {
-        // スロット外 → デフォルトQRに戻す
-        setQrState(prev => {
-          const def = defaultQrState;
-          if (!def || prev?.qr_config_id === def.qr_config_id) return prev;
-          setFlash(true);
-          setTimeout(() => setFlash(false), 350);
-          try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(def)); } catch {}
-          return def;
-        });
-      }
-    };
+  // タイムテーブルの現在スロットを適用（スロット外/転換スロットはトラックのデフォルトQRへ）
+  const applySchedule = useCallback((scheds: DisplaySchedule[]) => {
+    if (isForcedRef.current) return;
+    const now = new Date();
+    const active = getActiveSchedule(scheds, now);
+    const next = active?.qr_config
+      ? qrConfigToState(active.qr_config, siteUrlRef.current, active.label ?? active.qr_config.label ?? active.qr_config.product?.name ?? "")
+      : null;
+    if (next) {
+      setQrState(prev => {
+        if (prev?.qr_config_id === next.qr_config_id) return prev;
+        setFlash(true);
+        setTimeout(() => setFlash(false), 350);
+        try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
+        return next;
+      });
+    } else {
+      // スロット外 or 転換スロット → トラックのデフォルトQRに戻す
+      setQrState(prev => {
+        const def = defaultQrStateRef.current;
+        if (!def || prev?.qr_config_id === def.qr_config_id) return prev;
+        setFlash(true);
+        setTimeout(() => setFlash(false), 350);
+        try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(def)); } catch {}
+        return def;
+      });
+    }
+  }, [eventId]);
 
-    fetch(`/api/events/${eventId}/display-schedules`)
+  // 割り当てられたトラックのタイムテーブルを取得
+  const fetchSchedules = useCallback((trackId: string | null) => {
+    const url = trackId
+      ? `/api/events/${eventId}/display-schedules?track_id=${trackId}`
+      : `/api/events/${eventId}/display-schedules`;
+    return fetch(url)
       .then(r => r.ok ? r.json() : [])
       .then((data: DisplaySchedule[]) => {
         schedulesRef.current = data;
@@ -221,11 +237,33 @@ export function QRBoardDisplay({
         applySchedule(data);
       })
       .catch(() => {});
+  }, [eventId, applySchedule]);
+
+  // 子機を自己登録し、割り当てトラック・トラックのデフォルトQRを取得
+  const registerDevice = useCallback(() => {
+    return fetch(`/api/events/${eventId}/display-devices`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: getOrCreateDeviceId(), device_name: deviceName }),
+    })
+      .then(r => r.ok ? r.json() : { track_id: null, default_qr_config: null })
+      .then((data: { track_id: string | null; default_qr_config: QrConfigInfo }) => {
+        trackIdRef.current = data.track_id;
+        const def = qrConfigToState(data.default_qr_config, siteUrlRef.current);
+        defaultQrStateRef.current = def;
+        setDefaultQrState(def);
+        return data.track_id;
+      })
+      .catch(() => trackIdRef.current);
+  }, [eventId, deviceName]);
+
+  // 初回: 自己登録 → タイムテーブル取得 + タイマー自動切り替え（30秒間隔）
+  useEffect(() => {
+    registerDevice().then((trackId) => fetchSchedules(trackId));
 
     const timer = setInterval(() => applySchedule(schedulesRef.current), 30_000);
     return () => clearInterval(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, defaultQrState]);
+  }, [registerDevice, fetchSchedules, applySchedule]);
 
   // PWAキオスクモード: OS/ブラウザのバックナビゲーションをブロック
   useEffect(() => {
@@ -310,22 +348,12 @@ export function QRBoardDisplay({
         isForcedRef.current = false;
         setIsForcedOverride(false);
         const active = getActiveSchedule(schedulesRef.current, new Date());
-        if (active?.qr_config) {
-          const qc = active.qr_config;
-          const next: QRState = {
-            qr_config_id: qc.qr_config_id,
-            qr_url: `${siteUrlRef.current}/c/${qc.qr_config_id}`,
-            product_name: qc.product?.name ?? "",
-            label: active.label ?? qc.label ?? qc.product?.name ?? "",
-            artist_name: qc.product?.artist?.display_name ?? "",
-          };
-          setQrState(next);
+        const next = active?.qr_config
+          ? qrConfigToState(active.qr_config, siteUrlRef.current, active.label ?? active.qr_config.label ?? active.qr_config.product?.name ?? "")
+          : defaultQrStateRef.current;
+        setQrState(next);
+        if (next) {
           try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
-        } else {
-          setQrState(defaultQrState);
-          if (defaultQrState) {
-            try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(defaultQrState)); } catch {}
-          }
         }
         setFlash(true);
         setTimeout(() => setFlash(false), 350);
@@ -344,6 +372,13 @@ export function QRBoardDisplay({
 
     channel.on("broadcast", { event: "cheer-new" }, () => {
       onCheerNew();
+    });
+
+    // コントロールパネルからトラック割当が変更された → 再登録してタイムテーブルを更新
+    channel.on("broadcast", { event: "track-assigned" }, ({ payload }) => {
+      const { device_id: targetDeviceId } = payload as { device_id: string; track_id: string | null };
+      if (targetDeviceId !== deviceId) return;
+      registerDevice().then((trackId) => fetchSchedules(trackId));
     });
 
     channel.subscribe(async (status) => {
@@ -367,7 +402,7 @@ export function QRBoardDisplay({
       if (surgeTimerRef.current) clearTimeout(surgeTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [eventId, deviceName, onCheerNew]);
+  }, [eventId, deviceName, onCheerNew, registerDevice, fetchSchedules]);
 
   // 長押し検出（3秒でロック解除モーダル表示）
   const HOLD_DURATION = 3000;

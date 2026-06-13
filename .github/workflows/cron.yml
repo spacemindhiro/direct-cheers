@@ -2,10 +2,11 @@ name: Cron Jobs (Vercel Hobbyプラン代替)
 
 on:
   schedule:
-    # UTC表記。JST = UTC+9
-    - cron: '0 0 * * *'   # 09:00 JST  → entrance-card-check
-    - cron: '0 1 * * *'   # 10:00 JST  → entrance-auth + check-auth-expiry
-    - cron: '0 11 * * *'  # 20:00 JST  → reconcile
+    # UTC表記。JST = UTC+9（UTC 15:00/20:00は「翌日」のJST 0:00/5:00になる）
+    - cron: '0 15 * * *'  # 00:00 JST → entrance-auth（日付が変わったら即時）
+    - cron: '0 20 * * *'  # 05:00 JST → reconcile
+    - cron: '0 0 * * *'   # 09:00 JST → entrance-card-check
+    - cron: '0 1 * * *'   # 10:00 JST → check-auth-expiry
   workflow_dispatch:      # 手動実行も可能
 
 env:
@@ -13,6 +14,30 @@ env:
   STG_URL: https://stg.direct-cheers.com
 
 jobs:
+  entrance-auth:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 15 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 5日前オーソリバッチ (00:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$STG_URL/api/cron/entrance-auth" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  reconcile:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 20 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 照合バッチ (05:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$STG_URL/api/cron/reconcile" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
   card-check:
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 0 * * *'
     runs-on: ubuntu-latest
@@ -25,18 +50,6 @@ jobs:
           echo "HTTP $STATUS"
           [ "$STATUS" = "200" ] || exit 1
 
-  entrance-auth:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 1 * * *'
-    runs-on: ubuntu-latest
-    steps:
-      - name: 5日前オーソリバッチ (10:00 JST)
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "$STG_URL/api/cron/entrance-auth" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
-          echo "HTTP $STATUS"
-          [ "$STATUS" = "200" ] || exit 1
-
   auth-expiry:
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 1 * * *'
     runs-on: ubuntu-latest
@@ -45,18 +58,6 @@ jobs:
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "$STG_URL/api/admin/check-auth-expiry" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
-          echo "HTTP $STATUS"
-          [ "$STATUS" = "200" ] || exit 1
-
-  reconcile:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 11 * * *'
-    runs-on: ubuntu-latest
-    steps:
-      - name: 照合バッチ (20:00 JST)
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "$STG_URL/api/cron/reconcile" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
           echo "HTTP $STATUS"
           [ "$STATUS" = "200" ] || exit 1

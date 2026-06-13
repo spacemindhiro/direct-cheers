@@ -12,6 +12,12 @@ import { WalletTicketPreview } from "@/components/wallet-ticket-preview";
 type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist"; status?: string };
 type DistTarget = { profile_id: string; ratio: string };
 
+const PAYMENT_TYPE_LABELS: Record<string, string> = {
+  A: "Aタイプ：5日前確定",
+  B: "Bタイプ：即時確定",
+  C: "Cタイプ：当日決済",
+};
+
 export function QREditDelete({
   qrConfigId,
   eventId,
@@ -34,6 +40,11 @@ export function QREditDelete({
   isRange = false,
   minAmount = 0,
   maxAmount = 0,
+  paymentType = null,
+  stockLimit = null,
+  trackInventory = true,
+  serialScopeLabel = "イベント通し",
+  serialScopeInherited = false,
 }: {
   qrConfigId: string;
   eventId: string;
@@ -56,6 +67,11 @@ export function QREditDelete({
   isRange?: boolean;
   minAmount?: number;
   maxAmount?: number;
+  paymentType?: "A" | "B" | "C" | null;
+  stockLimit?: number | null;
+  trackInventory?: boolean;
+  serialScopeLabel?: string;
+  serialScopeInherited?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -446,6 +462,12 @@ export function QREditDelete({
                 <span className="text-slate-400">タイプ</span>
                 <span className="font-bold text-slate-200">{productTypeLabel}</span>
               </div>
+              {paymentType && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">決済タイプ</span>
+                  <span className="font-bold text-slate-200">{PAYMENT_TYPE_LABELS[paymentType] ?? paymentType}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-400">金額</span>
                 <span className="font-bold text-slate-200">
@@ -460,6 +482,26 @@ export function QREditDelete({
                   <span className="font-bold text-slate-200">¥{currentAmountStep.toLocaleString("ja-JP")}</span>
                 </div>
               )}
+              {isEntrance && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">在庫上限</span>
+                  <span className="font-bold text-slate-200">
+                    {stockLimit != null ? `${stockLimit.toLocaleString("ja-JP")}件` : "無制限"}
+                  </span>
+                </div>
+              )}
+              {isEntrance && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">在庫管理</span>
+                  <span className="font-bold text-slate-200">{trackInventory ? "ON" : "OFF"}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">SEQ採番単位</span>
+                <span className="font-bold text-slate-200">
+                  {serialScopeLabel}{serialScopeInherited ? "（イベント設定を継承）" : ""}
+                </span>
+              </div>
             </div>
           )}
 

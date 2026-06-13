@@ -31,7 +31,7 @@ async function QRDetailContent({
 
   const { data: qr } = await adminClient
     .from("qr_configs")
-    .select("qr_config_id, label, image_url, strip_image_url, bg_color, fg_color, label_color, recipient_profile_id, created_at, event_id, bypass_validity, product_id, amount_step")
+    .select("qr_config_id, label, image_url, strip_image_url, bg_color, fg_color, label_color, recipient_profile_id, created_at, event_id, bypass_validity, product_id, amount_step, serial_scope")
     .eq("qr_config_id", qrConfigId)
     .eq("event_id", eventId)
     .is("deleted_at", null)
@@ -41,7 +41,7 @@ async function QRDetailContent({
   const { data: event } = await adminClient
     .from("events")
     .select(`
-      title, organizer_profile_id, agent_id, start_at, end_at, venue,
+      title, organizer_profile_id, agent_id, start_at, end_at, venue, serial_scope,
       organizer:profiles!organizer_profile_id(display_name),
       event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name))
     `)
@@ -99,11 +99,19 @@ async function QRDetailContent({
   const productId = (qr as any).product_id as string | null;
   let validityInfo: { label: string; from: string; to: string } | null = null;
   let isEntrance = false;
-  let productInfo: { typeLabel: string; isRange: boolean; minAmount: number; maxAmount: number } | null = null;
+  let productInfo: {
+    typeLabel: string;
+    isRange: boolean;
+    minAmount: number;
+    maxAmount: number;
+    paymentType: "A" | "B" | "C" | null;
+    stockLimit: number | null;
+    trackInventory: boolean;
+  } | null = null;
   if (productId && event) {
     const { data: product } = await adminClient
       .from("products")
-      .select("type, payment_type, sales_start_at, sales_end_at, name, min_amount, max_amount")
+      .select("type, payment_type, sales_start_at, sales_end_at, name, min_amount, max_amount, stock_limit, track_inventory")
       .eq("product_id", productId)
       .single();
     if (product) {
@@ -121,9 +129,23 @@ async function QRDetailContent({
         isRange: (product.min_amount ?? 0) !== (product.max_amount ?? 0),
         minAmount: product.min_amount ?? 0,
         maxAmount: product.max_amount ?? 0,
+        paymentType: isEntrance ? (product.payment_type as "A" | "B" | "C" | null) : null,
+        stockLimit: product.stock_limit ?? null,
+        trackInventory: product.track_inventory ?? true,
       };
     }
   }
+
+  // SEQ採番単位（qr_configs側で未設定ならevents側の設定を継承）
+  const SERIAL_SCOPE_LABELS: Record<string, string> = {
+    event: "イベント通し",
+    qr: "QRコード別",
+    artist: "アーティスト別",
+  };
+  const qrSerialScope = (qr as any).serial_scope as string | null;
+  const effectiveSerialScope = qrSerialScope ?? (event as any).serial_scope ?? "event";
+  const serialScopeLabel = SERIAL_SCOPE_LABELS[effectiveSerialScope] ?? effectiveSerialScope;
+  const serialScopeInherited = qrSerialScope === null;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com";
   const qrUrl = `${siteUrl}/c/${qrConfigId}`;
@@ -243,6 +265,11 @@ async function QRDetailContent({
           isRange={productInfo?.isRange ?? false}
           minAmount={productInfo?.minAmount ?? 0}
           maxAmount={productInfo?.maxAmount ?? 0}
+          paymentType={productInfo?.paymentType ?? null}
+          stockLimit={productInfo?.stockLimit ?? null}
+          trackInventory={productInfo?.trackInventory ?? true}
+          serialScopeLabel={serialScopeLabel}
+          serialScopeInherited={serialScopeInherited}
         />
       )}
 

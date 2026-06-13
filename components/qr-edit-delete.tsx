@@ -27,6 +27,7 @@ export function QREditDelete({
   currentLabelColor = "#94a3b8",
   currentRecipientId,
   currentTargets,
+  hasTransactions = false,
   candidates,
   currentAmountStep = 100,
   productTypeLabel = "",
@@ -48,6 +49,7 @@ export function QREditDelete({
   currentLabelColor?: string;
   currentRecipientId: string;
   currentTargets: { profile_id: string; distribution_ratio: number }[];
+  hasTransactions?: boolean;
   candidates: TargetCandidate[];
   currentAmountStep?: 100 | 500 | 1000;
   productTypeLabel?: string;
@@ -110,11 +112,13 @@ export function QREditDelete({
       const body: Record<string, unknown> = {
         label: label.trim() || null,
         recipient_profile_id: recipientId,
-        targets: targets.map((t) => ({
+      };
+      if (!hasTransactions) {
+        body.targets = targets.map((t) => ({
           profile_id: t.profile_id,
           distribution_ratio: (parseFloat(t.ratio) || 0) / 100,
-        })),
-      };
+        }));
+      }
       if (isEntrance) {
         body.strip_image_url = stripImageUrl;
         body.bg_color = bgColor;
@@ -338,52 +342,70 @@ export function QREditDelete({
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
                 配分設定
               </label>
-              <button
-                type="button"
-                onClick={addTarget}
-                className="flex items-center gap-1 text-[10px] font-black text-pink-500 hover:text-pink-400 uppercase tracking-widest"
-              >
-                <Plus size={12} /> 追加
-              </button>
+              {!hasTransactions && (
+                <button
+                  type="button"
+                  onClick={addTarget}
+                  className="flex items-center gap-1 text-[10px] font-black text-pink-500 hover:text-pink-400 uppercase tracking-widest"
+                >
+                  <Plus size={12} /> 追加
+                </button>
+              )}
             </div>
 
-            <div className="space-y-2">
-              {targets.map((t, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <select
-                    value={t.profile_id}
-                    onChange={(e) => updateTarget(i, "profile_id", e.target.value)}
-                    className="flex-1 h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
-                  >
-                    {candidates.map((c) => (
-                      <option key={c.profile_id} value={c.profile_id}>
-                        {c.display_name}{c.role === "organizer" ? "（主催者）" : c.status === "pending" ? "（交渉中）" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      value={t.ratio}
-                      onChange={(e) => updateTarget(i, "ratio", e.target.value)}
-                      min={0}
-                      max={100}
-                      className="w-20 h-12 bg-slate-800 border-slate-700 rounded-xl px-3 text-sm text-white text-center focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-                    />
-                    <span className="text-slate-400 text-sm font-bold">%</span>
-                  </div>
-                  {targets.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeTarget(i)}
-                      className="text-slate-600 hover:text-red-400 transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
+            {hasTransactions ? (
+              <>
+                <p className="text-[10px] text-amber-400 font-bold leading-relaxed">
+                  決済が発生しているため配分は変更できません。配分を変更したい場合は新しいQRコードを作成してください。
+                </p>
+                <div className="space-y-2">
+                  {targets.map((t, i) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-3 bg-slate-800/50 rounded-xl">
+                      <span className="text-sm text-slate-300">{candidateName(t.profile_id)}</span>
+                      <span className="text-sm font-bold text-slate-400">{t.ratio}%</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                {targets.map((t, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <select
+                      value={t.profile_id}
+                      onChange={(e) => updateTarget(i, "profile_id", e.target.value)}
+                      className="flex-1 h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
+                    >
+                      {candidates.map((c) => (
+                        <option key={c.profile_id} value={c.profile_id}>
+                          {c.display_name}{c.role === "organizer" ? "（主催者）" : c.status === "pending" ? "（交渉中）" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={t.ratio}
+                        onChange={(e) => updateTarget(i, "ratio", e.target.value)}
+                        min={0}
+                        max={100}
+                        className="w-20 h-12 bg-slate-800 border-slate-700 rounded-xl px-3 text-sm text-white text-center focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
+                      <span className="text-slate-400 text-sm font-bold">%</span>
+                    </div>
+                    {targets.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeTarget(i)}
+                        className="text-slate-600 hover:text-red-400 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex justify-between text-xs font-bold">
               <span className="text-slate-500">合計</span>

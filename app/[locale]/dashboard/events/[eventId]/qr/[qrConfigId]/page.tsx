@@ -88,6 +88,13 @@ async function QRDetailContent({
     distribution_ratio: t.distribution_ratio as number,
   }));
 
+  // 決済発生済みかどうか（配分編集の可否判定用）
+  const { count: txCount } = await adminClient
+    .from("transactions")
+    .select("transaction_id", { count: "exact", head: true })
+    .eq("qr_config_id", qrConfigId);
+  const hasTransactions = (txCount ?? 0) > 0;
+
   // 有効期間情報
   const productId = (qr as any).product_id as string | null;
   let validityInfo: { label: string; from: string; to: string } | null = null;
@@ -229,6 +236,7 @@ async function QRDetailContent({
           currentLabelColor={(qr as any).label_color ?? "#94a3b8"}
           currentRecipientId={qr.recipient_profile_id ?? ""}
           currentTargets={currentTargets}
+          hasTransactions={hasTransactions}
           candidates={candidates}
           currentAmountStep={((qr as any).amount_step ?? 100) as 100 | 500 | 1000}
           productTypeLabel={productInfo?.typeLabel ?? ""}

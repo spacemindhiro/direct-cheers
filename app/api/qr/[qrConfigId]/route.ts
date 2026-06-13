@@ -47,7 +47,7 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { qr, supabase: sb, isOrganizer, isAgent, isRecipient, error } = await getQRWithPermission(qrConfigId, user.id);
+  const { qr, supabase: sb, admin, isOrganizer, isAgent, isRecipient, error } = await getQRWithPermission(qrConfigId, user.id);
   if (!qr) return NextResponse.json({ error }, { status: error === "Not found" ? 404 : 500 });
 
   const canEdit = isOrganizer || isAgent;
@@ -105,6 +105,18 @@ export async function PATCH(
 
   // 配分先の更新（全置換）
   if (targets !== undefined) {
+    // 決済が発生済みの場合は配分変更不可（settle時に過去の決済へ遡及してしまうため）
+    const { count: txCount } = await (admin ?? createAdminClient())
+      .from("transactions")
+      .select("transaction_id", { count: "exact", head: true })
+      .eq("qr_config_id", qrConfigId);
+    if (txCount && txCount > 0) {
+      return NextResponse.json(
+        { error: "このQRコードにはすでに決済が発生しているため配分は変更できません。配分を変更する場合は新しいQRコードを作成してください。" },
+        { status: 409 },
+      );
+    }
+
     if (targets.length === 0) {
       return NextResponse.json({ error: "配分先を1人以上指定してください" }, { status: 400 });
     }

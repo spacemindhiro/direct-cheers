@@ -17,7 +17,7 @@ export async function broadcastCheerNew(eventId: string, amount: number): Promis
       },
       body: JSON.stringify({
         messages: [{
-          topic:   `realtime:event-display:${eventId}`,
+          topic:   `event-display:${eventId}`,
           event:   "cheer-new",
           payload: { amount },
         }],

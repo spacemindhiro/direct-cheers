@@ -50,8 +50,9 @@ export async function proxy(request: NextRequest) {
     normalizedPath.startsWith("/display") || // 子機(PWA)起動時、未ログインでも/auth/loginへリダイレクトしない（認可は画面側で実施）
     path.startsWith("/account/"); // アカウント復旧・統合確認（ロケールなし）
 
-  // /c/ と /entrance/ は [locale] の外にあるルート — intl middleware を通さない
-  if (path.startsWith("/c/") || path.startsWith("/entrance/")) {
+  // /c/・/entrance/・/r/ は [locale] の外にあるルート — intl middleware を通さない
+  // /r/ はNFCタップ（未ログイン前提）からのアクセスのため認証チェックも不可
+  if (path.startsWith("/c/") || path.startsWith("/entrance/") || path.startsWith("/r/")) {
     return NextResponse.next({ request });
   }
 

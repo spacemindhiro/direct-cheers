@@ -137,9 +137,11 @@ async function getBatteryLevel(): Promise<number | null> {
 export function QRBoardDisplay({
   eventId,
   eventTitle,
+  userEmail,
 }: {
   eventId: string;
   eventTitle: string;
+  userEmail?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -549,6 +551,9 @@ export function QRBoardDisplay({
   const closeUnlock = () => setShowUnlock(false);
 
   const handleUnlockSuccess = () => {
+    // 再遷移時にロック解除モーダル（パスキー認証成功表示）が残ったまま
+    // 復元されてしまうため、遷移前に閉じておく
+    setShowUnlock(false);
     router.push(`/dashboard/events/${eventId}`);
   };
 
@@ -773,7 +778,8 @@ export function QRBoardDisplay({
               </div>
 
               <PasskeySetup
-                mode="authenticate"
+                mode="stepup"
+                email={userEmail}
                 buttonLabel="パスキーで解除"
                 onSuccess={handleUnlockSuccess}
               />

@@ -59,7 +59,7 @@ async function DisplayContent({ params }: { params: Promise<{ eventId: string }>
     return <DisplayBlocked message="この画面を表示する権限がありません" />;
   }
 
-  return <QRBoardDisplay eventId={eventId} eventTitle={event.title} />;
+  return <QRBoardDisplay eventId={eventId} eventTitle={event.title} userEmail={user.email} />;
 }
 
 export default function DisplayPage({ params }: { params: Promise<{ eventId: string }> }) {

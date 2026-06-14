@@ -161,6 +161,7 @@ export function QRBoardDisplay({
   const trackIdRef   = useRef<string | null>(null);
   const defaultQrStateRef = useRef<QRState | null>(null);
   const siteUrlRef   = useRef(typeof window !== "undefined" ? window.location.origin : "");
+  const qrStateRef   = useRef<QRState | null>(null);
   const [deviceName, setDeviceName] = useState(() => {
     try {
       // ?device_name=DJ-01 のようなURLパラメーターで端末名を指定・上書き保存
@@ -321,6 +322,17 @@ export function QRBoardDisplay({
     }
   }, [eventId]);
 
+  // NFCタグのリダイレクト先（booth_devices.current_qr_config_id）を実際の表示に同期
+  const syncBoothDevice = useCallback(() => {
+    const qrConfigId = qrStateRef.current?.qr_config_id;
+    if (!qrConfigId) return;
+    fetch("/api/booth-devices/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_code: deviceName, event_id: eventId, qr_config_id: qrConfigId }),
+    }).catch(() => {});
+  }, [eventId, deviceName]);
+
   // 割り当てられたトラックのタイムテーブルを取得
   const fetchSchedules = useCallback((trackId: string | null) => {
     const url = trackId
@@ -375,9 +387,19 @@ export function QRBoardDisplay({
   useEffect(() => {
     registerDevice().then((trackId) => fetchSchedules(trackId));
 
-    const timer = setInterval(() => fetchSchedules(trackIdRef.current), 30_000);
+    const timer = setInterval(() => {
+      fetchSchedules(trackIdRef.current);
+      syncBoothDevice();
+    }, 30_000);
     return () => clearInterval(timer);
-  }, [registerDevice, fetchSchedules]);
+  }, [registerDevice, fetchSchedules, syncBoothDevice]);
+
+  // 表示中のQRが変わった瞬間（強制プッシュ・タイムテーブル切替・初回マウント含む）に
+  // NFCタグのリダイレクト先を同期する
+  useEffect(() => {
+    qrStateRef.current = qrState;
+    syncBoothDevice();
+  }, [qrState, syncBoothDevice]);
 
   // 画面サイズに応じてQRサイズを動的計算
   useEffect(() => {

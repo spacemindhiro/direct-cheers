@@ -300,28 +300,14 @@ export function QRControlPanel({
       if (result === "ok") {
         setActiveConfigId(config.qr_config_id);
         setIsForcedActive(true);
-        // NFCタグのリダイレクト先も連動して更新（対象デバイスのbooth_devicesを同期）
-        const targets = targetDeviceId
-          ? mergedDevices.filter((d) => d.device_id === targetDeviceId)
-          : mergedDevices;
-        for (const d of targets) {
-          fetch("/api/booth-devices/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              device_code: d.device_name,
-              event_id: eventId,
-              qr_config_id: config.qr_config_id,
-            }),
-          }).catch(() => {});
-        }
+        // NFCタグのリダイレクト先は子機側が表示更新時に自己同期する（qr-board-display.tsx）
       } else {
         setPushError(`送信失敗: ${result}`);
       }
     } finally {
       setPushing(false);
     }
-  }, [pushing, siteUrl, targetDeviceId, mergedDevices, eventId]);
+  }, [pushing, siteUrl, targetDeviceId]);
 
   // 強制モードを解除してタイムテーブルに戻す
   const cancelForced = useCallback(async () => {

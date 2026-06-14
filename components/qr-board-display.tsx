@@ -682,7 +682,11 @@ export function QRBoardDisplay({
               }}
             >♥</span>
             <span className="relative font-black tabular-nums"
-              style={{ color: "#ff6b9d", fontSize: "3rem", textShadow: surgeGlow ? "0 0 8px #ff6b9d" : "none" }}>
+              style={{
+                color: "#ff6b9d", fontSize: "3rem", display: "inline-block",
+                textShadow: surgeGlow ? "0 0 8px #ff6b9d" : "none",
+                animation: counterPulse ? "counterPop 0.6s ease-out" : undefined,
+              }}>
               {cheerCount.toLocaleString()}
               {counterPulse && (
                 <Sparkles

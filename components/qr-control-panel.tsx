@@ -363,6 +363,14 @@ export function QRControlPanel({
     }
   };
 
+  // 子機の登録解除（オフラインの古い/重複した端末エントリの削除）
+  const removeDevice = useCallback(async (deviceId: string) => {
+    try {
+      await fetch(`/api/events/${eventId}/display-devices/${deviceId}`, { method: "DELETE" });
+      setDbDevices(prev => prev.filter(d => d.device_id !== deviceId));
+    } catch {}
+  }, [eventId]);
+
   // 子機のトラック割当変更（コントロールパネルから一括管理）
   const assignTrack = useCallback(async (deviceId: string, trackId: string | null) => {
     try {
@@ -506,6 +514,16 @@ export function QRControlPanel({
                       <option key={t.track_id} value={t.track_id}>{t.name}</option>
                     ))}
                   </select>
+                  {!d.online && (
+                    <button
+                      type="button"
+                      onClick={() => removeDevice(d.device_id)}
+                      className="text-slate-600 hover:text-red-400 transition-colors shrink-0 p-1"
+                      title="この端末エントリを削除"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

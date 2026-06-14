@@ -2,6 +2,7 @@
 
 import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   TrendingUp, Zap, RefreshCw, Wifi, WifiOff,
   ArrowDownToLine, Loader2, MessageSquare, Coins
@@ -77,6 +78,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
   const [isConnected, setIsConnected] = useState(true);
   const [flashNew, setFlashNew] = useState(false);
   const [toasts, setToasts] = useState<CheeringToast[]>([]);
+  const [mounted, setMounted] = useState(false);
   const [logTab, setLogTab] = useState<"log" | "message">("log");
   const [logPage, setLogPage] = useState(1);
   const logPageRef = useRef(1);
@@ -122,6 +124,10 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
   }, [eventId]);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     fetch_(false);
 
     const schedule = () => {
@@ -165,22 +171,25 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
 
   return (
     <div className="space-y-4">
-      {/* チャリーントースト */}
-      <div className="fixed bottom-6 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className="flex items-center gap-2 bg-slate-900 border border-pink-500/60 shadow-[0_0_20px_rgba(236,72,153,0.4)] rounded-2xl px-4 py-3 animate-slide-up-fade"
-          >
-            <Coins size={16} className="text-pink-400 shrink-0" />
-            <div>
-              <p className="text-xs font-black text-pink-400 leading-none">チャリーン！</p>
-              <p className="text-base font-black text-white tabular-nums leading-tight">{formatJPY(t.amount)}</p>
-              {t.sender && <p className="text-[10px] text-slate-500">{t.sender}</p>}
+      {/* チャリーントースト（タブの表示状態に関わらず常に見えるようbodyへportal） */}
+      {mounted && createPortal(
+        <div className="fixed bottom-6 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none">
+          {toasts.map((t) => (
+            <div
+              key={t.id}
+              className="flex items-center gap-2 bg-slate-900 border border-pink-500/60 shadow-[0_0_20px_rgba(236,72,153,0.4)] rounded-2xl px-4 py-3 animate-slide-up-fade"
+            >
+              <Coins size={16} className="text-pink-400 shrink-0" />
+              <div>
+                <p className="text-xs font-black text-pink-400 leading-none">チャリーン！</p>
+                <p className="text-base font-black text-white tabular-nums leading-tight">{formatJPY(t.amount)}</p>
+                {t.sender && <p className="text-[10px] text-slate-500">{t.sender}</p>}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>,
+        document.body
+      )}
 
       {/* メインボード */}
       <div className={`relative bg-slate-900 border rounded-[2rem] overflow-hidden transition-all duration-300 ${

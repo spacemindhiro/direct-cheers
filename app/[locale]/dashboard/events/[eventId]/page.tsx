@@ -13,6 +13,7 @@ import { EventCancelButton } from "@/components/event-cancel-button";
 import { EventCancelApproveButton } from "@/components/event-cancel-approve-button";
 import { LiveSalesBoard } from "@/components/live-sales-board";
 import { EventPayPayToggle } from "@/components/event-paypay-toggle";
+import { EventDetailTabs } from "@/components/event-detail-tabs";
 
 async function EventDetailContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -155,6 +156,8 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         )}
       </div>
 
+      <EventDetailTabs
+        overview={<>
       {/* 出演アーティスト */}
       {(() => {
         const visibleArtists = (event.event_artists ?? []).filter(
@@ -201,18 +204,6 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
           </div>
         );
       })()}
-
-      {/* リアルタイム着金予測ボード */}
-      {(isOrganizer || isAgent || isArtist) && (
-        <div className="space-y-3">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
-            <BarChart2 size={14} className="text-pink-500" /> 着金予測
-          </p>
-          <Suspense fallback={<div className="h-48 bg-slate-900 border border-slate-800 rounded-[2rem] animate-pulse" />}>
-            <LiveSalesBoard eventId={eventId} />
-          </Suspense>
-        </div>
-      )}
 
       {/* 入場チェックインスキャナ */}
       {isOrganizer && (event.lifecycle_status === "ongoing" || event.lifecycle_status === "published") && (
@@ -370,6 +361,18 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
           </div>
         )}
       </div>
+        </>}
+        sales={(isOrganizer || isAgent || isArtist) ? (
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              <BarChart2 size={14} className="text-pink-500" /> 着金予測
+            </p>
+            <Suspense fallback={<div className="h-48 bg-slate-900 border border-slate-800 rounded-[2rem] animate-pulse" />}>
+              <LiveSalesBoard eventId={eventId} />
+            </Suspense>
+          </div>
+        ) : null}
+      />
     </div>
   );
 }

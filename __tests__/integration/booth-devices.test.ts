@@ -27,7 +27,7 @@ vi.mock("next/navigation", () => ({
 import { createClient, getUser } from "@/lib/supabase/server";
 import { GET as boothDevicesGET, POST as boothDevicesPOST } from "@/app/api/booth-devices/route";
 import { POST as boothDevicesSyncPOST } from "@/app/api/booth-devices/sync/route";
-import NfcRoutingPage from "@/app/r/[nfcRoutingId]/page";
+import { NfcRoutingContent } from "@/app/r/[nfcRoutingId]/page";
 
 let organizerProfileId: string;
 let artistProfileId: string;
@@ -233,13 +233,13 @@ describe("TC-BOOTH-B: /api/booth-devices/sync — QR切替連動の同期", () =
 describe("TC-BOOTH-C: /r/[nfcRoutingId] — リダイレクト先解決ロジック", () => {
   it("TC-BOOTH-C-01: 登録済み（current_qr_config_idあり） → /c/[qrConfigId]へリダイレクト", async () => {
     await expect(
-      NfcRoutingPage({ params: Promise.resolve({ nfcRoutingId: nfcMain }) })
+      NfcRoutingContent({ params: Promise.resolve({ nfcRoutingId: nfcMain }) })
     ).rejects.toThrow(`REDIRECT:/c/${qrConfigB}`);
   });
 
   it("TC-BOOTH-C-02: 未登録のnfc_routing_id → /へリダイレクト", async () => {
     await expect(
-      NfcRoutingPage({ params: Promise.resolve({ nfcRoutingId: nfcNotFound }) })
+      NfcRoutingContent({ params: Promise.resolve({ nfcRoutingId: nfcNotFound }) })
     ).rejects.toThrow("REDIRECT:/");
   });
 
@@ -252,7 +252,7 @@ describe("TC-BOOTH-C: /r/[nfcRoutingId] — リダイレクト先解決ロジッ
     cleanup.deviceCodes.push(deviceCodeNoTarget);
 
     await expect(
-      NfcRoutingPage({ params: Promise.resolve({ nfcRoutingId: nfcNoTarget }) })
+      NfcRoutingContent({ params: Promise.resolve({ nfcRoutingId: nfcNoTarget }) })
     ).rejects.toThrow("REDIRECT:/");
   });
 });

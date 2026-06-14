@@ -1,11 +1,12 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export default async function NfcRoutingPage({
+export async function NfcRoutingContent({
   params,
 }: {
   params: Promise<{ nfcRoutingId: string }>;
-}) {
+}): Promise<never> {
   const { nfcRoutingId } = await params;
   const admin = createAdminClient();
 
@@ -18,4 +19,16 @@ export default async function NfcRoutingPage({
   if (!booth?.current_qr_config_id) redirect("/");
 
   redirect(`/c/${booth.current_qr_config_id}`);
+}
+
+export default function NfcRoutingPage({
+  params,
+}: {
+  params: Promise<{ nfcRoutingId: string }>;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <NfcRoutingContent params={params} />
+    </Suspense>
+  );
 }

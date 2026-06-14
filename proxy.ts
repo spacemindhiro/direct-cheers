@@ -15,7 +15,9 @@ export async function proxy(request: NextRequest) {
     path.endsWith(".png") ||
     path.endsWith(".jpg") ||
     path.endsWith(".jpeg") ||
-    path.endsWith(".svg");
+    path.endsWith(".svg") ||
+    path === "/manifest.json" || // 未ログイン時に/auth/loginへリダイレクトされ、PWAのmanifest取得が失敗するため除外
+    path === "/sw.js";
 
   if (isApiPath) {
     return NextResponse.next({ request });

@@ -377,14 +377,6 @@ export function QRBoardDisplay({
     return () => clearInterval(timer);
   }, [registerDevice, fetchSchedules]);
 
-  // PWAキオスクモード: OS/ブラウザのバックナビゲーションをブロック
-  useEffect(() => {
-    history.pushState(null, '', window.location.href);
-    const block = () => history.pushState(null, '', window.location.href);
-    window.addEventListener('popstate', block);
-    return () => window.removeEventListener('popstate', block);
-  }, []);
-
   // 画面サイズに応じてQRサイズを動的計算
   useEffect(() => {
     const calc = () => {

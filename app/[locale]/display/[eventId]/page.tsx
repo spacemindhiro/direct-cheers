@@ -5,11 +5,27 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QRBoardDisplay } from "@/components/qr-board-display";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://direct-cheers.com";
+
 export async function generateMetadata(
   { params }: { params: Promise<{ locale: string; eventId: string }> }
 ): Promise<Metadata> {
   const { eventId } = await params;
-  return { manifest: `/api/manifest/display/${eventId}` };
+  return {
+    // 相対URLだとNext.jsがVercel Preview環境でcrossorigin="use-credentials"を付与し、
+    // iOSのmanifest取得がCORSエラーで失敗してstandalone判定が外れるため絶対URLにする
+    manifest: `${siteUrl}/api/manifest/display/${eventId}`,
+    // appleWebApp/otherはNext.jsのメタデータマージで「同名キーがあれば置換」のため、
+    // ルートlayout.tsxの値に依存せずこのページでも明示し、iOSのスタンドアロン判定漏れを防ぐ
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: "Direct Cheers",
+    },
+    other: {
+      "apple-mobile-web-app-capable": "yes",
+    },
+  };
 }
 
 async function DisplayContent({ params }: { params: Promise<{ eventId: string }> }) {

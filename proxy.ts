@@ -45,6 +45,7 @@ export async function proxy(request: NextRequest) {
     normalizedPath.startsWith("/join") ||
     normalizedPath.startsWith("/onboarding") ||
     normalizedPath.startsWith("/link-setup") ||
+    normalizedPath.startsWith("/display") || // 子機(PWA)起動時、未ログインでも/auth/loginへリダイレクトしない（認可は画面側で実施）
     path.startsWith("/account/"); // アカウント復旧・統合確認（ロケールなし）
 
   // /c/ と /entrance/ は [locale] の外にあるルート — intl middleware を通さない

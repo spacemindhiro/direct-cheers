@@ -31,7 +31,8 @@ async function ReconcileContent() {
     admin
       .from("events")
       .select("event_id, title, end_at, lifecycle_status, reconciled_at")
-      .or("lifecycle_status.in.(ended,settled),end_at.lt." + new Date().toISOString())
+      // draft/review_requested/cancelled等の未公開イベントはend_atが過去でも対象外
+      .or("lifecycle_status.in.(ended,settled),and(lifecycle_status.in.(published,ongoing),end_at.lt." + new Date().toISOString() + ")")
       .order("end_at", { ascending: false })
       .limit(50),
   ]);

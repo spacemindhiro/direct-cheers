@@ -30,7 +30,8 @@ async function SettlementsContent() {
 
   const { net_rate } = await getFeeConfig();
 
-  // 終了済みイベントを取得（end_at 経過 OR 手動終了・精算済み）
+  // 終了済みイベントを取得（公開済み・進行中のイベントでend_at経過 OR 手動終了・精算済み）
+  // ※ draft/review_requested/cancelled等の未公開イベントはend_atが過去でも対象外
   const now = new Date();
   const AUTH_EXPIRE_DAYS = 7;
   const nowIso = now.toISOString();
@@ -40,7 +41,7 @@ async function SettlementsContent() {
       event_id, title, venue, start_at, end_at, lifecycle_status,
       organizer:profiles!organizer_profile_id(display_name)
     `)
-    .or(`end_at.lt.${nowIso},lifecycle_status.in.(ended,settled)`)
+    .or(`lifecycle_status.in.(ended,settled),and(lifecycle_status.in.(published,ongoing),end_at.lt.${nowIso})`)
     .order("end_at", { ascending: false })
     .limit(50);
 

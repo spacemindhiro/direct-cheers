@@ -1,8 +1,26 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import type { Metadata } from "next";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QRBoardDisplay } from "@/components/qr-board-display";
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://direct-cheers.com";
+
+export async function generateMetadata(): Promise<Metadata> {
+  // このページはcookies()経由で動的レンダリングされるため、ルートのmanifest指定
+  // (相対URL "/manifest.json") を素通しすると Next.js が <link rel="manifest"> に
+  // crossorigin="use-credentials" を付与し、iOSのmanifest取得がCORSエラーで失敗して
+  // standalone判定が外れる。絶対URLにすれば回避できる。
+  // ただしアプリ全体は1つのPWA(id/scope/start_urlはルートmanifest.json基準)のため、
+  // 別の(idの異なる)manifestを指すと「別アプリ」と判定されてしまう。
+  // → リクエスト自身のオリジンでルートと同じ /manifest.json を絶対URL参照する。
+  const h = await headers();
+  const host = h.get("host") ?? new URL(siteUrl).host;
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  return { manifest: `${proto}://${host}/manifest.json` };
+}
 
 // 子機（ホーム画面に追加したPWA）からの起動時、redirect()による画面遷移が発生すると
 // iOS側がスタンドアロン表示から「戻る/共有/Safariで開く」付きのブラウザUIに切り替わってしまう。

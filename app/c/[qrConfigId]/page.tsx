@@ -19,8 +19,15 @@ function ValidityMessage({ title, message }: { title: string; message: string })
   );
 }
 
-async function CheersContent({ params }: { params: Promise<{ qrConfigId: string }> }) {
+async function CheersContent({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ qrConfigId: string }>;
+  searchParams: Promise<{ device?: string }>;
+}) {
   const { qrConfigId } = await params;
+  const { device: deviceName } = await searchParams;
   const admin = createAdminClient();
 
   const { data: qr } = await admin
@@ -195,6 +202,7 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
           recipientName={recipientName}
           eventTitle={event.title}
           paypayEnabled={event.paypay_enabled ?? false}
+          deviceName={deviceName}
         />
 
         <div className="flex items-center justify-center gap-2 text-[10px] text-slate-700 font-bold uppercase tracking-widest">
@@ -207,8 +215,10 @@ async function CheersContent({ params }: { params: Promise<{ qrConfigId: string 
 
 export default function CheersPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ qrConfigId: string }>;
+  searchParams: Promise<{ device?: string }>;
 }) {
   return (
     <Suspense
@@ -218,7 +228,7 @@ export default function CheersPage({
         </div>
       }
     >
-      <CheersContent params={params} />
+      <CheersContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }

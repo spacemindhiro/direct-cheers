@@ -371,6 +371,7 @@ export async function POST(req: Request) {
           p_agent_id:                 wAgentId,
           p_agent_fee:                wAgentFee,
           p_wallet_type:              wWalletType,
+          p_device_name:              meta.device_name || null,
         });
 
         if (rpcErr) throw rpcErr;

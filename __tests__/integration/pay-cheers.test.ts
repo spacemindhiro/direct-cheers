@@ -157,6 +157,26 @@ describe("TC-PAY-01: カード決済（destination charge フロー）", () => {
     expect(pid?.application_fee_amount).toBeUndefined();
     expect(pid?.capture_method).toBe("manual");
   });
+
+  it("metadata.device_name が Checkout Session の metadata にも記録される（子機モード端末識別）", async () => {
+    const req = new Request("http://localhost/api/pay/cheers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        qr_config_id: qrConfigId,
+        product_id: crypto.randomUUID(),
+        amount: 10_000,
+        payment_method: "card",
+        metadata: { artist_name: "テストアーティスト", event_title: "テストイベント", device_name: "DJ-01" },
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    const session = await retrieveRecentCheckoutSession(qrConfigId);
+    expect(session!.metadata?.device_name).toBe("DJ-01");
+  });
 });
 
 // ── TC-PAY-02: PayPay 決済 ────────────────────────────────────────────

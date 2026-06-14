@@ -98,6 +98,7 @@ export function QRControlPanel({
   const [devices, setDevices] = useState<Device[]>([]);
   const [activeConfigId, setActiveConfigId] = useState<string | null>(null);
   const [isForcedActive, setIsForcedActive] = useState(false);
+  const [targetDeviceId, setTargetDeviceId] = useState<string | null>(null); // null = 全機
   const [pushing, setPushing] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
@@ -221,6 +222,7 @@ export function QRControlPanel({
         type: "broadcast",
         event: "qr-switch",
         payload: {
+          target_device_id: targetDeviceId,
           is_forced: true,
           qr_config_id: config.qr_config_id,
           qr_url: `${siteUrl}/c/${config.qr_config_id}`,
@@ -238,7 +240,7 @@ export function QRControlPanel({
     } finally {
       setPushing(false);
     }
-  }, [pushing, siteUrl]);
+  }, [pushing, siteUrl, targetDeviceId]);
 
   // 強制モードを解除してタイムテーブルに戻す
   const cancelForced = useCallback(async () => {
@@ -248,7 +250,7 @@ export function QRControlPanel({
       const result = await channelRef.current.send({
         type: "broadcast",
         event: "qr-switch",
-        payload: { cancel_forced: true },
+        payload: { target_device_id: targetDeviceId, cancel_forced: true },
       });
       if (result === "ok") {
         setActiveConfigId(null);
@@ -257,7 +259,7 @@ export function QRControlPanel({
     } finally {
       setPushing(false);
     }
-  }, [pushing]);
+  }, [pushing, targetDeviceId]);
 
   // スロット追加
   const addSlot = async () => {
@@ -506,10 +508,44 @@ export function QRControlPanel({
       {/* ── 手動配信タブ ── */}
       {tab === "push" && (
         <div className="space-y-3">
+          {/* 配信先選択 */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">配信先</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setTargetDeviceId(null)}
+                className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${
+                  targetDeviceId === null
+                    ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40"
+                    : "bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-600"
+                }`}
+              >
+                全機
+              </button>
+              {mergedDevices.map((d) => (
+                <button
+                  key={d.device_id}
+                  type="button"
+                  onClick={() => setTargetDeviceId(d.device_id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${
+                    targetDeviceId === d.device_id
+                      ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40"
+                      : "bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-600"
+                  }`}
+                >
+                  {d.device_name}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* 強制配信中バナー */}
           {isForcedActive && (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl px-4 py-3 flex items-center justify-between">
-              <p className="text-xs font-black text-amber-400">強制配信中 — タイムテーブルを無視しています</p>
+              <p className="text-xs font-black text-amber-400">
+                強制配信中（{targetDeviceId ? (mergedDevices.find(d => d.device_id === targetDeviceId)?.device_name ?? "選択端末") : "全機"}） — タイムテーブルを無視しています
+              </p>
               <button
                 type="button"
                 onClick={cancelForced}
@@ -522,7 +558,7 @@ export function QRControlPanel({
           )}
 
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">
-            QRを選んで全台にプッシュ（強制）
+            QRを選んで{targetDeviceId ? (mergedDevices.find(d => d.device_id === targetDeviceId)?.device_name ?? "選択端末") : "全台"}にプッシュ（強制）
           </p>
           {pushError && (
             <p className="text-xs text-red-400 font-bold bg-red-500/10 rounded-xl px-4 py-3">{pushError}</p>

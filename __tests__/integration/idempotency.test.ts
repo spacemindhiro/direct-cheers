@@ -18,6 +18,7 @@ import {
   insertEvent,
   insertQrConfig,
   insertTransaction,
+  insertProduct,
 } from "../helpers/seed";
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 
@@ -32,10 +33,12 @@ const captured: {
   fakePiId: string;
   fakeSessionPaymentStatus: "paid" | "unpaid";
   fakePiStatus: "succeeded" | "requires_capture" | "requires_payment_method";
+  fakeMetadata: Record<string, string>;
 } = {
   fakePiId: "",
   fakeSessionPaymentStatus: "paid",
   fakePiStatus: "succeeded",
+  fakeMetadata: {},
 };
 
 vi.mock("stripe", async (importOriginal) => {
@@ -63,7 +66,7 @@ vi.mock("stripe", async (importOriginal) => {
         customer: null,
         amount_total: 1000,
         payment_method_types: ["card"],
-        metadata: {},
+        metadata: captured.fakeMetadata,
       });
     }
   }
@@ -82,12 +85,14 @@ import { POST as webhookPOST } from "@/app/api/stripe/webhook/route";
 let organizerProfileId: string;
 let eventId: string;
 let qrConfigId: string;
+let cheersProductId: string;
 
 const cleanup = {
   profileIds: [] as string[],
   eventIds: [] as string[],
   qrConfigIds: [] as string[],
   transactionIds: [] as string[],
+  productIds: [] as string[],
 };
 
 beforeAll(async () => {
@@ -108,9 +113,15 @@ beforeAll(async () => {
     recipientProfileId: organizerProfileId,
   });
   cleanup.qrConfigIds.push(qrConfigId);
+
+  cheersProductId = await insertProduct({ eventId, type: "standard", paymentType: "B", name: "TC-IDEM チアーズ" });
+  cleanup.productIds.push(cheersProductId);
 }, 30_000);
 
 afterAll(async () => {
+  if (cleanup.productIds.length) {
+    await testAdmin.from("products").delete().in("product_id", cleanup.productIds);
+  }
   await cleanupTestData(cleanup);
   await deleteAuthUsers(cleanup.profileIds);
 });
@@ -275,5 +286,40 @@ describe("TC-IDEM-C: Stripe webhook 重複配信 → 冪等性", () => {
 
     // クリーンアップ
     await testAdmin.from("webhook_processed_events").delete().eq("stripe_event_id", stripeEventId);
+  });
+});
+
+// ── TC-IDEM-D: device_name の記録（子機モード端末識別） ────────────────────
+describe("TC-IDEM-D: /api/pay/complete — device_name が transactions に記録される", () => {
+  it("TC-IDEM-D-01: metadata.device_name が新規 transaction の device_name 列に保存される", async () => {
+    const fakePiId = `pi_idem_device_${Date.now()}`;
+    captured.fakePiId = fakePiId;
+    captured.fakeSessionPaymentStatus = "paid";
+    captured.fakePiStatus = "succeeded";
+    captured.fakeMetadata = {
+      product_id: cheersProductId,
+      qr_config_id: qrConfigId,
+      device_name: "DJ-01",
+    };
+
+    const req = new Request("http://localhost/api/pay/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: "cs_test_device_mock" }),
+    });
+    const res = await completePOST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    cleanup.transactionIds.push(data.transaction_id);
+
+    const { data: tx } = await testAdmin
+      .from("transactions")
+      .select("device_name")
+      .eq("transaction_id", data.transaction_id)
+      .single();
+    expect(tx?.device_name).toBe("DJ-01");
+
+    captured.fakeMetadata = {};
   });
 });

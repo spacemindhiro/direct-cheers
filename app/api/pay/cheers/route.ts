@@ -127,6 +127,7 @@ export async function POST(req: Request) {
       product_id,
       artist_name: metadata?.artist_name ?? "",
       event_title: metadata?.event_title ?? "",
+      device_name: metadata?.device_name ?? "",
       ...(loggedInEmail ? { sender_email: loggedInEmail } : {}),
     },
   };

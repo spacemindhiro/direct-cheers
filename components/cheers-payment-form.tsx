@@ -122,12 +122,14 @@ export function CheersPaymentForm({
   recipientName,
   eventTitle,
   paypayEnabled = false,
+  deviceName,
 }: {
   qrConfigId: string;
   products: Product[];
   recipientName: string;
   eventTitle: string;
   paypayEnabled?: boolean;
+  deviceName?: string;
 }) {
   const selectedProduct = products[0];
   const isTypeA = selectedProduct?.type === "entrance" && selectedProduct?.payment_type === "A";
@@ -184,7 +186,7 @@ export function CheersPaymentForm({
           amount,
           payment_method: paymentMethod,
           customer_email: confirmedEmail,
-          metadata: { artist_name: recipientName, event_title: eventTitle },
+          metadata: { artist_name: recipientName, event_title: eventTitle, device_name: deviceName ?? "" },
         }),
       });
       const data = await res.json();

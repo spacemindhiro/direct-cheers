@@ -98,6 +98,40 @@ export async function POST(
   return NextResponse.json(data, { status: 201 });
 }
 
+// スケジュール編集（設定済みスロットの内容を変更）
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ eventId: string }> }
+) {
+  const { eventId } = await params;
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const admin = createAdminClient();
+  const allowed = await canManage(admin, eventId, user.id);
+  if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+  const body = await req.json();
+  const { schedule_id, qr_config_id, start_at, end_at, label } = body;
+
+  if (!schedule_id) return NextResponse.json({ error: "schedule_id required" }, { status: 400 });
+  if (!start_at || !end_at) {
+    return NextResponse.json({ error: "start_at と end_at は必須です" }, { status: 400 });
+  }
+  if (new Date(end_at) <= new Date(start_at)) {
+    return NextResponse.json({ error: "end_at は start_at より後にしてください" }, { status: 400 });
+  }
+
+  const { error } = await admin
+    .from("display_schedules")
+    .update({ qr_config_id: qr_config_id ?? null, start_at, end_at, label: label ?? null })
+    .eq("schedule_id", schedule_id)
+    .eq("event_id", eventId);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
+
 // スケジュール削除（soft delete）
 export async function DELETE(
   req: Request,

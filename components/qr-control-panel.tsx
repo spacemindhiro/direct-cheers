@@ -5,10 +5,10 @@ import { createClient } from "@/lib/supabase/client";
 import {
   Wifi, WifiOff, Battery, BatteryLow, BatteryMedium, BatteryFull,
   Send, Users, Radio, CheckCircle2, Clock, Plus, Trash2, Calendar, RotateCcw,
-  X, LayoutGrid,
+  X, LayoutGrid, Pencil, Save,
 } from "lucide-react";
 import { DISPLAY_TZ } from "@/lib/display-tz";
-import { jstLocalToUtcIso, utcIsoToJstLocal } from "@/lib/utils";
+import { jstLocalToUtcIso, utcIsoToJstLocal, addHoursToLocalDT } from "@/lib/utils";
 import { DisplayTimetableGrid } from "@/components/display-timetable-grid";
 
 type Device = {
@@ -84,11 +84,13 @@ function BatteryIcon({ level }: { level: number | null }) {
 export function QRControlPanel({
   eventId,
   eventTitle,
+  eventStartAt,
   qrConfigs,
   siteUrl,
 }: {
   eventId: string;
   eventTitle: string;
+  eventStartAt: string;
   qrConfigs: QRConfig[];
   siteUrl: string;
 }) {
@@ -118,6 +120,9 @@ export function QRControlPanel({
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [newSlot, setNewSlot] = useState({ qr_config_id: "", start_at: "", end_at: "", label: "" });
   const [savingSlot, setSavingSlot] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editSlot, setEditSlot] = useState({ qr_config_id: "", start_at: "", end_at: "", label: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // ── Overview tab ──────────────────────────────────
   const [allSchedules, setAllSchedules] = useState<DisplaySchedule[]>([]);
@@ -172,6 +177,23 @@ export function QRControlPanel({
   useEffect(() => {
     if (tab === "timetable") fetchSchedules(selectedTrackId);
   }, [tab, selectedTrackId, fetchSchedules]);
+
+  // トラック切替時、新規スロットフォームをリセット（デフォルト値は下のeffectで再計算される）
+  useEffect(() => {
+    setNewSlot({ qr_config_id: "", start_at: "", end_at: "", label: "" });
+    setEditingId(null);
+  }, [selectedTrackId]);
+
+  // 新規スロットの開始・終了デフォルト値を計算
+  // 既存スロットが無ければ開始をパーティ開始日時に、あれば最遅の終了時刻を開始のデフォルトに、
+  // 終了は開始の1時間後をデフォルトにする
+  useEffect(() => {
+    if (tab !== "timetable" || newSlot.start_at) return;
+    const defaultStart = schedules.length === 0
+      ? utcIsoToJstLocal(eventStartAt)
+      : utcIsoToJstLocal(schedules.reduce((latest, s) => (s.end_at > latest ? s.end_at : latest), schedules[0].end_at));
+    setNewSlot(s => ({ ...s, start_at: defaultStart, end_at: addHoursToLocalDT(defaultStart, 1) }));
+  }, [schedules, tab, eventStartAt, newSlot.start_at]);
 
   // トラック一覧取得
   const fetchTracks = useCallback(async () => {
@@ -279,8 +301,11 @@ export function QRControlPanel({
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      setNewSlot({ qr_config_id: "", start_at: "", end_at: "", label: "" });
+      // 先に最新スケジュールを取得してから空にする（次のスロットの開始デフォルトに反映される）
       await fetchSchedules(selectedTrackId);
+      setNewSlot({ qr_config_id: "", start_at: "", end_at: "", label: "" });
+      // 子機に即時反映させる（タイムテーブル変更を通知）
+      channelRef.current?.send({ type: "broadcast", event: "schedule-updated", payload: {} });
     } catch (e: any) {
       setScheduleError(e.message);
     } finally {
@@ -293,7 +318,49 @@ export function QRControlPanel({
     try {
       await fetch(`/api/events/${eventId}/display-schedules?schedule_id=${scheduleId}`, { method: "DELETE" });
       setSchedules(s => s.filter(x => x.schedule_id !== scheduleId));
+      channelRef.current?.send({ type: "broadcast", event: "schedule-updated", payload: {} });
     } catch {}
+  };
+
+  // スロット編集開始
+  const startEdit = (s: DisplaySchedule) => {
+    setEditingId(s.schedule_id);
+    setEditSlot({
+      qr_config_id: s.qr_config_id ?? "",
+      start_at: utcIsoToJstLocal(s.start_at),
+      end_at: utcIsoToJstLocal(s.end_at),
+      label: s.label ?? "",
+    });
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
+  // スロット編集を保存
+  const saveEdit = async () => {
+    if (!editingId || !editSlot.start_at || !editSlot.end_at) return;
+    setSavingEdit(true);
+    setScheduleError(null);
+    try {
+      const res = await fetch(`/api/events/${eventId}/display-schedules`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          schedule_id: editingId,
+          qr_config_id: editSlot.qr_config_id || null,
+          start_at: jstLocalToUtcIso(editSlot.start_at),
+          end_at:   jstLocalToUtcIso(editSlot.end_at),
+          label: editSlot.label || null,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setEditingId(null);
+      await fetchSchedules(selectedTrackId);
+      channelRef.current?.send({ type: "broadcast", event: "schedule-updated", payload: {} });
+    } catch (e: any) {
+      setScheduleError(e.message);
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   // 子機のトラック割当変更（コントロールパネルから一括管理）
@@ -681,6 +748,84 @@ export function QRControlPanel({
               {schedules.map(s => {
                 const qcLabel = s.qr_config?.label ?? s.qr_config?.product?.name ?? "QR";
                 const artistName = s.qr_config?.product?.artist?.display_name;
+
+                if (editingId === s.schedule_id) {
+                  return (
+                    <div key={s.schedule_id} className="bg-slate-900 border border-indigo-500/40 rounded-2xl p-4 space-y-3">
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">QRコード（省略 = デフォルト）</label>
+                        <select
+                          value={editSlot.qr_config_id}
+                          onChange={e => {
+                            const qcId = e.target.value;
+                            const qc = qrConfigs.find(q => q.qr_config_id === qcId);
+                            setEditSlot(prev => ({ ...prev, qr_config_id: qcId, label: qc ? (qc.label || qc.product?.name || "") : "" }));
+                          }}
+                          className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="">— デフォルト（転換・休憩など）</option>
+                          {qrConfigs.map(qc => (
+                            <option key={qc.qr_config_id} value={qc.qr_config_id}>
+                              {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
+                              {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">開始（JST）</label>
+                          <input
+                            type="datetime-local"
+                            value={editSlot.start_at}
+                            onChange={e => setEditSlot(prev => ({ ...prev, start_at: e.target.value }))}
+                            className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">終了（JST）</label>
+                          <input
+                            type="datetime-local"
+                            value={editSlot.end_at}
+                            onChange={e => setEditSlot(prev => ({ ...prev, end_at: e.target.value }))}
+                            className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">ラベル（任意）</label>
+                        <input
+                          type="text"
+                          placeholder="例：転換・休憩・Aセット"
+                          value={editSlot.label}
+                          onChange={e => setEditSlot(prev => ({ ...prev, label: e.target.value }))}
+                          className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={saveEdit}
+                          disabled={savingEdit || !editSlot.start_at || !editSlot.end_at}
+                          className="flex-1 py-2.5 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          <Save size={12} /> {savingEdit ? "保存中..." : "保存"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                        >
+                          <X size={12} /> キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div key={s.schedule_id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-start gap-3">
                     <Calendar size={13} className="text-indigo-400 mt-0.5 shrink-0" />
@@ -698,6 +843,13 @@ export function QRControlPanel({
                         <p className="text-[10px] text-amber-500/70 mt-0.5">デフォルトQR表示</p>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(s)}
+                      className="text-slate-600 hover:text-indigo-400 transition-colors shrink-0 p-1"
+                    >
+                      <Pencil size={13} />
+                    </button>
                     <button
                       type="button"
                       onClick={() => deleteSlot(s.schedule_id)}
@@ -722,7 +874,11 @@ export function QRControlPanel({
               <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">QRコード（省略 = デフォルト）</label>
               <select
                 value={newSlot.qr_config_id}
-                onChange={e => setNewSlot(s => ({ ...s, qr_config_id: e.target.value }))}
+                onChange={e => {
+                  const qcId = e.target.value;
+                  const qc = qrConfigs.find(q => q.qr_config_id === qcId);
+                  setNewSlot(s => ({ ...s, qr_config_id: qcId, label: qc ? (qc.label || qc.product?.name || "") : "" }));
+                }}
                 className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
               >
                 <option value="">— デフォルト（転換・休憩など）</option>

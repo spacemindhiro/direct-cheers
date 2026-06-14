@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Wifi, WifiOff, Lock, X } from "lucide-react";
+import { Wifi, WifiOff, Lock, X, Smartphone } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PasskeySetup } from "@/components/passkey-setup";
 
@@ -139,7 +139,7 @@ export function QRBoardDisplay({
   const trackIdRef   = useRef<string | null>(null);
   const defaultQrStateRef = useRef<QRState | null>(null);
   const siteUrlRef   = useRef(typeof window !== "undefined" ? window.location.origin : "");
-  const [deviceName] = useState(() => {
+  const [deviceName, setDeviceName] = useState(() => {
     try {
       // ?device_name=DJ-01 のようなURLパラメーターで端末名を指定・上書き保存
       const urlName = searchParams.get("device_name");
@@ -160,6 +160,10 @@ export function QRBoardDisplay({
   const [showUnlock, setShowUnlock] = useState(false);
   const [channelError, setChannelError] = useState<string | null>(null);
   const [holdProgress, setHoldProgress] = useState(0);
+
+  // 端末名（識別名）設定
+  const [nameInput, setNameInput] = useState(deviceName);
+  const [nameSaved, setNameSaved] = useState(false);
 
   // チア演出
   const [cheerCount, setCheerCount] = useState(0);
@@ -299,13 +303,30 @@ export function QRBoardDisplay({
       .catch(() => trackIdRef.current);
   }, [eventId, deviceName]);
 
-  // 初回: 自己登録 → タイムテーブル取得 + タイマー自動切り替え（30秒間隔）
+  // 端末名（識別名）を変更し、localStorageとサーバーに反映
+  const updateDeviceName = useCallback((name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === deviceName) return;
+    try { localStorage.setItem(DEVICE_NAME_KEY, trimmed); } catch {}
+    setDeviceName(trimmed);
+    setNameSaved(true);
+    setTimeout(() => setNameSaved(false), 2000);
+    fetch(`/api/events/${eventId}/display-devices`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: getOrCreateDeviceId(), device_name: trimmed }),
+    }).catch(() => {});
+  }, [eventId, deviceName]);
+
+  // 初回: 自己登録 → タイムテーブル取得 + タイマーで定期再取得（30秒間隔）
+  // ※ schedulesRef の再評価だけでは新規登録されたスケジュールを検知できないため、
+  //    毎回サーバーから最新のタイムテーブルを取得して適用する
   useEffect(() => {
     registerDevice().then((trackId) => fetchSchedules(trackId));
 
-    const timer = setInterval(() => applySchedule(schedulesRef.current), 30_000);
+    const timer = setInterval(() => fetchSchedules(trackIdRef.current), 30_000);
     return () => clearInterval(timer);
-  }, [registerDevice, fetchSchedules, applySchedule]);
+  }, [registerDevice, fetchSchedules]);
 
   // PWAキオスクモード: OS/ブラウザのバックナビゲーションをブロック
   useEffect(() => {
@@ -429,6 +450,11 @@ export function QRBoardDisplay({
       const { device_id: targetDeviceId } = payload as { device_id: string; track_id: string | null };
       if (targetDeviceId !== deviceId) return;
       registerDevice().then((trackId) => fetchSchedules(trackId));
+    });
+
+    // コントロールパネルでタイムテーブルが追加・削除された → 即座に最新スケジュールを取得して反映
+    channel.on("broadcast", { event: "schedule-updated" }, () => {
+      fetchSchedules(trackIdRef.current);
     });
 
     channel.subscribe(async (status) => {
@@ -648,6 +674,31 @@ export function QRBoardDisplay({
               <div className="flex items-center gap-2">
                 <Lock size={14} className="text-indigo-400" />
                 <p className="text-sm font-black text-white">ロック解除</p>
+              </div>
+
+              {/* 端末名（識別名）設定 */}
+              <div className="space-y-2 pb-4 border-b border-slate-700">
+                <label className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                  <Smartphone size={12} /> 端末名（識別名）
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    placeholder="例: DJ-01"
+                    className="flex-1 h-10 px-3 bg-slate-800 border border-slate-600 rounded-xl text-white text-sm font-bold focus:outline-none focus:border-indigo-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateDeviceName(nameInput)}
+                    disabled={!nameInput.trim() || nameInput.trim() === deviceName}
+                    className="h-10 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl font-black text-sm transition-all"
+                  >
+                    保存
+                  </button>
+                </div>
+                {nameSaved && <p className="text-xs text-emerald-400 font-bold">保存しました</p>}
               </div>
 
               <PasskeySetup

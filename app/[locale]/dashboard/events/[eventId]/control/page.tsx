@@ -26,7 +26,7 @@ async function ControlContent({ params }: { params: Promise<{ eventId: string }>
 
   const { data: event } = await admin
     .from("events")
-    .select("event_id, title, organizer_profile_id, agent_id")
+    .select("event_id, title, organizer_profile_id, agent_id, start_at")
     .eq("event_id", eventId)
     .single();
 
@@ -58,6 +58,7 @@ async function ControlContent({ params }: { params: Promise<{ eventId: string }>
 <QRControlPanel
         eventId={eventId}
         eventTitle={event.title}
+        eventStartAt={event.start_at}
         qrConfigs={(qrConfigs ?? []) as any}
         siteUrl={siteUrl}
       />

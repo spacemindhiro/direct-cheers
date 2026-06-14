@@ -197,6 +197,7 @@ export function QRBoardDisplay({
   const celebrationEndRef  = useRef<number>(0);
   const celebrationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isSurgeRef         = useRef(false);
+  const pendingCheerCountRef = useRef(0);
   const lastRealtimeRef    = useRef<number>(0);    // last Realtime cheer timestamp
   const lastPolledCountRef = useRef<number>(0);    // server count at last poll
 
@@ -256,14 +257,9 @@ export function QRBoardDisplay({
     const isSurge = recentCheersRef.current.length >= SURGE_THRESHOLD;
     isSurgeRef.current = isSurge;
 
-    setCheerCount((c) => c + 1);
+    pendingCheerCountRef.current += 1;
     spawnHearts(isSurge);
     spawnTexts(isSurge);
-
-    // 累計カウンターの「キラーン」エフェクト
-    setCounterPulse(true);
-    if (counterPulseTimerRef.current) clearTimeout(counterPulseTimerRef.current);
-    counterPulseTimerRef.current = setTimeout(() => setCounterPulse(false), 700);
 
     if (isSurge) {
       setSurgeGlow(true);
@@ -271,13 +267,21 @@ export function QRBoardDisplay({
       surgeTimerRef.current = setTimeout(() => setSurgeGlow(false), 3000);
     }
 
-    // 約15秒間、波状にハート・テキストを追加し続けて演出を盛り上げる
+    // 約15秒間、波状にハート・テキストを追加し続けて演出を盛り上げ、
+    // 終了タイミングでまとめて「キラーン」カウントアップする
     celebrationEndRef.current = now + CELEBRATION_DURATION_MS;
     if (!celebrationTimerRef.current) {
       celebrationTimerRef.current = setInterval(() => {
         if (Date.now() >= celebrationEndRef.current) {
           if (celebrationTimerRef.current) clearInterval(celebrationTimerRef.current);
           celebrationTimerRef.current = null;
+          if (pendingCheerCountRef.current > 0) {
+            setCheerCount((c) => c + pendingCheerCountRef.current);
+            pendingCheerCountRef.current = 0;
+            setCounterPulse(true);
+            if (counterPulseTimerRef.current) clearTimeout(counterPulseTimerRef.current);
+            counterPulseTimerRef.current = setTimeout(() => setCounterPulse(false), 700);
+          }
           return;
         }
         spawnHearts(isSurgeRef.current);
@@ -677,21 +681,21 @@ export function QRBoardDisplay({
 
         {/* チア数カウンター */}
         {cheerCount > 0 && (
-          <div className="absolute top-4 left-4 z-10 pointer-events-none flex items-center gap-2">
+          <div className="absolute top-4 left-4 z-10 pointer-events-none flex items-center gap-3">
             <span
               style={{
-                color: "#ff6b9d", fontSize: "1.7rem", lineHeight: 1, display: "inline-block",
+                color: "#ff6b9d", fontSize: "4.6rem", lineHeight: 1, display: "inline-block",
                 textShadow: "0 0 10px #ff6b9d",
                 animation: counterPulse ? "counterPop 0.6s ease-out" : undefined,
               }}
             >♥</span>
-            <span className="relative text-base font-black tabular-nums"
-              style={{ color: "#ff6b9d", textShadow: surgeGlow ? "0 0 8px #ff6b9d" : "none" }}>
+            <span className="relative font-black tabular-nums"
+              style={{ color: "#ff6b9d", fontSize: "3rem", textShadow: surgeGlow ? "0 0 8px #ff6b9d" : "none" }}>
               {cheerCount.toLocaleString()}
               {counterPulse && (
                 <Sparkles
-                  size={20}
-                  className="absolute -top-2.5 -right-5 text-yellow-300"
+                  size={40}
+                  className="absolute -top-4 -right-9 text-yellow-300"
                   style={{ animation: "sparkleFlash 0.7s ease-out", filter: "drop-shadow(0 0 6px #ffd54f)" }}
                 />
               )}

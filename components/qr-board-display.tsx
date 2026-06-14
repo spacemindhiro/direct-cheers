@@ -91,7 +91,24 @@ function generateUUID(): string {
   });
 }
 
-function getOrCreateDeviceId() {
+// 文字列からUUID形式の決定論的なIDを生成する。
+// 端末名（?device_name=で固定されることが多い）が分かっている場合はこれを使い、
+// localStorageが端末再起動で消える環境でも同じ端末名なら同じdevice_idになるようにする。
+function hashToUuid(input: string): string {
+  let h1 = 0x811c9dc5, h2 = 0x1000193, h3 = 0x9e3779b9, h4 = 0x85ebca6b;
+  for (let i = 0; i < input.length; i++) {
+    const c = input.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193);
+    h2 = Math.imul(h2 ^ c, 0x85ebca6b);
+    h3 = Math.imul(h3 ^ c, 0xc2b2ae35);
+    h4 = Math.imul(h4 ^ c, 0x27d4eb2f);
+  }
+  const hex32 = [h1, h2, h3, h4].map(n => (n >>> 0).toString(16).padStart(8, "0")).join("");
+  return `${hex32.slice(0, 8)}-${hex32.slice(8, 12)}-${hex32.slice(12, 16)}-${hex32.slice(16, 20)}-${hex32.slice(20, 32)}`;
+}
+
+function getOrCreateDeviceId(deviceName?: string) {
+  if (deviceName) return hashToUuid(deviceName);
   let id = localStorage.getItem(DEVICE_ID_KEY);
   if (!id) { id = generateUUID(); localStorage.setItem(DEVICE_ID_KEY, id); }
   return id;
@@ -318,7 +335,7 @@ export function QRBoardDisplay({
     return fetch(`/api/events/${eventId}/display-devices`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_id: getOrCreateDeviceId(), device_name: deviceName }),
+      body: JSON.stringify({ device_id: getOrCreateDeviceId(deviceName), device_name: deviceName }),
     })
       .then(r => r.ok ? r.json() : { track_id: null, default_qr_config: null })
       .then((data: { track_id: string | null; default_qr_config: QrConfigInfo }) => {
@@ -342,7 +359,7 @@ export function QRBoardDisplay({
     fetch(`/api/events/${eventId}/display-devices`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_id: getOrCreateDeviceId(), device_name: trimmed }),
+      body: JSON.stringify({ device_id: getOrCreateDeviceId(trimmed), device_name: trimmed }),
     }).catch(() => {});
   }, [eventId, deviceName]);
 
@@ -432,7 +449,7 @@ export function QRBoardDisplay({
   // Supabase Realtime
   useEffect(() => {
     const supabase = createClient();
-    const deviceId = getOrCreateDeviceId();
+    const deviceId = getOrCreateDeviceId(deviceName);
 
     const channel = supabase.channel(`event-display:${eventId}`, {
       config: { presence: { key: deviceId } },

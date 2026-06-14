@@ -520,7 +520,10 @@ export function QRBoardDisplay({
       clearInterval(timer);
       if (surgeTimerRef.current) clearTimeout(surgeTimerRef.current);
       if (counterPulseTimerRef.current) clearTimeout(counterPulseTimerRef.current);
-      if (celebrationTimerRef.current) clearInterval(celebrationTimerRef.current);
+      if (celebrationTimerRef.current) {
+        clearInterval(celebrationTimerRef.current);
+        celebrationTimerRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
   }, [eventId, deviceName, onCheerNew, registerDevice, fetchSchedules]);

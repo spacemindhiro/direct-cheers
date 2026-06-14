@@ -24,6 +24,11 @@ export const metadata: Metadata = {
   icons: {
     apple: "/icon-192.png",
   },
+  other: {
+    // Next.js 16のappleWebApp.capableはmobile-web-app-capableのみを出力するため、
+    // iOSのスタンドアロン判定に必要なapple-mobile-web-app-capableを明示的に追加する
+    "apple-mobile-web-app-capable": "yes",
+  },
 };
 
 const geistSans = Geist({

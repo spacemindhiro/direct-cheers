@@ -234,6 +234,31 @@ export function QRControlPanel({
     }
   }, [tab, fetchTracks, fetchAllSchedules]);
 
+  // presence（オンライン）と DB登録済みデバイスをマージ
+  const mergedDevices = useMemo<MergedDevice[]>(() => {
+    const map = new Map<string, MergedDevice>();
+    for (const d of dbDevices) {
+      map.set(d.device_id, {
+        device_id: d.device_id,
+        device_name: d.device_name || d.device_id.slice(0, 8),
+        battery_level: null,
+        online: false,
+        track_id: d.track_id,
+      });
+    }
+    for (const d of devices) {
+      const existing = map.get(d.device_id);
+      map.set(d.device_id, {
+        device_id: d.device_id,
+        device_name: d.device_name || existing?.device_name || d.device_id.slice(0, 8),
+        battery_level: d.battery_level,
+        online: true,
+        track_id: existing?.track_id ?? null,
+      });
+    }
+    return Array.from(map.values());
+  }, [dbDevices, devices]);
+
   // QRをプッシュ（強制モード）
   const pushQR = useCallback(async (config: QRConfig) => {
     if (!channelRef.current || pushing) return;
@@ -256,13 +281,28 @@ export function QRControlPanel({
       if (result === "ok") {
         setActiveConfigId(config.qr_config_id);
         setIsForcedActive(true);
+        // NFCタグのリダイレクト先も連動して更新（対象デバイスのbooth_devicesを同期）
+        const targets = targetDeviceId
+          ? mergedDevices.filter((d) => d.device_id === targetDeviceId)
+          : mergedDevices;
+        for (const d of targets) {
+          fetch("/api/booth-devices/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              device_code: d.device_name,
+              event_id: eventId,
+              qr_config_id: config.qr_config_id,
+            }),
+          }).catch(() => {});
+        }
       } else {
         setPushError(`送信失敗: ${result}`);
       }
     } finally {
       setPushing(false);
     }
-  }, [pushing, siteUrl, targetDeviceId]);
+  }, [pushing, siteUrl, targetDeviceId, mergedDevices, eventId]);
 
   // 強制モードを解除してタイムテーブルに戻す
   const cancelForced = useCallback(async () => {
@@ -438,31 +478,6 @@ export function QRControlPanel({
       await fetchTracks();
     } catch {}
   };
-
-  // presence（オンライン）と DB登録済みデバイスをマージ
-  const mergedDevices = useMemo<MergedDevice[]>(() => {
-    const map = new Map<string, MergedDevice>();
-    for (const d of dbDevices) {
-      map.set(d.device_id, {
-        device_id: d.device_id,
-        device_name: d.device_name || d.device_id.slice(0, 8),
-        battery_level: null,
-        online: false,
-        track_id: d.track_id,
-      });
-    }
-    for (const d of devices) {
-      const existing = map.get(d.device_id);
-      map.set(d.device_id, {
-        device_id: d.device_id,
-        device_name: d.device_name || existing?.device_name || d.device_id.slice(0, 8),
-        battery_level: d.battery_level,
-        online: true,
-        track_id: existing?.track_id ?? null,
-      });
-    }
-    return Array.from(map.values());
-  }, [dbDevices, devices]);
 
   return (
     <div className="space-y-6 pb-20">

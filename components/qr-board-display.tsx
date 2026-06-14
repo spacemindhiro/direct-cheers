@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Wifi, WifiOff, Lock, X, Smartphone } from "lucide-react";
+import { Wifi, WifiOff, Lock, X, Smartphone, Sparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PasskeySetup } from "@/components/passkey-setup";
 
@@ -70,11 +70,14 @@ type FloatingText = {
   color: string;
 };
 
-const HEART_COLORS = ["#ff6b9d", "#ff4081", "#f06292", "#e91e63", "#ff8a80", "#ff1744"];
+const HEART_COLORS = ["#ff6b9d", "#ff4081", "#f06292", "#e91e63", "#ff8a80", "#ff1744", "#ffd54f", "#ff9e80"];
 const CHEER_TEXTS = ["Thank you!", "Cheers!"];
-const TEXT_COLORS = ["#ff4081", "#ffd54f", "#ffffff"];
+const TEXT_COLORS = ["#ff4081", "#ffd54f", "#ffffff", "#69f0ae", "#40c4ff"];
 const SURGE_WINDOW_MS = 10_000;
 const SURGE_THRESHOLD = 5;
+// チア受信後、約15秒間ハート・テキストを波状に追加し続けて演出を盛り上げる
+const CELEBRATION_DURATION_MS = 15_000;
+const CELEBRATION_INTERVAL_MS = 650;
 
 const STORAGE_KEY   = (id: string) => `qr-display:${id}`;
 const DEVICE_ID_KEY  = "qr-display-device-id";
@@ -170,8 +173,13 @@ export function QRBoardDisplay({
   const [hearts, setHearts]         = useState<FloatingHeart[]>([]);
   const [texts, setTexts]           = useState<FloatingText[]>([]);
   const [surgeGlow, setSurgeGlow]   = useState(false);
+  const [counterPulse, setCounterPulse] = useState(false);
   const recentCheersRef    = useRef<number[]>([]);
   const surgeTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const counterPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const celebrationEndRef  = useRef<number>(0);
+  const celebrationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isSurgeRef         = useRef(false);
   const lastRealtimeRef    = useRef<number>(0);    // last Realtime cheer timestamp
   const lastPolledCountRef = useRef<number>(0);    // server count at last poll
 
@@ -184,13 +192,13 @@ export function QRBoardDisplay({
 
   // ハート生成
   const spawnHearts = useCallback((isSurge: boolean) => {
-    const count = isSurge ? 40 : 10;
+    const count = isSurge ? 55 : 16;
     const newHearts: FloatingHeart[] = Array.from({ length: count }, (_, i) => ({
       id: `${Date.now()}-${i}-${Math.random()}`,
       x: 3 + Math.random() * 94,
-      size: isSurge ? 4 + Math.random() * 4 : 2.5 + Math.random() * 2,
-      duration: isSurge ? 1400 + Math.random() * 900 : 2200 + Math.random() * 1400,
-      delay: isSurge ? Math.random() * 700 : Math.random() * 250,
+      size: isSurge ? 5 + Math.random() * 5 : 3 + Math.random() * 3,
+      duration: isSurge ? 1800 + Math.random() * 1200 : 2600 + Math.random() * 1800,
+      delay: isSurge ? Math.random() * 700 : Math.random() * 300,
       color: HEART_COLORS[Math.floor(Math.random() * HEART_COLORS.length)],
     }));
     setHearts((prev) => [...prev, ...newHearts]);
@@ -202,15 +210,15 @@ export function QRBoardDisplay({
 
   // 「Thank you! / Cheers!」テキストポップ生成
   const spawnTexts = useCallback((isSurge: boolean) => {
-    const count = isSurge ? 3 : 1;
+    const count = isSurge ? 4 : 2;
     const newTexts: FloatingText[] = Array.from({ length: count }, (_, i) => ({
       id: `${Date.now()}-t${i}-${Math.random()}`,
       text: CHEER_TEXTS[Math.floor(Math.random() * CHEER_TEXTS.length)],
       x: 10 + Math.random() * 80,
-      y: 20 + Math.random() * 40,
-      size: 1.8 + Math.random() * 1.4,
-      duration: 1200 + Math.random() * 500,
-      delay: Math.random() * 300,
+      y: 18 + Math.random() * 45,
+      size: 2.2 + Math.random() * 1.8,
+      duration: 1500 + Math.random() * 700,
+      delay: Math.random() * 400,
       color: TEXT_COLORS[Math.floor(Math.random() * TEXT_COLORS.length)],
     }));
     setTexts((prev) => [...prev, ...newTexts]);
@@ -229,15 +237,35 @@ export function QRBoardDisplay({
       now,
     ];
     const isSurge = recentCheersRef.current.length >= SURGE_THRESHOLD;
+    isSurgeRef.current = isSurge;
 
     setCheerCount((c) => c + 1);
     spawnHearts(isSurge);
     spawnTexts(isSurge);
 
+    // 累計カウンターの「キラーン」エフェクト
+    setCounterPulse(true);
+    if (counterPulseTimerRef.current) clearTimeout(counterPulseTimerRef.current);
+    counterPulseTimerRef.current = setTimeout(() => setCounterPulse(false), 700);
+
     if (isSurge) {
       setSurgeGlow(true);
       if (surgeTimerRef.current) clearTimeout(surgeTimerRef.current);
       surgeTimerRef.current = setTimeout(() => setSurgeGlow(false), 3000);
+    }
+
+    // 約15秒間、波状にハート・テキストを追加し続けて演出を盛り上げる
+    celebrationEndRef.current = now + CELEBRATION_DURATION_MS;
+    if (!celebrationTimerRef.current) {
+      celebrationTimerRef.current = setInterval(() => {
+        if (Date.now() >= celebrationEndRef.current) {
+          if (celebrationTimerRef.current) clearInterval(celebrationTimerRef.current);
+          celebrationTimerRef.current = null;
+          return;
+        }
+        spawnHearts(isSurgeRef.current);
+        spawnTexts(isSurgeRef.current);
+      }, CELEBRATION_INTERVAL_MS);
     }
   }, [spawnHearts, spawnTexts]);
 
@@ -476,6 +504,8 @@ export function QRBoardDisplay({
     return () => {
       clearInterval(timer);
       if (surgeTimerRef.current) clearTimeout(surgeTimerRef.current);
+      if (counterPulseTimerRef.current) clearTimeout(counterPulseTimerRef.current);
+      if (celebrationTimerRef.current) clearInterval(celebrationTimerRef.current);
       supabase.removeChannel(channel);
     };
   }, [eventId, deviceName, onCheerNew, registerDevice, fetchSchedules]);
@@ -527,6 +557,17 @@ export function QRBoardDisplay({
           30%  { transform: scale(1.15) translateY(0) rotate(3deg); opacity: 1; }
           70%  { transform: scale(1) rotate(-2deg); opacity: 1; }
           100% { transform: scale(0.9) translateY(-40px) rotate(0deg); opacity: 0; }
+        }
+        @keyframes counterPop {
+          0%   { transform: scale(1); }
+          35%  { transform: scale(1.7); }
+          65%  { transform: scale(0.9); }
+          100% { transform: scale(1); }
+        }
+        @keyframes sparkleFlash {
+          0%   { transform: scale(0.2) rotate(-20deg); opacity: 0; }
+          40%  { transform: scale(1.4) rotate(15deg); opacity: 1; }
+          100% { transform: scale(0.4) rotate(35deg); opacity: 0; }
         }
       `}</style>
 
@@ -619,11 +660,24 @@ export function QRBoardDisplay({
 
         {/* チア数カウンター */}
         {cheerCount > 0 && (
-          <div className="absolute top-4 left-4 z-10 pointer-events-none flex items-center gap-1.5">
-            <span style={{ color: "#ff6b9d", fontSize: "0.9rem", lineHeight: 1 }}>♥</span>
-            <span className="text-[11px] font-black tabular-nums"
+          <div className="absolute top-4 left-4 z-10 pointer-events-none flex items-center gap-2">
+            <span
+              style={{
+                color: "#ff6b9d", fontSize: "1.7rem", lineHeight: 1, display: "inline-block",
+                textShadow: "0 0 10px #ff6b9d",
+                animation: counterPulse ? "counterPop 0.6s ease-out" : undefined,
+              }}
+            >♥</span>
+            <span className="relative text-base font-black tabular-nums"
               style={{ color: "#ff6b9d", textShadow: surgeGlow ? "0 0 8px #ff6b9d" : "none" }}>
               {cheerCount.toLocaleString()}
+              {counterPulse && (
+                <Sparkles
+                  size={20}
+                  className="absolute -top-2.5 -right-5 text-yellow-300"
+                  style={{ animation: "sparkleFlash 0.7s ease-out", filter: "drop-shadow(0 0 6px #ffd54f)" }}
+                />
+              )}
             </span>
           </div>
         )}
@@ -636,11 +690,11 @@ export function QRBoardDisplay({
         {/* QR表示 */}
         {qrState ? (
           <div className="relative flex flex-col items-center gap-4 px-4 py-6 w-full pointer-events-none">
-            <p className="text-3xl font-black text-white uppercase tracking-tight text-center leading-tight">
-              {qrState.artist_name ? <><span className="text-pink-400">宛先：</span>{qrState.artist_name}</> : eventTitle}
+            <p className="text-4xl font-black text-white uppercase tracking-tight text-center leading-tight">
+              {qrState.label || qrState.product_name}
             </p>
             <p className="text-base font-bold text-slate-400 text-center">
-              {qrState.label || qrState.product_name}
+              {qrState.artist_name ? <><span className="text-pink-400">宛先：</span>{qrState.artist_name}</> : eventTitle}
             </p>
             <div className="p-5 pb-3 bg-white rounded-3xl shadow-2xl flex flex-col items-center gap-1.5">
               <canvas ref={canvasRef} />

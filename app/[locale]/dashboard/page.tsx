@@ -738,27 +738,6 @@ async function DashboardContent() {
         </Link>
       )}
 
-      {/* 機材ペアリング（NFC⇔子機） */}
-      {['organizer', 'agent', 'admin'].includes(profile?.role ?? '') && (
-        <Link
-          href="/dashboard/booth-devices"
-          className="block bg-slate-900 border border-slate-800 hover:border-violet-500/40 rounded-[2rem] p-6 transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center border border-violet-500/20 group-hover:bg-violet-500/20 transition-all">
-              <Smartphone size={22} className="text-violet-400" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Booth Devices</p>
-              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-violet-400 transition-colors">
-                機材ペアリング
-              </p>
-              <p className="text-xs text-slate-500 mt-0.5">NFCタグと子機タブレットを紐づけ</p>
-            </div>
-          </div>
-        </Link>
-      )}
-
       {/* Admin/Agent: フォロワーインサイト */}
       {['admin', 'agent'].includes(profile?.role ?? '') && (
         <Link
@@ -893,6 +872,27 @@ async function DashboardContent() {
                 バッチ処理レポート
               </p>
               <p className="text-xs text-slate-500 mt-0.5">Cron処理結果・未回収リスク確認</p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Admin: 機材ペアリング（NFC⇔子機・全イベント横断） */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/booth-devices"
+          className="block bg-slate-900 border border-slate-800 hover:border-violet-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center border border-violet-500/20 group-hover:bg-violet-500/20 transition-all">
+              <Smartphone size={22} className="text-violet-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-violet-400 transition-colors">
+                機材ペアリング
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">NFCタグ⇔子機 ペアリング一覧（全イベント横断）</p>
             </div>
           </div>
         </Link>

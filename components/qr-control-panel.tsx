@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   Wifi, WifiOff, Battery, BatteryLow, BatteryMedium, BatteryFull,
   Send, Users, Radio, CheckCircle2, Clock, Plus, Trash2, Calendar, RotateCcw,
-  X, LayoutGrid, Pencil, Save,
+  X, LayoutGrid, Pencil, Save, Nfc, Loader2,
 } from "lucide-react";
 import { DISPLAY_TZ } from "@/lib/display-tz";
 import { jstLocalToUtcIso, utcIsoToJstLocal, addHoursToLocalDT } from "@/lib/utils";
@@ -113,6 +113,11 @@ export function QRControlPanel({
   const [savingTrack, setSavingTrack] = useState(false);
   const [trackError, setTrackError] = useState<string | null>(null);
 
+  // ── NFCタグ⇔子機 ペアリング ────────────────────────
+  const [nfcRoutingMap, setNfcRoutingMap] = useState<Record<string, string | null>>({});
+  const [nfcInputs, setNfcInputs] = useState<Record<string, string>>({});
+  const [nfcSaving, setNfcSaving] = useState<Record<string, boolean>>({});
+
   // ── Timetable tab ─────────────────────────────────
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [schedules, setSchedules] = useState<DisplaySchedule[]>([]);
@@ -211,10 +216,24 @@ export function QRControlPanel({
     } catch {}
   }, [eventId]);
 
+  // NFCタグ⇔子機 ペアリング一覧取得
+  const fetchBoothDevices = useCallback(async () => {
+    try {
+      const res = await fetch("/api/booth-devices");
+      if (res.ok) {
+        const data: { device_code: string; nfc_routing_id: string | null }[] = await res.json();
+        const map: Record<string, string | null> = {};
+        for (const d of data) map[d.device_code] = d.nfc_routing_id;
+        setNfcRoutingMap(map);
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     fetchTracks();
     fetchDbDevices();
-  }, [fetchTracks, fetchDbDevices]);
+    fetchBoothDevices();
+  }, [fetchTracks, fetchDbDevices, fetchBoothDevices]);
 
   // 全体表（overview）用：全トラックのスケジュールを一括取得
   const fetchAllSchedules = useCallback(async () => {
@@ -436,6 +455,24 @@ export function QRControlPanel({
     }
   }, [eventId]);
 
+  // NFCタグの紐付け保存（device_code = device_name）
+  const saveNfc = useCallback(async (deviceCode: string) => {
+    const value = (nfcInputs[deviceCode] ?? nfcRoutingMap[deviceCode] ?? "").trim();
+    setNfcSaving(prev => ({ ...prev, [deviceCode]: true }));
+    try {
+      const res = await fetch("/api/booth-devices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_code: deviceCode, nfc_routing_id: value || null }),
+      });
+      if (res.ok) {
+        setNfcRoutingMap(prev => ({ ...prev, [deviceCode]: value || null }));
+      }
+    } finally {
+      setNfcSaving(prev => ({ ...prev, [deviceCode]: false }));
+    }
+  }, [nfcInputs, nfcRoutingMap]);
+
   // トラック追加
   const addTrack = async () => {
     if (!newTrackName.trim()) return;
@@ -504,44 +541,69 @@ export function QRControlPanel({
           <p className="text-xs text-slate-600 italic font-bold">子機が接続されていません</p>
         ) : (
           <div className="space-y-2">
-            {mergedDevices.map((d) => (
-              <div key={d.device_id} className="flex items-center justify-between px-4 py-3 bg-slate-800/50 rounded-xl gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${d.online ? "bg-green-400 animate-pulse" : "bg-slate-600"}`} />
-                  <span className="text-sm font-bold text-slate-200 truncate">{d.device_name}</span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {d.online && (
-                    <div className="flex items-center gap-1.5">
-                      <BatteryIcon level={d.battery_level} />
-                      <span className="text-xs font-mono text-slate-400">
-                        {d.battery_level !== null ? `${d.battery_level}%` : "--"}
-                      </span>
-                    </div>
-                  )}
-                  <select
-                    value={d.track_id ?? ""}
-                    onChange={e => assignTrack(d.device_id, e.target.value || null)}
-                    className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="">共通</option>
-                    {tracks.map(t => (
-                      <option key={t.track_id} value={t.track_id}>{t.name}</option>
-                    ))}
-                  </select>
-                  {!d.online && (
-                    <button
-                      type="button"
-                      onClick={() => removeDevice(d.device_id)}
-                      className="text-slate-600 hover:text-red-400 transition-colors shrink-0 p-1"
-                      title="この端末エントリを削除"
+            {mergedDevices.map((d) => {
+              const nfcValue = nfcInputs[d.device_name] ?? nfcRoutingMap[d.device_name] ?? "";
+              const nfcDirty = nfcValue !== (nfcRoutingMap[d.device_name] ?? "");
+              return (
+              <div key={d.device_id} className="bg-slate-800/50 rounded-xl px-4 py-3 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${d.online ? "bg-green-400 animate-pulse" : "bg-slate-600"}`} />
+                    <span className="text-sm font-bold text-slate-200 truncate">{d.device_name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {d.online && (
+                      <div className="flex items-center gap-1.5">
+                        <BatteryIcon level={d.battery_level} />
+                        <span className="text-xs font-mono text-slate-400">
+                          {d.battery_level !== null ? `${d.battery_level}%` : "--"}
+                        </span>
+                      </div>
+                    )}
+                    <select
+                      value={d.track_id ?? ""}
+                      onChange={e => assignTrack(d.device_id, e.target.value || null)}
+                      className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
                     >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
+                      <option value="">共通</option>
+                      {tracks.map(t => (
+                        <option key={t.track_id} value={t.track_id}>{t.name}</option>
+                      ))}
+                    </select>
+                    {!d.online && (
+                      <button
+                        type="button"
+                        onClick={() => removeDevice(d.device_id)}
+                        className="text-slate-600 hover:text-red-400 transition-colors shrink-0 p-1"
+                        title="この端末エントリを削除"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
+                  <Nfc size={13} className="text-slate-500 shrink-0" />
+                  <input
+                    type="text"
+                    value={nfcValue}
+                    onChange={e => setNfcInputs(prev => ({ ...prev, [d.device_name]: e.target.value }))}
+                    placeholder="NFCタグID（例: nfc_001）"
+                    className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => saveNfc(d.device_name)}
+                    disabled={nfcSaving[d.device_name] || !nfcDirty}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-xs font-bold text-indigo-300 hover:bg-indigo-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                  >
+                    {nfcSaving[d.device_name] ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                    保存
+                  </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

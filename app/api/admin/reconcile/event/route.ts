@@ -84,9 +84,12 @@ export async function POST(req: Request) {
       const allAccruedDists = ((tx.transaction_distributions ?? []) as any[]).filter(
         (d) => d.distribution_status === "accrued"
       );
-      // agent は platform_fee から払う固定額 → スケール対象外
+      // agent・platform はいずれも固定額 → スケール対象外
+      // platform (admin) も固定: gross × platform_rate から agent 分を除いた残り
       const agentDists = allAccruedDists.filter((d: any) => d.distribution_role === "agent");
-      const artistOrgDists = allAccruedDists.filter((d: any) => d.distribution_role !== "agent");
+      const artistOrgDists = allAccruedDists.filter(
+        (d: any) => !["agent", "platform"].includes(d.distribution_role)
+      );
 
       // artist/org の調整ターゲット = stripe_net - platform_fee（platformが取る固定額を除いた残り）
       const platformFee = (tx as any).platform_fee ?? 0;

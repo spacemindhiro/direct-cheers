@@ -171,7 +171,10 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
                       ? tx.total_gross_amount + tx.amount_mismatch : null;
                     const grossChanged = tx.amount_mismatch !== null && tx.amount_mismatch !== 0;
                     const feeChanged = tx.stripe_fee_actual !== null && tx.stripe_fee_actual !== tx.stripe_fee;
-                    const netChanged = tx.stripe_net_actual !== null && tx.stripe_net_actual !== tx.net_amount;
+                    // STRIPE NET推計 = gross - stripe_fee（platform_feeは含まない）
+                    const estimatedNet = tx.total_gross_amount !== null && tx.stripe_fee !== null
+                      ? tx.total_gross_amount - tx.stripe_fee : null;
+                    const netChanged = tx.stripe_net_actual !== null && tx.stripe_net_actual !== estimatedNet;
                     return (
                       <div className="pl-6 space-y-2">
                         <div className="grid grid-cols-3 gap-x-4">
@@ -209,14 +212,14 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
                             {tx.reconciled_at ? (
                               netChanged ? (
                                 <p className="text-sm font-black text-amber-300">
-                                  <span className="text-slate-500 line-through text-xs mr-1">{fmt((tx as any).net_amount ?? null)}</span>
+                                  <span className="text-slate-500 line-through text-xs mr-1">{fmt(estimatedNet)}</span>
                                   → {fmt(tx.stripe_net_actual)}
                                 </p>
                               ) : (
                                 <p className="text-sm font-black text-emerald-300">{fmt(tx.stripe_net_actual)}</p>
                               )
                             ) : (
-                              <p className="text-sm font-black text-slate-500">{fmt((tx as any).net_amount ?? null)}<span className="text-[9px] ml-1 text-slate-600">推計</span></p>
+                              <p className="text-sm font-black text-slate-500">{fmt(estimatedNet)}<span className="text-[9px] ml-1 text-slate-600">推計</span></p>
                             )}
                           </div>
                         </div>

@@ -7,12 +7,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const TRANSFER_FEE = 500; // 振込手数料 ¥500
 const HOLD_DAYS = 14;     // 出金可能になるまでの日数
 
+type ReversalRecord = {
+  sourceTransferId: string;
+  stripeReversalId: string;
+  amount: number;
+};
+
 // 複数 transfer から targetAmount 分を Reversal してプラットフォームに回収
+// 各 reversal の結果を返す（DB記録用）
 const collectFeeByReversal = async (
   transferIds: string[],
   targetAmount: number,
-): Promise<number> => {
+): Promise<{ collected: number; reversals: ReversalRecord[] }> => {
   let remaining = targetAmount;
+  const reversals: ReversalRecord[] = [];
   for (const transferId of transferIds) {
     if (remaining <= 0) break;
     try {
@@ -20,16 +28,19 @@ const collectFeeByReversal = async (
       const reversible = tr.amount - tr.amount_reversed;
       if (reversible <= 0) continue;
       const toReverse = Math.min(reversible, remaining);
-      await stripe.transfers.createReversal(transferId, { amount: toReverse });
+      const reversal = await stripe.transfers.createReversal(transferId, { amount: toReverse });
+      reversals.push({
+        sourceTransferId: transferId,
+        stripeReversalId: reversal.id,
+        amount: toReverse,
+      });
       remaining -= toReverse;
     } catch (err: any) {
       console.error(`[payout/request] reversal失敗 transfer=${transferId}:`, err.message);
     }
   }
-  return targetAmount - remaining;
+  return { collected: targetAmount - remaining, reversals };
 };
-
-// 複数 transfer から targetAmount 分を Reversal してプラットフォームに回収
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -135,6 +146,7 @@ export async function POST(req: Request) {
     (eligibleDists as any[]).map((d: any) => d.event_id).filter(Boolean) as string[]
   )];
 
+  let reversalRecords: ReversalRecord[] = [];
   try {
     const { data: trs } = await admin
       .from("settle_transfers")
@@ -143,7 +155,8 @@ export async function POST(req: Request) {
       .in("event_id", payoutEventIds)
       .order("created_at", { ascending: false });
     const ids = (trs ?? []).map((t) => t.stripe_transfer_id);
-    await collectFeeByReversal(ids, TRANSFER_FEE);
+    const result = await collectFeeByReversal(ids, TRANSFER_FEE);
+    reversalRecords = result.reversals;
   } catch (err: any) {
     console.error("[payout/request] 振込手数料回収失敗:", err.message);
   }
@@ -163,6 +176,19 @@ export async function POST(req: Request) {
     .single();
 
   if (prErr) return NextResponse.json({ error: prErr.message }, { status: 500 });
+
+  // 手数料回収ログを保存（Stripe 成功分のみ・1円単位で追跡可能）
+  if (reversalRecords.length > 0) {
+    await admin.from("transfer_fee_reversals").insert(
+      reversalRecords.map((r) => ({
+        payout_request_id: payoutReq.request_id,
+        source_transfer_id: r.sourceTransferId,
+        stripe_reversal_id: r.stripeReversalId,
+        amount: r.amount,
+        status: "succeeded",
+      }))
+    );
+  }
 
   // 使用した distributions を paid に更新
   let remaining = requested_amount;

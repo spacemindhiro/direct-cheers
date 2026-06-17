@@ -46,8 +46,8 @@ vi.mock("stripe", async (importOriginal) => {
             ? {
                 id: `ch_mock_${id}`,
                 balance_transaction: {
-                  fee: Math.floor(amount * 0.0396),
-                  net: amount - Math.floor(amount * 0.0396),
+                  fee: Math.ceil(amount * 0.0396),
+                  net: amount - Math.ceil(amount * 0.0396),
                 },
               }
             : null,
@@ -200,8 +200,8 @@ describe("TC-POST-PAY-RECONCILE: 照合差分マトリクス（Stripe vs DB 全�
       const txId = await insertTransaction({
         qrConfigId,
         grossAmount: dbAmount,
-        netAmount: dbAmount - Math.floor(dbAmount * 0.0396) - Math.floor(dbAmount * 0.10),
-        stripeFee: Math.floor(dbAmount * 0.0396),
+        netAmount: dbAmount - Math.ceil(dbAmount * 0.0396) - Math.floor(dbAmount * 0.10),
+        stripeFee: Math.ceil(dbAmount * 0.0396),
         platformFee: Math.floor(dbAmount * 0.10),
         stripePaymentIntentId: fakePiId,
         status: "completed",
@@ -323,14 +323,14 @@ describe("TC-POST-PAY-PAYOUT-GUARD: Payout ガード汚染テスト（8ケース
 
       const fakePiId = `pi_guard_${caseIdx}_${ts}`;
       const gross = 20_000;
-      const net = gross - Math.floor(gross * 0.0396) - Math.floor(gross * 0.10);
+      const net = gross - Math.ceil(gross * 0.0396) - Math.floor(gross * 0.10);
 
       // amountMismatch を DB に反映するためトランザクションを挿入後に直接更新
       const txId = await insertTransaction({
         qrConfigId,
         grossAmount: gross,
         netAmount: net,
-        stripeFee: Math.floor(gross * 0.0396),
+        stripeFee: Math.ceil(gross * 0.0396),
         platformFee: Math.floor(gross * 0.10),
         stripePaymentIntentId: fakePiId,
         status: "completed",
@@ -417,11 +417,11 @@ describe("TC-POST-PAY-PAYOUT-AMOUNT: 出金金額バリデーション（振込�
 
     const fakePiId = `pi_amount_test_${ts}`;
     const gross = 100_000;
-    const net = gross - Math.floor(gross * 0.0396) - Math.floor(gross * 0.10);
+    const net = gross - Math.ceil(gross * 0.0396) - Math.floor(gross * 0.10);
 
     const txId = await insertTransaction({
       qrConfigId, grossAmount: gross, netAmount: net,
-      stripeFee: Math.floor(gross * 0.0396), platformFee: Math.floor(gross * 0.10),
+      stripeFee: Math.ceil(gross * 0.0396), platformFee: Math.floor(gross * 0.10),
       stripePaymentIntentId: fakePiId, status: "completed", reconciled: true,
     });
     cleanup.transactionIds.push(txId);
@@ -535,7 +535,7 @@ describe("TC-POST-PAY-MULTI-TX: 複数TX混在時の照合 — verified/unverifi
     // TX2: 不一致（DBは9000、Stripeは10000）
     const pi2 = `pi_multi_mismatch_${Date.now()}`;
     stripeMockAmounts.set(pi2, 10_000);
-    const tx2 = await insertTransaction({ qrConfigId, grossAmount: 9_000, netAmount: 7_704, stripeFee: 356, platformFee: 900, stripePaymentIntentId: pi2, status: "completed", reconciled: false });
+    const tx2 = await insertTransaction({ qrConfigId, grossAmount: 9_000, netAmount: 7_743, stripeFee: 357, platformFee: 900, stripePaymentIntentId: pi2, status: "completed", reconciled: false });
     cleanup.transactionIds.push(tx2);
 
     mockAdminAuth();
@@ -629,8 +629,8 @@ describe("TC-POST-PAY-MULTI-TX: 複数TX混在時の照合 — verified/unverifi
     const piId = `pi_retry_${Date.now()}`;
     stripeMockAmounts.set(piId, 8_000);
     const txId = await insertTransaction({
-      qrConfigId, grossAmount: 7_000, netAmount: 6_000,
-      stripeFee: 277, platformFee: 700, stripePaymentIntentId: piId,
+      qrConfigId, grossAmount: 7_000, netAmount: 6_022,
+      stripeFee: 278, platformFee: 700, stripePaymentIntentId: piId,
       status: "completed", reconciled: true,
     });
     cleanup.transactionIds.push(txId);

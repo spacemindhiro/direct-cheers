@@ -106,7 +106,7 @@ afterAll(async () => {
 // ── TC-PAYOUT-01: organizer 出金 ─────────────────────────────────────────
 describe("TC-PAYOUT-01: organizer 出金 — settle_transfer reversal で手数料回収", () => {
   const GROSS = 20_000;
-  const NET = GROSS - Math.floor(GROSS * 0.0396) - Math.floor(GROSS * 0.10);
+  const NET = GROSS - Math.ceil(GROSS * 0.0396) - Math.floor(GROSS * 0.10);
   const PAYOUT_AMOUNT = 10_000;
   const TRANSFER_FEE = 500;
   let organizerProfileId: string;
@@ -138,7 +138,7 @@ describe("TC-PAYOUT-01: organizer 出金 — settle_transfer reversal で手数�
       qrConfigId,
       grossAmount: GROSS,
       netAmount: NET,
-      stripeFee: Math.floor(GROSS * 0.0396),
+      stripeFee: Math.ceil(GROSS * 0.0396),
       platformFee: Math.floor(GROSS * 0.10),
       stripePaymentIntentId: pi.id,
     });

@@ -120,14 +120,14 @@ describe("TC-CB-01: dispute.created — 凍結と debt_claim 作成", () => {
     transactionId = await insertTransaction({
       qrConfigId,
       grossAmount: GROSS,
-      netAmount: GROSS - Math.floor(GROSS * 0.0396) - Math.floor(GROSS * 0.10),
-      stripeFee: Math.floor(GROSS * 0.0396),
+      netAmount: GROSS - Math.ceil(GROSS * 0.0396) - Math.floor(GROSS * 0.10),
+      stripeFee: Math.ceil(GROSS * 0.0396),
       platformFee: Math.floor(GROSS * 0.10),
       stripePaymentIntentId: piId,
     });
     cleanup.transactionIds.push(transactionId);
 
-    const artistAmount = Math.floor((GROSS - Math.floor(GROSS * 0.0396) - Math.floor(GROSS * 0.10)) * 0.5);
+    const artistAmount = Math.floor((GROSS - Math.ceil(GROSS * 0.0396) - Math.floor(GROSS * 0.10)) * 0.5);
     const { chargeId: cid, transferId } = await captureAndTransfer({ piId: pi.id, amount: artistAmount, destination: artistConnectId });
     chargeId = cid;
     cleanup.settleTransferIds.push(transferId);
@@ -143,7 +143,7 @@ describe("TC-CB-01: dispute.created — 凍結と debt_claim 作成", () => {
     });
     cleanup.distributionIds.push(artistDistId);
 
-    const orgAmount = Math.floor((GROSS - Math.floor(GROSS * 0.0396) - Math.floor(GROSS * 0.10)) * 0.5);
+    const orgAmount = Math.floor((GROSS - Math.ceil(GROSS * 0.0396) - Math.floor(GROSS * 0.10)) * 0.5);
     const orgDistId = await insertDistribution({
       transactionId,
       eventId,
@@ -261,8 +261,8 @@ describe("TC-CB-03: dispute.closed（won）— 凍結解除", () => {
     transactionId = await insertTransaction({
       qrConfigId,
       grossAmount: GROSS,
-      netAmount: GROSS - Math.floor(GROSS * 0.0396) - Math.floor(GROSS * 0.10),
-      stripeFee: Math.floor(GROSS * 0.0396),
+      netAmount: GROSS - Math.ceil(GROSS * 0.0396) - Math.floor(GROSS * 0.10),
+      stripeFee: Math.ceil(GROSS * 0.0396),
       platformFee: Math.floor(GROSS * 0.10),
       stripePaymentIntentId: piId,
     });

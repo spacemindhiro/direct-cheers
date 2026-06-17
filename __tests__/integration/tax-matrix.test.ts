@@ -19,7 +19,7 @@ function calcFees(
   stripeRate: number,
   platformRate: number,
 ): { stripeFee: number; platformFee: number; netAmount: number; applicationFeeAmount: number } {
-  const stripeFee = Math.floor(gross * stripeRate);
+  const stripeFee = Math.ceil(gross * stripeRate);
   const platformFee = Math.floor(gross * platformRate);
   const netAmount = gross - stripeFee - platformFee;
   const applicationFeeAmount = platformFee + stripeFee;
@@ -132,7 +132,8 @@ describe("TC-TAX-BOUNDARY-02: 境界値×レート — 全計算値が整数か�
       expect(Number.isInteger(platformFee)).toBe(true);
       expect(Number.isInteger(netAmount)).toBe(true);
       expect(Number.isInteger(applicationFeeAmount)).toBe(true);
-      expect(netAmount).toBeGreaterThan(0);
+      // ceil 丸めで gross=1円 等の超小額取引はstripeFee=gross となり net=0 になり得る（正常）
+      expect(netAmount).toBeGreaterThanOrEqual(0);
     },
   );
 });
@@ -183,7 +184,8 @@ describe("TC-TAX-PAYPAY-01: PayPay 境界値 — net + fee ≤ gross かつ差 �
       const { netAmount, applicationFeeAmount } = calcFees(gross, PAYPAY_RATE, PLATFORM_RATE);
       expect(netAmount + applicationFeeAmount).toBeLessThanOrEqual(gross);
       expect(gross - netAmount - applicationFeeAmount).toBeLessThanOrEqual(1);
-      expect(netAmount).toBeGreaterThan(0);
+      // ceil 丸めで gross=1円等の超小額はstripeFee=grossとなりnet=0になり得る（正常）
+      expect(netAmount).toBeGreaterThanOrEqual(0);
     },
   );
 });

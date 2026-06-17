@@ -60,7 +60,7 @@ vi.mock("stripe", async (importOriginal) => {
             amount_received: amount,
             currency: "jpy",
             latest_charge: expand.includes("latest_charge.balance_transaction")
-              ? { id: `ch_mock_${id}`, balance_transaction: { fee: Math.floor(amount * 0.0396), net: amount - Math.floor(amount * 0.0396) } }
+              ? { id: `ch_mock_${id}`, balance_transaction: { fee: Math.ceil(amount * 0.0396), net: amount - Math.ceil(amount * 0.0396) } }
               : null,
           };
         }

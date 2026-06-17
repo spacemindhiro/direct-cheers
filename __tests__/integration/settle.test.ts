@@ -69,6 +69,7 @@ const cleanup = {
   eventIds: [] as string[],
   qrConfigIds: [] as string[],
   transactionIds: [] as string[],
+  distributionIds: [] as string[],
   evidenceIds: [] as string[],
   settleTransferIds: [] as string[],
   summaryIds: [] as string[],
@@ -142,8 +143,8 @@ describe("TC-SETTLE-01: destination charge フロー", () => {
     txId = await insertTransaction({
       qrConfigId,
       grossAmount: gross,
-      netAmount: gross - Math.floor(gross * 0.0396) - Math.floor(gross * 0.10),
-      stripeFee: Math.floor(gross * 0.0396),
+      netAmount: gross - Math.ceil(gross * 0.0396) - Math.floor(gross * 0.10),
+      stripeFee: Math.ceil(gross * 0.0396),
       platformFee: Math.floor(gross * 0.10),
       stripePaymentIntentId: pi.id,
     });
@@ -226,8 +227,8 @@ describe("TC-SETTLE-03: エージェント手数料の分配", () => {
     const txId = await insertTransaction({
       qrConfigId,
       grossAmount: gross,
-      netAmount: gross - Math.floor(gross * 0.0396) - Math.floor(gross * 0.10),
-      stripeFee: Math.floor(gross * 0.0396),
+      netAmount: gross - Math.ceil(gross * 0.0396) - Math.floor(gross * 0.10),
+      stripeFee: Math.ceil(gross * 0.0396),
       platformFee: Math.floor(gross * 0.10),
       stripePaymentIntentId: pi.id,
     });
@@ -297,8 +298,8 @@ describe("TC-SETTLE-04: 未確定アーティストの分配がオーガナイ�
     const txId = await insertTransaction({
       qrConfigId,
       grossAmount: gross,
-      netAmount: gross - Math.floor(gross * 0.0396) - Math.floor(gross * 0.10),
-      stripeFee: Math.floor(gross * 0.0396),
+      netAmount: gross - Math.ceil(gross * 0.0396) - Math.floor(gross * 0.10),
+      stripeFee: Math.ceil(gross * 0.0396),
       platformFee: Math.floor(gross * 0.10),
       stripePaymentIntentId: pi.id,
     });
@@ -346,7 +347,7 @@ describe("TC-PAY-05: SavedCard off_session オーソリ → settle で1円単位
    * 3. 既存の settle ロジックが PI をキャプチャし3者一斉分配することを確認
    */
   const GROSS = 10_000;
-  const STRIPE_FEE = Math.floor(GROSS * 0.0396); // 396
+  const STRIPE_FEE = Math.ceil(GROSS * 0.0396); // 396
   const PLATFORM_FEE = Math.floor(GROSS * 0.10); // 1000
   const NET = GROSS - STRIPE_FEE - PLATFORM_FEE; // 8604
   const EXPECTED_AGENT = Math.floor(GROSS * 0.05); // 500
@@ -526,7 +527,7 @@ describe("TC-SETTLE-06: 照合差異・再精算（分割精算の総額一致�
     ]);
 
     const pi = await createTestPaymentIntent({ amount: gross, organizerConnectId });
-    const stripeFee = Math.floor(gross * 0.0396);
+    const stripeFee = Math.ceil(gross * 0.0396);
     const platformFee = Math.floor(gross * 0.1);
     const txId = await insertTransaction({
       qrConfigId,
@@ -581,7 +582,7 @@ describe("TC-SETTLE-06: 照合差異・再精算（分割精算の総額一致�
 
   it("差分精算（5,000円）はプラットフォーム10%・エージェント5%・残50%ずつで正確に分配される", () => {
     // 5,000円: stripeFee=198, platformFee=500, net=4302, agent=250, org=2151, artist=2151
-    const expectedNet = ROUND2_GROSS - Math.floor(ROUND2_GROSS * 0.0396) - Math.floor(ROUND2_GROSS * 0.1);
+    const expectedNet = ROUND2_GROSS - Math.ceil(ROUND2_GROSS * 0.0396) - Math.floor(ROUND2_GROSS * 0.1);
     const expectedAgent = Math.floor(ROUND2_GROSS * 0.05);
     const expectedOrg = Math.floor(expectedNet * 0.5);
     const expectedArtist = Math.floor(expectedNet * 0.5);
@@ -611,9 +612,9 @@ describe("TC-SETTLE-07: PayPay 即時キャプチャ済み PI（succeeded）の�
   const GROSS = 10_000;
   // PayPay 手数料 = 3.98% × 1.1（消費税） = 4.378% = 0.04378
   // カード手数料（3.6% × 1.1 = 3.96%）は非課税扱いだが PayPay には消費税が課される
-  const STRIPE_FEE = Math.floor(GROSS * 0.04378); // 437
+  const STRIPE_FEE = Math.ceil(GROSS * 0.04378); // 438
   const PLATFORM_FEE = Math.floor(GROSS * 0.10);  // 1000
-  const NET = GROSS - STRIPE_FEE - PLATFORM_FEE;  // 8563
+  const NET = GROSS - STRIPE_FEE - PLATFORM_FEE;  // 8562
   const EXPECTED_AGENT = Math.floor(GROSS * 0.05); // 500
   const EXPECTED_ORG = Math.floor(NET * 0.5);      // 4281
   const EXPECTED_ARTIST = Math.floor(NET * 0.5);   // 4281
@@ -715,5 +716,107 @@ describe("TC-SETTLE-07: PayPay 即時キャプチャ済み PI（succeeded）の�
       .single();
     expect(summary?.is_approved_for_payout).toBe(true);
     if (summary) cleanup.summaryIds.push(summary.summary_id);
+  });
+});
+
+// ── INVARIANT: 分配合計 = gross - stripe_fee ─────────────────────────────
+describe("INVARIANT: complete_cheers_payment の分配合計は gross - stripe_fee と一致する", () => {
+  /**
+   * platform(admin) + agent + organizer + artist の全分配合計が
+   * Stripe が受け取る gross から Stripe 手数料を引いた額（= Stripe Net）と
+   * 1円の狂いもなく一致することを検証する。
+   *
+   * このテストが失敗する主なバグパターン:
+   *   - admin が platform_fee 全額を受け取り agent_fee と二重計上される（Bug 1）
+   *   - 端数処理が合計をずらす場合
+   */
+  const GROSS = 3_000; // 3000 × 0.0396 = 118.8 → ceil=119（floor と差が出る金額）
+  const STRIPE_FEE = Math.ceil(GROSS * 0.0396); // 119
+  const PLATFORM_FEE = Math.floor(GROSS * 0.10); // 300
+  const NET = GROSS - STRIPE_FEE - PLATFORM_FEE; // 2581
+  const AGENT_FEE = Math.floor(PLATFORM_FEE * 0.5); // 150
+
+  let invEventId: string;
+  let invQrConfigId: string;
+  let invTxId: string;
+
+  beforeAll(async () => {
+    const ts = Date.now();
+    invEventId = await insertEvent({
+      organizerProfileId,
+      agentId: agentProfileId,
+      title: `INVARIANT テスト ${ts}`,
+    });
+    invQrConfigId = await insertQrConfig({
+      eventId: invEventId,
+      creatorProfileId: organizerProfileId,
+      recipientProfileId: artistProfileId,
+    });
+    cleanup.eventIds.push(invEventId);
+    cleanup.qrConfigIds.push(invQrConfigId);
+
+    await insertQrConfigTargets(invQrConfigId, [
+      { profileId: organizerProfileId, ratio: 0.5 },
+      { profileId: artistProfileId, ratio: 0.5 },
+    ]);
+
+    // complete_cheers_payment RPC を直接呼び出して分配を生成する
+    const piId = `pi_invariant_${ts}`;
+    const { data: rpcResult, error } = await testAdmin.rpc("complete_cheers_payment", {
+      p_stripe_payment_intent_id: piId,
+      p_product_id: null,
+      p_qr_config_id: invQrConfigId,
+      p_email: `invariant-${ts}@test.local`,
+      p_stripe_customer_id: `cus_invariant_${ts}`,
+      p_gross: GROSS,
+      p_stripe_fee: STRIPE_FEE,
+      p_platform_fee: PLATFORM_FEE,
+      p_net_amount: NET,
+      p_payment_method: "card",
+      p_event_id: invEventId,
+      p_agent_id: agentProfileId,
+      p_agent_fee: AGENT_FEE,
+      p_sender_name: null,
+      p_sender_comment: null,
+      p_wallet_type: null,
+      p_device_name: null,
+    });
+    if (error) throw new Error(`complete_cheers_payment RPC 失敗: ${error.message}`);
+
+    invTxId = (rpcResult as any)?.[0]?.out_transaction_id;
+    if (!invTxId) throw new Error("RPC が transaction_id を返さなかった");
+    cleanup.transactionIds.push(invTxId);
+
+    // 作成された distribution を cleanup に登録（FK RESTRICT のため先に削除が必要）
+    const { data: dists } = await testAdmin
+      .from("transaction_distributions")
+      .select("transaction_distribution_id")
+      .eq("transaction_id", invTxId);
+    (dists ?? []).forEach((d) => cleanup.distributionIds.push(d.transaction_distribution_id));
+  }, 60_000);
+
+  it("分配合計 = gross - stripe_fee（Stripe Net）と1円単位で一致する", async () => {
+    const { data: dists } = await testAdmin
+      .from("transaction_distributions")
+      .select("distribution_role, actual_amount")
+      .eq("transaction_id", invTxId);
+
+    const total = (dists ?? []).reduce((s, d) => s + d.actual_amount, 0);
+    const stripeNet = GROSS - STRIPE_FEE;
+
+    expect(total, `分配合計(${total}) ≠ stripeNet(${stripeNet})\n分配明細: ${JSON.stringify(dists)}`).toBe(stripeNet);
+  });
+
+  it("platform(admin)分配額 = platform_fee - agent_fee（二重計上なし）", async () => {
+    const { data: dists } = await testAdmin
+      .from("transaction_distributions")
+      .select("distribution_role, actual_amount")
+      .eq("transaction_id", invTxId);
+
+    const platformDist = (dists ?? []).find((d) => d.distribution_role === "platform");
+    const agentDist = (dists ?? []).find((d) => d.distribution_role === "agent");
+
+    expect(agentDist?.actual_amount).toBe(AGENT_FEE); // 150
+    expect(platformDist?.actual_amount).toBe(PLATFORM_FEE - AGENT_FEE); // 150（300 - 150）
   });
 });

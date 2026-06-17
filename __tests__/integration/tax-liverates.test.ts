@@ -69,15 +69,15 @@ describe("TC-TAX-LIVE: fee_config 実レートの整合性検証", () => {
     "TC-TAX-LIVE-B: gross=%i円 → net + stripeFee + platformFee = gross（端数誤差0〜2円以内）",
     async (gross) => {
       const cfg = await getConfig();
-      const stripeFee   = Math.floor(gross * cfg.stripe_rate);
+      const stripeFee   = Math.ceil(gross * cfg.stripe_rate);
       const platformFee = Math.floor(gross * cfg.platform_rate);
       const net         = gross - stripeFee - platformFee;
 
-      // net は正
-      expect(net).toBeGreaterThan(0);
+      // ceil 丸めで超小額取引は net=0 になり得る（正常。実運用の最小取引額は 100 円以上）
+      expect(net).toBeGreaterThanOrEqual(0);
       // 再合成
       expect(stripeFee + platformFee + net).toBe(gross);
-      // stripeFee は gross の stripe_rate 以下（floor なので）
+      // stripeFee は ceil(gross × stripe_rate) 以下
       expect(stripeFee).toBeLessThanOrEqual(Math.ceil(gross * cfg.stripe_rate));
     }
   );
@@ -128,7 +128,7 @@ describe("TC-TAX-LIVE: fee_config 実レートの整合性検証", () => {
     "TC-TAX-LIVE-D: gross=%i 実レートでの4者分配合計が net+agent と一致",
     async (gross, orgRatio, artistRatio) => {
       const cfg = await getConfig();
-      const stripeFee   = Math.floor(gross * cfg.stripe_rate);
+      const stripeFee   = Math.ceil(gross * cfg.stripe_rate);
       const platformFee = Math.floor(gross * cfg.platform_rate);
       const net         = gross - stripeFee - platformFee;
 

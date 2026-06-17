@@ -334,7 +334,7 @@ const DEBT_GROSS_AMOUNTS = [3_000, 8_000, 12_000, 30_000];
 describe("TC-REFUND-E: settle前 × refundType × 金額 → debt_claims 金額が正確（8ケース）", () => {
   const debtCases = DEBT_GROSS_AMOUNTS.flatMap((gross) => [
     [gross, "FULL_PENALTY", Math.floor(gross * 0.10)] as [number, string, number],
-    [gross, "COMPASSIONATE", Math.floor(gross * 0.0396)] as [number, string, number],
+    [gross, "COMPASSIONATE", Math.ceil(gross * 0.0396)] as [number, string, number],
   ]);
 
   it.each(debtCases)(
@@ -352,8 +352,8 @@ describe("TC-REFUND-E: settle前 × refundType × 金額 → debt_claims 金額�
       const txId = await insertTransaction({
         qrConfigId,
         grossAmount: gross,
-        netAmount: gross - Math.floor(gross * 0.0396) - Math.floor(gross * 0.10),
-        stripeFee: Math.floor(gross * 0.0396),
+        netAmount: gross - Math.ceil(gross * 0.0396) - Math.floor(gross * 0.10),
+        stripeFee: Math.ceil(gross * 0.0396),
         platformFee: Math.floor(gross * 0.10),
         stripePaymentIntentId: fakePiId,
         status: "completed",
@@ -405,7 +405,7 @@ describe("TC-REFUND-F: settle後 × refundType → transfer逆転 + debt_claims�
       mockPiState.status = "succeeded";
       mockPiState.amount = gross;
 
-      const net = gross - Math.floor(gross * 0.0396) - Math.floor(gross * 0.10);
+      const net = gross - Math.ceil(gross * 0.0396) - Math.floor(gross * 0.10);
       const eventId = await insertEvent({ organizerProfileId, title: `REFUND-F settle後 ¥${gross} ${refundType}` });
       const qrConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
       cleanup.eventIds.push(eventId);
@@ -417,7 +417,7 @@ describe("TC-REFUND-F: settle後 × refundType → transfer逆転 + debt_claims�
         qrConfigId,
         grossAmount: gross,
         netAmount: net,
-        stripeFee: Math.floor(gross * 0.0396),
+        stripeFee: Math.ceil(gross * 0.0396),
         platformFee: Math.floor(gross * 0.10),
         stripePaymentIntentId: fakePiId,
         status: "completed",

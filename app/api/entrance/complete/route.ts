@@ -187,7 +187,7 @@ async function handleTypeB(
 
   const bGross = session.amount_total ?? 0;
   const bFeeConfig = await getFeeConfig();
-  const bStripeFee = Math.floor(bGross * bFeeConfig.stripe_rate);
+  const bStripeFee = Math.ceil(bGross * bFeeConfig.stripe_rate);
   const bPlatformFee = Math.floor(bGross * bFeeConfig.platform_rate);
   const stripeCustomerId = typeof session.customer === "string" ? session.customer : null;
 
@@ -243,7 +243,7 @@ async function handleTypeAAuth(
 
   const feeConfig = await getFeeConfig();
   const gross = reservation.charge_amount;
-  const stripeFee   = Math.floor(gross * feeConfig.stripe_rate);
+  const stripeFee   = Math.ceil(gross * feeConfig.stripe_rate);
   const platformFee = Math.floor(gross * feeConfig.platform_rate);
 
   // transaction + ticket をアトミックに作成

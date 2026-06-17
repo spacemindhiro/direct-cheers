@@ -83,7 +83,7 @@ export async function POST(req: Request) {
   const latestCharge = pi?.latest_charge as Stripe.Charge | null;
   const walletType = (latestCharge?.payment_method_details?.card?.wallet as any)?.type ?? null;
   const feeConfig = await getFeeConfig();
-  const stripeFee = Math.floor(gross * (paymentMethod === "paypay" ? feeConfig.paypay_rate : feeConfig.stripe_rate));
+  const stripeFee = Math.ceil(gross * (paymentMethod === "paypay" ? feeConfig.paypay_rate : feeConfig.stripe_rate));
   const platformFee = Math.floor(gross * feeConfig.platform_rate);
 
   // qrcInfo とエージェント情報を RPC 呼び出し前に取得（agent_fee 計算に必要）

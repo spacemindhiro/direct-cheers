@@ -9,7 +9,7 @@
  */
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getPreviousMonthBounds } from "@/lib/accounting/date-utils";
+import { getPreviousMonthBounds, getMonthBoundsUtc } from "@/lib/accounting/date-utils";
 import { generateYayoiCsv, buildBalanceSummary, type MonthlySummary } from "@/lib/accounting/yayoi-csv";
 
 export const maxDuration = 60;
@@ -21,7 +21,16 @@ export async function GET(req: Request) {
   }
 
   const admin = createAdminClient();
-  const bounds = getPreviousMonthBounds();
+
+  // 手動実行時は ?year=2026&month=5 で対象月を指定可能（省略時は前月）
+  const url = new URL(req.url);
+  const qYear = url.searchParams.get("year");
+  const qMonth = url.searchParams.get("month");
+  const bounds =
+    qYear && qMonth
+      ? getMonthBoundsUtc(parseInt(qYear, 10), parseInt(qMonth, 10))
+      : getPreviousMonthBounds();
+
   const { startUtc, endUtc, targetYear, targetMonth, label } = bounds;
 
   console.log(`[monthly-accounting] 集計開始: ${label}`);

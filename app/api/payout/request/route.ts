@@ -11,6 +11,7 @@ type ReversalRecord = {
   sourceTransferId: string;
   stripeReversalId: string;
   amount: number;
+  taxAmount: number; // floor(amount × 10/110) — 明細確定時に計算・保存する
 };
 
 // 複数 transfer から targetAmount 分を Reversal してプラットフォームに回収
@@ -33,6 +34,7 @@ const collectFeeByReversal = async (
         sourceTransferId: transferId,
         stripeReversalId: reversal.id,
         amount: toReverse,
+        taxAmount: Math.floor(toReverse * 10 / 110),
       });
       remaining -= toReverse;
     } catch (err: any) {
@@ -185,6 +187,7 @@ export async function POST(req: Request) {
         source_transfer_id: r.sourceTransferId,
         stripe_reversal_id: r.stripeReversalId,
         amount: r.amount,
+        tax_amount: r.taxAmount,
         status: "succeeded",
       }))
     );

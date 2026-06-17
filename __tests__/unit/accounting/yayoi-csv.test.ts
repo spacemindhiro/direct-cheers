@@ -22,7 +22,9 @@ const BASE: MonthlySummary = {
   totalStripeFee:           39_600, // ceil(1000000 × 0.0396)
   totalPlatformFee:        100_000, // floor(1000000 × 0.10)
   totalNetAmount:          860_400, // 1000000 - 39600 - 100000
+  totalPlatformFeeTax:       9_090, // transaction_distributions.tax_amount の SUM（明細確定済み）
   totalReversalAmount:       5_000, // 10 payouts × 500
+  totalReversalTax:            454, // transfer_fee_reversals.tax_amount の SUM（明細確定済み）
   totalPayoutAmount:       850_000, // net payouts
   monthEndBalance:          50_000,
   monthEndBalancePlatform:  30_000,
@@ -182,41 +184,59 @@ describe("TC-YAYOI-03: 仕訳行の科目・金額", () => {
   });
 });
 
-// ── TC-YAYOI-04: 内税10%消費税の端数処理 ─────────────────────────────
-describe("TC-YAYOI-04: 内税10%消費税計算（floor）", () => {
-  it("platform_fee=100,000 → 消費税=floor(100000*10/110)=9090", () => {
-    const csv = generateYayoiCsv({ ...BASE, totalPlatformFee: 100_000 });
+// ── TC-YAYOI-04: 消費税は明細積み上げ値をそのまま使用（グロス再計算禁止） ─
+describe("TC-YAYOI-04: 消費税は summary.totalPlatformFeeTax / totalReversalTax をそのまま出力", () => {
+  it("CSVのシステム利用料消費税は totalPlatformFeeTax をそのまま使用（グロスから再計算しない）", () => {
+    // floor(100_000 × 10/110) = 9090 だが、明細積み上げ値として 8_500 を渡したとき、
+    // CSV には 8_500 が出力されなければならない（9090 に再計算されてはいけない）
+    const csv = generateYayoiCsv({ ...BASE, totalPlatformFee: 100_000, totalPlatformFeeTax: 8_500 });
     const rows = getDataRows(csv);
     const row = rows.find((r) => r[12].includes("システム利用料"));
-    expect(parseInt(row![11])).toBe(Math.floor(100_000 * 10 / 110)); // 9090
+    expect(parseInt(row![11])).toBe(8_500);
   });
 
-  it("reversal=5,000 → 消費税=floor(5000*10/110)=454", () => {
-    const csv = generateYayoiCsv({ ...BASE, totalReversalAmount: 5_000 });
+  it("CSVの出金手数料消費税は totalReversalTax をそのまま使用（グロスから再計算しない）", () => {
+    // floor(5_000 × 10/110) = 454 だが、明細積み上げ値として 440 を渡したとき、
+    // CSV には 440 が出力されなければならない（454 に再計算されてはいけない）
+    const csv = generateYayoiCsv({ ...BASE, totalReversalAmount: 5_000, totalReversalTax: 440 });
     const rows = getDataRows(csv);
     const row = rows.find((r) => r[12].includes("出金手数料"));
-    expect(parseInt(row![11])).toBe(Math.floor(5_000 * 10 / 110)); // 454
+    expect(parseInt(row![11])).toBe(440);
   });
 
-  it("reversal=1 → 消費税=0（floor(1/11)=0）", () => {
-    const csv = generateYayoiCsv({ ...BASE, totalReversalAmount: 1 });
+  it("端数ズレデモ: ¥106×2件の明細積み上げ(18円)はグロス再計算(19円)と異なる", () => {
+    // 各明細: floor(106 × 10/110) = floor(9.636...) = 9
+    // 2件の積み上げ合計: 9 + 9 = 18
+    // グロス再計算: floor(212 × 10/110) = floor(19.27...) = 19  ← 誤り
+    // CSVは 18（明細積み上げ）を使うべき
+    const perRecordTax = Math.floor(106 * 10 / 110); // 9
+    const totalTax = perRecordTax + perRecordTax;      // 18
+    const grossTax = Math.floor(212 * 10 / 110);       // 19 ← グロス再計算は誤り
+
+    expect(totalTax).toBe(18);
+    expect(grossTax).toBe(19);
+    expect(totalTax).not.toBe(grossTax); // 端数ズレが確実に存在することを確認
+
+    const csv = generateYayoiCsv({ ...BASE, totalPlatformFee: 212, totalPlatformFeeTax: totalTax });
     const rows = getDataRows(csv);
-    const row = rows.find((r) => r[12].includes("出金手数料"));
+    const row = rows.find((r) => r[12].includes("システム利用料"));
+    // CSV には明細積み上げ値 18 が出力される（グロス計算の 19 ではない）
+    expect(parseInt(row![11])).toBe(18);
+    expect(parseInt(row![11])).not.toBe(19);
+  });
+
+  it("totalPlatformFeeTax=0 の場合も 0 がそのまま出力される", () => {
+    const csv = generateYayoiCsv({ ...BASE, totalPlatformFeeTax: 0 });
+    const rows = getDataRows(csv);
+    const row = rows.find((r) => r[12].includes("システム利用料"));
     expect(parseInt(row![11])).toBe(0);
   });
 
-  it("reversal=11 → 消費税=1（floor(11/11)=1）", () => {
-    const csv = generateYayoiCsv({ ...BASE, totalReversalAmount: 11 });
+  it("totalReversalTax=0 の場合も 0 がそのまま出力される", () => {
+    const csv = generateYayoiCsv({ ...BASE, totalReversalTax: 0 });
     const rows = getDataRows(csv);
     const row = rows.find((r) => r[12].includes("出金手数料"));
-    expect(parseInt(row![11])).toBe(1);
-  });
-
-  it("reversal=1,111,111 → 消費税=floor(1111111*10/110)=101010（端数なし）", () => {
-    const csv = generateYayoiCsv({ ...BASE, totalReversalAmount: 1_111_111 });
-    const rows = getDataRows(csv);
-    const row = rows.find((r) => r[12].includes("出金手数料"));
-    expect(parseInt(row![11])).toBe(Math.floor(1_111_111 * 10 / 110));
+    expect(parseInt(row![11])).toBe(0);
   });
 
   it("売上税区分は '課税売上10%'・預り金/売掛金は '対象外'", () => {
@@ -350,7 +370,9 @@ describe("TC-YAYOI-09: 境界値テスト", () => {
       totalStripeFee: Math.ceil(501 * 0.0396), // 20
       totalPlatformFee: Math.floor(501 * 0.10), // 50
       totalNetAmount: 501 - Math.ceil(501 * 0.0396) - Math.floor(501 * 0.10), // 431
+      totalPlatformFeeTax: Math.floor(Math.floor(501 * 0.10) * 10 / 110), // 4
       totalReversalAmount: 500,
+      totalReversalTax: Math.floor(500 * 10 / 110), // 45
       totalPayoutAmount: 1,
       monthEndBalance: 0, monthEndBalancePlatform: 0, monthEndBalanceConnect: 0,
     };
@@ -371,7 +393,8 @@ describe("TC-YAYOI-09: 境界値テスト", () => {
       year: 2026, month: 5, label: "2026年5月度",
       totalGross: gross, totalStripeFee: stripeFee,
       totalPlatformFee: platformFee, totalNetAmount: netAmount,
-      totalReversalAmount: 0, totalPayoutAmount: 0,
+      totalPlatformFeeTax: Math.floor(platformFee * 10 / 110), // 909_090
+      totalReversalAmount: 0, totalReversalTax: 0, totalPayoutAmount: 0,
       monthEndBalance: netAmount, monthEndBalancePlatform: netAmount, monthEndBalanceConnect: 0,
     };
     const csv = generateYayoiCsv(summary);

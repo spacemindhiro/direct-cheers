@@ -11,6 +11,12 @@
  * - 売上（システム利用料・出金手数料）: 課税売上10%（内税）
  * - 売掛金(Stripe)・預り金: 対象外
  *
+ * 消費税の扱い（重要）:
+ * - 消費税額は各明細テーブルに確定済みの tax_amount を SUM した値を使用する。
+ * - グロス合計に対して floor(total × 10/110) を再計算してはならない。
+ *   理由: floor(Σaᵢ × 10/110) ≠ Σfloor(aᵢ × 10/110) となる端数ズレが発生するため。
+ *   例: ¥106 × 2件 → 明細積み上げ=9+9=18円、グロス再計算=floor(212/11)=19円
+ *
  * 仕訳構成（月末日で計上）:
  *   Row 1a Dr 売掛金(Stripe) platform_fee / Cr 売上高 platform_fee  ← システム利用料
  *   Row 1b Dr 売掛金(Stripe) net_amount   / Cr 預り金 net_amount    ← 預り金受入
@@ -31,7 +37,11 @@ export type MonthlySummary = {
   totalStripeFee: number;
   totalPlatformFee: number;
   totalNetAmount: number;
+  /** transaction_distributions.tax_amount の SUM（明細確定済み値。グロス再計算は禁止） */
+  totalPlatformFeeTax: number;
   totalReversalAmount: number;
+  /** transfer_fee_reversals.tax_amount の SUM（明細確定済み値。グロス再計算は禁止） */
+  totalReversalTax: number;
   totalPayoutAmount: number;
   monthEndBalance: number;
   monthEndBalancePlatform: number;
@@ -61,11 +71,6 @@ type JournalRow = {
   description: string;    // 摘要
   entryNo: string;        // 番号（辞書番号）
 };
-
-/** 内税10%の消費税額（課税売上に適用） */
-function calcTax10(amount: number): number {
-  return Math.floor(amount * 10 / 110);
-}
 
 function rowToCsv(no: number, r: JournalRow): string[] {
   return [
@@ -99,8 +104,10 @@ function toCsvLine(fields: string[]): string {
 export function generateYayoiCsv(summary: MonthlySummary): string {
   const {
     year, month, label,
-    totalPlatformFee, totalNetAmount,
-    totalReversalAmount, totalPayoutAmount,
+    totalPlatformFee, totalPlatformFeeTax,
+    totalNetAmount,
+    totalReversalAmount, totalReversalTax,
+    totalPayoutAmount,
   } = summary;
 
   // 不変量チェック（エラーログ用 — 呼び出し元の責任でもある）
@@ -121,7 +128,7 @@ export function generateYayoiCsv(summary: MonthlySummary): string {
       drAccount: "売掛金", drSub: "Stripe", drTax: "対象外",
       drAmount: totalPlatformFee, drTaxAmount: 0,
       crAccount: "売上高",  crSub: "システム利用料", crTax: "課税売上10%",
-      crAmount: totalPlatformFee, crTaxAmount: calcTax10(totalPlatformFee),
+      crAmount: totalPlatformFee, crTaxAmount: totalPlatformFeeTax,
       description: `${label} システム利用料（決済手数料10%）`,
       entryNo: "1",
     });
@@ -147,7 +154,7 @@ export function generateYayoiCsv(summary: MonthlySummary): string {
       drAccount: "預り金", drSub: "", drTax: "対象外",
       drAmount: totalReversalAmount, drTaxAmount: 0,
       crAccount: "売上高",  crSub: "出金手数料", crTax: "課税売上10%",
-      crAmount: totalReversalAmount, crTaxAmount: calcTax10(totalReversalAmount),
+      crAmount: totalReversalAmount, crTaxAmount: totalReversalTax,
       description: `${label} 出金手数料回収（振込手数料Reversal）`,
       entryNo: "3",
     });

@@ -69,7 +69,7 @@ async function ReconcileContent() {
       .not("reconciled_at", "is", null),
     admin
       .from("transactions")
-      .select("qr_config_id")
+      .select("transaction_id, qr_config_id, stripe_payment_intent_id, total_gross_amount, amount_mismatch")
       .in("qr_config_id", allQrIds)
       .eq("status", "completed")
       .eq("amount_verified", false),
@@ -88,6 +88,7 @@ async function ReconcileContent() {
   const totalByEvent = new Map<string, number>();
   const reconciledByEvent = new Map<string, number>();
   const mismatchByEvent = new Map<string, number>();
+  const mismatchDetailsByEvent = new Map<string, Array<{ transaction_id: string; stripe_pi_id: string | null; expected: number; actual: number; diff: number }>>();
   const errorsByEvent = new Map<string, Array<{ transaction_id: string; stripe_pi_id: string | null; error: string }>>();
 
   for (const tx of totalRes.data ?? []) {
@@ -101,6 +102,17 @@ async function ReconcileContent() {
   for (const tx of mismatchRes.data ?? []) {
     const eid = eventByQr.get(tx.qr_config_id!) ?? "";
     mismatchByEvent.set(eid, (mismatchByEvent.get(eid) ?? 0) + 1);
+    const list = mismatchDetailsByEvent.get(eid) ?? [];
+    const expected = (tx as any).total_gross_amount ?? 0;
+    const diff = (tx as any).amount_mismatch ?? 0;
+    list.push({
+      transaction_id: tx.transaction_id,
+      stripe_pi_id: (tx as any).stripe_payment_intent_id ?? null,
+      expected,
+      actual: expected + diff,
+      diff,
+    });
+    mismatchDetailsByEvent.set(eid, list);
   }
   for (const tx of erroredRes.data ?? []) {
     const eid = eventByQr.get(tx.qr_config_id!) ?? "";
@@ -168,6 +180,11 @@ async function ReconcileContent() {
                     {log.total_checked === 0 && (
                       <span className="text-[10px] text-slate-600">対象なし</span>
                     )}
+                    {(log.total_mismatched > 0 || log.total_errors > 0) && (
+                      <a href="#event-issues" className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors">
+                        明細を見る ↓
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
@@ -177,8 +194,8 @@ async function ReconcileContent() {
       </div>
 
       {/* イベント別照合状況 */}
-      <div className="space-y-3">
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">イベント別照合状況</p>
+      <div id="event-issues" className="space-y-3">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">イベント別照合状況（不一致・エラー明細はここに表示）</p>
         {events.length === 0 ? (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
             <p className="text-slate-600 text-sm font-bold">対象イベントがありません</p>
@@ -189,6 +206,7 @@ async function ReconcileContent() {
               const total = totalByEvent.get(event.event_id) ?? 0;
               const reconciled = reconciledByEvent.get(event.event_id) ?? 0;
               const mismatched = mismatchByEvent.get(event.event_id) ?? 0;
+              const mismatchDetails = mismatchDetailsByEvent.get(event.event_id) ?? [];
               const txErrors = errorsByEvent.get(event.event_id) ?? [];
               const allDone = event.reconciled_at !== null;
               const hasError = mismatched > 0 || txErrors.length > 0;
@@ -233,6 +251,26 @@ async function ReconcileContent() {
                       {total === 0 && <p className="text-[10px] text-slate-600">売上なし</p>}
                     </div>
                   </div>
+                  {/* 不一致詳細（金額差分を明細単位で表示） */}
+                  {mismatchDetails.length > 0 && (
+                    <div className="border border-red-500/30 bg-red-500/10 rounded-xl p-3 space-y-2">
+                      <p className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <XCircle size={11} /> 金額不一致 {mismatchDetails.length}件
+                      </p>
+                      {mismatchDetails.map((m) => (
+                        <div key={m.transaction_id} className="bg-slate-900/60 rounded-lg p-2 space-y-0.5">
+                          <p className="text-[10px] font-mono text-slate-400 break-all">
+                            PI: {m.stripe_pi_id ?? "(null)"}
+                          </p>
+                          <p className="text-[11px] text-red-300 font-bold">
+                            DB ¥{m.expected.toLocaleString()} ≠ Stripe ¥{m.actual.toLocaleString()}
+                            　差額 ¥{m.diff.toLocaleString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* エラー詳細（目立つ位置に常時表示） */}
                   {txErrors.length > 0 && (
                     <div className="border border-red-500/30 bg-red-500/10 rounded-xl p-3 space-y-2">
@@ -250,11 +288,11 @@ async function ReconcileContent() {
                     </div>
                   )}
 
-                  {/* 照合ボタン：未照合またはエラーあり */}
-                  {((!allDone && total > 0) || txErrors.length > 0) && (
+                  {/* 照合ボタン：未照合またはエラー・不一致あり */}
+                  {((!allDone && total > 0) || txErrors.length > 0 || mismatchDetails.length > 0) && (
                     <ReconcileButton
                       eventId={event.event_id}
-                      pendingCount={(total - reconciled) + txErrors.length}
+                      pendingCount={(total - reconciled) + txErrors.length + mismatchDetails.length}
                     />
                   )}
                 </div>

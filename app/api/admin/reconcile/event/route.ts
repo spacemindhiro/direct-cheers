@@ -48,8 +48,10 @@ export async function POST(req: Request) {
   const now = new Date();
   let reconciled = 0;
   let matched = 0;
+  let mismatched = 0;
   let errors = 0;
   const errorDetails: Array<{ transaction_id: string; stripe_pi_id: string | null; error: string }> = [];
+  const mismatchDetails: Array<{ transaction_id: string; stripe_pi_id: string | null; expected: number; actual: number; diff: number }> = [];
 
   for (const tx of transactions ?? []) {
     try {
@@ -60,6 +62,20 @@ export async function POST(req: Request) {
       const pi = await stripe.paymentIntents.retrieve(piId, {
         expand: ["latest_charge.balance_transaction"],
       });
+
+      // requires_capture（未キャプチャ）はサイレントスキップせず、資金未回収のエラーとして記録する
+      if (pi.status === "requires_capture") {
+        const errMsg = "未キャプチャ：イベント終了後に資金が未回収のままです";
+        console.warn(`[reconcile] UNCAPTURED tx=${tx.transaction_id} pi=${piId} gross_db=${tx.total_gross_amount}`);
+        errors++;
+        errorDetails.push({ transaction_id: tx.transaction_id, stripe_pi_id: tx.stripe_payment_intent_id, error: errMsg });
+        await admin
+          .from("transactions")
+          .update({ reconcile_error: errMsg })
+          .eq("transaction_id", tx.transaction_id);
+        continue;
+      }
+
       const charge = pi.latest_charge as Stripe.Charge | null;
       const bt = charge?.balance_transaction as Stripe.BalanceTransaction | null;
 
@@ -68,12 +84,6 @@ export async function POST(req: Request) {
       const stripeNet = bt?.net ?? null;
       const grossDiff = stripeGross - (tx.total_gross_amount ?? 0);
       const grossMatch = grossDiff === 0;
-
-      // requires_capture（未キャプチャ）の場合は amount_received=0 のため照合不可
-      if (pi.status === "requires_capture") {
-        console.warn(`[reconcile] SKIP (requires_capture) tx=${tx.transaction_id} pi=${piId} gross_db=${tx.total_gross_amount}`);
-        continue;
-      }
 
       console.log(
         `[reconcile] tx=${tx.transaction_id} pi=${piId}` +
@@ -129,6 +139,14 @@ export async function POST(req: Request) {
       }
 
       if (!grossMatch) {
+        mismatched++;
+        mismatchDetails.push({
+          transaction_id: tx.transaction_id,
+          stripe_pi_id: tx.stripe_payment_intent_id,
+          expected: tx.total_gross_amount ?? 0,
+          actual: stripeGross,
+          diff: grossDiff,
+        });
         console.warn(`[reconcile] MISMATCH tx=${tx.transaction_id} pi=${piId} diff=${grossDiff}`);
       }
 
@@ -186,16 +204,26 @@ export async function POST(req: Request) {
     target_date: now.toISOString().slice(0, 10),
     total_checked: checked,
     total_matched: matched,
-    total_mismatched: 0,
+    total_mismatched: mismatched,
     total_errors: errors,
-    summary: { manual: true, event_id: eventId, event_reconciled: remaining === 0 },
+    // 実行時点のスナップショットとして明細を保存する（後続実行で transactions テーブルの
+    // 状態が変わっても、このログ行が示す明細は変化しない）
+    summary: {
+      manual: true,
+      event_id: eventId,
+      event_reconciled: remaining === 0,
+      mismatches: mismatchDetails,
+      errors: errorDetails,
+    },
   });
 
   return NextResponse.json({
     checked,
     reconciled,
     errors,
+    mismatched,
     event_reconciled: remaining === 0,
     errorDetails,
+    mismatchDetails,
   });
 }

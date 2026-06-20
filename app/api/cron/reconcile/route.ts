@@ -83,6 +83,10 @@ export async function GET(req: Request) {
     let mismatched = 0;
     let errors = 0;
     const reconcileFailures: FailureDetail[] = [];
+    // バッチ実行ログ（reconciliation_logs.summary）用のスナップショット。
+    // 後続実行で transactions テーブルの状態が変わっても、このログ行の明細は変化しない。
+    const mismatchDetails: Array<{ transaction_id: string; stripe_pi_id: string | null; event_name?: string; expected: number; actual: number; diff: number }> = [];
+    const errorDetails: Array<{ transaction_id: string; stripe_pi_id: string | null; event_name?: string; error: string }> = [];
 
     for (const tx of targets) {
       if (!tx.stripe_payment_intent_id) continue;
@@ -99,11 +103,18 @@ export async function GET(req: Request) {
         // → 資金が回収されないまま残っているリスク。明細に記録して管理者に知らせる
         if (pi.status === "requires_capture") {
           const eventId = qrToEventId.get(tx.qr_config_id!);
+          const eventName = eventId ? (eventTitleMap.get(eventId) ?? eventId) : undefined;
           console.warn(`[reconcile] UNCAPTURED PI tx=${tx.transaction_id} pi=${piId} event=${eventId}`);
           reconcileFailures.push({
-            eventName:    eventId ? (eventTitleMap.get(eventId) ?? eventId) : undefined,
+            eventName,
             amount:       tx.total_gross_amount ?? 0,
             failureReason: "❌【未キャプチャ】イベント終了後に資金が未回収のままです",
+          });
+          errorDetails.push({
+            transaction_id: tx.transaction_id,
+            stripe_pi_id: tx.stripe_payment_intent_id,
+            event_name: eventName,
+            error: "未キャプチャ：イベント終了後に資金が未回収のままです",
           });
           errors++;
           continue;
@@ -125,6 +136,14 @@ export async function GET(req: Request) {
           reconcileFailures.push({
             amount:        Math.abs(grossDiff),
             failureReason: `Stripe金額（¥${stripeGross.toLocaleString()}）とDB金額（¥${(tx.total_gross_amount ?? 0).toLocaleString()}）が不一致 差額¥${grossDiff}`,
+          });
+          mismatchDetails.push({
+            transaction_id: tx.transaction_id,
+            stripe_pi_id: tx.stripe_payment_intent_id,
+            event_name: qrToEventId.get(tx.qr_config_id!) ? (eventTitleMap.get(qrToEventId.get(tx.qr_config_id!)!) ?? undefined) : undefined,
+            expected: tx.total_gross_amount ?? 0,
+            actual: stripeGross,
+            diff: grossDiff,
           });
         } else {
           matched++;
@@ -195,6 +214,12 @@ export async function GET(req: Request) {
           amount:        tx.total_gross_amount ?? 0,
           failureReason: `照合エラー: ${(err.message ?? "").slice(0, 80)}`,
         });
+        errorDetails.push({
+          transaction_id: tx.transaction_id,
+          stripe_pi_id: tx.stripe_payment_intent_id,
+          event_name: qrToEventId.get(tx.qr_config_id!) ? (eventTitleMap.get(qrToEventId.get(tx.qr_config_id!)!) ?? undefined) : undefined,
+          error: err.message,
+        });
         // reconciled_at はセットしない → 翌日のCRONで再試行される
         await admin
           .from("transactions")
@@ -237,7 +262,7 @@ export async function GET(req: Request) {
       total_matched: matched,
       total_mismatched: mismatched,
       total_errors: errors,
-      summary: null,
+      summary: { mismatches: mismatchDetails, errors: errorDetails },
     });
     if (logErr) console.error("[reconcile] log insert error:", logErr.message);
 

@@ -3,9 +3,10 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Loader2, CheckCircle2, AlertTriangle, XCircle, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import { ReconcileButton } from "@/components/reconcile-button";
+import { ReconcileLogList } from "@/components/reconcile-log-list";
 import Link from "next/link";
 
 async function ReconcileContent() {
@@ -141,61 +142,13 @@ async function ReconcileContent() {
             <p className="text-slate-600 text-sm font-bold">実行履歴がありません</p>
           </div>
         ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-800">
-            {(logsRes.data ?? []).map((log) => (
-              <div key={log.log_id} className="px-5 py-3 flex items-center gap-4">
-                <div className="min-w-0 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-0.5">
-                  <div>
-                    <p className="text-[9px] text-slate-500 uppercase tracking-widest">実行日</p>
-                    <p className="text-xs font-bold text-slate-200">
-                      {new Date(log.run_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-slate-500 uppercase tracking-widest">対象日</p>
-                    <p className="text-xs font-bold text-slate-200">{log.target_date}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-slate-500 uppercase tracking-widest">件数</p>
-                    <p className="text-xs font-bold text-slate-200">
-                      {log.total_checked}件 / 一致{log.total_matched}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {log.total_mismatched > 0 && (
-                      <span className="flex items-center gap-1 text-[10px] font-black text-red-400">
-                        <XCircle size={11} /> 不一致{log.total_mismatched}
-                      </span>
-                    )}
-                    {log.total_errors > 0 && (
-                      <span className="flex items-center gap-1 text-[10px] font-black text-amber-400">
-                        <AlertTriangle size={11} /> エラー{log.total_errors}
-                      </span>
-                    )}
-                    {log.total_mismatched === 0 && log.total_errors === 0 && log.total_checked > 0 && (
-                      <span className="flex items-center gap-1 text-[10px] font-black text-emerald-400">
-                        <CheckCircle2 size={11} /> 正常
-                      </span>
-                    )}
-                    {log.total_checked === 0 && (
-                      <span className="text-[10px] text-slate-600">対象なし</span>
-                    )}
-                    {(log.total_mismatched > 0 || log.total_errors > 0) && (
-                      <a href="#event-issues" className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors">
-                        明細を見る ↓
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <ReconcileLogList logs={(logsRes.data ?? []) as any} />
         )}
       </div>
 
       {/* イベント別照合状況 */}
-      <div id="event-issues" className="space-y-3">
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">イベント別照合状況（不一致・エラー明細はここに表示）</p>
+      <div className="space-y-3">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">イベント別照合状況（現在の状態）</p>
         {events.length === 0 ? (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
             <p className="text-slate-600 text-sm font-bold">対象イベントがありません</p>

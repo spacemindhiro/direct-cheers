@@ -89,7 +89,28 @@ export async function GET(req: Request) {
     const errorDetails: Array<{ transaction_id: string; stripe_pi_id: string | null; event_name?: string; error: string }> = [];
 
     for (const tx of targets) {
-      if (!tx.stripe_payment_intent_id) continue;
+      // stripe_payment_intent_id が空文字列（NULLではない）の場合、クエリの
+      // not(is, null) フィルタを通過してしまう。サイレントスキップすると
+      // total_checked（取得件数）と matched+mismatched+errors の合計がずれ、
+      // 「件数1件/一致0/正常」という矛盾した表示になるため、必ずエラーとして記録する。
+      if (!tx.stripe_payment_intent_id) {
+        errors++;
+        console.error(`[reconcile] tx=${tx.transaction_id} stripe_payment_intent_id が空です`);
+        const eventId = qrToEventId.get(tx.qr_config_id!);
+        const eventName = eventId ? (eventTitleMap.get(eventId) ?? eventId) : undefined;
+        errorDetails.push({
+          transaction_id: tx.transaction_id,
+          stripe_pi_id: null,
+          event_name: eventName,
+          error: "stripe_payment_intent_id が空です（照合不可）",
+        });
+        reconcileFailures.push({
+          eventName,
+          amount: tx.total_gross_amount ?? 0,
+          failureReason: "stripe_payment_intent_id が空のため照合不可",
+        });
+        continue;
+      }
       try {
         let piId = tx.stripe_payment_intent_id as string;
         if (piId?.startsWith("{")) {

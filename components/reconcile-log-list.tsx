@@ -42,7 +42,12 @@ export function ReconcileLogList({ logs }: { logs: LogRow[] }) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-800">
       {logs.map((log) => {
-        const hasIssue = log.total_mismatched > 0 || log.total_errors > 0;
+        // 件数の不整合検知: matched+mismatched+errors が checked と一致しない場合、
+        // 旧バージョンのバグ（空文字PIのサイレントスキップ等）でカウントが
+        // 欠落している可能性がある。この場合は「正常」と偽らず不整合として表示する。
+        const accountedFor = log.total_matched + log.total_mismatched + log.total_errors;
+        const countMismatch = log.total_checked > 0 && accountedFor !== log.total_checked;
+        const hasIssue = log.total_mismatched > 0 || log.total_errors > 0 || countMismatch;
         const mismatches = log.summary?.mismatches ?? [];
         const errors = log.summary?.errors ?? [];
         const hasDetail = mismatches.length > 0 || errors.length > 0;
@@ -77,7 +82,15 @@ export function ReconcileLogList({ logs }: { logs: LogRow[] }) {
                       <AlertTriangle size={11} /> エラー{log.total_errors}
                     </span>
                   )}
-                  {log.total_mismatched === 0 && log.total_errors === 0 && log.total_checked > 0 && (
+                  {countMismatch && (
+                    <span
+                      className="flex items-center gap-1 text-[10px] font-black text-orange-400"
+                      title={`件数不整合: checked=${log.total_checked} ≠ matched+mismatched+errors=${accountedFor}（旧バージョンのバグの可能性）`}
+                    >
+                      <AlertTriangle size={11} /> 件数不整合
+                    </span>
+                  )}
+                  {!countMismatch && log.total_mismatched === 0 && log.total_errors === 0 && log.total_checked > 0 && (
                     <span className="flex items-center gap-1 text-[10px] font-black text-emerald-400">
                       <CheckCircle2 size={11} /> 正常
                     </span>

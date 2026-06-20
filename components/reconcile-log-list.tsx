@@ -55,59 +55,65 @@ export function ReconcileLogList({ logs }: { logs: LogRow[] }) {
 
         return (
           <div key={log.log_id}>
-            <div className="px-5 py-3 flex items-center gap-4">
-              <div className="min-w-0 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-0.5">
-                <div>
-                  <p className="text-[9px] text-slate-500 uppercase tracking-widest">実行日</p>
-                  <p className="text-xs font-bold text-slate-200">{fmtTime(log.run_at)}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] text-slate-500 uppercase tracking-widest">対象日</p>
-                  <p className="text-xs font-bold text-slate-200">{log.target_date}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] text-slate-500 uppercase tracking-widest">件数</p>
-                  <p className="text-xs font-bold text-slate-200">
-                    {log.total_checked}件 / 一致{log.total_matched}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {log.total_mismatched > 0 && (
-                    <span className="flex items-center gap-1 text-[10px] font-black text-red-400">
-                      <XCircle size={11} /> 不一致{log.total_mismatched}
-                    </span>
-                  )}
-                  {log.total_errors > 0 && (
-                    <span className="flex items-center gap-1 text-[10px] font-black text-amber-400">
-                      <AlertTriangle size={11} /> エラー{log.total_errors}
-                    </span>
-                  )}
-                  {countMismatch && (
-                    <span
-                      className="flex items-center gap-1 text-[10px] font-black text-orange-400"
-                      title={`件数不整合: checked=${log.total_checked} ≠ matched+mismatched+errors=${accountedFor}（旧バージョンのバグの可能性）`}
-                    >
-                      <AlertTriangle size={11} /> 件数不整合
-                    </span>
-                  )}
-                  {!countMismatch && log.total_mismatched === 0 && log.total_errors === 0 && log.total_checked > 0 && (
-                    <span className="flex items-center gap-1 text-[10px] font-black text-emerald-400">
-                      <CheckCircle2 size={11} /> 正常
-                    </span>
-                  )}
-                  {log.total_checked === 0 && (
-                    <span className="text-[10px] text-slate-600">対象なし</span>
-                  )}
-                </div>
+            {/* 固定幅グリッド: 列幅を行ごとの内容量に依存させず、全行で同じ位置に揃える。
+                「明細を見る」ボタンも常にこのグリッドの専用カラムに置き、
+                ボタンの有無で他カラムの位置がズレないようにする。 */}
+            <div className="px-5 py-3 grid grid-cols-[84px_92px_116px_1fr_96px] items-center gap-3">
+              <div className="min-w-0">
+                <p className="text-[9px] text-slate-500 uppercase tracking-widest">実行日</p>
+                <p className="text-xs font-bold text-slate-200 whitespace-nowrap">{fmtTime(log.run_at)}</p>
               </div>
-              {hasIssue && (
-                <button
-                  onClick={() => setExpandedId(isExpanded ? null : log.log_id)}
-                  className="flex items-center gap-1 text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors shrink-0"
-                >
-                  明細を見る {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                </button>
-              )}
+              <div className="min-w-0">
+                <p className="text-[9px] text-slate-500 uppercase tracking-widest">対象日</p>
+                <p className="text-xs font-bold text-slate-200 whitespace-nowrap">{log.target_date}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] text-slate-500 uppercase tracking-widest">件数</p>
+                <p className="text-xs font-bold text-slate-200 whitespace-nowrap">
+                  {log.total_checked}件 / 一致{log.total_matched}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 min-w-0">
+                {log.total_mismatched > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] font-black text-red-400 whitespace-nowrap">
+                    <XCircle size={11} /> 不一致{log.total_mismatched}
+                  </span>
+                )}
+                {log.total_errors > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] font-black text-amber-400 whitespace-nowrap">
+                    <AlertTriangle size={11} /> エラー{log.total_errors}
+                  </span>
+                )}
+                {countMismatch && (
+                  <span
+                    className="flex items-center gap-1 text-[10px] font-black text-orange-400 whitespace-nowrap"
+                    title={`件数不整合: checked=${log.total_checked} ≠ matched+mismatched+errors=${accountedFor}（旧バージョンのバグの可能性）`}
+                  >
+                    <AlertTriangle size={11} /> 件数不整合
+                  </span>
+                )}
+                {!countMismatch && log.total_mismatched === 0 && log.total_errors === 0 && log.total_checked > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] font-black text-emerald-400 whitespace-nowrap">
+                    <CheckCircle2 size={11} /> 正常
+                  </span>
+                )}
+                {log.total_checked === 0 && (
+                  <span className="text-[10px] text-slate-600 whitespace-nowrap">対象なし</span>
+                )}
+              </div>
+              <div className="flex justify-end">
+                {hasIssue ? (
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : log.log_id)}
+                    className="flex items-center gap-1 text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors whitespace-nowrap"
+                  >
+                    明細を見る {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+                ) : (
+                  // ボタンが無い行でも同じ幅を確保し、カラム位置をズレさせない
+                  <span className="invisible text-[10px] font-black whitespace-nowrap">明細を見る</span>
+                )}
+              </div>
             </div>
 
             {isExpanded && hasIssue && (

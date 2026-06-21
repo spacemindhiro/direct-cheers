@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { getFeeConfig } from "@/lib/fee-config";
+import { queuePendingTransfer } from "@/lib/pending-transfers";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -379,7 +380,20 @@ export async function POST(
   // organizer と artist: desiredDists をチャージ単位で回して source_transaction Transfer
   for (const [, entry] of desiredDists.entries()) {
     if (entry.role !== "organizer" && entry.role !== "artist") continue;
-    if (!entry.connectId || entry.amount <= 0) continue;
+    if (entry.amount <= 0) continue;
+    if (!entry.connectId) {
+      // Connectアカウント未発行（オンボーディング未開始）→ プールして
+      // account.updated webhook / セーフティネットcronで自動リトライする
+      await queuePendingTransfer(admin, {
+        eventId, profileId: entry.profileId, txId: entry.txId, role: entry.role,
+        amount: entry.amount, chargeId: chargeIdByTxId.get(entry.txId) ?? null,
+        reason: "stripe_connect_id が未設定（オンボーディング未開始）",
+      });
+      transferResults.push({ profile_id: entry.profileId, amount: entry.amount, transfer_id: null, error: "pending_onboarding" });
+      // キューイング済み → 後段の旧フロー（Block 3）で二重に処理させない
+      profilesHandledBySourceTx.add(entry.profileId);
+      continue;
+    }
 
     const chargeId = chargeIdByTxId.get(entry.txId);
     if (chargeId) {
@@ -402,7 +416,15 @@ export async function POST(
         profilesHandledBySourceTx.add(entry.profileId);
       } catch (err: any) {
         console.error(`[settle] source_transaction transfer failed role=${entry.role} profile=${entry.profileId} amount=${entry.amount} error=${err.message}`);
+        // Connectアカウントの capability 不足（オンボーディング未完了）でTransferが
+        // rejectされるケースをプールして自動リトライ対象にする
+        await queuePendingTransfer(admin, {
+          eventId, profileId: entry.profileId, txId: entry.txId, role: entry.role,
+          amount: entry.amount, chargeId, reason: err.message,
+        });
         transferResults.push({ profile_id: entry.profileId, amount: entry.amount, transfer_id: null, error: err.message });
+        // キューイング済み → 後段の旧フロー（Block 3）で二重に処理させない
+        profilesHandledBySourceTx.add(entry.profileId);
       }
     } else {
       // chargeId なし → 旧フロー（platform balance から、後段で処理）
@@ -412,8 +434,17 @@ export async function POST(
   // agent: source_transaction Transfer（tx 単位）
   if (event.agent_id) {
     for (const [txId, { amount: agentAmt, connectId: agentConnectId }] of agentAmountByTxId.entries()) {
-      if (!agentConnectId || agentAmt <= 0) continue;
+      if (agentAmt <= 0) continue;
       const chargeId = chargeIdByTxId.get(txId);
+      if (!agentConnectId) {
+        await queuePendingTransfer(admin, {
+          eventId, profileId: event.agent_id, txId, role: "agent",
+          amount: agentAmt, chargeId: chargeId ?? null,
+          reason: "stripe_connect_id が未設定（オンボーディング未開始）",
+        });
+        transferResults.push({ profile_id: event.agent_id, amount: agentAmt, transfer_id: null, error: "pending_onboarding" });
+        continue;
+      }
       if (!chargeId) continue;
       try {
         const transfer = await stripe.transfers.create({
@@ -432,6 +463,10 @@ export async function POST(
         transferResults.push({ profile_id: event.agent_id, amount: agentAmt, transfer_id: transfer.id });
       } catch (err: any) {
         console.error(`[settle] agent source_transaction transfer failed txId=${txId}:`, err.message);
+        await queuePendingTransfer(admin, {
+          eventId, profileId: event.agent_id, txId, role: "agent",
+          amount: agentAmt, chargeId, reason: err.message,
+        });
         transferResults.push({ profile_id: event.agent_id, amount: agentAmt, transfer_id: null, error: err.message });
       }
     }
@@ -440,8 +475,13 @@ export async function POST(
   // 旧フロー（chargeId なし）の organizer/artist: platform available 残高から Transfer
   for (const [profileId, info] of profileAmounts.entries()) {
     if (profilesHandledBySourceTx.has(profileId)) continue;
-    if (!info.stripe_connect_id || info.amount <= 0) {
-      transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: null });
+    if (info.amount <= 0) continue;
+    if (!info.stripe_connect_id) {
+      await queuePendingTransfer(admin, {
+        eventId, profileId, role: info.role, amount: info.amount, chargeId: null,
+        reason: "stripe_connect_id が未設定（オンボーディング未開始）",
+      });
+      transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: null, error: "pending_onboarding" });
       continue;
     }
     try {
@@ -460,6 +500,9 @@ export async function POST(
       transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: transfer.id });
     } catch (err: any) {
       console.error(`[settle] platform transfer failed role=${info.role} profile=${profileId} amount=${info.amount} error=${err.message}`);
+      await queuePendingTransfer(admin, {
+        eventId, profileId, role: info.role, amount: info.amount, chargeId: null, reason: err.message,
+      });
       transferResults.push({ profile_id: profileId, amount: info.amount, transfer_id: null, error: err.message });
     }
   }

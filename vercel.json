@@ -10,6 +10,10 @@
       "schedule": "0 20 * * *"
     },
     {
+      "path": "/api/cron/retry-pending-transfers",
+      "schedule": "0 21 * * *"
+    },
+    {
       "path": "/api/admin/check-auth-expiry",
       "schedule": "0 10 * * *"
     },

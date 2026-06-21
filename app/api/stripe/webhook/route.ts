@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
+import { retryPendingTransfersForProfile } from "@/lib/pending-transfers";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -89,6 +90,17 @@ export async function POST(req: Request) {
               body: "口座機能が回復しました。",
               metadata: { stripe_account_id: account.id },
             });
+          }
+
+          // オンボーディング完了（capability有効化）時、滞留している
+          // settle時未送金分（pending_connect_transfers）を自動リトライする
+          if (!isRestricted) {
+            const { attempted, succeeded } = await retryPendingTransfersForProfile(
+              admin, stripe, targetProfile.profile_id
+            );
+            if (attempted > 0) {
+              console.log(`[account.updated] pending transfer retry: profile=${targetProfile.profile_id} attempted=${attempted} succeeded=${succeeded}`);
+            }
           }
         }
         break;

@@ -193,6 +193,7 @@ async function DashboardContent() {
     cancelCountResult,
     lineupResult,
     provisionalUserResult,
+    pendingTransfersResult,
   ] = await Promise.all([
     admin.from('follows').select(`
       follow_id, followee_id,
@@ -268,6 +269,10 @@ async function DashboardContent() {
     !isAdmin
       ? admin.from('provisional_users').select('stripe_customer_id').eq('email', userEmail).not('stripe_customer_id', 'is', null).maybeSingle()
       : Promise.resolve({ data: null }),
+
+    isPerformerRole
+      ? admin.from('pending_connect_transfers').select('amount').eq('profile_id', user!.id).eq('status', 'pending')
+      : Promise.resolve({ data: null }),
   ]);
 
   // 第2バッチ: 第1バッチの結果に依存するフォローアップクエリを並列実行
@@ -309,6 +314,9 @@ async function DashboardContent() {
   }
 
   const hasLinkRegistered = !isAdmin && !!(provisionalUserResult as any)?.data?.stripe_customer_id;
+
+  const pendingTransferTotal = ((pendingTransfersResult as any)?.data ?? [])
+    .reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
 
   type PaymentPattern = 'A' | 'B' | 'C' | 'D';
   let paymentPattern: PaymentPattern = 'D';
@@ -586,6 +594,22 @@ async function DashboardContent() {
             </div>
           </div>
           <span className="text-indigo-400 text-xs font-black uppercase tracking-widest shrink-0">確認 →</span>
+        </Link>
+      )}
+
+      {/* 受け取り待ちの売上バナー（artist / organizer / agent、口座未登録・未完了で滞留分配がある場合） */}
+      {pendingTransferTotal > 0 && (
+        <Link
+          href="/dashboard/profile/bank-setup"
+          className="flex items-center justify-between gap-4 bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+        >
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">受け取り待ちの売上</p>
+            <p className="text-sm font-black text-white">
+              受け取り待ちの売上が ¥{pendingTransferTotal.toLocaleString('ja-JP')} あります。口座登録して引き出せるようにしましょう。
+            </p>
+          </div>
+          <span className="text-emerald-400 text-xs font-black uppercase tracking-widest shrink-0">口座登録 →</span>
         </Link>
       )}
 

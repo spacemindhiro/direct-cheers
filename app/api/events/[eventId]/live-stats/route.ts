@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
+import { resolveStatementDescriptorSource } from "@/lib/statement-descriptor";
 
 const PAGE_SIZE = 50;
 
@@ -58,13 +59,25 @@ export async function GET(
 
   const { data: qrConfigs } = await admin
     .from("qr_configs")
-    .select("qr_config_id, recipient_profile_id, recipient:profiles!recipient_profile_id(display_name)")
+    .select("qr_config_id, recipient_profile_id, recipient_name_context, recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name)")
     .eq("event_id", eventId)
     .is("deleted_at", null);
 
   const qrConfigIds = (qrConfigs ?? []).map((q) => q.qr_config_id);
+  // 主催者がDJ等を兼任している場合、recipient_name_contextで「主催者名義/演者名義」の
+  // どちらで受け取ったかを区別する（statement_descriptorの解決と同じビジネスルールを再利用）。
   const qrRecipientMap = new Map<string, string | null>(
-    (qrConfigs ?? []).map((q) => [q.qr_config_id, (q.recipient as any)?.display_name ?? null])
+    (qrConfigs ?? []).map((q) => {
+      const recipient = q.recipient as any;
+      const resolved = resolveStatementDescriptorSource({
+        isEntrance: false,
+        recipientNameContext: ((q as any).recipient_name_context as "organizer" | "artist" | undefined) ?? "artist",
+        organizerName: recipient?.organizer_name,
+        artistName: recipient?.artist_name,
+        recipientDisplayName: recipient?.display_name,
+      });
+      return [q.qr_config_id, resolved ?? recipient?.display_name ?? null];
+    })
   );
   const qrCanReadMessageSet = new Set<string>(
     isAdmin || isAgent || isOrganizer

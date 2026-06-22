@@ -5,6 +5,7 @@ import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
+import { resolveStatementDescriptorSource } from "@/lib/statement-descriptor";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -260,15 +261,27 @@ async function getQrConfigInfo(
 
   const { data: qrc } = await admin
     .from("qr_configs")
-    .select("event_id, image_url, recipient:profiles!recipient_profile_id(display_name, avatar_url)")
+    .select("event_id, image_url, recipient_name_context, recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name, avatar_url)")
     .eq("qr_config_id", qrConfigId)
     .single();
+
+  const recipient = qrc?.recipient as any;
+  const recipientNameContext = (qrc?.recipient_name_context as "organizer" | "artist" | undefined) ?? "artist";
+  // 主催者がDJ等を兼任している場合、recipient_name_contextで「主催者名義/演者名義」の
+  // どちらで受け取ったかを区別する（statement_descriptorの解決と同じビジネスルールを再利用）。
+  const resolvedName = resolveStatementDescriptorSource({
+    isEntrance: false,
+    recipientNameContext,
+    organizerName: recipient?.organizer_name,
+    artistName: recipient?.artist_name,
+    recipientDisplayName: recipient?.display_name,
+  });
 
   return {
     eventId: qrc?.event_id ?? null,
     imageUrl: qrc?.image_url ?? null,
-    recipientName: (qrc?.recipient as any)?.display_name ?? null,
-    recipientAvatar: (qrc?.recipient as any)?.avatar_url ?? null,
+    recipientName: resolvedName ?? recipient?.display_name ?? null,
+    recipientAvatar: recipient?.avatar_url ?? null,
   };
 }
 

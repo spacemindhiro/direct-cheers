@@ -2,6 +2,7 @@ import { PKPass } from "passkit-generator";
 import forge from "node-forge";
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveStatementDescriptorSource } from "@/lib/statement-descriptor";
 import path from "path";
 import fs from "fs";
 
@@ -251,7 +252,7 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
       transaction_id, total_gross_amount, created_at, sequence_number_in_event, sender_name, sender_comment,
       product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name, artist_name)),
       qr_config:qr_configs!qr_config_id(
-        qr_config_id, event_id, image_url, recipient_profile_id,
+        qr_config_id, event_id, image_url, recipient_profile_id, recipient_name_context,
         event:events!event_id(title)
       )
     `)
@@ -280,12 +281,22 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
   const txDate = new Date(tx.created_at).toLocaleDateString("ja-JP");
   const qrConfigId = (tx.qr_config as any)?.qr_config_id as string | null | undefined;
 
+  // 主催者がDJ等を兼任している場合、recipient_name_contextで「主催者名義/演者名義」の
+  // どちらで受け取ったかを区別する（statement_descriptorの解決と同じビジネスルールを再利用）。
+  const recipientNameContext = ((tx.qr_config as any)?.recipient_name_context as "organizer" | "artist" | undefined) ?? "artist";
   const recipientProfileId = (tx.qr_config as any)?.recipient_profile_id as string | null | undefined;
   let recipientName = artistName;
   let recipientAvatarUrl: string | null = null;
   if (recipientProfileId) {
-    const { data: rp } = await admin.from("profiles").select("display_name, artist_name, avatar_url").eq("profile_id", recipientProfileId).single();
-    if (rp?.artist_name ?? rp?.display_name) recipientName = rp?.artist_name ?? rp?.display_name ?? recipientName;
+    const { data: rp } = await admin.from("profiles").select("display_name, artist_name, organizer_name, avatar_url").eq("profile_id", recipientProfileId).single();
+    const resolvedName = resolveStatementDescriptorSource({
+      isEntrance: false,
+      recipientNameContext,
+      organizerName: rp?.organizer_name,
+      artistName: rp?.artist_name,
+      recipientDisplayName: rp?.display_name,
+    });
+    if (resolvedName) recipientName = resolvedName;
     if (rp?.avatar_url) recipientAvatarUrl = rp.avatar_url;
   }
 
@@ -305,7 +316,7 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
     serialNumber: tx.transaction_id,
     teamIdentifier: teamId,
     organizationName: "direct cheers",
-    description: `Cheers to ${artistName}`,
+    description: `Cheers to ${recipientName}`,
     backgroundColor: "rgb(2, 6, 23)",
     foregroundColor: "rgb(255, 255, 255)",
     labelColor: "rgb(148, 163, 184)",

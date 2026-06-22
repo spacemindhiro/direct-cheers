@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { buildEntrancePaymentParams, EntranceAccountIncompleteError } from "@/lib/entrance-payment";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -70,10 +71,29 @@ export async function POST(req: Request) {
       ? `${SITE_URL}/c/${effectiveQrConfigId}/ticket?session_id={CHECKOUT_SESSION_ID}&product_id=${product_id}`
       : `${SITE_URL}/ticket/complete?session_id={CHECKOUT_SESSION_ID}&product_id=${product_id}`;
 
+    let entranceParams;
+    try {
+      entranceParams = await buildEntrancePaymentParams(admin, stripe, eventId);
+    } catch (err: any) {
+      if (err instanceof EntranceAccountIncompleteError) {
+        return NextResponse.json(
+          { error: "account_incomplete", missing_capabilities: err.missingCapabilities },
+          { status: 422 },
+        );
+      }
+      throw err;
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
       customer_email,
+      payment_intent_data: {
+        ...(entranceParams.onBehalfOf ? { on_behalf_of: entranceParams.onBehalfOf } : {}),
+        ...(entranceParams.statementDescriptorSuffix
+          ? { statement_descriptor_suffix: entranceParams.statementDescriptorSuffix }
+          : {}),
+      },
       line_items: [{
         price_data: {
           currency: "jpy",
@@ -128,6 +148,19 @@ export async function POST(req: Request) {
   const useAuthPath = paymentType === "A" && daysUntilEvent <= 5;
 
   if (useAuthPath) {
+    let entranceParams;
+    try {
+      entranceParams = await buildEntrancePaymentParams(admin, stripe, eventId);
+    } catch (err: any) {
+      if (err instanceof EntranceAccountIncompleteError) {
+        return NextResponse.json(
+          { error: "account_incomplete", missing_capabilities: err.missingCapabilities },
+          { status: 422 },
+        );
+      }
+      throw err;
+    }
+
     // PaymentIntent(capture_method:manual) で即時オーソリ
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
@@ -135,6 +168,10 @@ export async function POST(req: Request) {
       customer: stripeCustomerId,
       capture_method: "manual",
       payment_method_types: ["card"],
+      ...(entranceParams.onBehalfOf ? { on_behalf_of: entranceParams.onBehalfOf } : {}),
+      ...(entranceParams.statementDescriptorSuffix
+        ? { statement_descriptor_suffix: entranceParams.statementDescriptorSuffix }
+        : {}),
       metadata: {
         product_id,
         event_id: eventId,

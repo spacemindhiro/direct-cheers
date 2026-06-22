@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { buildEntrancePaymentParams, EntranceAccountIncompleteError } from "@/lib/entrance-payment";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -66,12 +67,29 @@ export async function POST(req: Request) {
 
   // 5日以内: 直接 PaymentIntent でオーソリ（/complete で handleTypeAAuth を呼ぶ）
   if (daysUntilEvent <= 5) {
+    let entranceParams;
+    try {
+      entranceParams = await buildEntrancePaymentParams(admin, stripe, reservation.event_id as string);
+    } catch (err: any) {
+      if (err instanceof EntranceAccountIncompleteError) {
+        return NextResponse.json(
+          { error: "account_incomplete", missing_capabilities: err.missingCapabilities },
+          { status: 422 },
+        );
+      }
+      throw err;
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: reservation.charge_amount,
       currency: "jpy",
       customer: reservation.stripe_customer_id,
       capture_method: "manual",
       payment_method_types: ["card"],
+      ...(entranceParams.onBehalfOf ? { on_behalf_of: entranceParams.onBehalfOf } : {}),
+      ...(entranceParams.statementDescriptorSuffix
+        ? { statement_descriptor_suffix: entranceParams.statementDescriptorSuffix }
+        : {}),
       metadata: {
         reservation_id: reservation.reservation_id,
         product_id: reservation.product_id,

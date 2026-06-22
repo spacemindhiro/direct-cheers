@@ -40,6 +40,7 @@ export async function POST(req: Request) {
     min_amount,
     max_amount,
     recipient_profile_id,
+    recipient_name_context = "artist",
     targets, // [{ profile_id, distribution_ratio }]
     is_personal = false,
     payment_type = "A",
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
     min_amount: number;
     max_amount: number;
     recipient_profile_id: string;
+    recipient_name_context?: "organizer" | "artist";
     targets: { profile_id: string; distribution_ratio: number }[];
     is_personal?: boolean;
     payment_type?: "A" | "B" | "C";
@@ -114,6 +116,9 @@ export async function POST(req: Request) {
   if (!recipient_profile_id) {
     return NextResponse.json({ error: "宛先を選択してください" }, { status: 400 });
   }
+  if (!["organizer", "artist"].includes(recipient_name_context)) {
+    return NextResponse.json({ error: "recipient_name_context が不正です" }, { status: 400 });
+  }
 
   // 配分先必須チェック・比率合計チェック
   if (!targets || targets.length === 0) {
@@ -133,6 +138,7 @@ export async function POST(req: Request) {
     p_event_id:             event_id,
     p_creator_profile_id:   user.id,
     p_recipient_profile_id: recipient_profile_id,
+    p_recipient_name_context: recipient_name_context,
     p_label:                label ?? null,
     p_is_personal:          is_personal,
     p_image_url:            image_url,

@@ -15,7 +15,7 @@ import {
 } from "../helpers/stripe-fixtures";
 import { insertProfile, deleteAuthUsers } from "../helpers/seed";
 import { insertEvent, insertQrConfig } from "../helpers/seed";
-import { cleanupTestData } from "../helpers/db-reset";
+import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 
 // route が stripe に渡すパラメータ・テストで注入する mock 状態を保持する
 // vi.mock はホイスティングされるため、ファクトリがクロージャで参照できるよう module スコープに置く
@@ -447,5 +447,99 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       const res = await POST(req);
       expect(res.status).toBe(200);
     });
+  });
+});
+
+// ── TC-PAY-05: statement_descriptor_suffix（宛先名義による動的切替） ──────
+// オーガナイザーが演者を兼任しているケースを想定し、同じ profile_id でも
+// recipient_name_context によって明細書のsuffixが変わることを検証する。
+describe("TC-PAY-05: statement_descriptor_suffix（宛先名義による動的切替）", () => {
+  let artistProfileId: string;
+  let kanjiOnlyArtistProfileId: string;
+  let qrArtistConfigId: string;
+  let qrOrganizerConfigId: string;
+  let qrKanjiConfigId: string;
+
+  beforeAll(async () => {
+    const ts = Date.now();
+    artistProfileId = await insertProfile({
+      role: "artist",
+      displayName: "テストアーティスト表示名",
+      email: `artist-suffix-${ts}@test.local`,
+    });
+    kanjiOnlyArtistProfileId = await insertProfile({
+      role: "artist",
+      displayName: "宇宙ヒロ",
+      email: `artist-kanji-${ts}@test.local`,
+    });
+    cleanup.profileIds.push(artistProfileId, kanjiOnlyArtistProfileId);
+
+    await testAdmin.from("profiles").update({ artist_name: "DJ HIRO" }).eq("profile_id", artistProfileId);
+    await testAdmin.from("profiles").update({ organizer_name: "SPACE BBQ" }).eq("profile_id", organizerProfileId);
+    // 漢字のみのartist_name（ASCII変換不能ケース）
+    await testAdmin.from("profiles").update({ artist_name: "宇宙ヒロ" }).eq("profile_id", kanjiOnlyArtistProfileId);
+
+    qrArtistConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId });
+    await testAdmin.from("qr_configs").update({ recipient_name_context: "artist" }).eq("qr_config_id", qrArtistConfigId);
+    cleanup.qrConfigIds.push(qrArtistConfigId);
+
+    qrOrganizerConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
+    await testAdmin.from("qr_configs").update({ recipient_name_context: "organizer" }).eq("qr_config_id", qrOrganizerConfigId);
+    cleanup.qrConfigIds.push(qrOrganizerConfigId);
+
+    qrKanjiConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: kanjiOnlyArtistProfileId });
+    await testAdmin.from("qr_configs").update({ recipient_name_context: "artist" }).eq("qr_config_id", qrKanjiConfigId);
+    cleanup.qrConfigIds.push(qrKanjiConfigId);
+  }, 60_000);
+
+  it("recipient_name_context='artist' → suffixはartist_nameから生成される（DJ HIRO）", async () => {
+    const req = new Request("http://localhost/api/pay/cheers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        qr_config_id: qrArtistConfigId,
+        product_id: crypto.randomUUID(),
+        amount: 1_000,
+        payment_method: "card",
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const pid = captured.sessionCreateParams?.payment_intent_data;
+    expect(pid?.statement_descriptor_suffix).toBe("DJ HIRO");
+  });
+
+  it("recipient_name_context='organizer' → suffixはorganizer_nameから生成される（SPACE BBQ）", async () => {
+    const req = new Request("http://localhost/api/pay/cheers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        qr_config_id: qrOrganizerConfigId,
+        product_id: crypto.randomUUID(),
+        amount: 1_000,
+        payment_method: "card",
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const pid = captured.sessionCreateParams?.payment_intent_data;
+    expect(pid?.statement_descriptor_suffix).toBe("SPACE BBQ");
+  });
+
+  it("名前が漢字のみでASCII化できない場合、statement_descriptor_suffix自体が省略される", async () => {
+    const req = new Request("http://localhost/api/pay/cheers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        qr_config_id: qrKanjiConfigId,
+        product_id: crypto.randomUUID(),
+        amount: 1_000,
+        payment_method: "card",
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const pid = captured.sessionCreateParams?.payment_intent_data;
+    expect(pid?.statement_descriptor_suffix).toBeUndefined();
   });
 });

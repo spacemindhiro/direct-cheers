@@ -70,6 +70,9 @@ export function QRCreateForm({
   const [label, setLabel] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [recipientId, setRecipientId] = useState(targetCandidates[0]?.profile_id ?? "");
+  // 同一人物がオーガナイザー兼演者の場合、profile_idだけでは名義を区別できないため
+  // 別途roleを保持し、qr_configs.recipient_name_context として送る
+  const [recipientRole, setRecipientRole] = useState<"organizer" | "artist">(targetCandidates[0]?.role ?? "artist");
   const [targets, setTargets] = useState<DistTarget[]>(
     targetCandidates[0] ? [{ profile_id: targetCandidates[0].profile_id, ratio: "100" }] : [],
   );
@@ -130,9 +133,13 @@ export function QRCreateForm({
   // 配分リストが変わったとき、宛先が配分に含まれなくなったら先頭に戻す
   useEffect(() => {
     if (targets.length > 0 && !targets.some((t) => t.profile_id === recipientId)) {
-      setRecipientId(targets[0].profile_id);
+      const fallback = targetCandidates.find((c) => targets.some((t) => t.profile_id === c.profile_id));
+      if (fallback) {
+        setRecipientId(fallback.profile_id);
+        setRecipientRole(fallback.role);
+      }
     }
-  }, [targets, recipientId]);
+  }, [targets, recipientId, targetCandidates]);
 
   // 宛先の選択肢は配分に登録されている人のみ
   const recipientOptions = targetCandidates.filter((c) =>
@@ -181,6 +188,7 @@ export function QRCreateForm({
           max_amount: priceMode === "fixed" ? fixedAmount : maxAmount,
           amount_step: priceMode === "range" ? amountStep : 100,
           recipient_profile_id: recipientId,
+          recipient_name_context: recipientRole,
           targets: targets.map((t) => ({
             profile_id: t.profile_id,
             distribution_ratio: (parseFloat(t.ratio) || 0) / 100,
@@ -303,7 +311,7 @@ export function QRCreateForm({
           <>
             <QRImageUpload
               eventTitle={eventTitle}
-              artistName={targetCandidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
+              artistName={targetCandidates.find((c) => c.profile_id === recipientId && c.role === recipientRole)?.display_name ?? ""}
               required
               onUploadComplete={setImageUrl}
             />
@@ -312,7 +320,7 @@ export function QRCreateForm({
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">カードプレビュー</p>
                 <div className="max-w-xs mx-auto opacity-90 pointer-events-none">
                   <CheersCard
-                    artistName={targetCandidates.find((c) => c.profile_id === recipientId)?.display_name ?? "Artist"}
+                    artistName={targetCandidates.find((c) => c.profile_id === recipientId && c.role === recipientRole)?.display_name ?? "Artist"}
                     eventTitle={eventTitle}
                     artistAvatar={null}
                     imageUrl={imageUrl}
@@ -643,18 +651,25 @@ export function QRCreateForm({
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
               宛先 <span className="text-pink-500">*</span>
             </label>
-            <p className="text-[10px] text-slate-600">決済記録上の名義人。配分に追加した人の中から選択。</p>
+            <p className="text-[10px] text-slate-600">
+              決済記録上の名義人。配分に追加した人の中から選択。オーガナイザーが演者を兼任している場合、
+              「主催者名義」と「演者名義」は別の選択肢として扱われ、明細書表記等に反映される名前が変わります。
+            </p>
             {recipientOptions.length === 0 ? (
               <p className="text-xs text-amber-400 font-bold">配分先を追加してください</p>
             ) : (
               <select
-                value={recipientId}
-                onChange={(e) => setRecipientId(e.target.value)}
+                value={`${recipientId}::${recipientRole}`}
+                onChange={(e) => {
+                  const [pid, role] = e.target.value.split("::");
+                  setRecipientId(pid);
+                  setRecipientRole(role as "organizer" | "artist");
+                }}
                 className="w-full h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
               >
                 {recipientOptions.map((c) => (
-                  <option key={c.profile_id} value={c.profile_id}>
-                    {c.display_name}{c.role === "organizer" ? "（主催者）" : ""}
+                  <option key={`${c.profile_id}::${c.role}`} value={`${c.profile_id}::${c.role}`}>
+                    {c.display_name}{c.role === "organizer" ? "（主催者名義）" : "（演者名義）"}
                   </option>
                 ))}
               </select>

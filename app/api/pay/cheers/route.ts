@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { checkConnectCapabilities } from "@/lib/stripe-check";
+import { buildStatementDescriptorSuffix } from "@/lib/statement-descriptor";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -46,29 +47,40 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
 
   // organizer の Connect ID を取得（全決済手段で on_behalf_of に使用 — MoR はオーガナイザー）
+  // 同時に statement_descriptor_suffix の元になる宛先名義情報も取得する。
   let organizerConnectId: string | null = null;
+  let statementDescriptorSuffix: string | undefined;
   const { data: qrc } = await admin
     .from("qr_configs")
-    .select("event_id")
+    .select(`
+      recipient_name_context,
+      event:events!event_id(title, organizer_profile_id),
+      recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name)
+    `)
     .eq("qr_config_id", qr_config_id)
     .single();
 
-  if (qrc?.event_id) {
-    const { data: eventRow } = await admin
-      .from("events")
-      .select("organizer_profile_id")
-      .eq("event_id", qrc.event_id)
-      .single();
+  const eventRow = qrc?.event as any;
+  const recipientRow = qrc?.recipient as any;
 
-    if (eventRow?.organizer_profile_id) {
-      const { data: orgProfile } = await admin
-        .from("profiles")
-        .select("stripe_connect_id")
-        .eq("profile_id", eventRow.organizer_profile_id)
-        .single();
-      organizerConnectId = orgProfile?.stripe_connect_id ?? null;
-    }
+  if (eventRow?.organizer_profile_id) {
+    const { data: orgProfile } = await admin
+      .from("profiles")
+      .select("stripe_connect_id")
+      .eq("profile_id", eventRow.organizer_profile_id)
+      .single();
+    organizerConnectId = orgProfile?.stripe_connect_id ?? null;
   }
+
+  // このルートはチア/メッセージ決済専用（入場券は /api/entrance/reserve）なので isEntrance は常にfalse
+  statementDescriptorSuffix = buildStatementDescriptorSuffix({
+    isEntrance: false,
+    eventTitle: eventRow?.title,
+    recipientNameContext: (qrc?.recipient_name_context as "organizer" | "artist") ?? "artist",
+    organizerName: recipientRow?.organizer_name,
+    artistName: recipientRow?.artist_name,
+    recipientDisplayName: recipientRow?.display_name,
+  });
 
   // 事前登録済みカスタマーIDを引く
   let savedCustomerId: string | null = null;
@@ -104,6 +116,7 @@ export async function POST(req: Request) {
       // PayPay は仕様上 manual capture 非対応のため即時キャプチャ。カードはオーソリ維持。
       capture_method: payment_method === "paypay" ? "automatic" : "manual",
       ...(useOnBehalfOf ? { on_behalf_of: organizerConnectId! } : {}),
+      ...(statementDescriptorSuffix ? { statement_descriptor_suffix: statementDescriptorSuffix } : {}),
     },
     line_items: [
       {

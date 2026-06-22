@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersPaymentForm } from "@/components/cheers-payment-form";
 import { InAppBrowserBanner } from "@/components/in-app-browser-banner";
+import { resolveStatementDescriptorSource } from "@/lib/statement-descriptor";
 import { MapPin, Calendar, Clock, Loader2 } from "lucide-react";
 
 function ValidityMessage({ title, message }: { title: string; message: string }) {
@@ -39,6 +40,7 @@ async function CheersContent({
       product_id,
       bypass_validity,
       amount_step,
+      recipient_name_context,
       event:events!event_id (
         event_id,
         title,
@@ -50,7 +52,9 @@ async function CheersContent({
       ),
       recipient:profiles!recipient_profile_id (
         display_name,
-        avatar_url
+        avatar_url,
+        artist_name,
+        organizer_name
       )
     `)
     .eq("qr_config_id", qrConfigId)
@@ -128,7 +132,18 @@ async function CheersContent({
   }
 
   const recipient = qr.recipient as any;
-  const recipientName = recipient?.display_name ?? "Artist";
+  // 表示名は名義コンテキスト（organizer/artist）に応じて organizer_name/artist_name を優先する。
+  // entrance（入場券）は宛先の個人名ではなく常にイベント名を表示する。
+  const recipientNameContext = ((qr as any).recipient_name_context as "organizer" | "artist" | undefined) ?? "artist";
+  const isEntranceQr = (products[0] as any)?.type === "entrance";
+  const recipientName = resolveStatementDescriptorSource({
+    isEntrance: isEntranceQr,
+    eventTitle: event.title,
+    recipientNameContext,
+    organizerName: recipient?.organizer_name,
+    artistName: recipient?.artist_name,
+    recipientDisplayName: recipient?.display_name,
+  });
   const recipientAvatar = recipient?.avatar_url ?? null;
   const qrImageUrl = (qr as any).image_url as string | null;
 

@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 import { getFeeConfig } from "@/lib/fee-config";
+import { buildEntrancePaymentParams, EntranceAccountIncompleteError } from "@/lib/entrance-payment";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -113,6 +114,7 @@ export async function POST(req: Request) {
 
     let paymentIntent: Stripe.PaymentIntent;
     try {
+      const entranceParams = await buildEntrancePaymentParams(admin, stripe, ticket.event_id as string);
       paymentIntent = await stripe.paymentIntents.create({
         amount: reservation.charge_amount,
         currency: "jpy",
@@ -121,6 +123,10 @@ export async function POST(req: Request) {
         confirm: true,
         off_session: true,
         capture_method: "manual",
+        ...(entranceParams.onBehalfOf ? { on_behalf_of: entranceParams.onBehalfOf } : {}),
+        ...(entranceParams.statementDescriptorSuffix
+          ? { statement_descriptor_suffix: entranceParams.statementDescriptorSuffix }
+          : {}),
         metadata: {
           ticket_id: ticket.ticket_id,
           product_id: ticket.product_id,
@@ -129,6 +135,12 @@ export async function POST(req: Request) {
         },
       });
     } catch (err: any) {
+      if (err instanceof EntranceAccountIncompleteError) {
+        return NextResponse.json(
+          { error: "account_incomplete", missing_capabilities: err.missingCapabilities },
+          { status: 422 },
+        );
+      }
       return NextResponse.json({ error: "PAYMENT_FAILED", detail: err.message }, { status: 402 });
     }
 

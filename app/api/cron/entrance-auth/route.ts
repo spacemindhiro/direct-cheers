@@ -17,6 +17,7 @@ import { getFeeConfig } from "@/lib/fee-config";
 import { sendCardSuspendedEmail } from "@/lib/email/notification";
 import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
+import { buildEntrancePaymentParams } from "@/lib/entrance-payment";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -85,6 +86,11 @@ export async function GET(req: Request) {
     const ev = eventNameMap.get(rsv.event_id);
 
     try {
+      // オーガナイザーのConnectアカウントが未完了なら EntranceAccountIncompleteError が
+      // throw される → 既存のcatchブロックでcard_error扱いとして処理される
+      // （チケットsuspend・通知・レポート記録の既存フローを再利用する）
+      const entranceParams = await buildEntrancePaymentParams(admin, stripe, rsv.event_id);
+
       const pi = await stripe.paymentIntents.create({
         amount: rsv.charge_amount,
         currency: "jpy",
@@ -93,6 +99,10 @@ export async function GET(req: Request) {
         capture_method: "manual",
         confirm: true,
         off_session: true,
+        ...(entranceParams.onBehalfOf ? { on_behalf_of: entranceParams.onBehalfOf } : {}),
+        ...(entranceParams.statementDescriptorSuffix
+          ? { statement_descriptor_suffix: entranceParams.statementDescriptorSuffix }
+          : {}),
         metadata: {
           reservation_id: rsv.reservation_id,
           product_id: rsv.product_id,
@@ -139,6 +149,14 @@ export async function GET(req: Request) {
         amount:        rsv.charge_amount,
         failureReason: stripeDeclineToJa(err),
       });
+
+      // オーガナイザー側の問題（口座未完了）はカード起因ではないため、
+      // 客のチケットをsuspendしたり「カードエラー」メールを送ったりしない。
+      // 予約は reserved のまま残し、翌日以降のcron再実行で自動リトライされる
+      // （オンボーディング完了次第、客側の操作なしに自然回復する）。
+      if (err?.name === "EntranceAccountIncompleteError") {
+        continue;
+      }
 
       await admin
         .from("entrance_reservations")
@@ -195,6 +213,8 @@ function stripeDeclineToJa(err: any): string {
   const code    = err?.decline_code ?? err?.code ?? "";
   const msg     = err?.message ?? String(err);
 
+  if (err?.name === "EntranceAccountIncompleteError")
+    return `⚠️【主催者口座未完了】${msg}（要オンボーディング完了案内）`;
   if (code === "insufficient_funds")
     return "❌【決済失敗】カードの残高不足です（要現地回収）";
   if (code === "authentication_required" || code === "payment_intent_authentication_failure")

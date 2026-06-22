@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { buildStatementDescriptorPrefixes } from "@/lib/statement-descriptor";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com").replace(/\/$/, "");
@@ -63,6 +64,16 @@ export async function POST(req: Request) {
     const admin = createAdminClient();
     let connectId = me.stripe_connect_id;
 
+    // カード明細のベース表記（account-level prefix）はシステム側で "DC-" を強制する。
+    // 自由文字列を直接Stripeに渡すと、動的suffixと結合した際に意味不明な明細に
+    // なりチャージバックの原因になるため、ユーザー入力は「DC-」に続く名前部分の
+    // 元データとしてのみ使う（最終的な文字列はbuildStatementDescriptorPrefixesが組み立てる）。
+    const { prefix, prefixKana, prefixKanji } = buildStatementDescriptorPrefixes({
+      asciiNameRaw: body.business_name || me.display_name,
+      kanaNameRaw: body.statement_descriptor_kana,
+      kanjiNameRaw: body.statement_descriptor_kanji,
+    });
+
     if (!connectId) {
       const isCompany = body.business_type === "company";
       const websiteUrl = body.website || undefined;
@@ -81,14 +92,22 @@ export async function POST(req: Request) {
         },
       };
 
-      if (body.statement_descriptor_kanji || body.statement_descriptor_kana) {
-        accountParams.settings = { payments: {} };
-        if (body.statement_descriptor_kanji)
-          (accountParams.settings.payments as Record<string, string>).statement_descriptor_kanji = body.statement_descriptor_kanji;
-        const sdKana = toStripeKana(body.statement_descriptor_kana);
-        if (sdKana)
-          (accountParams.settings.payments as Record<string, string>).statement_descriptor_kana = sdKana;
-      }
+      // ベース表記は常に "DC-" 固定prefix。non-prefix系フィールドも同値で埋めておく
+      // （動的suffixを送らない決済が将来発生した場合のフォールバック用）。
+      accountParams.settings = {
+        payments: {
+          statement_descriptor: prefix,
+          statement_descriptor_prefix: prefix,
+          ...(prefixKana ? {
+            statement_descriptor_kana: prefixKana,
+            statement_descriptor_prefix_kana: prefixKana,
+          } : {}),
+          ...(prefixKanji ? {
+            statement_descriptor_kanji: prefixKanji,
+            statement_descriptor_prefix_kanji: prefixKanji,
+          } : {}),
+        } as Stripe.AccountCreateParams.Settings.Payments,
+      };
 
       if (!isCompany) {
         accountParams.individual = { email: user.email };
@@ -221,9 +240,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ url: accountLink.url });
     }
 
-    // 既存connectId がある場合：DB更新と accountLinks 生成を並列
+    // 既存connectId がある場合：DB更新・Stripeアカウント設定の再送・accountLinks 生成を並列
+    // ベース表記（prefix）は再送するたびに最新の名前から再構築する
+    // （初回作成時にしか反映されていなかった既存の不備を修正）。
     const socialLinks = body.website ? { website: body.website } : undefined;
-    const [, accountLink] = await Promise.all([
+    const [, , accountLink] = await Promise.all([
       Object.keys(body).length > 0
         ? admin.from("profiles").update({
             business_type:               body.business_type              ?? null,
@@ -255,6 +276,22 @@ export async function POST(req: Request) {
             ...(socialLinks ? { social_links: socialLinks } : {}),
           }).eq("profile_id", user.id)
         : Promise.resolve(null),
+      stripe.accounts.update(connectId, {
+        settings: {
+          payments: {
+            statement_descriptor: prefix,
+            statement_descriptor_prefix: prefix,
+            ...(prefixKana ? {
+              statement_descriptor_kana: prefixKana,
+              statement_descriptor_prefix_kana: prefixKana,
+            } : {}),
+            ...(prefixKanji ? {
+              statement_descriptor_kanji: prefixKanji,
+              statement_descriptor_prefix_kanji: prefixKanji,
+            } : {}),
+          } as Stripe.AccountUpdateParams.Settings.Payments,
+        },
+      }),
       stripe.accountLinks.create({
         account: connectId,
         refresh_url: `${SITE_URL}/dashboard/profile/connect-return?refresh=1`,

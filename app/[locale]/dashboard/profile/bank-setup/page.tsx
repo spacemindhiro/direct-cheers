@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { buildStatementDescriptorPrefixes } from '@/lib/statement-descriptor';
 
 type BusinessType = 'individual' | 'company';
 
@@ -578,18 +579,38 @@ export default function BankSetupPage() {
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
               カード明細表示名 <span className="text-slate-600 normal-case font-normal">（任意）</span>
             </p>
+            <p className="text-[10px] text-slate-600">
+              不正な明細表記によるチャージバックを防ぐため、先頭には必ず「DC-」（Direct Cheers）が付きます。
+              ここに入力した名前はその後ろに続きます。
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <p className="text-[10px] text-slate-600">漢字（最大22文字）</p>
+                <p className="text-[10px] text-slate-600">漢字（最大10文字）</p>
                 <input type="text" value={form.statementDescriptorKanji} onChange={setStr('statementDescriptorKanji')}
-                  placeholder="ダイレクトチアーズ" maxLength={22} className={ic} />
+                  placeholder="スペースBBQ" maxLength={10} className={ic} />
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] text-slate-600">カナ（最大22文字）</p>
                 <input type="text" value={form.statementDescriptorKana} onChange={setStr('statementDescriptorKana')}
-                  placeholder="ダイレクトチアーズ" maxLength={22} className={ic} />
+                  placeholder="スペースビービーキュー" maxLength={22} className={ic} />
               </div>
             </div>
+            {(() => {
+              const { prefix, prefixKana, prefixKanji } = buildStatementDescriptorPrefixes({
+                asciiNameRaw: form.businessName || undefined,
+                kanaNameRaw: form.statementDescriptorKana,
+                kanjiNameRaw: form.statementDescriptorKanji,
+              });
+              return (
+                <div className="p-3 bg-slate-950/50 border border-slate-800 rounded-xl space-y-1">
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">明細プレビュー（ベース部分）</p>
+                  <p className="text-[11px] text-white font-bold">{prefixKanji || prefix}</p>
+                  <p className="text-[9px] text-slate-600">
+                    実際の決済では、この後ろに演者名やイベント名が決済ごとに追加されます
+                  </p>
+                </div>
+              );
+            })()}
           </div>
 
           <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl space-y-1.5">

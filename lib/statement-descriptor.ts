@@ -105,14 +105,18 @@ export function resolveStatementDescriptorSource(params: {
 }): string {
   const {
     isEntrance, eventTitle, recipientNameContext,
-    organizerName, artistName, recipientDisplayName,
+    artistName, recipientDisplayName,
   } = params;
 
   if (isEntrance) {
     return eventTitle ?? recipientDisplayName ?? "DIRECT CHEERS";
   }
+  // オーガナイザー名義の場合、アカウント側のprefix（DC-オーガナイザー名）に
+  // 既にオーガナイザー名が出るため、suffixで同じ名前を繰り返すと
+  // 「DC-SPACEBBQ SPACEBBQ」のような冗長な表記になってしまう。
+  // suffixはイベント名を出すことで「どのイベントの決済か」を補完する。
   if (recipientNameContext === "organizer") {
-    return organizerName ?? recipientDisplayName ?? eventTitle ?? "DIRECT CHEERS";
+    return eventTitle ?? recipientDisplayName ?? "DIRECT CHEERS";
   }
   return artistName ?? recipientDisplayName ?? eventTitle ?? "DIRECT CHEERS";
 }
@@ -154,3 +158,106 @@ export function buildStatementDescriptorSuffixes(
     suffixKanji: sanitizeStatementDescriptorSuffixKanji(source, 17) ?? undefined,
   };
 }
+
+// ============================================================================
+// ベース表記（account-level prefix）の制御
+//
+// オーガナイザーがオンボーディング時に自由文字列を入れると、動的suffixと結合した
+// 際にカード明細が意味不明な文字列になり、チャージバックの原因になる。
+// Stripeにはこの「ベース」+「毎回変わるsuffix」を結合する専用フィールドが
+// 用意されている（statement_descriptor_prefix / _kana / _kanji）。
+// このプロジェクトでは prefix の先頭を必ず "DC-"（Direct Cheers）で固定し、
+// 残りをオーガナイザー名から生成することで、ベース表記の自由度を奪い
+// 「身元が常に分かる」状態を保証する。
+//
+// Stripeの合計文字数制限（prefix + 区切り + suffix の合計）:
+//   ASCII: 22文字 / カナ: 22文字 / 漢字: 17文字
+// 超過した場合、Stripeはベース（prefix）側を切り詰めてsuffixを優先表示する
+// （公式ドキュメントの記載に基づく。本ファイルのプレビュー用シミュレーションも
+// これに合わせてprefix側を切り詰める）。
+// ============================================================================
+
+/** ASCII版・漢字版で使う固定プラットフォーム識別子。"DC" = Direct Cheers。 */
+export const PLATFORM_PREFIX = "DC";
+
+const ASCII_TOTAL_MAX = 22;
+const KANA_TOTAL_MAX = 22;
+const KANJI_TOTAL_MAX = 17;
+
+export type StatementDescriptorPrefixes = {
+  /** statement_descriptor / statement_descriptor_prefix （ASCII。常に "DC-" で始まる） */
+  prefix: string;
+  /**
+   * statement_descriptor_kana / statement_descriptor_prefix_kana
+   * カナフィールドは半角英字を受け付けないため "DC" マーカーは付与できない。
+   * オーガナイザー名のカナ変換結果のみ（無ければ undefined）。
+   */
+  prefixKana?: string;
+  /** statement_descriptor_kanji / statement_descriptor_prefix_kanji （常に "DC " または "DC" で始まる） */
+  prefixKanji: string;
+};
+
+/**
+ * オーガナイザー名から、システム固定の "DC-" を冠したベース表記（prefix）を組み立てる。
+ * suffix用の文字数を残すため、prefix自体の上限はsuffixより短く設定する
+ * （ASCII: DC- + 12文字まで、漢字: DC + 10文字まで）。
+ *
+ * 漢字・カナは別々の入力フィールド（オンボーディングフォームの「漢字」「カナ」欄）から
+ * 来る別々の文字列であり、1つの文字列に潰すと片方のフィールドの内容が無視される
+ * バグになるため、3種それぞれ専用のソース文字列を受け取る。
+ */
+export function buildStatementDescriptorPrefixes(sources: {
+  /** ASCII prefix の元データ（ローマ字表記。例: business_name や display_name） */
+  asciiNameRaw?: string | null;
+  /** statement_descriptor_kana 入力欄の値 */
+  kanaNameRaw?: string | null;
+  /** statement_descriptor_kanji 入力欄の値 */
+  kanjiNameRaw?: string | null;
+}): StatementDescriptorPrefixes {
+  const asciiName = sanitizeStatementDescriptorSuffix(sources.asciiNameRaw, 12);
+  const prefix = asciiName ? `${PLATFORM_PREFIX}-${asciiName}` : PLATFORM_PREFIX;
+
+  const kanjiName = sanitizeStatementDescriptorSuffixKanji(sources.kanjiNameRaw, 10);
+  const prefixKanji = kanjiName ? `${PLATFORM_PREFIX} ${kanjiName}` : PLATFORM_PREFIX;
+
+  // カナフィールドは "DC" を表現できないため、オーガナイザー名のカナのみ
+  // （無ければprefix自体を省略 = アカウント側の素のkana設定に委ねる）
+  const prefixKana = sanitizeStatementDescriptorSuffixKana(sources.kanaNameRaw, KANA_TOTAL_MAX) ?? undefined;
+
+  return { prefix, prefixKana, prefixKanji };
+}
+
+/**
+ * prefix + suffix を結合した最終的な明細表記をシミュレーションする（プレビュー表示用）。
+ * Stripeは合計が上限を超えた場合、prefix側を切り詰めてsuffixを優先表示するため、
+ * その挙動を再現する。実際にStripeへ送るパラメータの計算には使わない
+ * （Stripe側が最終的な結合・切り詰めを行うため）。
+ */
+export function combineDescriptorPreview(
+  prefix: string,
+  suffix: string | null | undefined,
+  totalMax: number,
+): { combined: string; truncated: boolean } {
+  const safeSuffix = suffix?.trim() ?? "";
+  if (!safeSuffix) return { combined: prefix, truncated: false };
+
+  const separator = " ";
+  const fullLength = prefix.length + separator.length + safeSuffix.length;
+  if (fullLength <= totalMax) {
+    return { combined: `${prefix}${separator}${safeSuffix}`, truncated: false };
+  }
+
+  // 超過分だけprefixを切り詰める（suffixは満額表示を優先）
+  const allowedPrefixLen = Math.max(0, totalMax - separator.length - safeSuffix.length);
+  const truncatedPrefix = prefix.slice(0, allowedPrefixLen);
+  const combined = truncatedPrefix
+    ? `${truncatedPrefix}${separator}${safeSuffix}`
+    : safeSuffix.slice(0, totalMax);
+  return { combined, truncated: true };
+}
+
+export const STATEMENT_DESCRIPTOR_TOTAL_MAX = {
+  ascii: ASCII_TOTAL_MAX,
+  kana: KANA_TOTAL_MAX,
+  kanji: KANJI_TOTAL_MAX,
+} as const;

@@ -5,7 +5,7 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersCard } from "@/components/cheers-card";
 import { FollowButton } from "@/components/follow-button";
-import { resolveStatementDescriptorSource, resolveRecipientAvatarUrl } from "@/lib/statement-descriptor";
+import { resolveCheerCardIdentity } from "@/lib/statement-descriptor";
 import { Loader2, Layers } from "lucide-react";
 
 async function CollectionContent() {
@@ -119,27 +119,37 @@ async function CollectionContent() {
             // 主催者がDJ等を兼任している場合、recipient_name_contextで「主催者名義/演者名義」の
             // どちらで受け取ったかを区別する（statement_descriptorの解決と同じビジネスルールを再利用）。
             const recipientNameContext = (tx.qr_config?.recipient_name_context as "organizer" | "artist" | undefined) ?? "artist";
-            const resolvedRecipientName = recipient ? resolveStatementDescriptorSource({
-              isEntrance: false,
-              recipientNameContext,
-              organizerName: recipient?.organizer_name,
-              artistName: recipient?.artist_name,
-              recipientDisplayName: recipient?.display_name,
-            }) : null;
-            const resolvedRecipientAvatar = recipient ? resolveRecipientAvatarUrl({
-              isEntrance: false,
-              recipientNameContext,
-              organizerAvatarUrl: recipient?.organizer_avatar_url,
-              artistAvatarUrl: recipient?.artist_avatar_url,
-              recipientAvatarUrl: recipient?.avatar_url,
-            }) : null;
+            const recipientForIdentity = recipient ? {
+              organizerName: recipient.organizer_name,
+              artistName: recipient.artist_name,
+              displayName: recipient.display_name,
+              organizerAvatarUrl: recipient.organizer_avatar_url,
+              artistAvatarUrl: recipient.artist_avatar_url,
+              avatarUrl: recipient.avatar_url,
+            } : null;
+            const productArtistForIdentity = artist ? {
+              artistName: artist.artist_name,
+              displayName: artist.display_name,
+              avatarUrl: artist.avatar_url,
+            } : null;
 
-            const displayName   = resolvedRecipientName ?? artist?.artist_name ?? artist?.display_name ?? "Artist";
-            const displayAvatar = resolvedRecipientAvatar ?? artist?.avatar_url ?? null;
+            const { name: displayName, avatarUrl: displayAvatar } = resolveCheerCardIdentity({
+              recipientNameContext,
+              recipient: recipientForIdentity,
+              productArtist: productArtistForIdentity,
+            });
+            // フォロー対象名は「実名が無ければnull」（"Artist"のような固定文字列で
+            // フォローボタンを誤って出さないよう、レンダリング用のフォールバックは使わない）。
+            const { name: rawFolloweeName } = resolveCheerCardIdentity({
+              recipientNameContext,
+              recipient: recipientForIdentity,
+              productArtist: productArtistForIdentity,
+              fallbackName: "",
+            });
 
             // フォロー対象の決定
             const artistFolloweeId   = recipientId ?? artistId;
-            const artistFolloweeName = resolvedRecipientName ?? artist?.artist_name ?? artist?.display_name ?? null;
+            const artistFolloweeName = rawFolloweeName || null;
             const organizerName      = organizer?.organizer_name ?? organizer?.display_name ?? null;
             // 宛先がオーガナイザー本人の場合はアーティストボタンを出さない
             const showArtistFollow   = !!(artistFolloweeId && artistFolloweeId !== organizerProfileId && artistFolloweeName);

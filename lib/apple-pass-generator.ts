@@ -2,7 +2,7 @@ import { PKPass } from "passkit-generator";
 import forge from "node-forge";
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveStatementDescriptorSource, resolveRecipientAvatarUrl } from "@/lib/statement-descriptor";
+import { resolveCheerCardIdentity } from "@/lib/statement-descriptor";
 import path from "path";
 import fs from "fs";
 
@@ -244,13 +244,61 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
   return pass.getAsBuffer() as unknown as Buffer;
 }
 
+/**
+ * チアのWalletパスに表示する名前・画像を解決する（DBアクセスのみ・証明書等のIOは含まない）。
+ * generatePassBuffer から分離しているのは、証明書を必要とせずに単体テストできるようにするため
+ * （名前・画像の解決ロジックの正しさと、Walletパス自体の生成成否は別の関心事）。
+ */
+export async function resolveCheerPassIdentity(
+  admin: ReturnType<typeof createAdminClient>,
+  tx: {
+    product?: { artist?: { display_name: string | null; artist_name: string | null; avatar_url: string | null } | null } | null;
+    qr_config?: {
+      recipient_profile_id?: string | null;
+      recipient_name_context?: string | null;
+    } | null;
+  },
+): Promise<{ name: string; avatarUrl: string | null }> {
+  const artistRaw = (tx.product as any)?.artist;
+  const recipientNameContext = ((tx.qr_config as any)?.recipient_name_context as "organizer" | "artist" | undefined) ?? "artist";
+  const recipientProfileId = (tx.qr_config as any)?.recipient_profile_id as string | null | undefined;
+
+  let recipientProfile: {
+    display_name: string | null; artist_name: string | null; organizer_name: string | null;
+    avatar_url: string | null; artist_avatar_url: string | null; organizer_avatar_url: string | null;
+  } | null = null;
+  if (recipientProfileId) {
+    const { data: rp } = await admin.from("profiles")
+      .select("display_name, artist_name, organizer_name, avatar_url, artist_avatar_url, organizer_avatar_url")
+      .eq("profile_id", recipientProfileId).single();
+    recipientProfile = rp ?? null;
+  }
+
+  return resolveCheerCardIdentity({
+    recipientNameContext,
+    recipient: recipientProfile ? {
+      organizerName: recipientProfile.organizer_name,
+      artistName: recipientProfile.artist_name,
+      displayName: recipientProfile.display_name,
+      organizerAvatarUrl: recipientProfile.organizer_avatar_url,
+      artistAvatarUrl: recipientProfile.artist_avatar_url,
+      avatarUrl: recipientProfile.avatar_url,
+    } : null,
+    productArtist: artistRaw ? {
+      artistName: artistRaw.artist_name,
+      displayName: artistRaw.display_name,
+      avatarUrl: artistRaw.avatar_url,
+    } : null,
+  });
+}
+
 export async function generatePassBuffer(transactionId: string): Promise<Buffer> {
   const admin = createAdminClient();
   const { data: tx, error: txErr } = await admin
     .from("transactions")
     .select(`
       transaction_id, total_gross_amount, created_at, sequence_number_in_event, sender_name, sender_comment,
-      product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name, artist_name)),
+      product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name, artist_name, avatar_url)),
       qr_config:qr_configs!qr_config_id(
         qr_config_id, event_id, image_url, recipient_profile_id, recipient_name_context,
         event:events!event_id(title)
@@ -273,40 +321,13 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
     throw Object.assign(new Error("Apple Wallet設定が不完全です"), { status: 500 });
   }
 
-  const artistRaw = (tx.product as any)?.artist;
-  const artistName = artistRaw?.artist_name ?? artistRaw?.display_name ?? "Artist";
   const eventTitle = (tx.qr_config as any)?.event?.title ?? "";
   const amount = tx.total_gross_amount ?? 0;
   const serialNumber = tx.sequence_number_in_event ?? 0;
   const txDate = new Date(tx.created_at).toLocaleDateString("ja-JP");
   const qrConfigId = (tx.qr_config as any)?.qr_config_id as string | null | undefined;
 
-  // 主催者がDJ等を兼任している場合、recipient_name_contextで「主催者名義/演者名義」の
-  // どちらで受け取ったかを区別する（statement_descriptorの解決と同じビジネスルールを再利用）。
-  const recipientNameContext = ((tx.qr_config as any)?.recipient_name_context as "organizer" | "artist" | undefined) ?? "artist";
-  const recipientProfileId = (tx.qr_config as any)?.recipient_profile_id as string | null | undefined;
-  let recipientName = artistName;
-  let recipientAvatarUrl: string | null = null;
-  if (recipientProfileId) {
-    const { data: rp } = await admin.from("profiles")
-      .select("display_name, artist_name, organizer_name, avatar_url, artist_avatar_url, organizer_avatar_url")
-      .eq("profile_id", recipientProfileId).single();
-    const resolvedName = resolveStatementDescriptorSource({
-      isEntrance: false,
-      recipientNameContext,
-      organizerName: rp?.organizer_name,
-      artistName: rp?.artist_name,
-      recipientDisplayName: rp?.display_name,
-    });
-    if (resolvedName) recipientName = resolvedName;
-    recipientAvatarUrl = resolveRecipientAvatarUrl({
-      isEntrance: false,
-      recipientNameContext,
-      organizerAvatarUrl: rp?.organizer_avatar_url,
-      artistAvatarUrl: rp?.artist_avatar_url,
-      recipientAvatarUrl: rp?.avatar_url,
-    });
-  }
+  const { name: recipientName, avatarUrl: recipientAvatarUrl } = await resolveCheerPassIdentity(admin, tx as any);
 
   const { data: thanksData } = qrConfigId
     ? await admin.from("qr_config_thanks")

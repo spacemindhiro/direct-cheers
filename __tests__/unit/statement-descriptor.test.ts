@@ -12,6 +12,7 @@ import {
   sanitizeStatementDescriptorSuffixKanji,
   resolveStatementDescriptorSource,
   resolveRecipientAvatarUrl,
+  resolveCheerCardIdentity,
   buildStatementDescriptorSuffix,
   buildStatementDescriptorSuffixes,
   combineDescriptorPreview,
@@ -381,5 +382,92 @@ describe("TC-SD-06: プレビュー表示と本番送信値（suffix）の整合
     });
     expect(preview.ascii).toBe(prod.suffix ?? null);
     expect(preview.kanji).toBe(prod.suffixKanji ?? null);
+  });
+});
+
+/**
+ * TC-SD-07: resolveCheerCardIdentity（Wallet/コレクション画面共通のカード表示名・画像解決）
+ *
+ * 【仕様マトリクス】
+ * - recipient_name_context='organizer' → name は必ず organizer_name と完全一致
+ *   （イベント名・主催者のdisplay_name・演者名のいずれとも一致してはならない）
+ * - recipient_name_context='artist'    → name は必ず artist_name と完全一致
+ *   （主催者名・display_nameのいずれとも一致してはならない）
+ * - 画像も同じ規則（organizer_avatar_url / artist_avatar_url）
+ * - 宛先が解決できない場合のみ、商品のアーティストにフォールバックする
+ */
+describe("TC-SD-07: resolveCheerCardIdentity（仕様マトリクス・厳格一致）", () => {
+  const eventName = "SPACE BBQ FESTIVAL 2026"; // イベント名はどの解決結果にも出てはならない
+  const organizerName = "SPACE BBQ運営委員会";
+  const artistName = "DJ HIRO";
+  const recipientDisplayName = "山田太郎";
+  const organizerAvatarUrl = "https://example.com/organizer-exact.webp";
+  const artistAvatarUrl = "https://example.com/artist-exact.webp";
+  const recipientAvatarUrl = "https://example.com/avatar-exact.webp";
+
+  const recipient = {
+    organizerName,
+    artistName,
+    displayName: recipientDisplayName,
+    organizerAvatarUrl,
+    artistAvatarUrl,
+    avatarUrl: recipientAvatarUrl,
+  };
+
+  it("organizer文脈 → nameはorganizer_nameと完全一致し、イベント名・display_name・artist_nameのいずれとも一致しない", () => {
+    const { name, avatarUrl } = resolveCheerCardIdentity({ recipientNameContext: "organizer", recipient });
+    expect(name).toBe(organizerName);
+    expect(name).not.toBe(eventName);
+    expect(name).not.toBe(recipientDisplayName);
+    expect(name).not.toBe(artistName);
+    expect(avatarUrl).toBe(organizerAvatarUrl);
+    expect(avatarUrl).not.toBe(artistAvatarUrl);
+    expect(avatarUrl).not.toBe(recipientAvatarUrl);
+  });
+
+  it("artist文脈 → nameはartist_nameと完全一致し、organizer_name・display_nameのいずれとも一致しない", () => {
+    const { name, avatarUrl } = resolveCheerCardIdentity({ recipientNameContext: "artist", recipient });
+    expect(name).toBe(artistName);
+    expect(name).not.toBe(organizerName);
+    expect(name).not.toBe(recipientDisplayName);
+    expect(avatarUrl).toBe(artistAvatarUrl);
+    expect(avatarUrl).not.toBe(organizerAvatarUrl);
+    expect(avatarUrl).not.toBe(recipientAvatarUrl);
+  });
+
+  it("宛先（recipient）が無い場合のみ、商品のアーティスト（productArtist）にフォールバックする", () => {
+    const productArtist = {
+      artistName: "DJ FALLBACK",
+      displayName: "フォールバック太郎",
+      avatarUrl: "https://example.com/fallback.webp",
+    };
+    const { name, avatarUrl } = resolveCheerCardIdentity({
+      recipientNameContext: "artist",
+      recipient: null,
+      productArtist,
+    });
+    expect(name).toBe("DJ FALLBACK");
+    expect(avatarUrl).toBe("https://example.com/fallback.webp");
+  });
+
+  it("宛先・商品アーティストどちらも無い場合、fallbackName（既定 'Artist'）になり画像はnull", () => {
+    const { name, avatarUrl } = resolveCheerCardIdentity({ recipientNameContext: "artist" });
+    expect(name).toBe("Artist");
+    expect(avatarUrl).toBeNull();
+  });
+
+  it("fallbackNameを空文字に指定すれば、実名が無いことを明示的に検出できる（空文字 = フォロー対象なし等の判定用）", () => {
+    const { name } = resolveCheerCardIdentity({ recipientNameContext: "artist", fallbackName: "" });
+    expect(name).toBe("");
+  });
+
+  it("宛先はいるがorganizer_name/artist_nameが未設定 → display_nameにフォールバックし、商品アーティストは使わない", () => {
+    const { name } = resolveCheerCardIdentity({
+      recipientNameContext: "organizer",
+      recipient: { ...recipient, organizerName: null },
+      productArtist: { artistName: "DJ SHOULD NOT BE USED", displayName: null, avatarUrl: null },
+    });
+    expect(name).toBe(recipientDisplayName);
+    expect(name).not.toBe("DJ SHOULD NOT BE USED");
   });
 });

@@ -136,6 +136,65 @@ export function resolveRecipientAvatarUrl(params: {
 }
 
 /**
+ * チアカード（Apple Wallet・コレクション画面）が共通して必要とする
+ * 「表示名 + 画像」の解決をまとめて行う。
+ *
+ * 優先順位:
+ *   1. QR宛先（recipient）が居れば、recipient_name_contextに応じて
+ *      organizer_name/organizer_avatar_url または artist_name/artist_avatar_url
+ *      （resolveStatementDescriptorSource / resolveRecipientAvatarUrl と同一ルール）
+ *   2. 宛先が解決できない場合、商品に紐づくアーティスト（product.artist）
+ *   3. どちらも無ければ fallbackName（既定 "Artist"）・画像はnull
+ *
+ * イベント名（event.title/name）はどの優先順位にも含まれない
+ * （statement_descriptor同様、英語表記と同じ情報量に揃えるため使わない）。
+ */
+export function resolveCheerCardIdentity(params: {
+  recipientNameContext: RecipientNameContext;
+  recipient?: {
+    organizerName?: string | null;
+    artistName?: string | null;
+    displayName?: string | null;
+    organizerAvatarUrl?: string | null;
+    artistAvatarUrl?: string | null;
+    avatarUrl?: string | null;
+  } | null;
+  productArtist?: {
+    artistName?: string | null;
+    displayName?: string | null;
+    avatarUrl?: string | null;
+  } | null;
+  fallbackName?: string;
+}): { name: string; avatarUrl: string | null } {
+  const { recipientNameContext, recipient, productArtist, fallbackName = "Artist" } = params;
+
+  const resolvedName = recipient
+    ? resolveStatementDescriptorSource({
+        isEntrance: false,
+        recipientNameContext,
+        organizerName: recipient.organizerName,
+        artistName: recipient.artistName,
+        recipientDisplayName: recipient.displayName,
+      })
+    : null;
+
+  const resolvedAvatar = recipient
+    ? resolveRecipientAvatarUrl({
+        isEntrance: false,
+        recipientNameContext,
+        organizerAvatarUrl: recipient.organizerAvatarUrl,
+        artistAvatarUrl: recipient.artistAvatarUrl,
+        recipientAvatarUrl: recipient.avatarUrl,
+      })
+    : null;
+
+  return {
+    name: resolvedName ?? productArtist?.artistName ?? productArtist?.displayName ?? fallbackName,
+    avatarUrl: resolvedAvatar ?? productArtist?.avatarUrl ?? null,
+  };
+}
+
+/**
  * 名前解決 + サニタイズをまとめて行う。Stripeのパラメータに渡す際は
  * `statement_descriptor_suffix: buildStatementDescriptorSuffix(...) ?? undefined`
  * のように使い、undefined ならフィールド自体を渡さない。

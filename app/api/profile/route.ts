@@ -15,10 +15,16 @@ export async function PATCH(req: Request) {
 
   const admin = createAdminClient();
 
-  // 変更前の値を取得（display_name / avatar_url の変化検出用）
+  // 変更前の値を取得（ウォレットカードの見た目に影響するフィールドの変化検出用）
+  const WALLET_VISIBLE_FIELDS = [
+    "display_name", "avatar_url",
+    "artist_name", "organizer_name",
+    "artist_avatar_url", "organizer_avatar_url",
+  ] as const;
+
   const { data: before } = await admin
     .from("profiles")
-    .select("display_name, avatar_url")
+    .select(WALLET_VISIBLE_FIELDS.join(", "))
     .eq("profile_id", user.id)
     .single();
 
@@ -31,11 +37,14 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // display_name または avatar_url が変わった場合のみウォレット push
-  const nameChanged   = "display_name" in updates && updates.display_name !== before?.display_name;
-  const avatarChanged = "avatar_url"   in updates && updates.avatar_url   !== before?.avatar_url;
+  // ウォレットカードに表示されるいずれかのフィールドが変わった場合のみpush
+  // （名前だけ・画像だけの変更でもカード文言が変わるため、display_name/avatar_urlだけでなく
+  // organizer_name/artist_name/organizer_avatar_url/artist_avatar_urlも対象に含める）
+  const walletFieldChanged = WALLET_VISIBLE_FIELDS.some(
+    (field) => field in updates && updates[field] !== (before as any)?.[field],
+  );
 
-  if (nameChanged || avatarChanged) {
+  if (walletFieldChanged) {
     // このユーザーが recipient になっている完了済みトランザクションを全件取得
     try {
       const { data: qrConfigs } = await admin

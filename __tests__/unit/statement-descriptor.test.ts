@@ -11,6 +11,7 @@ import {
   sanitizeStatementDescriptorSuffix,
   sanitizeStatementDescriptorSuffixKanji,
   resolveStatementDescriptorSource,
+  resolveRecipientAvatarUrl,
   buildStatementDescriptorSuffix,
   buildStatementDescriptorSuffixes,
   combineDescriptorPreview,
@@ -142,6 +143,58 @@ describe("TC-SD-02: resolveStatementDescriptorSource", () => {
 
   it("全てのフォールバックが無い場合、nullを返す（DIRECT CHEERSのような固定文字は使わない）", () => {
     const result = resolveStatementDescriptorSource({
+      isEntrance: false,
+      recipientNameContext: "artist",
+    });
+    expect(result).toBeNull();
+  });
+});
+
+describe("TC-SD-02b: resolveRecipientAvatarUrl（主催者/演者で別画像を使い分ける）", () => {
+  it("organizer文脈ではorganizerAvatarUrlを優先する", () => {
+    const result = resolveRecipientAvatarUrl({
+      isEntrance: false,
+      recipientNameContext: "organizer",
+      organizerAvatarUrl: "https://example.com/organizer.webp",
+      artistAvatarUrl: "https://example.com/artist.webp",
+      recipientAvatarUrl: "https://example.com/avatar.webp",
+    });
+    expect(result).toBe("https://example.com/organizer.webp");
+  });
+
+  it("artist文脈ではartistAvatarUrlを優先する", () => {
+    const result = resolveRecipientAvatarUrl({
+      isEntrance: false,
+      recipientNameContext: "artist",
+      organizerAvatarUrl: "https://example.com/organizer.webp",
+      artistAvatarUrl: "https://example.com/artist.webp",
+      recipientAvatarUrl: "https://example.com/avatar.webp",
+    });
+    expect(result).toBe("https://example.com/artist.webp");
+  });
+
+  it("入場券は宛先名義に関わらずorganizerAvatarUrlを使う（MoRが常にオーガナイザーのため）", () => {
+    const result = resolveRecipientAvatarUrl({
+      isEntrance: true,
+      recipientNameContext: "artist",
+      organizerAvatarUrl: "https://example.com/organizer.webp",
+      artistAvatarUrl: "https://example.com/artist.webp",
+    });
+    expect(result).toBe("https://example.com/organizer.webp");
+  });
+
+  it("該当する画像が未設定の場合、recipientAvatarUrl（共通アバター）にフォールバックする", () => {
+    const result = resolveRecipientAvatarUrl({
+      isEntrance: false,
+      recipientNameContext: "organizer",
+      organizerAvatarUrl: null,
+      recipientAvatarUrl: "https://example.com/avatar.webp",
+    });
+    expect(result).toBe("https://example.com/avatar.webp");
+  });
+
+  it("何も設定が無い場合、nullを返す", () => {
+    const result = resolveRecipientAvatarUrl({
       isEntrance: false,
       recipientNameContext: "artist",
     });

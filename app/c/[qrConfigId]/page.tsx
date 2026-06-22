@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersPaymentForm } from "@/components/cheers-payment-form";
 import { InAppBrowserBanner } from "@/components/in-app-browser-banner";
-import { resolveStatementDescriptorSource } from "@/lib/statement-descriptor";
+import { resolveStatementDescriptorSource, resolveRecipientAvatarUrl } from "@/lib/statement-descriptor";
 import { MapPin, Calendar, Clock, Loader2 } from "lucide-react";
 
 function ValidityMessage({ title, message }: { title: string; message: string }) {
@@ -54,7 +54,9 @@ async function CheersContent({
         display_name,
         avatar_url,
         artist_name,
-        organizer_name
+        organizer_name,
+        artist_avatar_url,
+        organizer_avatar_url
       )
     `)
     .eq("qr_config_id", qrConfigId)
@@ -147,7 +149,13 @@ async function CheersContent({
     recipientDisplayName: recipient?.display_name,
   });
   const recipientName = recipientNameSource ?? event.title ?? "Artist";
-  const recipientAvatar = recipient?.avatar_url ?? null;
+  const recipientAvatar = resolveRecipientAvatarUrl({
+    isEntrance: isEntranceQr,
+    recipientNameContext,
+    organizerAvatarUrl: recipient?.organizer_avatar_url,
+    artistAvatarUrl: recipient?.artist_avatar_url,
+    recipientAvatarUrl: recipient?.avatar_url,
+  });
   const qrImageUrl = (qr as any).image_url as string | null;
 
   const qrAmountStep = ((qr as any).amount_step as number) ?? 100;

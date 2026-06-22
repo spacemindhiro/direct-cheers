@@ -2,7 +2,7 @@ import { PKPass } from "passkit-generator";
 import forge from "node-forge";
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveStatementDescriptorSource } from "@/lib/statement-descriptor";
+import { resolveStatementDescriptorSource, resolveRecipientAvatarUrl } from "@/lib/statement-descriptor";
 import path from "path";
 import fs from "fs";
 
@@ -288,7 +288,9 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
   let recipientName = artistName;
   let recipientAvatarUrl: string | null = null;
   if (recipientProfileId) {
-    const { data: rp } = await admin.from("profiles").select("display_name, artist_name, organizer_name, avatar_url").eq("profile_id", recipientProfileId).single();
+    const { data: rp } = await admin.from("profiles")
+      .select("display_name, artist_name, organizer_name, avatar_url, artist_avatar_url, organizer_avatar_url")
+      .eq("profile_id", recipientProfileId).single();
     const resolvedName = resolveStatementDescriptorSource({
       isEntrance: false,
       recipientNameContext,
@@ -297,7 +299,13 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
       recipientDisplayName: rp?.display_name,
     });
     if (resolvedName) recipientName = resolvedName;
-    if (rp?.avatar_url) recipientAvatarUrl = rp.avatar_url;
+    recipientAvatarUrl = resolveRecipientAvatarUrl({
+      isEntrance: false,
+      recipientNameContext,
+      organizerAvatarUrl: rp?.organizer_avatar_url,
+      artistAvatarUrl: rp?.artist_avatar_url,
+      recipientAvatarUrl: rp?.avatar_url,
+    });
   }
 
   const { data: thanksData } = qrConfigId

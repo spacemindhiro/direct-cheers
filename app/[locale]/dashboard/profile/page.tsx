@@ -1,7 +1,7 @@
 'use client';
 
 import { DISPLAY_TZ } from "@/lib/display-tz";
-import { useEffect, useState, useTransition, useRef } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -11,9 +11,9 @@ import {
   CheckCircle, Clock, AlertCircle, Building2, Tag, FileText, Layers, ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
-import { ImageCropperModal } from '@/components/image-cropper-modal';
 import { PwaInstallButton } from '@/components/pwa-install-button';
 import { StatementDescriptorPreview } from '@/components/statement-descriptor-preview';
+import { AvatarUploadField } from '@/components/avatar-upload-field';
 
 type Profile = {
   display_name: string;
@@ -30,6 +30,8 @@ type Profile = {
   organization_name: string | null;
   artist_name: string | null;
   organizer_name: string | null;
+  artist_avatar_url: string | null;
+  organizer_avatar_url: string | null;
 };
 
 const roleLabel: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -79,41 +81,8 @@ export default function ProfileEditPage() {
   const [organizationName, setOrganizationName] = useState('');
   const [artistName, setArtistName] = useState('');
   const [organizerName, setOrganizerName] = useState('');
-
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const [cropSrc, setCropSrc] = useState<string | null>(null);
-  const [showCropper, setShowCropper] = useState(false);
-  const avatarFileRef = useRef<HTMLInputElement>(null);
-
-  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setCropSrc(url);
-    setShowCropper(true);
-    e.target.value = "";
-  };
-
-  const handleAvatarClick = () => {
-    if (cropSrc) setShowCropper(true);
-    else avatarFileRef.current?.click();
-  };
-
-  const handleCropComplete = async (blob: Blob) => {
-    setShowCropper(false);
-    // cropSrc は保持（再クロップ用）
-    setAvatarUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", blob, "avatar.jpg");
-      const res = await fetch("/api/avatar/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (data.url) setAvatarUrl(data.url);
-      else toast.error("アップロードに失敗しました");
-    } finally {
-      setAvatarUploading(false);
-    }
-  };
+  const [artistAvatarUrl, setArtistAvatarUrl] = useState('');
+  const [organizerAvatarUrl, setOrganizerAvatarUrl] = useState('');
 
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -137,6 +106,8 @@ export default function ProfileEditPage() {
     setOrganizationName(data.organization_name ?? '');
     setArtistName(data.artist_name ?? '');
     setOrganizerName(data.organizer_name ?? '');
+    setArtistAvatarUrl(data.artist_avatar_url ?? '');
+    setOrganizerAvatarUrl(data.organizer_avatar_url ?? '');
   };
 
   const fetchAndApplyProfile = async (supabase: ReturnType<typeof createClient>, userId: string) => {
@@ -150,7 +121,7 @@ export default function ProfileEditPage() {
 
     const { data: extData } = await supabase
       .from('profiles')
-      .select('bio, affiliation, credit_name, genre, organization_name, artist_name, organizer_name')
+      .select('bio, affiliation, credit_name, genre, organization_name, artist_name, organizer_name, artist_avatar_url, organizer_avatar_url')
       .eq('profile_id', userId)
       .single();
 
@@ -221,16 +192,18 @@ export default function ProfileEditPage() {
         updates.genre        = genre.trim() || null;
       }
       if (role === 'organizer' || role === 'agent') {
-        updates.organization_name  = organizationName.trim() || null;
-        updates.organizer_name     = organizerName.trim() || null;
+        updates.organization_name     = organizationName.trim() || null;
+        updates.organizer_name        = organizerName.trim() || null;
+        updates.organizer_avatar_url  = organizerAvatarUrl.trim() || null;
       }
-      // artist_name は「アーティスト専用」セクション（role='artist'）と
+      // artist_name/artist_avatar_url は「アーティスト専用」セクション（role='artist'）と
       // 「DJとして出演する場合」セクション（role='organizer'|'agent'）の両方で
       // 編集可能なため、UIに表示される全ロールでupdatesに含める必要がある。
       // organizerが漏れていたため、保存してもDBに反映されない（再取得時に
       // 元の値に戻り「消えた」ように見える）バグがあった。
       if (role === 'artist' || role === 'organizer' || role === 'agent') {
-        updates.artist_name = artistName.trim() || null;
+        updates.artist_name       = artistName.trim() || null;
+        updates.artist_avatar_url = artistAvatarUrl.trim() || null;
       }
 
       const res = await fetch('/api/profile', {
@@ -264,17 +237,6 @@ export default function ProfileEditPage() {
 
   return (
     <>
-    {showCropper && cropSrc && (
-      <ImageCropperModal
-        imageSrc={cropSrc}
-        aspect={1}
-        outputWidth={400}
-        outputHeight={400}
-        label="1:1"
-        onComplete={handleCropComplete}
-        onCancel={() => setShowCropper(false)}
-      />
-    )}
     <div className="max-w-lg mx-auto space-y-8 pb-20">
 
       {/* ヘッダー */}
@@ -330,37 +292,7 @@ export default function ProfileEditPage() {
           </Field>
 
           <Field label="アバター画像" icon={<Camera size={11} className="text-pink-500" />} optional>
-            <div className="flex items-center gap-3">
-              {/* アバター画像 — クリックで再クロップ or ファイル選択 */}
-              <div
-                onClick={handleAvatarClick}
-                className="relative w-14 h-14 rounded-2xl overflow-hidden border border-slate-700 shrink-0 cursor-pointer group"
-              >
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover"
-                    onError={(e) => (e.currentTarget.style.display = 'none')} />
-                ) : (
-                  <div className="w-full h-full bg-slate-800 flex items-center justify-center">
-                    <Camera size={20} className="text-slate-600" />
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Camera size={16} className="text-white" />
-                </div>
-              </div>
-
-              {/* ファイル選択ボタン */}
-              <label className="flex-1 h-14 bg-slate-950/50 border border-dashed border-slate-700 rounded-2xl px-5 flex items-center gap-2 text-sm cursor-pointer hover:border-pink-500/50 transition-all">
-                <input ref={avatarFileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} disabled={avatarUploading} />
-                {avatarUploading
-                  ? <><Loader2 size={16} className="animate-spin text-pink-500" /><span className="text-slate-400">アップロード中...</span></>
-                  : <><Camera size={16} className="text-slate-500" /><span className="text-slate-500">別の画像を選択</span></>
-                }
-              </label>
-            </div>
-            {cropSrc && avatarUrl && (
-              <p className="text-[10px] text-slate-600 mt-1">↑ 画像をタップすると再クロップできます</p>
-            )}
+            <AvatarUploadField value={avatarUrl} onChange={setAvatarUrl} placeholderLabel="別の画像を選択" />
           </Field>
         </div>
 
@@ -395,6 +327,10 @@ export default function ProfileEditPage() {
               <input type="text" value={artistName} onChange={(e) => setArtistName(e.target.value)}
                 placeholder="例: DJ TARO" className={inputClass} />
             </Field>
+            <Field label="アーティスト用の画像" icon={<Camera size={11} className="text-pink-500" />} optional
+              hint="演者名義のチアで使われる画像（Walletカード等）。未設定なら基本のアバター画像を使用">
+              <AvatarUploadField value={artistAvatarUrl} onChange={setArtistAvatarUrl} placeholderLabel="演者用の画像を選択" />
+            </Field>
             <StatementDescriptorPreview role="artist" name={artistName} />
             <Field label="クレジット表記" icon={<Tag size={11} className="text-pink-500" />} optional
               hint="フライヤーやレシートに表示される正式クレジット名">
@@ -427,6 +363,10 @@ export default function ProfileEditPage() {
               <input type="text" value={organizerName} onChange={(e) => setOrganizerName(e.target.value)}
                 placeholder="例: TARO EVENTS" className={inputClass} />
             </Field>
+            <Field label="主催者用の画像" icon={<Camera size={11} className="text-pink-500" />} optional
+              hint="主催者名義のチアで使われる画像（Walletカード等）。未設定なら基本のアバター画像を使用">
+              <AvatarUploadField value={organizerAvatarUrl} onChange={setOrganizerAvatarUrl} placeholderLabel="主催者用の画像を選択" />
+            </Field>
             <StatementDescriptorPreview role="organizer" name={organizerName} />
             <Field label="活動団体名" icon={<Building2 size={11} className="text-pink-500" />} optional>
               <input type="text" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)}
@@ -447,6 +387,10 @@ export default function ProfileEditPage() {
               hint="ラインナップや通知・Wallet・お客様のカード利用明細にも表示される名前。未入力なら表示名を使用">
               <input type="text" value={artistName} onChange={(e) => setArtistName(e.target.value)}
                 placeholder="例: DJ TARO" className={inputClass} />
+            </Field>
+            <Field label="アーティスト用の画像" icon={<Camera size={11} className="text-pink-500" />} optional
+              hint="演者名義のチアで使われる画像（Walletカード等）。未設定なら基本のアバター画像を使用">
+              <AvatarUploadField value={artistAvatarUrl} onChange={setArtistAvatarUrl} placeholderLabel="演者用の画像を選択" />
             </Field>
             <StatementDescriptorPreview role="artist" name={artistName} />
           </div>

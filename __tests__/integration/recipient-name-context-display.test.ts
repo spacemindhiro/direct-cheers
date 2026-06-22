@@ -1,18 +1,20 @@
 /**
  * TC-RNC: recipient_name_context（主催者/演者の名義区別）が表示系の全箇所で
- * 正しく解決されることを検証する。
+ * 名前・画像ともに正しく解決されることを検証する。
  *
  * 背景: 主催者がDJ等を兼任している場合、同じ profile_id でも
  * recipient_name_context によって「主催者名義」か「演者名義」かが変わる。
  * Stripeのstatement_descriptorではこの区別が実装済みだったが、決済完了後の
  * 表示系（/api/pay/complete のレスポンス・受領メール・ウォレットパス・
  * オーガナイザーのライブ集計画面）では同じ区別ロジックが漏れており、
- * 常にartist_name（無ければdisplay_name）を表示していた。
+ * 常にartist_name（無ければdisplay_name）を表示していた。さらに画像も
+ * organizer_avatar_url/artist_avatar_urlという別フィールドを持てるように
+ * なったため、名前と同じ区別ロジックが画像にも必要になった。
  *
- * このテストは /api/pay/complete のレスポンス（recipient_name）が
- * resolveStatementDescriptorSource と同じ区別ロジックで解決されることを
- * 固定する（lib/apple-pass-generator.ts・live-stats route も同じ関数を
- * 再利用しているため、ここでの保証が他の表示箇所にも及ぶ）。
+ * このテストは /api/pay/complete のレスポンス（recipient_name/recipient_avatar）が
+ * resolveStatementDescriptorSource・resolveRecipientAvatarUrl と同じ区別ロジックで
+ * 解決されることを固定する（lib/apple-pass-generator.ts・live-stats route も
+ * 同じ関数を再利用しているため、ここでの保証が他の表示箇所にも及ぶ）。
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import {
@@ -87,6 +89,8 @@ beforeAll(async () => {
   await testAdmin.from("profiles").update({
     organizer_name: "SPACE BBQ",
     artist_name: "DJ HIRO",
+    organizer_avatar_url: "https://example.com/organizer.webp",
+    artist_avatar_url: "https://example.com/artist.webp",
   }).eq("profile_id", organizerProfileId);
 
   eventId = await insertEvent({ organizerProfileId, title: "TC-RNC テストイベント" });
@@ -137,6 +141,7 @@ describe("TC-RNC-01: 同じprofile_idでも、recipient_name_contextに応じて
     cleanup.transactionIds.push(data.transaction_id);
 
     expect(data.recipient_name).toBe("SPACE BBQ");
+    expect(data.recipient_avatar).toBe("https://example.com/organizer.webp");
   });
 
   it("recipient_name_context='artist' → recipient_nameはartist_name（DJ HIRO）になる", async () => {
@@ -150,5 +155,6 @@ describe("TC-RNC-01: 同じprofile_idでも、recipient_name_contextに応じて
     cleanup.transactionIds.push(data.transaction_id);
 
     expect(data.recipient_name).toBe("DJ HIRO");
+    expect(data.recipient_avatar).toBe("https://example.com/artist.webp");
   });
 });

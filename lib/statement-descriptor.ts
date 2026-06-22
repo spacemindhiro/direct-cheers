@@ -114,6 +114,28 @@ export function resolveStatementDescriptorSource(params: {
 }
 
 /**
+ * 決済の宛先名義から、表示すべきアバター画像URLを選ぶ。resolveStatementDescriptorSource
+ * と同じ「誰の名義か」のルールを画像にも適用する（名前だけ区別してアバターが
+ * 昔のままだと、ウォレットカード等で名前と画像が一致しない人物に見えてしまう）。
+ * 主催者がDJ等を兼任していて、主催者用とアーティスト用で別の画像を設定している場合に
+ * 正しい方を選ぶために使う。どちらも未設定なら共通のavatar_urlにフォールバックする。
+ */
+export function resolveRecipientAvatarUrl(params: {
+  isEntrance: boolean;
+  recipientNameContext: RecipientNameContext;
+  organizerAvatarUrl?: string | null;
+  artistAvatarUrl?: string | null;
+  recipientAvatarUrl?: string | null;
+}): string | null {
+  const { isEntrance, recipientNameContext, organizerAvatarUrl, artistAvatarUrl, recipientAvatarUrl } = params;
+
+  if (isEntrance || recipientNameContext === "organizer") {
+    return organizerAvatarUrl ?? recipientAvatarUrl ?? null;
+  }
+  return artistAvatarUrl ?? recipientAvatarUrl ?? null;
+}
+
+/**
  * 名前解決 + サニタイズをまとめて行う。Stripeのパラメータに渡す際は
  * `statement_descriptor_suffix: buildStatementDescriptorSuffix(...) ?? undefined`
  * のように使い、undefined ならフィールド自体を渡さない。

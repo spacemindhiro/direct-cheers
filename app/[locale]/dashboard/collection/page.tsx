@@ -5,6 +5,7 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersCard } from "@/components/cheers-card";
 import { FollowButton } from "@/components/follow-button";
+import { resolveStatementDescriptorSource, resolveRecipientAvatarUrl } from "@/lib/statement-descriptor";
 import { Loader2, Layers } from "lucide-react";
 
 async function CollectionContent() {
@@ -18,7 +19,7 @@ async function CollectionContent() {
   const query = `
     transaction_id, total_gross_amount, created_at, sequence_number_in_event, sender_name, sender_comment,
     product:products!product_id(name, type, artist_id),
-    qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, event:events!event_id(title, organizer_profile_id))
+    qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, recipient_name_context, event:events!event_id(title, organizer_profile_id))
   `;
 
   const [{ data: byProfile }, { data: byEmail }] = await Promise.all([
@@ -73,7 +74,7 @@ async function CollectionContent() {
   const allProfileIds = [...new Set([...recipientIds, ...artistIds, ...organizerIds])];
   const { data: profileRows } = allProfileIds.length > 0
     ? await admin.from("profiles")
-        .select("profile_id, display_name, avatar_url, artist_name, organizer_name")
+        .select("profile_id, display_name, avatar_url, artist_name, organizer_name, artist_avatar_url, organizer_avatar_url")
         .in("profile_id", allProfileIds)
     : { data: [] };
   const profileMap = new Map((profileRows ?? []).map((p) => [p.profile_id, p as any]));
@@ -115,12 +116,30 @@ async function CollectionContent() {
             const artist    = artistId    ? profileMap.get(artistId)    : null;
             const organizer = organizerProfileId ? profileMap.get(organizerProfileId) : null;
 
-            const displayName   = recipient?.artist_name ?? recipient?.display_name ?? artist?.artist_name ?? artist?.display_name ?? "Artist";
-            const displayAvatar = recipient?.avatar_url ?? artist?.avatar_url ?? null;
+            // 主催者がDJ等を兼任している場合、recipient_name_contextで「主催者名義/演者名義」の
+            // どちらで受け取ったかを区別する（statement_descriptorの解決と同じビジネスルールを再利用）。
+            const recipientNameContext = (tx.qr_config?.recipient_name_context as "organizer" | "artist" | undefined) ?? "artist";
+            const resolvedRecipientName = recipient ? resolveStatementDescriptorSource({
+              isEntrance: false,
+              recipientNameContext,
+              organizerName: recipient?.organizer_name,
+              artistName: recipient?.artist_name,
+              recipientDisplayName: recipient?.display_name,
+            }) : null;
+            const resolvedRecipientAvatar = recipient ? resolveRecipientAvatarUrl({
+              isEntrance: false,
+              recipientNameContext,
+              organizerAvatarUrl: recipient?.organizer_avatar_url,
+              artistAvatarUrl: recipient?.artist_avatar_url,
+              recipientAvatarUrl: recipient?.avatar_url,
+            }) : null;
+
+            const displayName   = resolvedRecipientName ?? artist?.artist_name ?? artist?.display_name ?? "Artist";
+            const displayAvatar = resolvedRecipientAvatar ?? artist?.avatar_url ?? null;
 
             // フォロー対象の決定
             const artistFolloweeId   = recipientId ?? artistId;
-            const artistFolloweeName = recipient?.artist_name ?? recipient?.display_name ?? artist?.artist_name ?? artist?.display_name ?? null;
+            const artistFolloweeName = resolvedRecipientName ?? artist?.artist_name ?? artist?.display_name ?? null;
             const organizerName      = organizer?.organizer_name ?? organizer?.display_name ?? null;
             // 宛先がオーガナイザー本人の場合はアーティストボタンを出さない
             const showArtistFollow   = !!(artistFolloweeId && artistFolloweeId !== organizerProfileId && artistFolloweeName);

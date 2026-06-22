@@ -5,7 +5,7 @@ import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
-import { resolveStatementDescriptorSource } from "@/lib/statement-descriptor";
+import { resolveStatementDescriptorSource, resolveRecipientAvatarUrl } from "@/lib/statement-descriptor";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -261,7 +261,12 @@ async function getQrConfigInfo(
 
   const { data: qrc } = await admin
     .from("qr_configs")
-    .select("event_id, image_url, recipient_name_context, recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name, avatar_url)")
+    .select(`
+      event_id, image_url, recipient_name_context,
+      recipient:profiles!recipient_profile_id(
+        display_name, artist_name, organizer_name, avatar_url, artist_avatar_url, organizer_avatar_url
+      )
+    `)
     .eq("qr_config_id", qrConfigId)
     .single();
 
@@ -276,12 +281,19 @@ async function getQrConfigInfo(
     artistName: recipient?.artist_name,
     recipientDisplayName: recipient?.display_name,
   });
+  const resolvedAvatar = resolveRecipientAvatarUrl({
+    isEntrance: false,
+    recipientNameContext,
+    organizerAvatarUrl: recipient?.organizer_avatar_url,
+    artistAvatarUrl: recipient?.artist_avatar_url,
+    recipientAvatarUrl: recipient?.avatar_url,
+  });
 
   return {
     eventId: qrc?.event_id ?? null,
     imageUrl: qrc?.image_url ?? null,
     recipientName: resolvedName ?? recipient?.display_name ?? null,
-    recipientAvatar: recipient?.avatar_url ?? null,
+    recipientAvatar: resolvedAvatar,
   };
 }
 

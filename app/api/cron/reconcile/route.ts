@@ -5,6 +5,37 @@ import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+// SupabaseAdmin相当の型（admin.from(table)が返すPostgrestQueryBuilderにrange()を呼べれば良い）
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+/**
+ * PostgREST（Supabase）は .select() に .limit()/.range() を指定しない場合、
+ * デフォルトで最大1000件しか返さない。settled状態のイベントは reconciled_at が
+ * 更新されない限り恒久的にDBへ残るため、運用が続けば1000件を超える日が来る
+ * （超えた瞬間、超過分のイベントの照合がサイレントに無視される）。
+ * .range() でページングしながら全件を取得する。
+ */
+async function fetchAllPages<T>(
+  admin: AdminClient,
+  table: string,
+  columns: string,
+  applyFilters: (q: any) => any,
+  pageSize = 1000,
+): Promise<T[]> {
+  const rows: T[] = [];
+  let from = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await applyFilters(admin.from(table).select(columns))
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    rows.push(...((data ?? []) as T[]));
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return rows;
+}
+
 // Vercel Cron から呼ばれる。Authorization ヘッダーで保護。
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -16,30 +47,34 @@ export async function GET(req: Request) {
     const admin = createAdminClient();
     const now = new Date();
 
-    // settled 済みイベントを取得（settle = キャプチャ実行済み = 照合可能）
-    const { data: settledEvents } = await admin
-      .from("events")
-      .select("event_id, title")
-      .eq("lifecycle_status", "settled");
+    // settled 済み・かつ未照合（reconciled_atが未設定）のイベントを取得
+    // （settle = キャプチャ実行済み = 照合可能。reconciled_atが立っている
+    // イベントは全transactionの照合が完了済みのため対象から外し、
+    // 運用が続いてsettledイベントが積み上がっても対象件数を絞れるようにする）。
+    const settledEvents = await fetchAllPages<{ event_id: string; title: string }>(
+      admin, "events", "event_id, title",
+      (q) => q.eq("lifecycle_status", "settled").is("reconciled_at", null),
+    );
 
-    const settledEventIds = (settledEvents ?? []).map((e) => e.event_id);
-    const eventTitleMap = new Map((settledEvents ?? []).map((e) => [e.event_id, e.title as string]));
+    const settledEventIds = settledEvents.map((e) => e.event_id);
+    const eventTitleMap = new Map(settledEvents.map((e) => [e.event_id, e.title]));
     if (settledEventIds.length === 0) {
       console.log("[reconcile] no settled events, skip");
       await saveCronReport({ taskName: "照合バッチ", targetCount: 0, targetAmount: 0, successCount: 0, successAmount: 0, failedCount: 0, failedAmount: 0, failures: [] });
       return NextResponse.json({ success: true, checked: 0, matched: 0, mismatched: 0, errors: 0 });
     }
 
-    // settled イベントの qr_config_id を取得（URLが長すぎるため50件ずつバッチ）
+    // settled イベントの qr_config_id を取得（URLが長すぎるため50件ずつバッチ。
+    // 各バッチの結果も1000件制限に備えてページングする）
     const BATCH = 50;
     const allQrConfigs: { qr_config_id: string; event_id: string }[] = [];
     for (let i = 0; i < settledEventIds.length; i += BATCH) {
       const batch = settledEventIds.slice(i, i + BATCH);
-      const { data: batchQr } = await admin
-        .from("qr_configs")
-        .select("qr_config_id, event_id")
-        .in("event_id", batch);
-      allQrConfigs.push(...(batchQr ?? []));
+      const batchQr = await fetchAllPages<{ qr_config_id: string; event_id: string }>(
+        admin, "qr_configs", "qr_config_id, event_id",
+        (q) => q.in("event_id", batch),
+      );
+      allQrConfigs.push(...batchQr);
     }
 
     const settledQrConfigIds = allQrConfigs.map((q) => q.qr_config_id);
@@ -52,24 +87,29 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, checked: 0, matched: 0, mismatched: 0, errors: 0 });
     }
 
-    // settled イベントの未照合トランザクションを取得（URLが長すぎるため50件ずつバッチ）
+    // settled イベントの未照合トランザクションを取得（URLが長すぎるため50件ずつバッチ。
+    // 各バッチの結果も1000件制限に備えてページングする）
     const allTransactions: any[] = [];
     let txErr: any = null;
     for (let i = 0; i < settledQrConfigIds.length; i += BATCH) {
       const batch = settledQrConfigIds.slice(i, i + BATCH);
-      const { data: batchTx, error: batchErr } = await admin
-        .from("transactions")
-        .select(`
-          transaction_id, stripe_payment_intent_id, total_gross_amount, platform_fee, qr_config_id,
-          transaction_distributions(transaction_distribution_id, profile_id, distribution_role, actual_amount, amount_before_reconcile, distribution_status)
-        `)
-        .in("qr_config_id", batch)
-        .eq("status", "completed")
-        .or("reconciled_at.is.null,reconcile_error.not.is.null,amount_verified.eq.false")
-        .not("stripe_payment_intent_id", "is", null)
-        .neq("transaction_type", "invitation");
-      if (batchErr) { txErr = batchErr; break; }
-      allTransactions.push(...(batchTx ?? []));
+      try {
+        const batchTx = await fetchAllPages<any>(
+          admin, "transactions",
+          `transaction_id, stripe_payment_intent_id, total_gross_amount, platform_fee, qr_config_id,
+           transaction_distributions(transaction_distribution_id, profile_id, distribution_role, actual_amount, amount_before_reconcile, distribution_status)`,
+          (q) => q
+            .in("qr_config_id", batch)
+            .eq("status", "completed")
+            .or("reconciled_at.is.null,reconcile_error.not.is.null,amount_verified.eq.false")
+            .not("stripe_payment_intent_id", "is", null)
+            .neq("transaction_type", "invitation"),
+        );
+        allTransactions.push(...batchTx);
+      } catch (e: any) {
+        txErr = e;
+        break;
+      }
     }
     const transactions = allTransactions;
 

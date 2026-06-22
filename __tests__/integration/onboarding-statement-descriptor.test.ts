@@ -122,23 +122,10 @@ describe("TC-ONB-SD-01: 新規Connectアカウント作成時、statement_descri
     mockAuth(profileId);
     await onboardingPOST(makeReq({
       business_type: "individual",
-      // prefix内の名前部分は6文字までに制限される（演者名suffix用の余地を残すため）。
-      // 6文字に収まる名前を使い、切り詰めなしで反映されることを確認する。
-      statement_descriptor_kanji: "宇宙スペース",
+      statement_descriptor_kanji: "スペースBBQ",
     }));
     const payments = captured.accountCreateParams?.settings?.payments;
-    expect(payments.statement_descriptor_kanji).toBe(`${PLATFORM_PREFIX} 宇宙スペース`);
-  }, 15_000);
-
-  it("漢字prefixの名前部分は6文字を超えると切り詰められる（suffix用の余地を残すため）", async () => {
-    const profileId = await freshProfile("kanji-long");
-    mockAuth(profileId);
-    await onboardingPOST(makeReq({
-      business_type: "individual",
-      statement_descriptor_kanji: "スペースBBQ運営委員会",
-    }));
-    const payments = captured.accountCreateParams?.settings?.payments;
-    expect(payments.statement_descriptor_kanji).toBe(`${PLATFORM_PREFIX} スペースBB`);
+    expect(payments.statement_descriptor_kanji).toBe(`${PLATFORM_PREFIX} スペースBBQ`);
   }, 15_000);
 
   it("カナフィールドにはDCマーカーが付かない（半角英字を受け付けないため名前のみ）", async () => {
@@ -188,7 +175,6 @@ describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時、stripe.acc
     const payments = captured.accountUpdateParams?.settings?.payments;
     expect(payments).toBeDefined();
     expect(payments.statement_descriptor_prefix.startsWith(PLATFORM_PREFIX)).toBe(true);
-    // prefixの名前部分は6文字まで（演者名suffix用の余地を残すため切り詰められる）
-    expect(payments.statement_descriptor_prefix_kanji).toBe(`${PLATFORM_PREFIX} 改めて自由な`);
+    expect(payments.statement_descriptor_prefix_kanji).toBe(`${PLATFORM_PREFIX} 改めて自由な文字列`);
   });
 });

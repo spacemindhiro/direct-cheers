@@ -91,17 +91,12 @@ export function sanitizeStatementDescriptorSuffixKana(
 
 /**
  * 決済の宛先名義から、statement_descriptor_suffix の元になる「生の名前」を選ぶ。
- * - entrance（入場券）・recipientNameContext='organizer': suffixを送らない（null）
+ * - entrance（入場券）・recipientNameContext='organizer': 主催者名を使う（MoRが常にオーガナイザーのため）
  * - recipientNameContext='artist': 演者名を使う
  *
- * 主催者名義の決済は、ベース表記（DC-主催者名、account-level prefix）に
- * 既に主催者名が出ている。そこにsuffixで同じ名前をもう一度足すと、
- * 漢字版は17文字・カナ版は22文字しかないため高確率で文字数があふれ、
- * 単語の途中で切れた「DC Spa Space Mind」のような意味不明な表記になる
- * （実機検証で確認済み）。重複させてまで増やす情報量がないため、
- * 主催者名義・入場券はsuffixを送らずベース表記のみに委ねる。
- * 演者名義は「主催者の決済の中の、どの演者宛か」を示す非冗長な情報のため、
- * suffixとして送る価値がある。
+ * account-level の固定ベース（"DC" のみ。オンボーディング時の事業者名は
+ * このsuffixとは無関係の別の値）と、ここで選ぶ名前との間に重複は無い。
+ * イベント名は使わない（英語表記と同じ情報量に揃える）。
  */
 export function resolveStatementDescriptorSource(params: {
   isEntrance: boolean;
@@ -110,10 +105,10 @@ export function resolveStatementDescriptorSource(params: {
   artistName?: string | null;
   recipientDisplayName?: string | null;
 }): string | null {
-  const { isEntrance, recipientNameContext, artistName, recipientDisplayName } = params;
+  const { isEntrance, recipientNameContext, organizerName, artistName, recipientDisplayName } = params;
 
   if (isEntrance || recipientNameContext === "organizer") {
-    return null;
+    return organizerName ?? recipientDisplayName ?? null;
   }
   return artistName ?? recipientDisplayName ?? null;
 }
@@ -197,15 +192,13 @@ export type StatementDescriptorPrefixes = {
 };
 
 /**
- * オーガナイザー名から、システム固定の "DC-" を冠したベース表記（prefix）を組み立てる。
- * suffix（演者名義の決済で使う）用の文字数を残すため、prefix自体の上限は
- * 全体の上限よりかなり短く設定する。
+ * オーガナイザーがオンボーディング時に入力した事業者名から、システム固定の
+ * "DC-" を冠したベース表記（account-level prefix）を組み立てる。
  *
- * 漢字は全体17文字しかなく、"DC "（3文字）+ 区切り（1文字）を引くと
- * 残り13文字。ここでprefixの名前部分を長く取りすぎると（例: 10文字）、
- * 演者名suffixの余地が3文字程度しか残らず、結合時に単語の途中で切れた
- * 意味不明な表記になる。名前部分を6文字までに抑え、suffixに7文字以上を
- * 残すことで、短い演者名（"DJ HIRO"等）が大抵そのまま収まるようにする。
+ * これは「決済ごとに変わるsuffix（主催者名/演者名）」とは完全に独立した、
+ * アカウントに一度だけ設定する固定値（bank-setup/オンボーディング画面専用）。
+ * organizer_name/artist_name（profileの表示名フィールド）とは無関係であり、
+ * 重複を心配する必要は無い（suffix側は別ロジックで完全に独立して決まる）。
  *
  * 漢字・カナは別々の入力フィールド（オンボーディングフォームの「漢字」「カナ」欄）から
  * 来る別々の文字列であり、1つの文字列に潰すと片方のフィールドの内容が無視される
@@ -222,7 +215,7 @@ export function buildStatementDescriptorPrefixes(sources: {
   const asciiName = sanitizeStatementDescriptorSuffix(sources.asciiNameRaw, 12);
   const prefix = asciiName ? `${PLATFORM_PREFIX}-${asciiName}` : PLATFORM_PREFIX;
 
-  const kanjiName = sanitizeStatementDescriptorSuffixKanji(sources.kanjiNameRaw, 6);
+  const kanjiName = sanitizeStatementDescriptorSuffixKanji(sources.kanjiNameRaw, 10);
   const prefixKanji = kanjiName ? `${PLATFORM_PREFIX} ${kanjiName}` : PLATFORM_PREFIX;
 
   // カナフィールドは "DC" を表現できないため、オーガナイザー名のカナのみ

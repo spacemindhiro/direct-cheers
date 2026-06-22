@@ -427,7 +427,7 @@ export default function ProfileEditPage() {
               <input type="text" value={organizerName} onChange={(e) => setOrganizerName(e.target.value)}
                 placeholder="例: TARO EVENTS" className={inputClass} />
             </Field>
-            <StatementDescriptorPreview role="organizer" name={organizerName} organizerPrefixSource={organizerName} />
+            <StatementDescriptorPreview role="organizer" name={organizerName} />
             <Field label="活動団体名" icon={<Building2 size={11} className="text-pink-500" />} optional>
               <input type="text" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)}
                 placeholder="例: XYZ PRODUCTION / RESIDENT COLLECTIVE" className={inputClass} />
@@ -448,7 +448,7 @@ export default function ProfileEditPage() {
               <input type="text" value={artistName} onChange={(e) => setArtistName(e.target.value)}
                 placeholder="例: DJ TARO" className={inputClass} />
             </Field>
-            <StatementDescriptorPreview role="artist" name={artistName} organizerPrefixSource={organizerName} />
+            <StatementDescriptorPreview role="artist" name={artistName} />
           </div>
         )}
 

@@ -3,74 +3,44 @@
 import {
   sanitizeStatementDescriptorSuffix,
   sanitizeStatementDescriptorSuffixKanji,
-  buildStatementDescriptorPrefixes,
   combineDescriptorPreview,
+  PLATFORM_PREFIX,
   STATEMENT_DESCRIPTOR_TOTAL_MAX,
 } from '@/lib/statement-descriptor';
-import { Receipt, AlertTriangle, Info } from 'lucide-react';
+import { Receipt, Info } from 'lucide-react';
 
 type Props = {
   /**
    * このプレビューが表す名義。
-   * - 'artist': 演者名義の決済（recipient_name_context='artist'）。
-   *   ベース表記（DC-主催者名）に加え、suffixに演者名が出る。
-   * - 'organizer': 主催者名義の決済（recipient_name_context='organizer'、入場券も同様）。
-   *   ベース表記に既に主催者名が出ているため、suffixは送らない
-   *   （重複させると漢字17文字・カナ22文字の枠内で文字数があふれ、
-   *   単語の途中で切れた意味不明な表記になるため）。
+   * - 'artist': 演者名義の決済（recipient_name_context='artist'） → 演者名がsuffixになる。
+   * - 'organizer': 主催者名義の決済（recipient_name_context='organizer'、入場券も同様） → 主催者名がsuffixになる。
    */
   role: 'artist' | 'organizer';
   /** 入力中の名前（artist_name または organizer_name） */
   name: string;
-  /**
-   * ベース表記（DC-主催者名）の元になる、主催者自身の名前。
-   * - 自分が主催者の場合（role='organizer'、または主催者が兼任DJとして
-   *   role='artist'を編集している場合）は、自分のorganizer_nameと同じ値を渡す
-   *   ことで実際の値に基づいたプレビューになる。
-   * - 純粋な演者（他の主催者のイベントに出演するだけ）の場合は、どの主催者の
-   *   アカウントで処理されるか分からないため省略する（プレースホルダー表示）。
-   */
-  organizerPrefixSource?: string;
 };
 
-export function StatementDescriptorPreview({ role, name, organizerPrefixSource }: Props) {
+/**
+ * 構成要素は「固定ベース（"DC"）」+「このフィールドの名前（suffix）」の2つだけ。
+ * 事業者名から作る別のベース表記（オンボーディング/bank-setup画面の専用機能）は、
+ * このプレビューとは無関係な別レイヤーなので一切混ぜない。
+ */
+export function StatementDescriptorPreview({ role, name }: Props) {
   const isArtistRole = role === 'artist';
   const trimmedName = name.trim();
+  const isPlaceholder = !trimmedName;
+  const suffixSourceRaw = trimmedName || (isArtistRole ? 'DJ HIRO' : 'SPACE BBQ');
+  const suffixLabel = isArtistRole ? '演者名' : '主催者名';
 
-  // ── ベース表記（prefix）: 主催者名 + 固定 "DC-" ──────────────────────
-  // organizerロールでは、今まさに入力中の名前がそのままprefixの元になる。
-  // プレースホルダー例は「イベント名」と誤解されないよう、主催者の屒号・
-  // 団体名であることが明確な文字列にする（"EVENTS"のような単語は避ける）。
-  const knownPrefixSource = (isArtistRole ? organizerPrefixSource : name)?.trim();
-  const isPlaceholderPrefix = !knownPrefixSource;
-  const prefixSourceJa = knownPrefixSource || 'タロウプロダクション';
-  const prefixSourceAscii = knownPrefixSource || 'TARO PRODUCTION';
+  const suffixAscii = sanitizeStatementDescriptorSuffix(suffixSourceRaw, 19);
+  const suffixKanji = sanitizeStatementDescriptorSuffixKanji(suffixSourceRaw, 17);
 
-  const { prefix, prefixKanji } = buildStatementDescriptorPrefixes({
-    asciiNameRaw: prefixSourceAscii,
-    kanaNameRaw: prefixSourceJa,
-    kanjiNameRaw: prefixSourceJa,
-  });
-
-  // ── 動的部分（suffix） ──────────────────────────────────────────────
-  // artist名義のみ演者名をsuffixとして追加する。organizer名義は
-  // ベース表記に主催者名が既に出ているため、suffixを送らない
-  // （重複させると文字数があふれて意味不明な表記になるため）。
-  const isPlaceholderSuffix = isArtistRole && !trimmedName;
-  const suffixSourceRaw = isArtistRole ? (trimmedName || 'DJ HIRO') : null;
-  const suffixLabel = isArtistRole ? '演者名' : '主催者名（ベース表記のみ）';
-
-  const suffixAscii = isArtistRole ? sanitizeStatementDescriptorSuffix(suffixSourceRaw, 19) : null;
-  const suffixKanji = isArtistRole ? sanitizeStatementDescriptorSuffixKanji(suffixSourceRaw, 17) : null;
-
-  const { combined: combinedKanji, truncated: kanjiTruncated } = combineDescriptorPreview(
-    prefixKanji, suffixKanji, STATEMENT_DESCRIPTOR_TOTAL_MAX.kanji,
+  const { combined: combinedKanji } = combineDescriptorPreview(
+    PLATFORM_PREFIX, suffixKanji, STATEMENT_DESCRIPTOR_TOTAL_MAX.kanji,
   );
-  const { combined: combinedAscii, truncated: asciiTruncated } = combineDescriptorPreview(
-    prefix, suffixAscii, STATEMENT_DESCRIPTOR_TOTAL_MAX.ascii,
+  const { combined: combinedAscii } = combineDescriptorPreview(
+    PLATFORM_PREFIX, suffixAscii, STATEMENT_DESCRIPTOR_TOTAL_MAX.ascii,
   );
-
-  const suffixAllEmpty = isArtistRole && !suffixAscii && !suffixKanji;
 
   return (
     <div className="rounded-xl border border-slate-700 bg-slate-950/40 px-4 py-3 space-y-2">
@@ -81,40 +51,21 @@ export function StatementDescriptorPreview({ role, name, organizerPrefixSource }
       <div className="space-y-1 text-[11px]">
         <p className="text-slate-500">
           日本のカード会社：<span className="text-white font-bold">{combinedKanji}</span>
-          {kanjiTruncated && <span className="text-amber-400 ml-1">（文字数超過のため先頭が短縮されます）</span>}
         </p>
         <p className="text-slate-500">
           海外のカード会社：<span className="text-white font-bold">{combinedAscii}</span>
-          {asciiTruncated && <span className="text-amber-400 ml-1">（文字数超過のため先頭が短縮されます）</span>}
         </p>
       </div>
 
-      {!isArtistRole && (
+      {isPlaceholder && (
         <p className="text-[10px] text-slate-600 flex items-start gap-1.5">
           <Info size={10} className="mt-0.5 shrink-0" />
-          <span>主催者名義の決済では、上記のベース表記のみが明細に表示されます（演者名義の決済では、この後ろに演者名が追加されます）。</span>
-        </p>
-      )}
-
-      {suffixAllEmpty && !isPlaceholderSuffix && (
-        <p className="text-[11px] text-amber-400 flex items-center gap-1.5">
-          <AlertTriangle size={11} /> この名前は明細に反映されません。半角英数字または日本語を含めてください。
-        </p>
-      )}
-
-      {(isPlaceholderPrefix || isPlaceholderSuffix) && (
-        <p className="text-[10px] text-slate-600 flex items-start gap-1.5">
-          <Info size={10} className="mt-0.5 shrink-0" />
-          <span>
-            {isPlaceholderPrefix && '「DC-」の後ろは主催者の登録名で決まります（出演する主催者により変わるため、ここでは例を表示しています）。'}
-            {isPlaceholderPrefix && isPlaceholderSuffix && ' '}
-            {isPlaceholderSuffix && '名前を入力すると、実際にこの欄に反映される表示に更新されます。'}
-          </span>
+          <span>名前を入力すると、実際にこの欄に反映される表示に更新されます。</span>
         </p>
       )}
 
       <p className="text-[9px] text-slate-600">
-        ※ 先頭の「DC-」部分は不正な明細表記によるチャージバックを防ぐためシステムが固定しています。
+        ※ 先頭の「DC」部分は不正な明細表記によるチャージバックを防ぐためシステムが固定しています。
         実際の表示形式はカード発行会社により異なります。
       </p>
     </div>

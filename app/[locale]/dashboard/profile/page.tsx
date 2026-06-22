@@ -13,6 +13,7 @@ import {
 import Link from 'next/link';
 import { ImageCropperModal } from '@/components/image-cropper-modal';
 import { PwaInstallButton } from '@/components/pwa-install-button';
+import { StatementDescriptorPreview } from '@/components/statement-descriptor-preview';
 
 type Profile = {
   display_name: string;
@@ -386,10 +387,11 @@ export default function ProfileEditPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">アーティスト情報</p>
             <Field label="アーティスト名（DJ名）" icon={<Mic2 size={11} className="text-pink-500" />} optional
-              hint="ラインナップや通知・Walletに表示される名前。未入力なら表示名を使用">
+              hint="ラインナップや通知・Wallet・お客様のカード利用明細にも表示される名前。未入力なら表示名を使用">
               <input type="text" value={artistName} onChange={(e) => setArtistName(e.target.value)}
                 placeholder="例: DJ TARO" className={inputClass} />
             </Field>
+            <StatementDescriptorPreview name={artistName} />
             <Field label="クレジット表記" icon={<Tag size={11} className="text-pink-500" />} optional
               hint="フライヤーやレシートに表示される正式クレジット名">
               <input type="text" value={creditName} onChange={(e) => setCreditName(e.target.value)}
@@ -417,10 +419,11 @@ export default function ProfileEditPage() {
               {isOrganizer ? 'オーガナイザー情報' : 'エージェント情報'}
             </p>
             <Field label="主催者名" icon={<CalendarDays size={11} className="text-pink-500" />} optional
-              hint="イベント主催者として表示される名前。未入力なら表示名を使用">
+              hint="イベント主催者として表示される名前。お客様のカード利用明細にも表示されます。未入力なら表示名を使用">
               <input type="text" value={organizerName} onChange={(e) => setOrganizerName(e.target.value)}
                 placeholder="例: TARO EVENTS" className={inputClass} />
             </Field>
+            <StatementDescriptorPreview name={organizerName} />
             <Field label="活動団体名" icon={<Building2 size={11} className="text-pink-500" />} optional>
               <input type="text" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)}
                 placeholder="例: XYZ PRODUCTION / RESIDENT COLLECTIVE" className={inputClass} />
@@ -437,10 +440,11 @@ export default function ProfileEditPage() {
           <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">DJとして出演する場合</p>
             <Field label="アーティスト名（DJ名）" icon={<Mic2 size={11} className="text-pink-500" />} optional
-              hint="ラインナップや通知・Walletに表示される名前。未入力なら表示名を使用">
+              hint="ラインナップや通知・Wallet・お客様のカード利用明細にも表示される名前。未入力なら表示名を使用">
               <input type="text" value={artistName} onChange={(e) => setArtistName(e.target.value)}
                 placeholder="例: DJ TARO" className={inputClass} />
             </Field>
+            <StatementDescriptorPreview name={artistName} />
           </div>
         )}
 

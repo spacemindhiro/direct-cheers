@@ -136,7 +136,23 @@ export async function POST(req: Request) {
           .select("profile_id, actual_amount, distribution_status, event_id")
           .eq("transaction_id", tx.transaction_id);
 
-        const primaryProfileId = (allDists ?? []).find(d => d.distribution_status === "accrued")?.profile_id
+        // debt_claims の請求先は MoR（on_behalf_of の帰属先）に一致させる。
+        // MoR は常にイベントのオーガナイザー（pay/cheers・entrance決済どちらも同じ原則）。
+        // 「最初に見つかったaccrued配分」をMoRとして扱うと、配分の取得順序次第で
+        // アーティストに誤って請求が付け替わるバグになるため、必ずevent経由で
+        // organizer_profile_idを引く（返金フロー admin/refund/route.ts と同じ原則）。
+        const chargebackEventId = (allDists ?? [])[0]?.event_id ?? null;
+        let chargebackOrganizerProfileId: string | null = null;
+        if (chargebackEventId) {
+          const { data: cbEvent } = await admin
+            .from("events")
+            .select("organizer_profile_id")
+            .eq("event_id", chargebackEventId)
+            .single();
+          chargebackOrganizerProfileId = cbEvent?.organizer_profile_id ?? null;
+        }
+        const primaryProfileId = chargebackOrganizerProfileId
+          ?? (allDists ?? []).find(d => d.distribution_status === "accrued")?.profile_id
           ?? (allDists ?? [])[0]?.profile_id ?? null;
 
         const gross = tx.total_gross_amount ?? 0;

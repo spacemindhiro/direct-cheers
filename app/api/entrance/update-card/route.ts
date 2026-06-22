@@ -90,6 +90,16 @@ export async function POST(req: Request) {
       ...(entranceParams.statementDescriptorSuffix
         ? { statement_descriptor_suffix: entranceParams.statementDescriptorSuffix }
         : {}),
+      payment_method_options: {
+        card: {
+          ...(entranceParams.statementDescriptorSuffixKana
+            ? { statement_descriptor_suffix_kana: entranceParams.statementDescriptorSuffixKana }
+            : {}),
+          ...(entranceParams.statementDescriptorSuffixKanji
+            ? { statement_descriptor_suffix_kanji: entranceParams.statementDescriptorSuffixKanji }
+            : {}),
+        },
+      },
       metadata: {
         reservation_id: reservation.reservation_id,
         product_id: reservation.product_id,

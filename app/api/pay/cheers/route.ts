@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { checkConnectCapabilities } from "@/lib/stripe-check";
-import { buildStatementDescriptorSuffix } from "@/lib/statement-descriptor";
+import { buildStatementDescriptorSuffixes } from "@/lib/statement-descriptor";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -49,7 +49,6 @@ export async function POST(req: Request) {
   // organizer の Connect ID を取得（全決済手段で on_behalf_of に使用 — MoR はオーガナイザー）
   // 同時に statement_descriptor_suffix の元になる宛先名義情報も取得する。
   let organizerConnectId: string | null = null;
-  let statementDescriptorSuffix: string | undefined;
   const { data: qrc } = await admin
     .from("qr_configs")
     .select(`
@@ -73,7 +72,7 @@ export async function POST(req: Request) {
   }
 
   // このルートはチア/メッセージ決済専用（入場券は /api/entrance/reserve）なので isEntrance は常にfalse
-  statementDescriptorSuffix = buildStatementDescriptorSuffix({
+  const { suffix: statementDescriptorSuffix, suffixKana, suffixKanji } = buildStatementDescriptorSuffixes({
     isEntrance: false,
     eventTitle: eventRow?.title,
     recipientNameContext: (qrc?.recipient_name_context as "organizer" | "artist") ?? "artist",
@@ -155,9 +154,14 @@ export async function POST(req: Request) {
   }
 
   // カード系（card / AP / GP / Link）は 3DS を有効化。PayPay は非対応のため除外。
+  // statement_descriptor_suffix_kana/kanji もここに乗せる（日本語名はASCII版だけだと反映されないため）。
   if (payment_method !== "paypay") {
     sessionParams.payment_method_options = {
-      card: { request_three_d_secure: "automatic" },
+      card: {
+        request_three_d_secure: "automatic",
+        ...(suffixKana ? { statement_descriptor_suffix_kana: suffixKana } : {}),
+        ...(suffixKanji ? { statement_descriptor_suffix_kanji: suffixKanji } : {}),
+      },
     };
   }
 

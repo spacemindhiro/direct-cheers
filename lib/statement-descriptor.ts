@@ -156,74 +156,25 @@ export function buildStatementDescriptorSuffixes(
 // ============================================================================
 // ベース表記（account-level prefix）の制御
 //
-// オーガナイザーがオンボーディング時に自由文字列を入れると、動的suffixと結合した
-// 際にカード明細が意味不明な文字列になり、チャージバックの原因になる。
-// Stripeにはこの「ベース」+「毎回変わるsuffix」を結合する専用フィールドが
-// 用意されている（statement_descriptor_prefix / _kana / _kanji）。
-// このプロジェクトでは prefix の先頭を必ず "DC-"（Direct Cheers）で固定し、
-// 残りをオーガナイザー名から生成することで、ベース表記の自由度を奪い
-// 「身元が常に分かる」状態を保証する。
+// account-levelのベース表記は、オーガナイザーによるカスタマイズを一切許可せず
+// 常に固定文字列 "DC"（Direct Cheers）とする。事業者名から可変のベースを
+// 組み立てる仕組みは廃止した（自由文字列を許すと動的suffixと結合した際に
+// 意味不明な明細になりチャージバックの原因になる上、「ベース＋suffix」以外の
+// 第三の可変要素を増やすこと自体が混乱の元になるため）。
 //
 // Stripeの合計文字数制限（prefix + 区切り + suffix の合計）:
 //   ASCII: 22文字 / カナ: 22文字 / 漢字: 17文字
 // 超過した場合、Stripeはベース（prefix）側を切り詰めてsuffixを優先表示する
-// （公式ドキュメントの記載に基づく。本ファイルのプレビュー用シミュレーションも
-// これに合わせてprefix側を切り詰める）。
+// （公式ドキュメントの記載に基づく）。"DC" は2文字のみのため、実運用で
+// このベース側が切り詰められることは基本的に発生しない。
 // ============================================================================
 
-/** ASCII版・漢字版で使う固定プラットフォーム識別子。"DC" = Direct Cheers。 */
+/** account-levelベース表記・ASCII版/漢字版で使う固定文字列。"DC" = Direct Cheers。カスタマイズ不可。 */
 export const PLATFORM_PREFIX = "DC";
 
 const ASCII_TOTAL_MAX = 22;
 const KANA_TOTAL_MAX = 22;
 const KANJI_TOTAL_MAX = 17;
-
-export type StatementDescriptorPrefixes = {
-  /** statement_descriptor / statement_descriptor_prefix （ASCII。常に "DC-" で始まる） */
-  prefix: string;
-  /**
-   * statement_descriptor_kana / statement_descriptor_prefix_kana
-   * カナフィールドは半角英字を受け付けないため "DC" マーカーは付与できない。
-   * オーガナイザー名のカナ変換結果のみ（無ければ undefined）。
-   */
-  prefixKana?: string;
-  /** statement_descriptor_kanji / statement_descriptor_prefix_kanji （常に "DC " または "DC" で始まる） */
-  prefixKanji: string;
-};
-
-/**
- * オーガナイザーがオンボーディング時に入力した事業者名から、システム固定の
- * "DC-" を冠したベース表記（account-level prefix）を組み立てる。
- *
- * これは「決済ごとに変わるsuffix（主催者名/演者名）」とは完全に独立した、
- * アカウントに一度だけ設定する固定値（bank-setup/オンボーディング画面専用）。
- * organizer_name/artist_name（profileの表示名フィールド）とは無関係であり、
- * 重複を心配する必要は無い（suffix側は別ロジックで完全に独立して決まる）。
- *
- * 漢字・カナは別々の入力フィールド（オンボーディングフォームの「漢字」「カナ」欄）から
- * 来る別々の文字列であり、1つの文字列に潰すと片方のフィールドの内容が無視される
- * バグになるため、3種それぞれ専用のソース文字列を受け取る。
- */
-export function buildStatementDescriptorPrefixes(sources: {
-  /** ASCII prefix の元データ（ローマ字表記。例: business_name や display_name） */
-  asciiNameRaw?: string | null;
-  /** statement_descriptor_kana 入力欄の値 */
-  kanaNameRaw?: string | null;
-  /** statement_descriptor_kanji 入力欄の値 */
-  kanjiNameRaw?: string | null;
-}): StatementDescriptorPrefixes {
-  const asciiName = sanitizeStatementDescriptorSuffix(sources.asciiNameRaw, 12);
-  const prefix = asciiName ? `${PLATFORM_PREFIX}-${asciiName}` : PLATFORM_PREFIX;
-
-  const kanjiName = sanitizeStatementDescriptorSuffixKanji(sources.kanjiNameRaw, 10);
-  const prefixKanji = kanjiName ? `${PLATFORM_PREFIX} ${kanjiName}` : PLATFORM_PREFIX;
-
-  // カナフィールドは "DC" を表現できないため、オーガナイザー名のカナのみ
-  // （無ければprefix自体を省略 = アカウント側の素のkana設定に委ねる）
-  const prefixKana = sanitizeStatementDescriptorSuffixKana(sources.kanaNameRaw, KANA_TOTAL_MAX) ?? undefined;
-
-  return { prefix, prefixKana, prefixKanji };
-}
 
 /**
  * prefix + suffix を結合した最終的な明細表記をシミュレーションする（プレビュー表示用）。

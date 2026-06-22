@@ -1,10 +1,10 @@
 /**
- * TC-ONB-SD: /api/stripe/connect/onboarding の statement_descriptor prefix 強制を検証する
+ * TC-ONB-SD: /api/stripe/connect/onboarding の statement_descriptor 固定を検証する
  *
- * 背景: オンボーディング時に自由文字列のベース表記を直接Stripeに送ると、
- * 動的suffixと結合した際に意味不明な明細になりチャージバックの原因になる。
- * このルートは、ユーザー入力をそのまま使わず、必ず "DC-"（PLATFORM_PREFIX）を
- * 冠したprefixをシステム側で構築してStripeに送る必要がある。
+ * 背景: account-levelのベース表記（statement_descriptor系）はユーザーによる
+ * カスタマイズを一切許可せず、常に固定文字列 "DC"（PLATFORM_PREFIX）を送る。
+ * 屋号を明細に出したい場合は organizer_name/artist_name（suffix側）に
+ * 自分で入力すればよく、ベース側に名前のカスタマイズ機構は持たない。
  *
  * Stripe呼び出し（accounts.create / accounts.update / accountLinks.create）は
  * モックして送信パラメータを直接検証する（実際のExpressアカウント作成は
@@ -87,10 +87,8 @@ afterEach(() => {
   captured.accountUpdateId = undefined;
 });
 
-// ── TC-ONB-SD-01: 新規アカウント作成時、自由入力は無視されprefixが強制される ──
-// 各テストごとに新規プロファイルを作る: 1回目のテストでstripe_connect_idが
-// DBに保存されると、以降は「既存アカウント」分岐に流れてしまうため。
-describe("TC-ONB-SD-01: 新規Connectアカウント作成時、statement_descriptor系は常にDC-で固定される", () => {
+// ── TC-ONB-SD-01: 新規アカウント作成時、常に固定 "DC" が送られる ──────────
+describe("TC-ONB-SD-01: 新規Connectアカウント作成時、statement_descriptor系は常に固定文字列'DC'になる", () => {
   async function freshProfile(label: string): Promise<string> {
     const id = await insertProfile({
       role: "organizer", displayName: `テスト主催者${label}`, email: `org-onb-${label}-${Date.now()}@test.local`,
@@ -99,59 +97,31 @@ describe("TC-ONB-SD-01: 新規Connectアカウント作成時、statement_descri
     return id;
   }
 
-  it("ユーザーが自由文字列を入力しても、Stripeに送るprefixは必ず'DC-'で始まる", async () => {
-    const profileId = await freshProfile("free");
+  it("statement_descriptor系は常に固定文字列'DC'になる（ユーザー入力欄自体が存在しない）", async () => {
+    const profileId = await freshProfile("fixed");
     mockAuth(profileId);
-    const res = await onboardingPOST(makeReq({
-      business_type: "individual",
-      statement_descriptor_kanji: "完全に自由な文字列ここに書く",
-      statement_descriptor_kana: "ジユウナモジレツ",
-    }));
+    const res = await onboardingPOST(makeReq({ business_type: "individual", business_name: "何を入力しても無視される事業者名" }));
     expect(res.status).toBe(200);
 
     const payments = captured.accountCreateParams?.settings?.payments;
     expect(payments).toBeDefined();
-    expect(payments.statement_descriptor).toMatch(new RegExp(`^${PLATFORM_PREFIX}`));
-    expect(payments.statement_descriptor_prefix).toMatch(new RegExp(`^${PLATFORM_PREFIX}`));
-    expect(payments.statement_descriptor_kanji).toMatch(new RegExp(`^${PLATFORM_PREFIX}`));
-    expect(payments.statement_descriptor_prefix_kanji).toMatch(new RegExp(`^${PLATFORM_PREFIX}`));
+    expect(payments.statement_descriptor).toBe(PLATFORM_PREFIX);
+    expect(payments.statement_descriptor_prefix).toBe(PLATFORM_PREFIX);
+    expect(payments.statement_descriptor_kanji).toBe(PLATFORM_PREFIX);
+    expect(payments.statement_descriptor_prefix_kanji).toBe(PLATFORM_PREFIX);
   }, 15_000);
 
-  it("漢字入力欄の内容が漢字prefixに反映される（DCに続けて）", async () => {
-    const profileId = await freshProfile("kanji");
-    mockAuth(profileId);
-    await onboardingPOST(makeReq({
-      business_type: "individual",
-      statement_descriptor_kanji: "スペースBBQ",
-    }));
-    const payments = captured.accountCreateParams?.settings?.payments;
-    expect(payments.statement_descriptor_kanji).toBe(`${PLATFORM_PREFIX} スペースBBQ`);
-  }, 15_000);
-
-  it("カナフィールドにはDCマーカーが付かない（半角英字を受け付けないため名前のみ）", async () => {
-    const profileId = await freshProfile("kana");
-    mockAuth(profileId);
-    await onboardingPOST(makeReq({
-      business_type: "individual",
-      statement_descriptor_kana: "スペースビービーキュー",
-    }));
-    const payments = captured.accountCreateParams?.settings?.payments;
-    expect(payments.statement_descriptor_kana).toBe("スペースビービーキュー");
-    expect(payments.statement_descriptor_kana).not.toContain(PLATFORM_PREFIX);
-  }, 15_000);
-
-  it("statement_descriptor関連の入力が無くても、表示名からprefixが構築される（空にはならない）", async () => {
-    const profileId = await freshProfile("fallback");
+  it("入力フォームが空でも、固定文字列'DC'が送られる", async () => {
+    const profileId = await freshProfile("empty");
     mockAuth(profileId);
     await onboardingPOST(makeReq({ business_type: "individual" }));
     const payments = captured.accountCreateParams?.settings?.payments;
-    expect(payments.statement_descriptor).toBeTruthy();
-    expect(payments.statement_descriptor.startsWith(PLATFORM_PREFIX)).toBe(true);
+    expect(payments.statement_descriptor).toBe(PLATFORM_PREFIX);
   }, 15_000);
 });
 
 // ── TC-ONB-SD-02: 既存アカウントの再編集時もStripeへ反映される ──────────────
-describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時、stripe.accounts.updateでprefixが再送される", () => {
+describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時、stripe.accounts.updateで固定'DC'が再送される", () => {
   let profileId: string;
   const existingConnectId = "acct_test_onb_existing_001";
 
@@ -164,17 +134,15 @@ describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時、stripe.acc
     cleanup.profileIds.push(profileId);
   }, 30_000);
 
-  it("既存アカウントでも stripe.accounts.update が呼ばれ、prefixがDC-で固定される", async () => {
+  it("既存アカウントでも stripe.accounts.update が呼ばれ、固定'DC'が再送される", async () => {
     mockAuth(profileId);
-    const res = await onboardingPOST(makeReq({
-      statement_descriptor_kanji: "改めて自由な文字列",
-    }));
+    const res = await onboardingPOST(makeReq({ business_name: "何を入力しても無視される事業者名" }));
     expect(res.status).toBe(200);
 
     expect(captured.accountUpdateId).toBe(existingConnectId);
     const payments = captured.accountUpdateParams?.settings?.payments;
     expect(payments).toBeDefined();
-    expect(payments.statement_descriptor_prefix.startsWith(PLATFORM_PREFIX)).toBe(true);
-    expect(payments.statement_descriptor_prefix_kanji).toBe(`${PLATFORM_PREFIX} 改めて自由な文字列`);
+    expect(payments.statement_descriptor_prefix).toBe(PLATFORM_PREFIX);
+    expect(payments.statement_descriptor_prefix_kanji).toBe(PLATFORM_PREFIX);
   });
 });

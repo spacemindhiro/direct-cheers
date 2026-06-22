@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildStatementDescriptorPrefixes } from "@/lib/statement-descriptor";
+import { PLATFORM_PREFIX } from "@/lib/statement-descriptor";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com").replace(/\/$/, "");
@@ -37,7 +37,6 @@ type OnboardingBody = {
   address_kana_state?: string; address_kana_city?: string;
   address_kana_town?: string; address_kana_line1?: string;
   product_description?: string; website?: string;
-  statement_descriptor_kanji?: string; statement_descriptor_kana?: string;
 };
 
 export async function POST(req: Request) {
@@ -64,15 +63,10 @@ export async function POST(req: Request) {
     const admin = createAdminClient();
     let connectId = me.stripe_connect_id;
 
-    // カード明細のベース表記（account-level prefix）はシステム側で "DC-" を強制する。
-    // 自由文字列を直接Stripeに渡すと、動的suffixと結合した際に意味不明な明細に
-    // なりチャージバックの原因になるため、ユーザー入力は「DC-」に続く名前部分の
-    // 元データとしてのみ使う（最終的な文字列はbuildStatementDescriptorPrefixesが組み立てる）。
-    const { prefix, prefixKana, prefixKanji } = buildStatementDescriptorPrefixes({
-      asciiNameRaw: body.business_name || me.display_name,
-      kanaNameRaw: body.statement_descriptor_kana,
-      kanjiNameRaw: body.statement_descriptor_kanji,
-    });
+    // カード明細のベース表記（account-level prefix）はカスタマイズを許可せず、
+    // 常に固定文字列 "DC" を設定する。決済ごとの主催者名/演者名は別途suffixで
+    // 送られるため、屋号を明細に出したい場合は organizer_name/artist_name に
+    // 自分で入力してもらえばよく、ベース側に別の名前入力欄を持つ必要は無い。
 
     if (!connectId) {
       const isCompany = body.business_type === "company";
@@ -92,20 +86,13 @@ export async function POST(req: Request) {
         },
       };
 
-      // ベース表記は常に "DC-" 固定prefix。non-prefix系フィールドも同値で埋めておく
-      // （動的suffixを送らない決済が将来発生した場合のフォールバック用）。
+      // ベース表記は常に固定文字列 "DC"（カスタマイズ不可）。
       accountParams.settings = {
         payments: {
-          statement_descriptor: prefix,
-          statement_descriptor_prefix: prefix,
-          ...(prefixKana ? {
-            statement_descriptor_kana: prefixKana,
-            statement_descriptor_prefix_kana: prefixKana,
-          } : {}),
-          ...(prefixKanji ? {
-            statement_descriptor_kanji: prefixKanji,
-            statement_descriptor_prefix_kanji: prefixKanji,
-          } : {}),
+          statement_descriptor: PLATFORM_PREFIX,
+          statement_descriptor_prefix: PLATFORM_PREFIX,
+          statement_descriptor_kanji: PLATFORM_PREFIX,
+          statement_descriptor_prefix_kanji: PLATFORM_PREFIX,
         } as Stripe.AccountCreateParams.Settings.Payments,
       };
 
@@ -224,8 +211,6 @@ export async function POST(req: Request) {
             address_kana_town:           body.address_kana_town          ?? null,
             address_kana_line1:          body.address_kana_line1         ?? null,
             product_description:         body.product_description        ?? null,
-            statement_descriptor_kanji:  body.statement_descriptor_kanji ?? null,
-            statement_descriptor_kana:   body.statement_descriptor_kana  ?? null,
             ...(socialLinks ? { social_links: socialLinks } : {}),
           } : {}),
         }).eq("profile_id", user.id),
@@ -241,8 +226,7 @@ export async function POST(req: Request) {
     }
 
     // 既存connectId がある場合：DB更新・Stripeアカウント設定の再送・accountLinks 生成を並列
-    // ベース表記（prefix）は再送するたびに最新の名前から再構築する
-    // （初回作成時にしか反映されていなかった既存の不備を修正）。
+    // ベース表記（固定 "DC"）も再送する（初回作成時にしか反映されていなかった既存の不備を修正）。
     const socialLinks = body.website ? { website: body.website } : undefined;
     const [, , accountLink] = await Promise.all([
       Object.keys(body).length > 0
@@ -271,24 +255,16 @@ export async function POST(req: Request) {
             address_kana_town:           body.address_kana_town          ?? null,
             address_kana_line1:          body.address_kana_line1         ?? null,
             product_description:         body.product_description        ?? null,
-            statement_descriptor_kanji:  body.statement_descriptor_kanji ?? null,
-            statement_descriptor_kana:   body.statement_descriptor_kana  ?? null,
             ...(socialLinks ? { social_links: socialLinks } : {}),
           }).eq("profile_id", user.id)
         : Promise.resolve(null),
       stripe.accounts.update(connectId, {
         settings: {
           payments: {
-            statement_descriptor: prefix,
-            statement_descriptor_prefix: prefix,
-            ...(prefixKana ? {
-              statement_descriptor_kana: prefixKana,
-              statement_descriptor_prefix_kana: prefixKana,
-            } : {}),
-            ...(prefixKanji ? {
-              statement_descriptor_kanji: prefixKanji,
-              statement_descriptor_prefix_kanji: prefixKanji,
-            } : {}),
+            statement_descriptor: PLATFORM_PREFIX,
+            statement_descriptor_prefix: PLATFORM_PREFIX,
+            statement_descriptor_kanji: PLATFORM_PREFIX,
+            statement_descriptor_prefix_kanji: PLATFORM_PREFIX,
           } as Stripe.AccountUpdateParams.Settings.Payments,
         },
       }),

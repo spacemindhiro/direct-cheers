@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { buildStatementDescriptorPrefixes } from '@/lib/statement-descriptor';
 
 type BusinessType = 'individual' | 'company';
 
@@ -38,8 +37,6 @@ type Form = {
   addressKanaLine1: string;
   productDescription: string;
   website: string;
-  statementDescriptorKanji: string;
-  statementDescriptorKana: string;
 };
 
 const empty: Form = {
@@ -53,7 +50,6 @@ const empty: Form = {
   postalCode: '', prefecture: '', city: '', addressTown: '', streetAddress: '',
   addressKanaState: '', addressKanaCity: '', addressKanaTown: '', addressKanaLine1: '',
   productDescription: '', website: '',
-  statementDescriptorKanji: '', statementDescriptorKana: '',
 };
 
 const STEP_LABELS = ['種別選択', '氏名', '生年月日・電話', '住所', '事業情報'];
@@ -112,7 +108,7 @@ export default function BankSetupPage() {
           dob_year, dob_month, dob_day, phone,
           postal_code, prefecture, city, address_town, street_address,
           address_kana_state, address_kana_city, address_kana_town, address_kana_line1,
-          product_description, statement_descriptor_kanji, statement_descriptor_kana
+          product_description
         `)
         .eq('profile_id', user.id)
         .single();
@@ -144,8 +140,6 @@ export default function BankSetupPage() {
           addressKanaLine1: data.address_kana_line1 ?? '',
           productDescription: data.product_description ?? '',
           website: (data.social_links as Record<string, string> | null)?.website ?? '',
-          statementDescriptorKanji: data.statement_descriptor_kanji ?? '',
-          statementDescriptorKana: data.statement_descriptor_kana ?? '',
         });
       }
       setLoading(false);
@@ -249,8 +243,6 @@ export default function BankSetupPage() {
           address_kana_town:           form.addressKanaTown.trim()          || null,
           address_kana_line1:          form.addressKanaLine1.trim()         || null,
           product_description:         form.productDescription.trim()       || null,
-          statement_descriptor_kanji:  form.statementDescriptorKanji.trim() || null,
-          statement_descriptor_kana:   form.statementDescriptorKana.trim()  || null,
           website:                     form.website.trim()                  || null,
         }),
       });
@@ -575,42 +567,12 @@ export default function BankSetupPage() {
             <p className="text-[10px] text-slate-600">InstagramなどSNSページでも可。Stripeの審査に使用されます</p>
           </div>
 
-          <div className="space-y-2">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-              カード明細表示名 <span className="text-slate-600 normal-case font-normal">（任意）</span>
+          <div className="p-3 bg-slate-950/50 border border-slate-800 rounded-xl space-y-1">
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">カード利用明細表示</p>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              先頭の「DC」は不正な明細表記によるチャージバックを防ぐためシステムが固定しています（カスタマイズ不可）。
+              その後ろには、決済の宛先に応じて主催者名または演者名（プロフィール画面で設定）が自動で追加されます。
             </p>
-            <p className="text-[10px] text-slate-600">
-              不正な明細表記によるチャージバックを防ぐため、先頭には必ず「DC-」（Direct Cheers）が付きます。
-              ここに入力した名前はその後ろに続きます。
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-600">漢字（最大10文字）</p>
-                <input type="text" value={form.statementDescriptorKanji} onChange={setStr('statementDescriptorKanji')}
-                  placeholder="スペースBBQ" maxLength={10} className={ic} />
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] text-slate-600">カナ（最大22文字）</p>
-                <input type="text" value={form.statementDescriptorKana} onChange={setStr('statementDescriptorKana')}
-                  placeholder="スペースビービーキュー" maxLength={22} className={ic} />
-              </div>
-            </div>
-            {(() => {
-              const { prefix, prefixKana, prefixKanji } = buildStatementDescriptorPrefixes({
-                asciiNameRaw: form.businessName || undefined,
-                kanaNameRaw: form.statementDescriptorKana,
-                kanjiNameRaw: form.statementDescriptorKanji,
-              });
-              return (
-                <div className="p-3 bg-slate-950/50 border border-slate-800 rounded-xl space-y-1">
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">明細プレビュー（ベース部分）</p>
-                  <p className="text-[11px] text-white font-bold">{prefixKanji || prefix}</p>
-                  <p className="text-[9px] text-slate-600">
-                    実際の決済では、この後ろに演者名または主催者名（決済の宛先により異なる）が追加されます
-                  </p>
-                </div>
-              );
-            })()}
           </div>
 
           <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl space-y-1.5">

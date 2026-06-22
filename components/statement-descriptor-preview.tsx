@@ -2,7 +2,6 @@
 
 import {
   sanitizeStatementDescriptorSuffix,
-  sanitizeStatementDescriptorSuffixKana,
   sanitizeStatementDescriptorSuffixKanji,
   buildStatementDescriptorPrefixes,
   combineDescriptorPreview,
@@ -13,11 +12,12 @@ import { Receipt, AlertTriangle, Info } from 'lucide-react';
 type Props = {
   /**
    * このプレビューが表す名義。
-   * - 'artist': 演者名義の決済（チア決済でrecipient_name_context='artist'のとき）。
-   *   suffix（動的部分）に演者名が出る。
-   * - 'organizer': 主催者名義の決済（recipient_name_context='organizer'）。
-   *   主催者名はベース（prefix）側に既に出るため、suffixにはイベント名が出る
-   *   （主催者名の重複表示を避けるため）。
+   * - 'artist': 演者名義の決済（recipient_name_context='artist'）。suffixに演者名が出る。
+   * - 'organizer': 主催者名義の決済（recipient_name_context='organizer'、入場券も同様）。
+   *   suffixにも主催者名と同じ名前が出る（ベース表記との重複は許容し、英語表記と同じ
+   *   情報量に揃える。イベント名は使わない — 漢字17文字・カナ22文字しかなく、
+   *   既にprefixで大半を使い切るため、増やそうとすると確実に文字数があふれて
+   *   意味不明な表記になる）。
    */
   role: 'artist' | 'organizer';
   /** 入力中の名前（artist_name または organizer_name） */
@@ -38,10 +38,11 @@ export function StatementDescriptorPreview({ role, name, organizerPrefixSource }
   const trimmedName = name.trim();
 
   // ── ベース表記（prefix）: 主催者名 + 固定 "DC-" ──────────────────────
-  const knownPrefixSource = organizerPrefixSource?.trim();
+  // organizerロールでは、今まさに入力中の名前がそのままprefixの元になる。
+  const knownPrefixSource = (isArtistRole ? organizerPrefixSource : name)?.trim();
   const isPlaceholderPrefix = !knownPrefixSource;
-  const prefixSourceAscii = knownPrefixSource || 'TARO EVENTS';
   const prefixSourceJa = knownPrefixSource || 'タロウイベント';
+  const prefixSourceAscii = knownPrefixSource || 'TARO EVENTS';
 
   const { prefix, prefixKanji } = buildStatementDescriptorPrefixes({
     asciiNameRaw: prefixSourceAscii,
@@ -50,11 +51,11 @@ export function StatementDescriptorPreview({ role, name, organizerPrefixSource }
   });
 
   // ── 動的部分（suffix） ──────────────────────────────────────────────
-  // artist名義: 入力中の演者名そのもの。organizer名義: 主催者名はprefix側に
-  // 既にあるため、実際の決済ではイベント名が入る（ここではサンプルで例示）。
-  const isPlaceholderSuffix = isArtistRole && !trimmedName;
-  const suffixSourceRaw = isArtistRole ? (trimmedName || 'DJ HIRO') : 'イベント名サンプル';
-  const suffixLabel = isArtistRole ? '演者名' : 'イベント名（決済ごとに変わる）';
+  // artist名義: 入力中の演者名。organizer名義: 入力中の主催者名と同じ
+  // （ベース表記と同じ情報量。イベント名などは追加しない）。
+  const isPlaceholderSuffix = !trimmedName;
+  const suffixSourceRaw = trimmedName || (isArtistRole ? 'DJ HIRO' : 'TARO EVENTS');
+  const suffixLabel = isArtistRole ? '演者名' : '主催者名';
 
   const suffixAscii = sanitizeStatementDescriptorSuffix(suffixSourceRaw, 19);
   const suffixKanji = sanitizeStatementDescriptorSuffixKanji(suffixSourceRaw, 17);

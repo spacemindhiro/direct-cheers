@@ -91,34 +91,30 @@ export function sanitizeStatementDescriptorSuffixKana(
 
 /**
  * 決済の宛先名義から、statement_descriptor_suffix の元になる「生の名前」を選ぶ。
- * - entrance（入場券）: 宛先がオーガナイザー個人かどうかに関わらず、常にイベント名を使う
- * - それ以外（チア/メッセージ）: qr_configs.recipient_name_context に従い
- *   organizer_name または artist_name を使う（無ければ display_name → イベント名 にフォールバック）
+ * - entrance（入場券）・recipientNameContext='organizer': 主催者名を使う
+ * - recipientNameContext='artist': 演者名を使う
+ *
+ * イベント名は使わない。漢字版は17文字・カナ版は22文字しかなく、
+ * 既にprefix（DC-主催者名）で大半を使い切るため、suffixにイベント名まで
+ * 詰め込もうとすると確実に文字数があふれて意味不明な表記になる
+ * （ASCII表記と同じ情報量に揃え、無理に増やさない）。
+ * prefix側に同じ名前が既に出ていても、英語表記でも同様の重複を許容しており
+ * 一貫性を優先する。
  */
 export function resolveStatementDescriptorSource(params: {
   isEntrance: boolean;
-  eventTitle?: string | null;
   recipientNameContext: RecipientNameContext;
   organizerName?: string | null;
   artistName?: string | null;
   recipientDisplayName?: string | null;
-}): string {
-  const {
-    isEntrance, eventTitle, recipientNameContext,
-    artistName, recipientDisplayName,
-  } = params;
+}): string | null {
+  const { isEntrance, recipientNameContext, organizerName, artistName, recipientDisplayName } = params;
 
-  if (isEntrance) {
-    return eventTitle ?? recipientDisplayName ?? "DIRECT CHEERS";
+  // 入場券のMoRは常にオーガナイザーなので、主催者名義の決済と同様に扱う
+  if (isEntrance || recipientNameContext === "organizer") {
+    return organizerName ?? recipientDisplayName ?? null;
   }
-  // オーガナイザー名義の場合、アカウント側のprefix（DC-オーガナイザー名）に
-  // 既にオーガナイザー名が出るため、suffixで同じ名前を繰り返すと
-  // 「DC-SPACEBBQ SPACEBBQ」のような冗長な表記になってしまう。
-  // suffixはイベント名を出すことで「どのイベントの決済か」を補完する。
-  if (recipientNameContext === "organizer") {
-    return eventTitle ?? recipientDisplayName ?? "DIRECT CHEERS";
-  }
-  return artistName ?? recipientDisplayName ?? eventTitle ?? "DIRECT CHEERS";
+  return artistName ?? recipientDisplayName ?? null;
 }
 
 /**
@@ -131,6 +127,7 @@ export function buildStatementDescriptorSuffix(
   maxLen = 19,
 ): string | undefined {
   const source = resolveStatementDescriptorSource(params);
+  if (!source) return undefined;
   return sanitizeStatementDescriptorSuffix(source, maxLen) ?? undefined;
 }
 
@@ -152,6 +149,7 @@ export function buildStatementDescriptorSuffixes(
   params: Parameters<typeof resolveStatementDescriptorSource>[0],
 ): StatementDescriptorSuffixes {
   const source = resolveStatementDescriptorSource(params);
+  if (!source) return {};
   return {
     suffix: sanitizeStatementDescriptorSuffix(source, 19) ?? undefined,
     suffixKana: sanitizeStatementDescriptorSuffixKana(source, 22) ?? undefined,

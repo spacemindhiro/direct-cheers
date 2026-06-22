@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     .from("qr_configs")
     .select(`
       recipient_name_context,
-      event:events!event_id(title, organizer_profile_id),
+      event:events!event_id(organizer_profile_id),
       recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name)
     `)
     .eq("qr_config_id", qr_config_id)
@@ -74,7 +74,6 @@ export async function POST(req: Request) {
   // このルートはチア/メッセージ決済専用（入場券は /api/entrance/reserve）なので isEntrance は常にfalse
   const { suffix: statementDescriptorSuffix, suffixKana, suffixKanji } = buildStatementDescriptorSuffixes({
     isEntrance: false,
-    eventTitle: eventRow?.title,
     recipientNameContext: (qrc?.recipient_name_context as "organizer" | "artist") ?? "artist",
     organizerName: recipientRow?.organizer_name,
     artistName: recipientRow?.artist_name,

@@ -133,17 +133,19 @@ async function CheersContent({
 
   const recipient = qr.recipient as any;
   // 表示名は名義コンテキスト（organizer/artist）に応じて organizer_name/artist_name を優先する。
-  // entrance（入場券）は宛先の個人名ではなく常にイベント名を表示する。
+  // entrance（入場券）は宛先の個人名ではなく主催者名を表示する（MoRがオーガナイザーのため）。
   const recipientNameContext = ((qr as any).recipient_name_context as "organizer" | "artist" | undefined) ?? "artist";
   const isEntranceQr = (products[0] as any)?.type === "entrance";
-  const recipientName = resolveStatementDescriptorSource({
+  // statement_descriptor用の名前解決はnullを許容する（名前が無ければsuffix自体を省略する設計）。
+  // 画面表示では何か文字列が必要なので、イベント名→固定文字へのフォールバックを別途用意する。
+  const recipientNameSource = resolveStatementDescriptorSource({
     isEntrance: isEntranceQr,
-    eventTitle: event.title,
     recipientNameContext,
     organizerName: recipient?.organizer_name,
     artistName: recipient?.artist_name,
     recipientDisplayName: recipient?.display_name,
   });
+  const recipientName = recipientNameSource ?? event.title ?? "Artist";
   const recipientAvatar = recipient?.avatar_url ?? null;
   const qrImageUrl = (qr as any).image_url as string | null;
 

@@ -219,13 +219,17 @@ export default function ProfileEditPage() {
         updates.affiliation  = affiliation.trim() || null;
         updates.credit_name  = creditName.trim() || null;
         updates.genre        = genre.trim() || null;
-        updates.artist_name  = artistName.trim() || null;
       }
       if (role === 'organizer' || role === 'agent') {
         updates.organization_name  = organizationName.trim() || null;
         updates.organizer_name     = organizerName.trim() || null;
       }
-      if (role === 'agent' || role === 'admin') {
+      // artist_name は「アーティスト専用」セクション（role='artist'）と
+      // 「DJとして出演する場合」セクション（role='organizer'|'agent'）の両方で
+      // 編集可能なため、UIに表示される全ロールでupdatesに含める必要がある。
+      // organizerが漏れていたため、保存してもDBに反映されない（再取得時に
+      // 元の値に戻り「消えた」ように見える）バグがあった。
+      if (role === 'artist' || role === 'organizer' || role === 'agent') {
         updates.artist_name = artistName.trim() || null;
       }
 

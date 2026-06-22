@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CheersPaymentForm } from "@/components/cheers-payment-form";
 import { InAppBrowserBanner } from "@/components/in-app-browser-banner";
-import { resolveStatementDescriptorSource } from "@/lib/statement-descriptor";
 import { MapPin, Calendar, Clock, Loader2 } from "lucide-react";
 
 function ValidityMessage({ title, message }: { title: string; message: string }) {
@@ -132,19 +131,18 @@ async function CheersContent({
   }
 
   const recipient = qr.recipient as any;
-  // 表示名は名義コンテキスト（organizer/artist）に応じて organizer_name/artist_name を優先する。
+  // 画面表示名は名義コンテキスト（organizer/artist）に応じて organizer_name/artist_name を優先する。
   // entrance（入場券）は宛先の個人名ではなく主催者名を表示する（MoRがオーガナイザーのため）。
+  // これはStripeの statement_descriptor 解決ロジック（lib/statement-descriptor.ts）とは
+  // 別の関心事のため、ここでは直接 organizer_name/artist_name/display_name を解決する
+  // （statement-descriptor側は主催者名義のsuffixを送らない設計に変わったが、画面表示は
+  // 引き続き主催者名を優先して見せたい）。
   const recipientNameContext = ((qr as any).recipient_name_context as "organizer" | "artist" | undefined) ?? "artist";
   const isEntranceQr = (products[0] as any)?.type === "entrance";
-  // statement_descriptor用の名前解決はnullを許容する（名前が無ければsuffix自体を省略する設計）。
-  // 画面表示では何か文字列が必要なので、イベント名→固定文字へのフォールバックを別途用意する。
-  const recipientNameSource = resolveStatementDescriptorSource({
-    isEntrance: isEntranceQr,
-    recipientNameContext,
-    organizerName: recipient?.organizer_name,
-    artistName: recipient?.artist_name,
-    recipientDisplayName: recipient?.display_name,
-  });
+  const recipientNameSource =
+    isEntranceQr || recipientNameContext === "organizer"
+      ? recipient?.organizer_name ?? recipient?.display_name
+      : recipient?.artist_name ?? recipient?.display_name;
   const recipientName = recipientNameSource ?? event.title ?? "Artist";
   const recipientAvatar = recipient?.avatar_url ?? null;
   const qrImageUrl = (qr as any).image_url as string | null;

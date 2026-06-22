@@ -91,15 +91,17 @@ export function sanitizeStatementDescriptorSuffixKana(
 
 /**
  * 決済の宛先名義から、statement_descriptor_suffix の元になる「生の名前」を選ぶ。
- * - entrance（入場券）・recipientNameContext='organizer': 主催者名を使う
+ * - entrance（入場券）・recipientNameContext='organizer': suffixを送らない（null）
  * - recipientNameContext='artist': 演者名を使う
  *
- * イベント名は使わない。漢字版は17文字・カナ版は22文字しかなく、
- * 既にprefix（DC-主催者名）で大半を使い切るため、suffixにイベント名まで
- * 詰め込もうとすると確実に文字数があふれて意味不明な表記になる
- * （ASCII表記と同じ情報量に揃え、無理に増やさない）。
- * prefix側に同じ名前が既に出ていても、英語表記でも同様の重複を許容しており
- * 一貫性を優先する。
+ * 主催者名義の決済は、ベース表記（DC-主催者名、account-level prefix）に
+ * 既に主催者名が出ている。そこにsuffixで同じ名前をもう一度足すと、
+ * 漢字版は17文字・カナ版は22文字しかないため高確率で文字数があふれ、
+ * 単語の途中で切れた「DC Spa Space Mind」のような意味不明な表記になる
+ * （実機検証で確認済み）。重複させてまで増やす情報量がないため、
+ * 主催者名義・入場券はsuffixを送らずベース表記のみに委ねる。
+ * 演者名義は「主催者の決済の中の、どの演者宛か」を示す非冗長な情報のため、
+ * suffixとして送る価値がある。
  */
 export function resolveStatementDescriptorSource(params: {
   isEntrance: boolean;
@@ -108,11 +110,10 @@ export function resolveStatementDescriptorSource(params: {
   artistName?: string | null;
   recipientDisplayName?: string | null;
 }): string | null {
-  const { isEntrance, recipientNameContext, organizerName, artistName, recipientDisplayName } = params;
+  const { isEntrance, recipientNameContext, artistName, recipientDisplayName } = params;
 
-  // 入場券のMoRは常にオーガナイザーなので、主催者名義の決済と同様に扱う
   if (isEntrance || recipientNameContext === "organizer") {
-    return organizerName ?? recipientDisplayName ?? null;
+    return null;
   }
   return artistName ?? recipientDisplayName ?? null;
 }
@@ -197,8 +198,14 @@ export type StatementDescriptorPrefixes = {
 
 /**
  * オーガナイザー名から、システム固定の "DC-" を冠したベース表記（prefix）を組み立てる。
- * suffix用の文字数を残すため、prefix自体の上限はsuffixより短く設定する
- * （ASCII: DC- + 12文字まで、漢字: DC + 10文字まで）。
+ * suffix（演者名義の決済で使う）用の文字数を残すため、prefix自体の上限は
+ * 全体の上限よりかなり短く設定する。
+ *
+ * 漢字は全体17文字しかなく、"DC "（3文字）+ 区切り（1文字）を引くと
+ * 残り13文字。ここでprefixの名前部分を長く取りすぎると（例: 10文字）、
+ * 演者名suffixの余地が3文字程度しか残らず、結合時に単語の途中で切れた
+ * 意味不明な表記になる。名前部分を6文字までに抑え、suffixに7文字以上を
+ * 残すことで、短い演者名（"DJ HIRO"等）が大抵そのまま収まるようにする。
  *
  * 漢字・カナは別々の入力フィールド（オンボーディングフォームの「漢字」「カナ」欄）から
  * 来る別々の文字列であり、1つの文字列に潰すと片方のフィールドの内容が無視される
@@ -215,7 +222,7 @@ export function buildStatementDescriptorPrefixes(sources: {
   const asciiName = sanitizeStatementDescriptorSuffix(sources.asciiNameRaw, 12);
   const prefix = asciiName ? `${PLATFORM_PREFIX}-${asciiName}` : PLATFORM_PREFIX;
 
-  const kanjiName = sanitizeStatementDescriptorSuffixKanji(sources.kanjiNameRaw, 10);
+  const kanjiName = sanitizeStatementDescriptorSuffixKanji(sources.kanjiNameRaw, 6);
   const prefixKanji = kanjiName ? `${PLATFORM_PREFIX} ${kanjiName}` : PLATFORM_PREFIX;
 
   // カナフィールドは "DC" を表現できないため、オーガナイザー名のカナのみ
@@ -245,9 +252,24 @@ export function combineDescriptorPreview(
     return { combined: `${prefix}${separator}${safeSuffix}`, truncated: false };
   }
 
-  // 超過分だけprefixを切り詰める（suffixは満額表示を優先）
+  // 超過分だけprefixを切り詰める（suffixは満額表示を優先）。
+  // 単語の途中で切れると「DC Spa Space Mind」のような意味不明な表記になるため、
+  // 切り詰め位置が単語の境界（直前が空白、または末尾）でなければ、
+  // 直前の空白まで戻ってから足す（単語の断片を残さない）。
   const allowedPrefixLen = Math.max(0, totalMax - separator.length - safeSuffix.length);
-  const truncatedPrefix = prefix.slice(0, allowedPrefixLen);
+  const rawSlice = prefix.slice(0, allowedPrefixLen);
+  const nextChar = prefix[allowedPrefixLen];
+  const cutsCleanly =
+    allowedPrefixLen >= prefix.length || rawSlice.length === 0 || rawSlice.endsWith(" ") || nextChar === " ";
+  let truncatedPrefix = rawSlice.trim();
+  if (!cutsCleanly) {
+    // 単語の境界（空白）が無い場合（1単語が丸ごと長い等）は、
+    // 戻る先が無いので素直に切り詰める（何も表示しないよりは良い）。
+    const lastSpace = truncatedPrefix.lastIndexOf(" ");
+    if (lastSpace > 0) {
+      truncatedPrefix = truncatedPrefix.slice(0, lastSpace).trim();
+    }
+  }
   const combined = truncatedPrefix
     ? `${truncatedPrefix}${separator}${safeSuffix}`
     : safeSuffix.slice(0, totalMax);

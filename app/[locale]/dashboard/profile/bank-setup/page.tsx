@@ -606,7 +606,7 @@ export default function BankSetupPage() {
                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">明細プレビュー（ベース部分）</p>
                   <p className="text-[11px] text-white font-bold">{prefixKanji || prefix}</p>
                   <p className="text-[9px] text-slate-600">
-                    実際の決済では、この後ろに演者名やイベント名が決済ごとに追加されます
+                    実際の決済では、この後ろに演者名または主催者名（決済の宛先により異なる）が追加されます
                   </p>
                 </div>
               );

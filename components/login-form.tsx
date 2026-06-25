@@ -60,14 +60,15 @@ export function LoginForm({
   const sendMagicLink = async () => {
     if (!email || magicPending) return;
     setMagicPending(true);
-    const supabase = createClient();
     // token_hash フロー: emailRedirectTo の代わりに user_metadata 経由でリダイレクト先を伝える。
     // メールテンプレートが {{ .TokenHash }} を使用するため、別ブラウザ・別端末でも開けるようになる。
-    await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        data: { post_auth_redirect: redirectTo },
-      },
+    // クライアントから直接signInWithOtpを呼ばず、サーバー側ルートを経由する
+    // （既存ユーザーの場合、optionsのdataだけではuser_metadataが更新されないため、
+    // admin APIで明示的に上書きする必要がある。詳細は route.ts のコメント参照）。
+    await fetch("/api/auth/send-magic-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, redirect: redirectTo }),
     });
     setMagicPending(false);
     setMagicSent(true);

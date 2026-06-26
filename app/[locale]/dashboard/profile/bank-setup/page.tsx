@@ -54,6 +54,13 @@ const empty: Form = {
 
 const STEP_LABELS = ['種別選択', '氏名', '生年月日・電話', '住所', '事業情報'];
 
+// ロールごとの事業内容の例文（初期値として入れるだけで、ユーザーは自由に書き換え可能）
+const PRODUCT_DESCRIPTION_EXAMPLES: Record<string, string> = {
+  artist: 'DJ・音楽パフォーマンスサービス',
+  organizer: 'ライブイベント主催・企画運営',
+  agent: '出演者・主催者向けエージェント業務（出演交渉・イベント運営サポート）',
+};
+
 const ic = "w-full h-12 bg-slate-950/50 border border-slate-800 rounded-xl px-5 text-sm text-white focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-700";
 const ta = "w-full bg-slate-950/50 border border-slate-800 rounded-xl px-5 py-3 text-sm text-white focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-700 resize-none";
 
@@ -91,8 +98,10 @@ export default function BankSetupPage() {
       // artistのみ規約同意をbank-setup前にチェック
       // organizer/agentはbank-setup → 面談 → admin承認の順なのでここではチェックしない
       const termsRes = await fetch('/api/terms/status');
+      let role: string | undefined;
       if (termsRes.ok) {
         const termsData = await termsRes.json();
+        role = termsData.role;
         if (termsData.role === 'artist' && !termsData.allAgreed) {
           router.replace('/dashboard/terms?next=/dashboard/profile/bank-setup');
           return;
@@ -138,7 +147,7 @@ export default function BankSetupPage() {
           addressKanaCity: data.address_kana_city ?? '',
           addressKanaTown: data.address_kana_town ?? '',
           addressKanaLine1: data.address_kana_line1 ?? '',
-          productDescription: data.product_description ?? '',
+          productDescription: data.product_description ?? (role ? PRODUCT_DESCRIPTION_EXAMPLES[role] ?? '' : ''),
           website: (data.social_links as Record<string, string> | null)?.website ?? '',
         });
       }

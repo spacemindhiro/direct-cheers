@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+// /demo/thanks 専用。デモのCheckout Session（app/api/pay/route.tsで
+// STRIPE_DEMO_SECRET_KEYを使って作成）を取得するため、同じキーを使う必要がある
+// （test/liveモードのデータは完全に分離されており、別モードのキーでは取得できない）。
+const stripe = new Stripe(process.env.STRIPE_DEMO_SECRET_KEY || "", {
   // @ts-ignore
   apiVersion: '2023-10-16',
 });
@@ -14,7 +17,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
   }
 
-  if (!process.env.STRIPE_SECRET_KEY) return NextResponse.json({ error: "Key Missing" }, { status: 500 });
+  if (!process.env.STRIPE_DEMO_SECRET_KEY) return NextResponse.json({ error: "Key Missing" }, { status: 500 });
 
   try {
     // line_itemsやcustomerを含めて取得

@@ -12,13 +12,14 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   STG_URL: https://stg.direct-cheers.com
+  PROD_URL: https://direct-cheers.com
 
 jobs:
-  entrance-auth:
+  entrance-auth-stg:
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 15 * * *'
     runs-on: ubuntu-latest
     steps:
-      - name: 5日前オーソリバッチ (00:00 JST)
+      - name: 5日前オーソリバッチ - STG (00:00 JST)
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "$STG_URL/api/cron/entrance-auth" \
@@ -26,11 +27,23 @@ jobs:
           echo "HTTP $STATUS"
           [ "$STATUS" = "200" ] || exit 1
 
-  reconcile:
+  entrance-auth-prod:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 15 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 5日前オーソリバッチ - PROD (00:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$PROD_URL/api/cron/entrance-auth" \
+            -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  reconcile-stg:
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 20 * * *'
     runs-on: ubuntu-latest
     steps:
-      - name: 照合バッチ (05:00 JST)
+      - name: 照合バッチ - STG (05:00 JST)
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "$STG_URL/api/cron/reconcile" \
@@ -38,11 +51,23 @@ jobs:
           echo "HTTP $STATUS"
           [ "$STATUS" = "200" ] || exit 1
 
-  card-check:
+  reconcile-prod:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 20 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 照合バッチ - PROD (05:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$PROD_URL/api/cron/reconcile" \
+            -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  card-check-stg:
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 0 * * *'
     runs-on: ubuntu-latest
     steps:
-      - name: 前売りカード状態確認バッチ (09:00 JST)
+      - name: 前売りカード状態確認バッチ - STG (09:00 JST)
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "$STG_URL/api/cron/entrance-card-check" \
@@ -50,14 +75,38 @@ jobs:
           echo "HTTP $STATUS"
           [ "$STATUS" = "200" ] || exit 1
 
-  auth-expiry:
+  card-check-prod:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 0 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 前売りカード状態確認バッチ - PROD (09:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$PROD_URL/api/cron/entrance-card-check" \
+            -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  auth-expiry-stg:
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 1 * * *'
     runs-on: ubuntu-latest
     steps:
-      - name: 認証期限チェック (10:00 JST)
+      - name: 認証期限チェック - STG (10:00 JST)
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "$STG_URL/api/admin/check-auth-expiry" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  auth-expiry-prod:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 1 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 認証期限チェック - PROD (10:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$PROD_URL/api/admin/check-auth-expiry" \
+            -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
           echo "HTTP $STATUS"
           [ "$STATUS" = "200" ] || exit 1

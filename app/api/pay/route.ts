@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+// デモ決済（/demo配下）専用。実際の課金が発生する本番決済ルート
+// （app/api/pay/cheers/route.ts 等）とは意図的にキーを分離している。
+// STRIPE_SECRET_KEY（本番はliveキー）を共有すると、デモ機能でも
+// 実際の課金が発生してしまうため。
+const stripe = new Stripe(process.env.STRIPE_DEMO_SECRET_KEY || "", {
   // @ts-ignore
   apiVersion: '2023-10-16',
 });

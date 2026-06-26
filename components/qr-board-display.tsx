@@ -381,6 +381,16 @@ export function QRBoardDisplay({
     }).catch(() => {});
   }, [eventId, deviceName]);
 
+  // Androidの戻るボタン/ジェスチャーで前画面（オーガナイザー機能）に戻れてしまうのを防止。
+  // popstate（戻る操作）を検知したら同じURLへ即座に履歴を積み直し、実際の遷移を打ち消す。
+  // パスキー認証後のrouter.pushはpushStateであり popstateを発火しないため、正規の遷移は妨げない。
+  useEffect(() => {
+    const trapBack = () => history.pushState(null, "", window.location.href);
+    history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", trapBack);
+    return () => window.removeEventListener("popstate", trapBack);
+  }, []);
+
   // 初回: 自己登録 → タイムテーブル取得 + タイマーで定期再取得（30秒間隔）
   // ※ schedulesRef の再評価だけでは新規登録されたスケジュールを検知できないため、
   //    毎回サーバーから最新のタイムテーブルを取得して適用する

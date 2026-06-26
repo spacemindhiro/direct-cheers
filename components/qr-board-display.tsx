@@ -400,6 +400,27 @@ export function QRBoardDisplay({
     };
   }, []);
 
+  // Androidのナビゲーションバー（戻る・ホーム・最近のアプリの三角丸四角）はOS純正のシステムUIで
+  // manifestの設定だけでは消せないため、Fullscreen APIで画面タップ時にイミラーシブモードへ移行する。
+  // Fullscreen APIはユーザー操作内でしか呼べない仕様のため、タップごとにfullscreen状態を確認し、
+  // 外れていれば（電源ボタンでの消灯復帰時・上スワイプでの一時表示時など）再度リクエストする。
+  useEffect(() => {
+    const enterFullscreen = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+    };
+    window.addEventListener("touchstart", enterFullscreen);
+    window.addEventListener("click", enterFullscreen);
+    return () => {
+      window.removeEventListener("touchstart", enterFullscreen);
+      window.removeEventListener("click", enterFullscreen);
+      // ロック解除後の遷移先（オーガナイザー画面）までナビゲーションバーが消えたままにならないよう、
+      // この画面を離れる際はfullscreenを解除する
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    };
+  }, []);
+
   // Androidの戻るボタン/ジェスチャーで前画面（オーガナイザー機能）に戻れてしまうのを防止。
   // popstate（戻る操作）を検知したら同じURLへ即座に履歴を積み直し、実際の遷移を打ち消す。
   // パスキー認証後のrouter.pushはpushStateであり popstateを発火しないため、正規の遷移は妨げない。

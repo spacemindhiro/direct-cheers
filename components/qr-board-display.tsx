@@ -381,6 +381,25 @@ export function QRBoardDisplay({
     }).catch(() => {});
   }, [eventId, deviceName]);
 
+  // 子機は終日QRを表示し続ける用途のため、OSの画面タイムアウト設定に依存せず
+  // Wake Lock APIで画面消灯を防ぐ。タブが非表示→復帰した際は権限が失われるため再取得する。
+  useEffect(() => {
+    if (!("wakeLock" in navigator)) return;
+    let wakeLock: WakeLockSentinel | null = null;
+    const requestWakeLock = async () => {
+      try { wakeLock = await navigator.wakeLock.request("screen"); } catch {}
+    };
+    requestWakeLock();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") requestWakeLock();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      wakeLock?.release().catch(() => {});
+    };
+  }, []);
+
   // Androidの戻るボタン/ジェスチャーで前画面（オーガナイザー機能）に戻れてしまうのを防止。
   // popstate（戻る操作）を検知したら同じURLへ即座に履歴を積み直し、実際の遷移を打ち消す。
   // パスキー認証後のrouter.pushはpushStateであり popstateを発火しないため、正規の遷移は妨げない。

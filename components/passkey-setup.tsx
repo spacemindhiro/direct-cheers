@@ -7,7 +7,7 @@ import { Fingerprint, Loader2, CheckCircle2, ChevronRight } from "lucide-react";
 
 type Props = {
   email?: string;
-  mode: "register" | "authenticate" | "stepup";
+  mode: "register" | "authenticate" | "stepup" | "stepup-register";
   deviceName?: string;
   buttonLabel?: string;
   onSuccess?: () => void;
@@ -123,6 +123,41 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
     }
   };
 
+  const handleStepUpRegister = async () => {
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      // 1. オプション取得（現在のセッションユーザーに対して。emailは送らない）
+      const optRes = await fetch("/api/passkeys/stepup-register-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_name: resolvedDeviceName }),
+      });
+      const { options, error: optErr } = await optRes.json();
+      if (optErr) throw new Error(optErr);
+
+      // 2. WebAuthn 登録（この端末用の新しい鍵を作る）
+      const credential = await startRegistration({ optionsJSON: options });
+
+      // 3. サーバー検証 + dc_stepup クッキー設定
+      const verRes = await fetch("/api/passkeys/stepup-register-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential, device_name: resolvedDeviceName }),
+      });
+      const { success, error: verErr } = await verRes.json();
+      if (verErr) throw new Error(verErr);
+      if (!success) throw new Error("Verification failed");
+
+      setStatus("success");
+      onSuccess?.();
+    } catch (err: any) {
+      if (err.name === "NotAllowedError") { setStatus("idle"); return; }
+      setErrorMsg(err.message ?? "エラーが発生しました");
+      setStatus("error");
+    }
+  };
+
   const handleStepUp = async () => {
     setStatus("loading");
     setErrorMsg("");
@@ -161,9 +196,9 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
         <CheckCircle2 size={20} className="text-green-400 shrink-0" />
         <div>
           <p className="text-sm font-black text-green-400">
-            {mode === "register" ? "パスキー登録完了！" : mode === "stepup" ? "認証完了！" : "パスキー認証成功！"}
+            {mode === "register" || mode === "stepup-register" ? "パスキー登録完了！" : mode === "stepup" ? "認証完了！" : "パスキー認証成功！"}
           </p>
-          {mode === "register" && (
+          {(mode === "register" || mode === "stepup-register") && (
             <p className="text-xs text-slate-500 mt-0.5">
               次回からこのデバイスで顔認証・指紋認証でログインできます
             </p>
@@ -178,7 +213,12 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       <button
         type="button"
         disabled={status === "loading" || (mode === "register" && !email) || (mode === "stepup" && !email)}
-        onClick={mode === "register" ? handleRegister : mode === "stepup" ? handleStepUp : handleAuthenticate}
+        onClick={
+          mode === "register" ? handleRegister
+          : mode === "stepup" ? handleStepUp
+          : mode === "stepup-register" ? handleStepUpRegister
+          : handleAuthenticate
+        }
         className="w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl p-4 transition-all active:scale-[0.98] disabled:opacity-60"
       >
         <div className="flex items-center gap-3">
@@ -189,10 +229,10 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
           )}
           <div className="text-left">
             <p className="text-sm font-black text-white">
-              {buttonLabel ?? (mode === "register" ? "パスキーで登録" : "パスキーでログイン")}
+              {buttonLabel ?? (mode === "register" || mode === "stepup-register" ? "パスキーで登録" : "パスキーでログイン")}
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">
-              {mode === "register"
+              {mode === "register" || mode === "stepup-register"
                 ? "Face ID / Touch ID / 指紋認証でウォレットを作成"
                 : "Face ID / Touch ID で続きを見る"}
             </p>

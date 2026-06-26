@@ -514,7 +514,7 @@ export default function ProfileEditPage() {
         {platform === 'android' && (
           <>
             <p className="text-xs text-slate-500 leading-relaxed">
-              アプリのようにすぐ起動できます。下のボタンからインストールしてください。
+              アプリのようにすぐ起動できます。
             </p>
             <PwaInstallButton />
           </>

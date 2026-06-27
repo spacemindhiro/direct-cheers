@@ -7,7 +7,13 @@ import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 import { retryPendingTransfersForProfile } from "@/lib/pending-transfers";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+// Stripeの送信先は1つにつき1つのスコープ（自社アカウント/連結アカウント）しか
+// 持てないため、account.updated（連結アカウント）用とそれ以外（自社アカウント）用で
+// 送信先を2つ作成している。署名シークレットもそれぞれ別の値になる。
+const webhookSecrets = [
+  process.env.STRIPE_WEBHOOK_SECRET,
+  process.env.STRIPE_WEBHOOK_SECRET_CONNECT,
+].filter((s): s is string => !!s);
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -17,10 +23,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No signature" }, { status: 400 });
   }
 
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-  } catch {
+  let event: Stripe.Event | null = null;
+  for (const secret of webhookSecrets) {
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, secret);
+      break;
+    } catch {
+      continue;
+    }
+  }
+  if (!event) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 

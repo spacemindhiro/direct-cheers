@@ -77,7 +77,6 @@ export async function POST(
     .eq("status", "confirmed")
     .is("deleted_at", null);
   const confirmedArtistIds = new Set((confirmedArtists ?? []).map((ea) => ea.artist_profile_id));
-  console.log(`[settle][DEBUG] eventId=${eventId} confirmedArtists=${JSON.stringify(confirmedArtists)} confirmedArtistIds=${JSON.stringify([...confirmedArtistIds])}`);
 
   // このイベントに紐づく qr_configs を取得
   const { data: qrConfigs } = await admin
@@ -115,7 +114,6 @@ export async function POST(
     `)
     .in("qr_config_id", qrConfigIds)
     .is("deleted_at", null);
-  console.log(`[settle][DEBUG] qrConfigIds=${JSON.stringify(qrConfigIds)} targets=${JSON.stringify(targets)}`);
 
   // qr_config_id ごとにターゲットをマップ
   const targetsByQr = new Map<string, typeof targets>();
@@ -147,7 +145,6 @@ export async function POST(
 
       const isUnconfirmedArtist =
         profileRole === "artist" && !confirmedArtistIds.has(target.profile_id);
-      console.log(`[settle][DEBUG] target.profile_id=${target.profile_id} profileRole=${profileRole} amount=${amount} isUnconfirmedArtist=${isUnconfirmedArtist} netAmount=${net} ratio=${target.distribution_ratio}`);
       const effectiveProfileId = isUnconfirmedArtist
         ? event.organizer_profile_id
         : target.profile_id;
@@ -415,7 +412,11 @@ export async function POST(
           stripe_transfer_id: transfer.id,
           amount: entry.amount,
         });
-        console.log(`[settle][DEBUG] settle_transfers insert profile=${entry.profileId} amount=${entry.amount} transfer=${transfer.id} insertErr=${JSON.stringify(insertErr)}`);
+        if (insertErr) {
+          // Stripe側のTransferは既に実行済み（取消不可）。DB記録の失敗を
+          // 握り潰すと運用側が資金移動を追跡できなくなるため、必ずログに残す。
+          console.error(`[settle] settle_transfers insert failed (transfer済みtransfer_id=${transfer.id}) profile=${entry.profileId} amount=${entry.amount} error=${insertErr.message}`);
+        }
         transferResults.push({ profile_id: entry.profileId, amount: entry.amount, transfer_id: transfer.id });
         profilesHandledBySourceTx.add(entry.profileId);
       } catch (err: any) {

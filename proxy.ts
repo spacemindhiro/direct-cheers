@@ -91,11 +91,17 @@ export async function proxy(request: NextRequest) {
   const user = session?.user ?? null;
 
   if (!user) {
-    // ロケールを保持してログインへリダイレクト
+    // ロケールを保持してログインへリダイレクト。元のパス（クエリ含む）を
+    // redirect パラメータとして渡す（login-form.tsx が読み取り、ログイン後に
+    // 元の画面へ戻す）。これが無いとログイン後は常にデフォルトの /dashboard
+    // に固定されてしまい、Stripeオンボーディング完了直後にセッション検証が
+    // 一瞬すれ違った場合、connect-return 等の戻り先を見失う。
     const locale = locales.includes(maybeLocale) ? maybeLocale : "ja";
     const loginPath = locale === "ja" ? "/auth/login" : `/${locale}/auth/login`;
+    const originalPath = `${path}${request.nextUrl.search}`;
     const url = request.nextUrl.clone();
     url.pathname = loginPath;
+    url.search = `?redirect=${encodeURIComponent(originalPath)}`;
     return NextResponse.redirect(url);
   }
 

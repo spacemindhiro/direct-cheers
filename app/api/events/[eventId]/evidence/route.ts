@@ -21,7 +21,18 @@ export async function POST(
     .single();
 
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
-  if (event.organizer_profile_id !== user.id)
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("profile_id", user.id)
+    .single();
+
+  // 自身が主催 / 自身が担当するエージェント / 管理者のみ提出可能
+  const isOwnerOrganizer = event.organizer_profile_id === user.id;
+  const isAssignedAgent = profile?.role === "agent" && event.agent_id === user.id;
+  const isAdmin = profile?.role === "admin";
+  if (!isOwnerOrganizer && !isAssignedAgent && !isAdmin)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const eventEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
   if (!eventEnded)

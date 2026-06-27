@@ -84,7 +84,10 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const canCreateQR = (isOrganizer || isAgent) &&
     ["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status);
   const hasEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
-  const canSubmitEvidence = profile?.role === "organizer" && hasEnded && event.lifecycle_status !== "settled";
+  // 「自身が担当する興行において」開催実績の提出も代理できる（agentは自分が担当のイベントのみ）
+  const canSubmitEvidence =
+    (isOrganizer || (profile?.role === "agent" && event.agent_id === user.id)) &&
+    hasEnded && event.lifecycle_status !== "settled";
   const canEndEvent = isOrganizer && ["published", "ongoing"].includes(event.lifecycle_status);
 
   const cancellableStatuses = ["draft", "review_requested", "published", "ongoing"];
@@ -262,8 +265,8 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       {/* 承認依頼ボタン（オーガナイザー） */}
       {canRequestReview && <EventRequestReviewButton eventId={eventId} />}
 
-      {/* 削除ボタン（承認前のみ、オーガナイザー） */}
-      {isOrganizer && ["draft", "review_requested"].includes(event.lifecycle_status) && (
+      {/* 削除ボタン（承認前のみ、イベント作成者本人。agentが自分のイベントを作った場合もここに含まれる） */}
+      {user.id === event.organizer_profile_id && ["draft", "review_requested"].includes(event.lifecycle_status) && (
         <EventDeleteButton eventId={eventId} />
       )}
 

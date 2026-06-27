@@ -32,12 +32,22 @@ export async function POST(
 
   const { data: event } = await admin
     .from("events")
-    .select("organizer_profile_id")
+    .select("organizer_profile_id, agent_id")
     .eq("event_id", eventId)
     .single();
 
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
-  if (event.organizer_profile_id !== user.id)
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("profile_id", user.id)
+    .single();
+
+  const isOwnerOrganizer = event.organizer_profile_id === user.id;
+  const isAssignedAgent = profile?.role === "agent" && event.agent_id === user.id;
+  const isAdmin = profile?.role === "admin";
+  if (!isOwnerOrganizer && !isAssignedAgent && !isAdmin)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const formData = await req.formData();

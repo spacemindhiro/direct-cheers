@@ -43,6 +43,14 @@ export async function GET(
       .eq("artist_profile_id", user.id)
       .maybeSingle();
     if (!ea) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  } else if (profile.role === "agent") {
+    // 担当エージェント本人（このイベントの宛先）のみ許可。agentなら誰でも可ではない
+    const { data: event } = await admin
+      .from("events")
+      .select("agent_id")
+      .eq("event_id", eventId)
+      .single();
+    if (event?.agent_id !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   } else {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

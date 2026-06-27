@@ -77,7 +77,10 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     const myQrIds = new Set((myTargets ?? []).map((t: any) => t.qr_config_id));
     qrConfigs = qrConfigs.filter((qr) => myQrIds.has(qr.qr_config_id));
   }
-  const canRequestReview = isOrganizer && event.lifecycle_status === "draft";
+  // API側（request-review）はevent.organizer_profile_id本人かどうかのみで判定するため、
+  // agentが自身をorganizerとしてイベントを主催したケース（セルフ主催）もここで拾う。
+  const isEventOwner = event.organizer_profile_id === user.id;
+  const canRequestReview = (isOrganizer || isEventOwner) && event.lifecycle_status === "draft";
   const isSelfOrganized = event.agent_id === event.organizer_profile_id;
   const canApprove = isAgent && event.lifecycle_status === "review_requested" &&
     (!isSelfOrganized || profile?.role === "admin");
@@ -88,10 +91,10 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const canSubmitEvidence =
     (isOrganizer || (profile?.role === "agent" && event.agent_id === user.id)) &&
     hasEnded && event.lifecycle_status !== "settled";
-  const canEndEvent = isOrganizer && ["published", "ongoing"].includes(event.lifecycle_status);
+  const canEndEvent = (isOrganizer || isEventOwner) && ["published", "ongoing"].includes(event.lifecycle_status);
 
   const cancellableStatuses = ["draft", "review_requested", "published", "ongoing"];
-  const canRequestCancel = isOrganizer &&
+  const canRequestCancel = (isOrganizer || isEventOwner) &&
     cancellableStatuses.includes(event.lifecycle_status);
   const canApproveCancellation = isAgent &&
     event.lifecycle_status === "cancellation_requested" &&

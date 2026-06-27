@@ -409,12 +409,13 @@ export async function POST(
           source_transaction: chargeId,
           metadata: { event_id: eventId, profile_id: entry.profileId },
         });
-        await admin.from("settle_transfers").insert({
+        const { error: insertErr } = await admin.from("settle_transfers").insert({
           event_id: eventId,
           profile_id: entry.profileId,
           stripe_transfer_id: transfer.id,
           amount: entry.amount,
         });
+        console.log(`[settle][DEBUG] settle_transfers insert profile=${entry.profileId} amount=${entry.amount} transfer=${transfer.id} insertErr=${JSON.stringify(insertErr)}`);
         transferResults.push({ profile_id: entry.profileId, amount: entry.amount, transfer_id: transfer.id });
         profilesHandledBySourceTx.add(entry.profileId);
       } catch (err: any) {

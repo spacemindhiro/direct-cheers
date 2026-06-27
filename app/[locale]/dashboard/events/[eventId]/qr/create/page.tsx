@@ -31,8 +31,8 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
     .select(`
       event_id, title, lifecycle_status, start_at, venue, paypay_enabled,
       organizer_profile_id,
-      organizer:profiles!organizer_profile_id(display_name, organizer_name),
-      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name, artist_name))
+      organizer:profiles!organizer_profile_id(display_name, organizer_name, organizer_avatar_url, avatar_url),
+      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name, artist_name, artist_avatar_url, avatar_url))
     `)
     .eq("event_id", eventId)
     .single();
@@ -43,13 +43,15 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
   }
 
   // 配分対象候補: オーガナイザー自身 + 出演依頼済みアーティスト（rejected/deleted以外）
-  // 宛先の表示名は名義（organizer_name/artist_name）優先で表示する。
+  // 宛先の表示名・画像は名義（organizer_name/artist_name、organizer_avatar_url/artist_avatar_url）
+  // 優先で表示する（無ければ基本のavatar_urlにフォールバック）。
   // 同一人物がオーガナイザー兼演者の場合、profile_idは同じだがroleが異なる2行になる
   // （recipient_name_context で名義を区別して保存するため、UI上では別候補として扱う）
   const targets = [
     {
       profile_id: event.organizer_profile_id,
       display_name: (event.organizer as any)?.organizer_name ?? (event.organizer as any)?.display_name ?? "オーガナイザー",
+      avatar_url: (event.organizer as any)?.organizer_avatar_url ?? (event.organizer as any)?.avatar_url ?? null,
       role: "organizer" as const,
       status: "confirmed" as const,
     },
@@ -58,6 +60,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
       .map((ea: any) => ({
         profile_id: ea.artist_profile_id,
         display_name: ea.artist?.artist_name ?? ea.artist?.display_name ?? "—",
+        avatar_url: ea.artist?.artist_avatar_url ?? ea.artist?.avatar_url ?? null,
         role: "artist" as const,
         status: ea.status as string,
       })),

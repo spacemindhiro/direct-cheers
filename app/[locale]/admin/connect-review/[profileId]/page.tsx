@@ -8,6 +8,7 @@ import Link from "next/link";
 import Stripe from "stripe";
 import { AdminConnectReview } from "@/components/admin-connect-review";
 import { AdminMessagesPanel } from "@/components/admin-messages-panel";
+import { getRequiredTermsTypes } from "@/lib/terms";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -85,6 +86,10 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
     .maybeSingle();
 
   const inviter = (invitation?.inviter as unknown as { display_name: string | null; role: string }) ?? null;
+
+  // 調印式（対面面談・admin確認）が必要なのはorganizer/agentのみ。
+  // artistはbase規約のデジタル同意のみで完了するため対象外。
+  const requiresSigning = getRequiredTermsTypes(profile.role).some((t) => t === "organizer" || t === "agent");
 
   const socialLinks = (profile.social_links as Record<string, string> | null) ?? {};
   const dob = profile.dob_year && profile.dob_month && profile.dob_day
@@ -212,7 +217,8 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
         </div>
       )}
 
-      {/* 調印式 */}
+      {/* 調印式（organizer/agentのみ。artistはbase規約のデジタル同意のみで完了するため対象外） */}
+      {requiresSigning && (
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">調印式</p>
         {signedDoc ? (
@@ -248,6 +254,7 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
           </div>
         )}
       </div>
+      )}
 
       {/* 承認・却下 */}
       <div className="space-y-2">

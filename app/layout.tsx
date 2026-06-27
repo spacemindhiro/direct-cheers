@@ -1,40 +1,33 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
-import { ThemeProvider } from "next-themes";
 import "./globals.css";
+import { SwRegister } from "@/components/sw-register";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://direct-cheers.com";
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#020617",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: {
-    default: "Direct Cheers | ライブの感動を、スマホのウォレットへ",
-    template: "%s | Direct Cheers",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Direct Cheers",
+    startupImage: "/logo-emblem.png",
   },
-  description: "会場のQRコードから応援を贈り、ライブ演出をハックする。応援の証はシリアル入りのデジタルカードとして、あなたのスマホのウォレットに直接届きます。",
-  
-  openGraph: {
-    title: {
-      default: "Direct Cheers | ライブの感動を、スマホのウォレットへ",
-      template: "%s | Direct Cheers",
-    },
-    description: "会場のQRコードから応援を贈り、ライブ演出をハックする。応援の証はあなたのウォレットへ。",
-    url: siteUrl,
-    siteName: "Direct Cheers",
-    locale: "ja_JP",
-    type: "website",
-    // 💡 imagesプロパティをあえて削除。
-    // app/opengraph-image.png がある場合、Next.jsが自動で最適なタグを生成します。
+  icons: {
+    apple: "/icon-192.png",
   },
-  
-  twitter: {
-    card: "summary_large_image",
-    title: {
-      default: "Direct Cheers | ライブの感動を、スマホのウォレットへ",
-      template: "%s | Direct Cheers",
-    },
-    description: "ライブ演出をハックして、デジタルアセットを手に入れろ。",
-    // 💡 twitter用もファイルベース（app/twitter-image.png）に任せるため削除。
+  other: {
+    // Next.js 16のappleWebApp.capableはmobile-web-app-capableのみを出力するため、
+    // iOSのスタンドアロン判定に必要なapple-mobile-web-app-capableを明示的に追加する
+    "apple-mobile-web-app-capable": "yes",
   },
 };
 
@@ -52,14 +45,8 @@ export default function RootLayout({
   return (
     <html lang="ja" suppressHydrationWarning>
       <body className={`${geistSans.className} antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        <SwRegister />
+        {children}
       </body>
     </html>
   );

@@ -1,0 +1,166 @@
+{
+  "common": {
+    "appName": "Direct Cheers",
+    "tagline": "From the venue to your wallet.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "back": "Back",
+    "loading": "Loading...",
+    "error": "An error occurred"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Login with your email and password",
+      "email": "Email",
+      "password": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Login",
+      "submitting": "Logging in...",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up",
+      "error": "Invalid email or password"
+    },
+    "signUp": {
+      "title": "Join Us",
+      "subtitle": "Create a free account",
+      "email": "Email",
+      "password": "Password",
+      "passwordPlaceholder": "8+ characters",
+      "confirmPassword": "Confirm Password",
+      "confirmPlaceholder": "Re-enter password",
+      "submit": "Sign up",
+      "submitting": "Creating account...",
+      "hasAccount": "Already have an account?",
+      "login": "Login",
+      "terms": "Terms of Service",
+      "privacy": "Privacy Policy",
+      "agreement": "By signing up, you agree to our {terms} and {privacy}",
+      "errorPasswordMismatch": "Passwords do not match",
+      "errorPasswordLength": "Password must be at least 8 characters"
+    },
+    "signUpSuccess": {
+      "title": "Check your email",
+      "subtitle": "We sent a confirmation email to:",
+      "instruction": "Click the link in the email to activate your account.",
+      "spam": "Can't find it? Check your spam folder.",
+      "resend": "Resend confirmation email",
+      "resending": "Sending...",
+      "resent": "Sent!",
+      "changeEmail": "Change email address",
+      "toLogin": "Back to login",
+      "resendError": "Failed to resend. Please wait a moment and try again."
+    },
+    "forgotPassword": {
+      "title": "Forgot your password?",
+      "subtitle": "Enter your registered email address",
+      "email": "Email",
+      "submit": "Send reset email",
+      "submitting": "Sending...",
+      "successTitle": "Check your email",
+      "successMessage": "We sent a password reset link to:",
+      "spam": "Can't find it? Check your spam folder.",
+      "toLogin": "Back to login",
+      "rememberPassword": "Remembered your password?",
+      "error": "Failed to send email. Please check the address."
+    },
+    "updatePassword": {
+      "title": "Reset Password",
+      "subtitle": "Enter your new password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Update password",
+      "submitting": "Updating...",
+      "errorMismatch": "Passwords do not match",
+      "errorLength": "Password must be at least 8 characters",
+      "error": "Failed to update password. Please try again."
+    }
+  },
+  "onboarding": {
+    "profile": {
+      "step": "Step 1 / 1",
+      "title": "Profile Setup",
+      "subtitle": "Set your display name",
+      "displayName": "Display Name",
+      "displayNamePlaceholder": "Your name or nickname",
+      "socialLinks": "Social Links",
+      "socialLinksOptional": "(optional)",
+      "instagramPlaceholder": "Instagram URL",
+      "soundcloudPlaceholder": "SoundCloud URL",
+      "websitePlaceholder": "Website URL",
+      "submit": "Go to Dashboard",
+      "errorRequired": "Please enter a display name"
+    }
+  },
+  "dashboard": {
+    "greeting": "Hey, {name}",
+    "role": "Role: ",
+    "totalCheers": "Total Cheers",
+    "totalAmount": "Total Amount",
+    "walletCards": "Wallet Cards",
+    "cheersHistory": "Cheers History",
+    "noCheers": "No cheers yet.",
+    "noCheersDescription": "Scan a QR code at an event to send your first cheer",
+    "roles": {
+      "user": "Fan",
+      "artist": "Artist",
+      "organizer": "Organizer",
+      "agent": "Agent",
+      "admin": "Admin"
+    },
+    "roleUpgrade": {
+      "title": "Join as a Creator",
+      "description": "Apply for Artist or Organizer role"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "section": "Settings",
+    "basicInfo": "Basic Info",
+    "displayName": "Display Name",
+    "displayNamePlaceholder": "Your name or nickname",
+    "avatarUrl": "Avatar URL",
+    "socialLinks": "Social Links",
+    "stripeConnect": "Payout Account",
+    "stripeConnected": "Stripe Connect linked",
+    "stripeNotConnected": "Not linked",
+    "stripeDescription": "Stripe Connect registration is required to receive payouts. An agent will guide you through the process in person.",
+    "homescreen": "Add to Home Screen",
+    "homescreenDescription": "Launch the app instantly from your home screen. If you're using Safari, follow these steps:",
+    "homescreenStep1": "1. Tap the Share button (square with arrow) at the bottom",
+    "homescreenStep2": "2. Select \"Add to Home Screen\" and tap Add",
+    "saveSuccess": "Profile updated",
+    "saveError": "Failed to save",
+    "errorRequired": "Please enter a display name",
+    "status": {
+      "pending": "{role} application pending",
+      "pendingDefault": "Under review",
+      "verified": "Verified",
+      "pendingRoles": {
+        "artist": "DJ / Artist",
+        "organizer": "Organizer"
+      }
+    }
+  },
+  "roleUpgrade": {
+    "title": "Creator Application",
+    "description": "Select your role and apply. An agent will contact you after review.",
+    "selectRole": "Select role",
+    "artist": "Artist / DJ",
+    "artistDescription": "Perform at events and receive support",
+    "organizer": "Organizer",
+    "organizerDescription": "Host events and issue QR codes",
+    "message": "Message",
+    "messageOptional": "(optional)",
+    "messagePlaceholder": "Tell us about your activities or share your SNS links",
+    "submit": "Apply",
+    "submitting": "Submitting...",
+    "success": "Application received. We'll contact you after review.",
+    "error": "Application failed. Please try again."
+  }
+}

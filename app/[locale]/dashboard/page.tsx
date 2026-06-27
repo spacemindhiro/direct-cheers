@@ -1,0 +1,980 @@
+import { fmtDate } from "@/lib/display-tz";
+import { Suspense } from 'react';
+import { createClient, getUser } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw, Activity } from 'lucide-react';
+import Link from 'next/link';
+import { AddToHomeScreen } from '@/components/add-to-homescreen';
+import { LineupInvitations } from '@/components/lineup-invitations';
+import { FollowButton } from '@/components/follow-button';
+import { FollowerHero } from '@/components/follower-hero';
+
+function AppleGooglePayLinks() {
+  return (
+    <div className="flex gap-2 pt-1">
+      <a
+        href="https://support.apple.com/ja-jp/108398"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex-1 flex items-center justify-center h-8 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 rounded-lg text-[10px] font-black text-slate-400 hover:text-white transition-all"
+      >
+        Apple Pay 設定方法
+      </a>
+      <a
+        href="https://support.google.com/wallet/answer/12060043?hl=ja"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex-1 flex items-center justify-center h-8 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 rounded-lg text-[10px] font-black text-slate-400 hover:text-white transition-all"
+      >
+        Google Pay 設定方法
+      </a>
+    </div>
+  );
+}
+
+function LinkRegisteredBadge() {
+  return (
+    <div className="flex items-center gap-2 h-10 px-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+      <span className="text-xs font-black text-emerald-400">Stripe Link 登録済み</span>
+    </div>
+  );
+}
+
+function PaymentOptimizationSection({ pattern, linkRegistered }: { pattern: 'A' | 'B' | 'C' | 'D'; linkRegistered: boolean }) {
+  if (pattern === 'A') {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-5 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 shrink-0">
+            <CheckCircle2 size={20} className="text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Payment Speed</p>
+            <p className="text-sm font-black text-white">スマホ決済セット済み</p>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Apple Pay でワンタッチ決済が使えます。ただし LINE などのアプリ内ブラウザでは Apple Pay は使用できません。Stripe Link も登録しておくとどこでも確実に使えます。
+        </p>
+        {linkRegistered ? <LinkRegisteredBadge /> : (
+          <Link
+            href="/link-setup"
+            className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-emerald-500/40 rounded-xl px-4 transition-all"
+          >
+            <span className="text-xs font-black text-white">Stripe Linkをバックアップ登録する</span>
+            <ChevronRight size={14} className="text-slate-500" />
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  if (pattern === 'B') {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-5 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 shrink-0">
+            <CreditCard size={20} className="text-amber-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Payment Speed</p>
+            <p className="text-sm font-black text-white">決済をもっとスピードアップ</p>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Apple Pay / Google Pay が端末に設定済みならそのまま使えます。設定していない場合は Stripe Link にカードを登録しておくとワンタッチ決済できます。
+        </p>
+        <AppleGooglePayLinks />
+        {linkRegistered ? <LinkRegisteredBadge /> : (
+          <Link
+            href="/link-setup"
+            className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/40 rounded-xl px-4 transition-all"
+          >
+            <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
+            <ChevronRight size={14} className="text-slate-500" />
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  if (pattern === 'C') {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-5 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-orange-500/10 rounded-2xl flex items-center justify-center border border-orange-500/20 shrink-0">
+            <AlertTriangle size={20} className="text-orange-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Payment Speed</p>
+            <p className="text-sm font-black text-white">決済バックアップを設定しよう</p>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          一部のイベントではPayPayが使えない場合があります。Apple Pay / Google Pay または Stripe Link を登録しておくと確実です。
+        </p>
+        <AppleGooglePayLinks />
+        {linkRegistered ? <LinkRegisteredBadge /> : (
+          <Link
+            href="/link-setup"
+            className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-orange-500/40 rounded-xl px-4 transition-all"
+          >
+            <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
+            <ChevronRight size={14} className="text-slate-500" />
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  // Pattern D: no history
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-5 space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 shrink-0">
+          <Smartphone size={20} className="text-indigo-400" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Payment Speed</p>
+          <p className="text-sm font-black text-white">使える決済方法</p>
+        </div>
+      </div>
+      <ul className="text-xs space-y-1 leading-relaxed">
+        <li className="text-slate-300">📱 <span className="font-bold">Apple Pay / Google Pay</span> — 端末に設定済みならそのまま使えます</li>
+        <li className="text-slate-300">⚡ <span className="font-bold">Stripe Link</span> — 事前登録するとワンタッチ決済できます</li>
+        <li className="text-slate-300">🔴 <span className="font-bold">PayPay</span> — イベントが対応していれば使えます</li>
+        <li className="text-slate-600">💳 <span className="font-bold">カード入力</span> — 毎回手入力が必要で当日は時間がかかります</li>
+      </ul>
+      <AppleGooglePayLinks />
+      {linkRegistered ? <LinkRegisteredBadge /> : (
+        <Link
+          href="/link-setup"
+          className="flex items-center justify-between w-full h-10 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500/40 rounded-xl px-4 transition-all"
+        >
+          <span className="text-xs font-black text-white">Stripe Linkにカードを登録する</span>
+          <ChevronRight size={14} className="text-slate-500" />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+async function DashboardContent() {
+  const supabase = await createClient();
+  const user = await getUser();
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name, role, status, verification_status, created_at')
+    .eq('profile_id', user!.id)
+    .single();
+
+  const admin = createAdminClient();
+  const role = profile?.role ?? 'user';
+  const isAdmin = role === 'admin';
+  const userEmail = user!.email!;
+  const isOrganizerOrAdmin = ['organizer', 'admin'].includes(role);
+  const isAgentOrAdmin = ['agent', 'admin'].includes(role);
+  const isPerformerRole = ['artist', 'agent', 'organizer'].includes(role);
+
+  // 第1バッチ: 互いに依存しないクエリをすべて並列実行
+  const [
+    followsResult,
+    byProfileResult,
+    byEmailResult,
+    notifsResult,
+    rejectedNotifsResult,
+    adminMsgCountResult,
+    pendingConnectResult,
+    evidenceNotifsResult,
+    approvalNotifsResult,
+    draftCountResult,
+    cancelCountResult,
+    lineupResult,
+    provisionalUserResult,
+    pendingTransfersResult,
+  ] = await Promise.all([
+    admin.from('follows').select(`
+      follow_id, followee_id,
+      followee:profiles!followee_id(profile_id, display_name, avatar_url, role)
+    `).eq('follower_id', user!.id).order('created_at', { ascending: false }).limit(20),
+
+    !isAdmin
+      ? admin.from('transactions').select(`
+          transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
+          payment_method, wallet_type,
+          product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+          qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
+        `).eq('sender_profile_id', user!.id).eq('status', 'completed').neq('transaction_type', 'invitation').order('created_at', { ascending: false }).limit(50)
+      : Promise.resolve({ data: null }),
+
+    !isAdmin
+      ? admin.from('transactions').select(`
+          transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
+          payment_method, wallet_type,
+          product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+          qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
+        `).eq('sender_email', userEmail).eq('status', 'completed').neq('transaction_type', 'invitation').order('created_at', { ascending: false }).limit(50)
+      : Promise.resolve({ data: null }),
+
+    isOrganizerOrAdmin
+      ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).in('type', ['event_approved', 'event_cancelled', 'event_cancel_rejected']).eq('is_read', false).order('created_at', { ascending: false }).limit(5)
+      : Promise.resolve({ data: null }),
+
+    isOrganizerOrAdmin
+      ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).eq('type', 'evidence_rejected').eq('is_read', false).order('created_at', { ascending: false }).limit(20)
+      : Promise.resolve({ data: null }),
+
+    !isAdmin
+      ? admin.from('admin_messages').select('id', { count: 'exact', head: true }).eq('user_profile_id', user!.id).eq('is_from_admin', true).eq('is_read_by_user', false)
+      : Promise.resolve({ count: 0, data: null }),
+
+    isAdmin
+      ? admin.from('profiles').select('profile_id', { count: 'exact', head: true }).eq('verification_status', 'pending')
+      : Promise.resolve({ count: 0, data: null }),
+
+    isAdmin
+      ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).eq('type', 'evidence_submitted').eq('is_read', false).order('created_at', { ascending: false }).limit(50)
+      : Promise.resolve({ data: null }),
+
+    isAgentOrAdmin
+      ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).eq('type', 'approval_requested').eq('is_read', false).order('created_at', { ascending: false }).limit(10)
+      : Promise.resolve({ data: null }),
+
+    isAgentOrAdmin
+      ? (role === 'agent'
+          ? admin.from('events').select('event_id', { count: 'exact', head: true }).eq('agent_id', user!.id)
+          : admin.from('events').select('event_id', { count: 'exact', head: true })
+        ).eq('lifecycle_status', 'review_requested')
+      : Promise.resolve({ count: 0, data: null }),
+
+    isAgentOrAdmin
+      ? (role === 'agent'
+          ? admin.from('events').select('event_id', { count: 'exact', head: true }).eq('agent_id', user!.id)
+          : admin.from('events').select('event_id', { count: 'exact', head: true })
+        ).eq('lifecycle_status', 'cancellation_requested')
+      : Promise.resolve({ count: 0, data: null }),
+
+    isPerformerRole
+      ? admin.from('event_artists').select(`
+          event_artist_id, event_id, status, invite_message,
+          event:events!event_id(
+            title, venue, start_at, end_at, organizer_profile_id,
+            organizer:profiles!organizer_profile_id(display_name)
+          )
+        `).eq('artist_profile_id', user!.id).is('deleted_at', null).order('created_at', { ascending: false })
+      : Promise.resolve({ data: null }),
+
+    !isAdmin
+      ? admin.from('provisional_users').select('stripe_customer_id').eq('email', userEmail).not('stripe_customer_id', 'is', null).maybeSingle()
+      : Promise.resolve({ data: null }),
+
+    isPerformerRole
+      ? admin.from('pending_connect_transfers').select('amount').eq('profile_id', user!.id).eq('status', 'pending')
+      : Promise.resolve({ data: null }),
+  ]);
+
+  // 第2バッチ: 第1バッチの結果に依存するフォローアップクエリを並列実行
+  const rejectedNotifs = ((rejectedNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
+  const rejectedEventIds = rejectedNotifs.map((n) => n.metadata?.event_id).filter(Boolean) as string[];
+
+  const evidenceNotifs = ((evidenceNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
+  const evidenceEventIds = evidenceNotifs.map((n) => n.metadata?.event_id).filter(Boolean) as string[];
+
+  const approvalNotifs = ((approvalNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
+  const notifEventIds = approvalNotifs.map((n) => n.metadata?.event_id).filter(Boolean) as string[];
+
+  const [activeSummariesResult, settledEventsResult, pendingEventsResult] = await Promise.all([
+    rejectedEventIds.length > 0
+      ? admin.from('settlement_summaries').select('event_id').in('event_id', rejectedEventIds).eq('is_approved_for_payout', false)
+      : Promise.resolve({ data: [] as { event_id: string }[] }),
+    evidenceEventIds.length > 0
+      ? admin.from('events').select('event_id').in('event_id', evidenceEventIds).eq('lifecycle_status', 'settled')
+      : Promise.resolve({ data: [] as { event_id: string }[] }),
+    notifEventIds.length > 0
+      ? admin.from('events').select('event_id').in('event_id', notifEventIds).eq('lifecycle_status', 'review_requested')
+      : Promise.resolve({ data: [] as { event_id: string }[] }),
+  ]);
+
+  // 結果を整形
+  const follows = ((followsResult.data ?? []) as any[]).map((f) => f.followee).filter(Boolean);
+
+  let cheersHistory: any[] = [];
+  if (!isAdmin) {
+    const seen = new Set<string>();
+    for (const tx of [...((byProfileResult.data as any[]) ?? []), ...((byEmailResult.data as any[]) ?? [])]) {
+      if (!seen.has(tx.transaction_id)) {
+        seen.add(tx.transaction_id);
+        cheersHistory.push(tx);
+      }
+    }
+    cheersHistory.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    cheersHistory = cheersHistory.slice(0, 20);
+  }
+
+  const hasLinkRegistered = !isAdmin && !!(provisionalUserResult as any)?.data?.stripe_customer_id;
+
+  const pendingTransferTotal = ((pendingTransfersResult as any)?.data ?? [])
+    .reduce((s: number, r: { amount: number }) => s + (r.amount ?? 0), 0);
+
+  type PaymentPattern = 'A' | 'B' | 'C' | 'D';
+  let paymentPattern: PaymentPattern = 'D';
+  if (!isAdmin && cheersHistory.length > 0) {
+    const latest = cheersHistory[0];
+    if (latest.wallet_type === 'apple_pay' || latest.wallet_type === 'google_pay') {
+      paymentPattern = 'A';
+    } else if (latest.payment_method === 'paypay') {
+      paymentPattern = 'C';
+    } else if (latest.payment_method === 'card') {
+      paymentPattern = 'B';
+    }
+  }
+
+  const pendingNotifications = ((notifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
+
+  const stillRejectedEventIds = new Set(((activeSummariesResult.data ?? []) as any[]).map((s) => s.event_id));
+  const seenRejected = new Set<string>();
+  const evidenceRejectedNotifications = rejectedNotifs.filter((n) => {
+    const eid = n.metadata?.event_id;
+    if (!eid || !stillRejectedEventIds.has(eid) || seenRejected.has(eid)) return false;
+    seenRejected.add(eid);
+    return true;
+  });
+
+  const unreadAdminMessageCount = !isAdmin ? (adminMsgCountResult.count ?? 0) : 0;
+  const pendingConnectReviewCount = isAdmin ? (pendingConnectResult.count ?? 0) : 0;
+
+  const settledEventIds = new Set(((settledEventsResult.data ?? []) as any[]).map((e) => e.event_id));
+  const seenEventIds = new Set<string>();
+  const pendingEvidenceNotifications = evidenceNotifs.filter((n) => {
+    const eid = n.metadata?.event_id;
+    if (!eid || settledEventIds.has(eid) || seenEventIds.has(eid)) return false;
+    seenEventIds.add(eid);
+    return true;
+  });
+
+  const pendingEventIds = new Set(((pendingEventsResult.data ?? []) as any[]).map((e) => e.event_id));
+  const seenApproval = new Set<string>();
+  const approvalRequestedNotifications = approvalNotifs.filter((n) => {
+    const eid = n.metadata?.event_id;
+    if (!eid || !pendingEventIds.has(eid) || seenApproval.has(eid)) return false;
+    seenApproval.add(eid);
+    return true;
+  });
+
+  const pendingApprovalCount = draftCountResult.count ?? 0;
+  const pendingCancellationCount = cancelCountResult.count ?? 0;
+
+  const now = new Date().toISOString();
+  const lineupInvites: {
+    event_artist_id: string;
+    event_id: string;
+    status: 'pending' | 'confirmed';
+    invite_message?: string | null;
+    event: { title: string; venue: string; start_at: string; organizer_profile_id: string; organizer_name: string } | null;
+  }[] = isPerformerRole
+    ? ((lineupResult.data as any[]) ?? [])
+        .filter((r) => r.status === 'pending' || (r.status === 'confirmed' && (!r.event?.end_at || r.event.end_at > now)))
+        .map((r) => ({
+          event_artist_id: r.event_artist_id,
+          event_id: r.event_id,
+          status: r.status as 'pending' | 'confirmed',
+          invite_message: r.invite_message ?? null,
+          event: r.event
+            ? {
+                title: r.event.title,
+                venue: r.event.venue,
+                start_at: r.event.start_at,
+                organizer_profile_id: r.event.organizer_profile_id,
+                organizer_name: r.event.organizer?.display_name ?? 'オーガナイザー',
+              }
+            : null,
+        }))
+    : [];
+
+  const roleLabelMap: Record<string, string> = {
+    user: 'ファン',
+    artist: 'アーティスト',
+    organizer: 'オーガナイザー',
+    agent: 'エージェント',
+    admin: '管理者',
+  };
+  const roleLabel = roleLabelMap[role] ?? role;
+
+  return (
+    <div className="space-y-10">
+
+      {/* ホーム画面追加バナー */}
+      <Suspense fallback={null}>
+        <AddToHomeScreen />
+      </Suspense>
+
+      {/* エージェント向け: 承認依頼通知バナー */}
+      {approvalRequestedNotifications.length > 0 && (
+        <div className="space-y-2">
+          {approvalRequestedNotifications.map((n) => (
+            <Link
+              key={n.notification_id}
+              href={n.metadata?.event_id ? `/dashboard/events/${n.metadata.event_id}` : '/dashboard/events'}
+              className="flex items-start justify-between gap-4 bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">承認依頼</p>
+                <p className="text-sm font-black text-white">{n.title}</p>
+                <p className="text-xs text-slate-400">{n.body}</p>
+              </div>
+              <span className="text-amber-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">確認 →</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* オーガナイザー向け: エビデンス差戻し通知バナー */}
+      {evidenceRejectedNotifications.length > 0 && (
+        <div className="space-y-2">
+          {evidenceRejectedNotifications.map((n) => (
+            <Link
+              key={n.notification_id}
+              href={n.metadata?.event_id ? `/dashboard/events/${n.metadata.event_id}/evidence` : '/dashboard/events'}
+              className="flex items-start justify-between gap-4 bg-red-500/10 border border-red-500/30 hover:border-red-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">エビデンス差戻し</p>
+                <p className="text-sm font-black text-white">{n.title}</p>
+                <p className="text-xs text-slate-400 whitespace-pre-line">{n.body}</p>
+              </div>
+              <span className="text-red-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">再提出 →</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* オーガナイザー向け: イベント承認/中止通知バナー */}
+      {pendingNotifications.length > 0 && (
+        <div className="space-y-2">
+          {pendingNotifications.map((n) => (
+            <Link
+              key={n.notification_id}
+              href={n.metadata?.event_id ? `/dashboard/events/${n.metadata.event_id}` : '/dashboard/events'}
+              className="flex items-start justify-between gap-4 bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">お知らせ</p>
+                <p className="text-sm font-black text-white">{n.title}</p>
+                <p className="text-xs text-slate-400">{n.body}</p>
+              </div>
+              <span className="text-emerald-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">確認 →</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* admin向け: 口座開設審査待ちバナー */}
+      {pendingConnectReviewCount > 0 && (
+        <Link
+          href="/admin/connect-review"
+          className="block bg-indigo-500/10 border border-indigo-500/30 hover:border-indigo-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">口座開設審査待ち</p>
+              <p className="text-sm font-black text-white">審査待ち {pendingConnectReviewCount}件</p>
+            </div>
+            <span className="text-indigo-400 text-xs font-black uppercase tracking-widest shrink-0">審査する →</span>
+          </div>
+        </Link>
+      )}
+
+      {/* admin向け: 証跡提出通知バナー */}
+      {pendingEvidenceNotifications.length > 0 && (
+        <div className="space-y-2">
+          {pendingEvidenceNotifications.map((n) => (
+            <Link
+              key={n.notification_id}
+              href="/admin/settlements"
+              className="block bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">証跡提出 — 精算承認待ち</p>
+                  <p className="text-sm font-black text-white">{n.body}</p>
+                </div>
+                <span className="text-amber-400 text-xs font-black uppercase tracking-widest shrink-0">確認する →</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* admin向け: 管理パネルリンク */}
+      {profile?.role === 'admin' && (
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href="/admin/users"
+            className="flex items-center justify-between gap-2 bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-[1.5rem] px-5 py-4 transition-all group"
+          >
+            <div>
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Admin</p>
+              <p className="text-sm font-black text-white">ユーザー管理</p>
+            </div>
+            <span className="text-slate-600 group-hover:text-indigo-400 text-xs font-black transition-colors">→</span>
+          </Link>
+          <Link
+            href="/admin/connect-review"
+            className="flex items-center justify-between gap-2 bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-[1.5rem] px-5 py-4 transition-all group"
+          >
+            <div>
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Admin</p>
+              <p className="text-sm font-black text-white">口座審査</p>
+            </div>
+            <span className="text-slate-600 group-hover:text-indigo-400 text-xs font-black transition-colors">→</span>
+          </Link>
+        </div>
+      )}
+
+      {/* Admin: Documents */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/documents"
+          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
+              <FileText size={22} className="text-pink-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
+                Documents
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">署名済み利用規約同意書</p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* エージェント向け: 承認待ちバナー */}
+      {(pendingApprovalCount > 0 || pendingCancellationCount > 0) && (
+        <Link
+          href="/dashboard/events"
+          className="block bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">要対応</p>
+              <p className="text-sm font-black text-white">
+                {[
+                  pendingApprovalCount > 0 && `承認待ち ${pendingApprovalCount}件`,
+                  pendingCancellationCount > 0 && `中止申請 ${pendingCancellationCount}件`,
+                ].filter(Boolean).join('　／　')}
+              </p>
+            </div>
+            <span className="text-amber-400 text-xs font-black uppercase tracking-widest shrink-0">確認 →</span>
+          </div>
+        </Link>
+      )}
+
+      {/* 管理者メッセージ未読バナー */}
+      {unreadAdminMessageCount > 0 && (
+        <Link
+          href="/dashboard/admin-messages"
+          className="flex items-center justify-between gap-4 bg-indigo-500/10 border border-indigo-500/40 hover:border-indigo-500/70 rounded-[1.5rem] px-5 py-4 transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <MessageSquare size={20} className="text-indigo-400" />
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-indigo-500 rounded-full flex items-center justify-center text-[9px] font-black text-white">
+                {unreadAdminMessageCount}
+              </span>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">管理者メッセージ</p>
+              <p className="text-sm font-black text-white">未読 {unreadAdminMessageCount}件</p>
+            </div>
+          </div>
+          <span className="text-indigo-400 text-xs font-black uppercase tracking-widest shrink-0">確認 →</span>
+        </Link>
+      )}
+
+      {/* 受け取り待ちの売上バナー（artist / organizer / agent、口座未登録・未完了で滞留分配がある場合） */}
+      {pendingTransferTotal > 0 && (
+        <Link
+          href="/dashboard/profile/bank-setup"
+          className="flex items-center justify-between gap-4 bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+        >
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">受け取り待ちの売上</p>
+            <p className="text-sm font-black text-white">
+              受け取り待ちの売上が ¥{pendingTransferTotal.toLocaleString('ja-JP')} あります。口座登録して引き出せるようにしましょう。
+            </p>
+          </div>
+          <span className="text-emerald-400 text-xs font-black uppercase tracking-widest shrink-0">口座登録 →</span>
+        </Link>
+      )}
+
+      {/* ウェルカム */}
+      <div className="space-y-1">
+        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">
+          Dashboard
+        </p>
+        <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter break-words">
+          Hey, {profile?.display_name}
+        </h1>
+        <p className="text-slate-500 text-sm font-medium">
+          ロール：<span className="text-slate-300 font-bold">{roleLabel}</span>
+        </p>
+      </div>
+
+      {/* Cheers送信セクション・履歴・コレクション（admin非表示） */}
+      {!isAdmin && (
+        <>
+          {/* 決済スピード最適化セクション */}
+          <PaymentOptimizationSection pattern={paymentPattern} linkRegistered={hasLinkRegistered} />
+
+          <div className="space-y-4">
+            <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+              <Heart size={14} className="text-pink-500" /> Cheers History
+            </h2>
+            {!cheersHistory || cheersHistory.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 text-center space-y-3">
+                <p className="text-slate-600 text-sm font-bold italic uppercase tracking-wider">No cheers yet.</p>
+                <p className="text-slate-700 text-xs">イベントでQRをスキャンして最初の応援を送ろう</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {cheersHistory.map((tx: any) => (
+                  <div key={tx.transaction_id} className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-4 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-white truncate">
+                        {tx.qr_config?.event?.title ?? tx.product?.name ?? '—'}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {tx.product?.artist?.display_name && <span className="mr-2">{tx.product.artist.display_name}</span>}
+                        {fmtDate(tx.created_at)}
+                      </p>
+                      {tx.sender_comment && (
+                        <p className="text-xs text-slate-400 mt-1 italic">"{tx.sender_comment}"</p>
+                      )}
+                    </div>
+                    <p className="text-lg font-black text-pink-400 shrink-0 tabular-nums">
+                      ¥{(tx.total_gross_amount ?? 0).toLocaleString('ja-JP')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {cheersHistory.length > 0 && (
+            <Link
+              href="/dashboard/collection"
+              className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
+                  <Layers size={22} className="text-pink-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Collection</p>
+                  <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
+                    カードコレクション
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">Cheersカードをすべて眺める</p>
+                </div>
+              </div>
+            </Link>
+          )}
+        </>
+      )}
+
+      {/* フォロー中 */}
+      {follows.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+            <HeartHandshake size={14} className="text-pink-500" /> Following
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {follows.map((f: any) => (
+              <div
+                key={f.profile_id}
+                className="bg-slate-900 border border-slate-800 rounded-[1.5rem] p-4 flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  {f.avatar_url ? (
+                    <img
+                      src={f.avatar_url}
+                      alt={f.display_name}
+                      className="w-10 h-10 rounded-2xl object-cover ring-2 ring-pink-500/20 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-600/30 to-pink-800/30 flex items-center justify-center ring-2 ring-pink-500/10 shrink-0">
+                      <Mic2 size={16} className="text-pink-400" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-white truncate">{f.display_name}</p>
+                    <p className="text-[10px] text-slate-500 capitalize">
+                      {f.role === 'artist' ? 'アーティスト' : 'オーガナイザー'}
+                    </p>
+                  </div>
+                </div>
+                <FollowButton
+                  followeeId={f.profile_id}
+                  followeeName={f.display_name}
+                  followeeRole={f.role}
+                  size="sm"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* フォロワー数ヒーロー（artist / organizer のみ） */}
+      {(profile?.role === 'artist' || profile?.role === 'organizer') && (
+        <FollowerHero profileId={user!.id} />
+      )}
+
+      {/* 出演依頼（artist / agent / organizer 共通） */}
+      {['artist', 'agent', 'organizer'].includes(profile?.role ?? '') && lineupInvites.length > 0 && (
+        <LineupInvitations invites={lineupInvites} artistId={user!.id} />
+      )}
+
+
+      {/* イベント */}
+      {['organizer', 'agent', 'admin'].includes(profile?.role ?? '') && (
+        <Link
+          href="/dashboard/events"
+          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all">
+              <Calendar size={22} className="text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Events</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
+                イベント管理
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Admin/Agent: フォロワーインサイト */}
+      {['admin', 'agent'].includes(profile?.role ?? '') && (
+        <Link
+          href="/admin/insights"
+          className="block bg-slate-900 border border-slate-800 hover:border-violet-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center border border-violet-500/20 group-hover:bg-violet-500/20 transition-all">
+              <TrendingUp size={22} className="text-violet-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Insights</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-violet-400 transition-colors">
+                フォロワー分析
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Admin: 売上管理 */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/sales"
+          className="block bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all">
+              <BarChart2 size={22} className="text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-emerald-400 transition-colors">
+                売上管理
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* 招待リンク発行 */}
+      {['admin', 'agent', 'organizer'].includes(profile?.role ?? '') && (
+        <Link
+          href="/dashboard/invitations"
+          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
+              <UserPlus size={22} className="text-pink-500" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Invitations</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
+                招待を送る
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* 出金管理（artist / organizer / agent） */}
+      {['artist', 'organizer', 'agent'].includes(profile?.role ?? '') && (
+        <Link
+          href="/dashboard/payout"
+          className="block bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all">
+              <ArrowDownToLine size={22} className="text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payout</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-emerald-400 transition-colors">
+                出金管理
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Admin: 精算管理 + 照合管理 */}
+      {profile?.role === 'admin' && (
+        <div className="grid grid-cols-2 gap-4">
+          <Link
+            href="/admin/settlements"
+            className="block bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-[2rem] p-6 transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500/20 transition-all shrink-0">
+                <ClipboardCheck size={22} className="text-amber-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+                <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-amber-400 transition-colors">
+                  精算管理
+                </p>
+              </div>
+            </div>
+          </Link>
+          <Link
+            href="/admin/reconcile"
+            className="block bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-[2rem] p-6 transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all shrink-0">
+                <BarChart2 size={22} className="text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+                <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
+                  照合管理
+                </p>
+              </div>
+            </div>
+          </Link>
+        </div>
+      )}
+
+      {/* Admin: Batch Reports */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/batch-reports"
+          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-all">
+              <Activity size={22} className="text-pink-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
+                バッチ処理レポート
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">Cron処理結果・未回収リスク確認</p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Admin: 機材ペアリング（NFC⇔子機・全イベント横断） */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/booth-devices"
+          className="block bg-slate-900 border border-slate-800 hover:border-violet-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-violet-500/10 rounded-2xl flex items-center justify-center border border-violet-500/20 group-hover:bg-violet-500/20 transition-all">
+              <Smartphone size={22} className="text-violet-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-violet-400 transition-colors">
+                機材ペアリング
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">NFCタグ⇔子機 ペアリング一覧（全イベント横断）</p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Admin: Refunds */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/refunds"
+          className="block bg-slate-900 border border-red-500/20 hover:border-red-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20 group-hover:bg-red-500/20 transition-all">
+              <RotateCcw size={22} className="text-red-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin — 取り扱い注意</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-red-400 transition-colors">
+                返金管理
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* マイチケット（admin非表示） */}
+      {!isAdmin && (
+        <Link
+          href="/tickets"
+          className="block bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-all">
+              <Ticket size={22} className="text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Wallet</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
+                マイチケット
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin text-slate-600" size={32} />
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
+  );
+}

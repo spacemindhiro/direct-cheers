@@ -1,0 +1,44 @@
+name: Supabase Migration Deploy
+
+on:
+  push:
+    branches:
+      - develop  # developにプッシュされたらSTGへ
+  pull_request:
+    branches:
+      - main     # mainへのPR（またはマージ）で本番へ
+    types: [closed]
+
+jobs:
+  deploy:
+    # PRがクローズ（マージ）された時、またはdevelopへのプッシュ時に実行
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: 2.84.2
+
+      # 1. どっちにデプロイするか判定
+      - name: Set Environment Variables
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "TARGET_PROJECT_ID=${{ secrets.STG_SUPABASE_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "TARGET_DB_PASSWORD=${{ secrets.STG_SUPABASE_DB_PASSWORD }}" >> $GITHUB_ENV
+          elif [[ "${{ github.base_ref }}" == "main" ]]; then
+            echo "TARGET_PROJECT_ID=${{ secrets.PROD_SUPABASE_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "TARGET_DB_PASSWORD=${{ secrets.PROD_SUPABASE_DB_PASSWORD }}" >> $GITHUB_ENV
+          fi
+
+      # 2. DBの変更（マイグレーション）を適用
+      - name: Link and Push Migrations
+        run: |
+          supabase link --project-ref $TARGET_PROJECT_ID --password $TARGET_DB_PASSWORD
+          supabase migration repair --status reverted 20260528000000 || true
+          supabase db push --password $TARGET_DB_PASSWORD
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

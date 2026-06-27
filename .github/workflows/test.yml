@@ -1,0 +1,105 @@
+name: Integration Test Suite
+
+# ──────────────────────────────────────────────────────────────────
+# トリガー: main への PR 作成・更新時のみ
+#
+# 通常の develop push では実行しない（ローカルテストで代替）。
+# main への PR がマージゲートとして機能する。
+#
+# branch protection 設定:
+#   ✅ Require status checks to pass before merging
+#   ✅ "test / 985ケース全テスト" を必須ステータスに追加
+# ──────────────────────────────────────────────────────────────────
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+# 同一ブランチへの連続プッシュ時は古いランを自動キャンセル
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: 985ケース全テスト
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      # ── 1. ソース取得 ──────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js セットアップ ────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '25.x'
+          cache: 'npm'
+
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      # ── 2.5. 生カード番号がコードに混入していないか検査 ──────────────
+      # 本番APIキーで実行されると PCI DSS 違反・アカウント停止につながるため
+      # Stripeテスト番号パターン（4242...等）をソースに直書きしたまま push させない
+      - name: Check no raw card numbers in source
+        run: |
+          # Stripeの代表的なテストカード番号パターンを検索
+          if grep -rn --include="*.ts" --include="*.tsx" --include="*.js" \
+            -E "(4242424242424242|4000000000009995|4000000000003220|4111111111111111|5500000000000004)" \
+            --exclude-dir=node_modules --exclude-dir=".next" .; then
+            echo "❌ 生カード番号がソースコードに含まれています。pm_card_* 等の定義済みトークンを使用してください。"
+            exit 1
+          fi
+          echo "✅ 生カード番号なし"
+
+      # ── 3. Supabase ローカル DB 起動 ───────────────────────────────
+      # supabase start はマイグレーションを自動適用してコンテナを起動する
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: latest
+
+      - name: Start local Supabase (with migrations)
+        run: supabase start
+        timeout-minutes: 10
+
+      # ── 4. .env.test 生成 ──────────────────────────────────────────
+      # 全シークレットは GitHub Secrets から注入
+      # Supabase CLI v2.x は出力形式が変わったため動的取得せず Secrets を使用
+      - name: Generate .env.test
+        env:
+          STRIPE_SECRET_KEY:                  ${{ secrets.STRIPE_SECRET_KEY }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET:              ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY:      ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY:          ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRON_SECRET:                        ${{ secrets.CRON_SECRET }}
+          INTERNAL_API_SECRET:                ${{ secrets.INTERNAL_API_SECRET }}
+        run: |
+          {
+            echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}"
+            echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}"
+            echo "STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}"
+            echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}"
+            echo "NEXT_PUBLIC_SITE_URL=http://localhost:3000"
+            echo "CRON_SECRET=${CRON_SECRET:-test_cron_secret}"
+            echo "INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-test_internal_secret}"
+          } > .env.test
+
+          echo "✅ .env.test 生成完了"
+
+      # ── 5. テスト実行（985ケース）──────────────────────────────────
+      # 1件でも失敗したら終了コード 1 → ジョブ FAIL → Vercel デプロイ遮断
+      - name: Run 985 integration tests
+        run: npm run test:ci
+        env:
+          CI: true
+
+      # ランナーは使い捨て VM のためクリーンアップ不要

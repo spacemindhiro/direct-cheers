@@ -65,4 +65,13 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Safari の datetime-local / date / time 入力の高さズレ修正 */
+  input[type="datetime-local"],
+  input[type="date"],
+  input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 3.5rem;
+    line-height: 1.25;
+  }
 }

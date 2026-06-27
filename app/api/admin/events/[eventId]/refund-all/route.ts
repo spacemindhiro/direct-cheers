@@ -1,0 +1,65 @@
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+export async function POST(
+  _req: Request,
+  { params }: { params: Promise<{ eventId: string }> }
+) {
+  const { eventId } = await params;
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data: me } = await supabase
+    .from("profiles").select("role").eq("profile_id", user.id).single();
+  if (me?.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { data: event } = await admin
+    .from("events").select("lifecycle_status").eq("event_id", eventId).single();
+  if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  if (event.lifecycle_status === "settled")
+    return NextResponse.json({ error: "精算済みのイベントは返金できません" }, { status: 400 });
+
+  const { data: qrConfigs } = await admin
+    .from("qr_configs").select("qr_config_id").eq("event_id", eventId).is("deleted_at", null);
+  const qrIds = (qrConfigs ?? []).map((q) => q.qr_config_id);
+  if (qrIds.length === 0) return NextResponse.json({ refunded: 0, errors: 0 });
+
+  const { data: txs } = await admin
+    .from("transactions")
+    .select("transaction_id, stripe_payment_intent_id")
+    .in("qr_config_id", qrIds)
+    .eq("status", "completed");
+
+  let refunded = 0;
+  let errors = 0;
+  for (const tx of txs ?? []) {
+    try {
+      await stripe.refunds.create({ payment_intent: tx.stripe_payment_intent_id });
+      await admin
+        .from("transactions")
+        .update({ status: "refunded" })
+        .eq("transaction_id", tx.transaction_id);
+      refunded++;
+    } catch (err: any) {
+      errors++;
+      console.error(`[refund-all] PI ${tx.stripe_payment_intent_id}:`, err.message);
+    }
+  }
+
+  // イベントをキャンセル済みに更新
+  if (errors === 0) {
+    await admin
+      .from("events")
+      .update({ lifecycle_status: "cancelled" })
+      .eq("event_id", eventId);
+  }
+
+  return NextResponse.json({ success: true, refunded, errors });
+}

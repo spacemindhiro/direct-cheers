@@ -9,10 +9,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
   }
 
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) return NextResponse.json({ error: "Key Missing" }, { status: 500 });
+  if (!process.env.STRIPE_DEMO_SECRET_KEY) return NextResponse.json({ error: "Key Missing" }, { status: 500 });
 
-  const stripe = new Stripe(key, {
+  // /demo/thanks 専用。デモのCheckout Session（app/api/pay/route.tsで
+  // STRIPE_DEMO_SECRET_KEYを使って作成）を取得するため、同じキーを使う必要がある
+  // （test/liveモードのデータは完全に分離されており、別モードのキーでは取得できない）。
+  // モジュール読み込み時ではなくハンドラ内で生成する（キー未設定環境でも
+  // ビルド自体は失敗させない。Stripeのコンストラクタは空文字だと即座に例外を投げる）。
+  const stripe = new Stripe(process.env.STRIPE_DEMO_SECRET_KEY, {
     // @ts-ignore
     apiVersion: '2023-10-16',
   });

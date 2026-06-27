@@ -57,6 +57,17 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      keyframes: {
+        "slide-up-fade": {
+          "0%": { opacity: "0", transform: "translateY(16px) scale(0.95)" },
+          "15%": { opacity: "1", transform: "translateY(0) scale(1)" },
+          "75%": { opacity: "1", transform: "translateY(0) scale(1)" },
+          "100%": { opacity: "0", transform: "translateY(-8px) scale(0.95)" },
+        },
+      },
+      animation: {
+        "slide-up-fade": "slide-up-fade 2.5s ease-in-out forwards",
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],

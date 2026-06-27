@@ -55,10 +55,15 @@ const empty: Form = {
 const STEP_LABELS = ['種別選択', '氏名', '生年月日・電話', '住所', '事業情報'];
 
 // ロールごとの事業内容の例文（初期値として入れるだけで、ユーザーは自由に書き換え可能）
+// agentはorganizerの業務を兼ね、organizerはartistの活動を兼ねるため、上位ロールほど下位の文言を含める
+const ARTIST_DESCRIPTION = 'DJ・音楽パフォーマンス活動';
+const ORGANIZER_DESCRIPTION = `イベント主催・企画運営 / ${ARTIST_DESCRIPTION}`;
+const AGENT_DESCRIPTION = `出演交渉・出演者マネジメント / ${ORGANIZER_DESCRIPTION}`;
+
 const PRODUCT_DESCRIPTION_EXAMPLES: Record<string, string> = {
-  artist: 'DJ・音楽パフォーマンスサービス',
-  organizer: 'ライブイベント主催・企画運営',
-  agent: '出演者・主催者向けエージェント業務（出演交渉・イベント運営サポート）',
+  artist: ARTIST_DESCRIPTION,
+  organizer: ORGANIZER_DESCRIPTION,
+  agent: AGENT_DESCRIPTION,
 };
 
 const ic = "w-full h-12 bg-slate-950/50 border border-slate-800 rounded-xl px-5 text-sm text-white focus:border-indigo-500/50 outline-none transition-all placeholder:text-slate-700";

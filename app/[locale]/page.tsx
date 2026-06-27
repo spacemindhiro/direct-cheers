@@ -75,9 +75,9 @@ export default function LandingPage() {
           <h2 className="text-5xl md:text-8xl font-black mb-10 tracking-tighter text-white leading-[1.05] uppercase">
             ライブの感動を、<br />
             <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent italic">
-              「スマホのウォレット」
+              「アーティストへ、直接」
             </span>
-            へ。
+            届ける。
           </h2>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed mb-12 font-medium text-pretty">
             Direct Cheersは、会場のQRコードから応援を贈るプラットフォーム。<br className="hidden md:block" />

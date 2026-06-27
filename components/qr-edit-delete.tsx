@@ -9,7 +9,7 @@ import { CheersCard } from "@/components/cheers-card";
 import { StripImageUpload } from "@/components/strip-image-upload";
 import { WalletTicketPreview } from "@/components/wallet-ticket-preview";
 
-type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist"; status?: string };
+type TargetCandidate = { profile_id: string; display_name: string; avatar_url?: string | null; role: "organizer" | "artist"; status?: string };
 type DistTarget = { profile_id: string; ratio: string };
 
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
@@ -32,6 +32,7 @@ export function QREditDelete({
   currentFgColor = "#ffffff",
   currentLabelColor = "#94a3b8",
   currentRecipientId,
+  currentRecipientRole = "artist",
   currentTargets,
   hasTransactions = false,
   candidates,
@@ -59,6 +60,7 @@ export function QREditDelete({
   currentFgColor?: string;
   currentLabelColor?: string;
   currentRecipientId: string;
+  currentRecipientRole?: "organizer" | "artist";
   currentTargets: { profile_id: string; distribution_ratio: number }[];
   hasTransactions?: boolean;
   candidates: TargetCandidate[];
@@ -85,6 +87,9 @@ export function QREditDelete({
   const [fgColor, setFgColor] = useState(currentFgColor);
   const [labelColor, setLabelColor] = useState(currentLabelColor);
   const [recipientId, setRecipientId] = useState(currentRecipientId);
+  // 同一人物がオーガナイザー兼演者の場合、profile_idだけでは名義を区別できないため
+  // 別途roleを保持し、qr_configs.recipient_name_context として送る
+  const [recipientRole, setRecipientRole] = useState<"organizer" | "artist">(currentRecipientRole);
   const [amountStep, setAmountStep] = useState<100 | 500 | 1000>(currentAmountStep);
   const [targets, setTargets] = useState<DistTarget[]>(
     currentTargets.map((t) => ({
@@ -94,6 +99,11 @@ export function QREditDelete({
   );
 
   const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
+
+  // 宛先の選択肢は配分に登録されている人のみ
+  const recipientOptions = candidates.filter((c) =>
+    targets.some((t) => t.profile_id === c.profile_id)
+  );
 
   const addTarget = () =>
     setTargets((prev) => [...prev, { profile_id: candidates[0]?.profile_id ?? "", ratio: "0" }]);
@@ -128,6 +138,7 @@ export function QREditDelete({
       const body: Record<string, unknown> = {
         label: label.trim() || null,
         recipient_profile_id: recipientId,
+        recipient_name_context: recipientRole,
       };
       if (!hasTransactions) {
         body.targets = targets.map((t) => ({
@@ -169,6 +180,7 @@ export function QREditDelete({
     setFgColor(currentFgColor);
     setLabelColor(currentLabelColor);
     setRecipientId(currentRecipientId);
+    setRecipientRole(currentRecipientRole);
     setTargets(
       currentTargets.map((t) => ({
         profile_id: t.profile_id,
@@ -285,7 +297,7 @@ export function QREditDelete({
                 currentUrl={imageUrl}
                 pathPrefix={qrConfigId}
                 eventTitle={eventTitle}
-                artistName={candidates.find((c) => c.profile_id === recipientId)?.display_name ?? ""}
+                artistName={candidates.find((c) => c.profile_id === recipientId && c.role === recipientRole)?.display_name ?? ""}
                 onUploadComplete={setImageUrl}
               />
 
@@ -295,9 +307,9 @@ export function QREditDelete({
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">カードプレビュー</p>
                   <div className="max-w-xs mx-auto opacity-90 pointer-events-none">
                     <CheersCard
-                      artistName={candidates.find((c) => c.profile_id === recipientId)?.display_name ?? "Artist"}
+                      artistName={candidates.find((c) => c.profile_id === recipientId && c.role === recipientRole)?.display_name ?? "Artist"}
                       eventTitle={eventTitle}
-                      artistAvatar={null}
+                      artistAvatar={candidates.find((c) => c.profile_id === recipientId && c.role === recipientRole)?.avatar_url ?? null}
                       imageUrl={imageUrl}
                       amount={1000}
                       transactionId="PREVIEW"
@@ -338,18 +350,29 @@ export function QREditDelete({
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
               宛先 <span className="text-pink-500">*</span>
             </label>
-            <p className="text-[10px] text-slate-600">決済記録上で「誰への支払いか」を示す名義人</p>
-            <select
-              value={recipientId}
-              onChange={(e) => setRecipientId(e.target.value)}
-              className="w-full h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
-            >
-              {candidates.map((c) => (
-                <option key={c.profile_id} value={c.profile_id}>
-                  {c.display_name}{c.role === "organizer" ? "（主催者）" : c.status === "pending" ? "（交渉中）" : ""}
-                </option>
-              ))}
-            </select>
+            <p className="text-[10px] text-slate-600">
+              決済記録上の名義人。配分に追加した人の中から選択。オーガナイザーが演者を兼任している場合、
+              「主催者名義」と「演者名義」は別の選択肢として扱われ、明細書表記等に反映される名前が変わります。
+            </p>
+            {recipientOptions.length === 0 ? (
+              <p className="text-xs text-amber-400 font-bold">配分先を追加してください</p>
+            ) : (
+              <select
+                value={`${recipientId}::${recipientRole}`}
+                onChange={(e) => {
+                  const [pid, role] = e.target.value.split("::");
+                  setRecipientId(pid);
+                  setRecipientRole(role as "organizer" | "artist");
+                }}
+                className="w-full h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
+              >
+                {recipientOptions.map((c) => (
+                  <option key={`${c.profile_id}::${c.role}`} value={`${c.profile_id}::${c.role}`}>
+                    {c.display_name}{c.role === "organizer" ? "（主催者名義）" : "（演者名義）"}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* 配分設定 */}
@@ -393,7 +416,7 @@ export function QREditDelete({
                       className="flex-1 h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
                     >
                       {candidates.map((c) => (
-                        <option key={c.profile_id} value={c.profile_id}>
+                        <option key={`${c.profile_id}::${c.role}`} value={c.profile_id}>
                           {c.display_name}{c.role === "organizer" ? "（主催者）" : c.status === "pending" ? "（交渉中）" : ""}
                         </option>
                       ))}

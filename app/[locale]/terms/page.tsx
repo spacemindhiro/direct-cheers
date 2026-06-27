@@ -17,14 +17,15 @@ export default function TermsPage() {
           <div className="flex items-center gap-4 mb-12 border-b border-slate-800 pb-8">
             <ShieldCheck className="text-pink-500" size={28} />
             <h1 className="text-2xl md:text-3xl font-black italic text-white uppercase tracking-tight">利用規約</h1>
-            <span className="ml-auto text-[10px] text-slate-500 font-mono italic text-right">Last Updated: 2026.04.03</span>
+            <span className="ml-auto text-[10px] text-slate-500 font-mono italic text-right">Last Updated: 2026.06.27</span>
           </div>
           
           <div className="space-y-10 text-[13px] md:text-sm leading-relaxed">
             
             <section>
-              <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-pink-500 pl-3">第1条（適用）</h2>
-              <p>本規約は、Direct Cheers（以下「本サービス」）の利用条件を定めるものです。本サービスを利用する全てのユーザーは、本規約に同意したものとみなされます。</p>
+              <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-pink-500 pl-3">第1条（適用およびユーザー登録）</h2>
+              <p className="mb-3">本規約は、Direct Cheers（以下「本サービス」）の利用条件を定めるものです。本サービスを利用する全てのユーザーは、本規約に同意したものとみなされます。</p>
+              <p>本サービスにおいてアカウント未登録のユーザーが決済手続きを行った場合、当該手続きの完了をもってユーザー登録の申請がなされ、本規約および<Link href="/privacy" className="text-pink-400 hover:text-pink-300 underline underline-offset-2">プライバシーポリシー</Link>に同意したものとみなします。</p>
             </section>
 
             <section>
@@ -33,10 +34,11 @@ export default function TermsPage() {
             </section>
 
             <section className="bg-white/5 p-5 rounded-xl border border-white/5">
-              <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-pink-500 pl-3">第3条（決済および役務の完了）</h2>
+              <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-pink-500 pl-3">第3条（決済、役務の完了および商品プラン）</h2>
               <ul className="list-decimal ml-5 space-y-2">
-                <li>ユーザーは、本サービス上で定められた金額を支払うことにより、デジタルアセットを購入できます。</li>
-                <li className="text-pink-400 font-bold">本サービスにおける役務の提供は、決済完了後、ユーザーにデジタルアセットの閲覧権またはメッセージ送信権が付与された時点をもって完了したものとみなします。</li>
+                <li>ユーザーは、本サービス上で定められた金額を支払うことにより、デジタルアセットおよび各種イベント入場券（以下、総称して「本商品」）を購入できます。</li>
+                <li className="text-pink-400 font-bold">本サービスにおける役務の提供は、決済完了後、ユーザーにデジタルアセットの閲覧権、メッセージ送信権、または入場用QRコード等の権利が付与された時点をもって完了したものとみなします。</li>
+                <li>本商品のラインナップ（スタンダード、メッセージ、エントランス、カスタム等）ごとに設定された個別規約や上限金額、およびエビデンス要件等は、購入画面またはイベントごとに提示される条件に準じるものとします。</li>
               </ul>
             </section>
 
@@ -54,8 +56,11 @@ export default function TermsPage() {
 
             <section className="bg-pink-500/5 p-5 rounded-xl border border-pink-500/10">
               <h2 className="text-base font-bold text-pink-500 mb-3 italic border-l-2 border-pink-500 pl-3">第6条（返品・返金ポリシー）</h2>
-              <p className="font-bold text-white mb-2 underline decoration-pink-500/30 underline-offset-4 text-sm">決済完了後におけるユーザー都合によるキャンセル、返品、返金には一切応じられません。</p>
-              <p className="text-slate-400">システム上の致命的な不具合により、DB格納およびブラウザ表示の「いずれも」行われなかった場合に限り、事実確認の上で個別に対応を行います。</p>
+              <ol className="list-decimal ml-5 space-y-3">
+                <li className="font-bold text-white underline decoration-pink-500/30 underline-offset-4 text-sm">決済完了後におけるユーザー都合によるキャンセル、返品、返金には一切応じられません。</li>
+                <li className="text-slate-400">前項にかかわらず、イベントの開催自体が中止となった場合の返金基準（返金手数料の有無、決済手段による可否等）は、主催者（オーガナイザー）が選択したプランの条件に準じるものとします。プラットフォーム（当社）は、主催者の都合や資金状況に起因する返金原資の保証、および主催者・ユーザー間の紛争について一切の責任を負いません。</li>
+                <li className="text-slate-400">システム上の致命的な不具合により、DB格納およびブラウザ表示の「いずれも」行われなかった場合に限り、事実確認の上で個別に対応を行います。</li>
+              </ol>
             </section>
 
             <section className="bg-slate-900 p-6 rounded-xl border border-slate-800">

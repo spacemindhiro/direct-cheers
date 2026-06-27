@@ -2,6 +2,7 @@
 
 import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState, useEffect, Suspense } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   Loader2, Calendar, MapPin, Ticket, CreditCard, AlertCircle, CheckCircle, Clock
@@ -160,6 +161,13 @@ function CheckoutFormAC({
           {error}
         </div>
       )}
+      <p className="text-center text-[10px] text-slate-600 leading-relaxed">
+        ボタンを押すことで
+        <Link href="/terms" className="text-slate-500 hover:text-pink-500 transition-colors underline underline-offset-2">利用規約</Link>
+        および
+        <Link href="/privacy" className="text-slate-500 hover:text-pink-500 transition-colors underline underline-offset-2">プライバシーポリシー</Link>
+        に同意したものとみなされ、入力されたメールアドレスで自動的にアカウントが作成されます
+      </p>
       <button
         type="submit"
         disabled={loading || !stripe}
@@ -380,6 +388,13 @@ function EntrancePageContent() {
                 {error}
               </div>
             )}
+            <p className="text-center text-[10px] text-slate-600 leading-relaxed">
+              ボタンを押すことで
+              <Link href="/terms" className="text-slate-500 hover:text-pink-500 transition-colors underline underline-offset-2">利用規約</Link>
+              および
+              <Link href="/privacy" className="text-slate-500 hover:text-pink-500 transition-colors underline underline-offset-2">プライバシーポリシー</Link>
+              に同意したものとみなされ、入力されたメールアドレスで自動的にアカウントが作成されます
+            </p>
             <button
               type="submit"
               disabled={submitting || !email}

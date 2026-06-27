@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import Link from "next/link";
 import { Heart, Loader2, Mail, CreditCard, CheckCircle, AlertCircle } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -358,6 +359,13 @@ export function CheersPaymentForm({
 
       {/* 決済ボタン */}
       <div className="space-y-3">
+        <p className="text-center text-[10px] text-slate-600 leading-relaxed">
+          ボタンを押すことで
+          <Link href="/terms" className="text-slate-500 hover:text-pink-500 transition-colors underline underline-offset-2">利用規約</Link>
+          および
+          <Link href="/privacy" className="text-slate-500 hover:text-pink-500 transition-colors underline underline-offset-2">プライバシーポリシー</Link>
+          に同意したものとみなされ、入力されたメールアドレスで自動的にアカウントが作成されます
+        </p>
         <button
           type="button"
           disabled={isPending}

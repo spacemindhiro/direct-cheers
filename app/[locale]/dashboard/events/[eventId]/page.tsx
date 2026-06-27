@@ -212,7 +212,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       })()}
 
       {/* 入場チェックインスキャナ */}
-      {isOrganizer && (event.lifecycle_status === "ongoing" || event.lifecycle_status === "published") && (
+      {(isOrganizer || isAgent) && (event.lifecycle_status === "ongoing" || event.lifecycle_status === "published") && (
         <Link
           href={`/dashboard/events/${eventId}/checkin`}
           className="flex items-center gap-4 bg-indigo-500/10 border border-indigo-500/20 hover:border-indigo-500/40 rounded-[1.5rem] p-5 transition-all group"

@@ -58,7 +58,7 @@ const STEP_LABELS = ['種別選択', '氏名', '生年月日・電話', '住所'
 // agentはorganizerの業務を兼ね、organizerはartistの活動を兼ねるため、上位ロールほど下位の文言を含める
 const ARTIST_DESCRIPTION = 'DJ・音楽パフォーマンス活動';
 const ORGANIZER_DESCRIPTION = `イベント主催・企画運営 / ${ARTIST_DESCRIPTION}`;
-const AGENT_DESCRIPTION = `出演交渉・出演者マネジメント / ${ORGANIZER_DESCRIPTION}`;
+const AGENT_DESCRIPTION = `イベント勧誘・管理 / ${ORGANIZER_DESCRIPTION}`;
 
 const PRODUCT_DESCRIPTION_EXAMPLES: Record<string, string> = {
   artist: ARTIST_DESCRIPTION,

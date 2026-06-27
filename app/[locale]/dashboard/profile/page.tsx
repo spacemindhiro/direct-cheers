@@ -356,7 +356,7 @@ export default function ProfileEditPage() {
         {(isOrganizer || isAgent) && (
           <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-5">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-              {isOrganizer ? 'オーガナイザー情報' : 'エージェント情報'}
+              {isOrganizer ? 'オーガナイザー情報' : 'オーガナイザーとして利用時の情報'}
             </p>
             <Field label="主催者名" icon={<CalendarDays size={11} className="text-pink-500" />} optional
               hint="イベント主催者として表示される名前。お客様のカード利用明細にも表示されます。未入力なら表示名を使用">

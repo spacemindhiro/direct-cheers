@@ -29,7 +29,7 @@ export function StatementDescriptorPreview({ role, name }: Props) {
   const isArtistRole = role === 'artist';
   const trimmedName = name.trim();
   const isPlaceholder = !trimmedName;
-  const suffixSourceRaw = trimmedName || (isArtistRole ? 'DJ HIRO' : 'SPACE BBQ');
+  const suffixSourceRaw = trimmedName || (isArtistRole ? 'DJ TARO' : 'TARO EVENTS');
   const suffixLabel = isArtistRole ? '演者名' : '主催者名';
 
   const suffixAscii = sanitizeStatementDescriptorSuffix(suffixSourceRaw, 19);

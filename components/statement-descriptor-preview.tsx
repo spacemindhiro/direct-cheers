@@ -21,7 +21,7 @@ type Props = {
 };
 
 /**
- * 構成要素は「固定ベース（"DC"）」+「このフィールドの名前（suffix）」の2つだけ。
+ * 構成要素は「固定ベース（PLATFORM_PREFIX）」+「このフィールドの名前（suffix）」の2つだけ。
  * 事業者名から作る別のベース表記（オンボーディング/bank-setup画面の専用機能）は、
  * このプレビューとは無関係な別レイヤーなので一切混ぜない。
  */
@@ -65,7 +65,7 @@ export function StatementDescriptorPreview({ role, name }: Props) {
       )}
 
       <p className="text-[9px] text-slate-600">
-        ※ 先頭の「DC」部分は不正な明細表記によるチャージバックを防ぐためシステムが固定しています。
+        ※ 先頭の「{PLATFORM_PREFIX}」部分は不正な明細表記によるチャージバックを防ぐためシステムが固定しています。
         実際の表示形式はカード発行会社により異なります。
       </p>
     </div>

@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     let connectId = me.stripe_connect_id;
 
     // カード明細のベース表記（account-level prefix）はカスタマイズを許可せず、
-    // 常に固定文字列 "DC" を設定する。決済ごとの主催者名/演者名は別途suffixで
+    // 常に固定文字列（PLATFORM_PREFIX）を設定する。決済ごとの主催者名/演者名は別途suffixで
     // 送られるため、屋号を明細に出したい場合は organizer_name/artist_name に
     // 自分で入力してもらえばよく、ベース側に別の名前入力欄を持つ必要は無い。
 
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
         },
       };
 
-      // ベース表記は常に固定文字列 "DC"（カスタマイズ不可）。
+      // ベース表記は常に固定文字列（PLATFORM_PREFIX、カスタマイズ不可）。
       accountParams.settings = {
         payments: {
           statement_descriptor: PLATFORM_PREFIX,
@@ -226,7 +226,7 @@ export async function POST(req: Request) {
     }
 
     // 既存connectId がある場合：DB更新・Stripeアカウント設定の再送・accountLinks 生成を並列
-    // ベース表記（固定 "DC"）も再送する（初回作成時にしか反映されていなかった既存の不備を修正）。
+    // ベース表記（固定のPLATFORM_PREFIX）も再送する（初回作成時にしか反映されていなかった既存の不備を修正）。
     const socialLinks = body.website ? { website: body.website } : undefined;
     const [, , accountLink] = await Promise.all([
       Object.keys(body).length > 0

@@ -77,6 +77,7 @@ export async function POST(
     .eq("status", "confirmed")
     .is("deleted_at", null);
   const confirmedArtistIds = new Set((confirmedArtists ?? []).map((ea) => ea.artist_profile_id));
+  console.log(`[settle][DEBUG] eventId=${eventId} confirmedArtists=${JSON.stringify(confirmedArtists)} confirmedArtistIds=${JSON.stringify([...confirmedArtistIds])}`);
 
   // このイベントに紐づく qr_configs を取得
   const { data: qrConfigs } = await admin
@@ -114,6 +115,7 @@ export async function POST(
     `)
     .in("qr_config_id", qrConfigIds)
     .is("deleted_at", null);
+  console.log(`[settle][DEBUG] qrConfigIds=${JSON.stringify(qrConfigIds)} targets=${JSON.stringify(targets)}`);
 
   // qr_config_id ごとにターゲットをマップ
   const targetsByQr = new Map<string, typeof targets>();
@@ -145,6 +147,7 @@ export async function POST(
 
       const isUnconfirmedArtist =
         profileRole === "artist" && !confirmedArtistIds.has(target.profile_id);
+      console.log(`[settle][DEBUG] target.profile_id=${target.profile_id} profileRole=${profileRole} amount=${amount} isUnconfirmedArtist=${isUnconfirmedArtist} netAmount=${net} ratio=${target.distribution_ratio}`);
       const effectiveProfileId = isUnconfirmedArtist
         ? event.organizer_profile_id
         : target.profile_id;

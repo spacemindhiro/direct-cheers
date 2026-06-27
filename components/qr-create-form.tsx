@@ -25,7 +25,7 @@ const PRODUCT_TYPE_FALLBACK = [
 ];
 
 type ProductTypeConfig = { type: string; label: string; min_amount: number; max_amount: number; is_enabled: boolean };
-type TargetCandidate = { profile_id: string; display_name: string; role: "organizer" | "artist"; status?: string };
+type TargetCandidate = { profile_id: string; display_name: string; avatar_url?: string | null; role: "organizer" | "artist"; status?: string };
 type DistTarget = { profile_id: string; ratio: string };
 
 export function QRCreateForm({
@@ -322,7 +322,7 @@ export function QRCreateForm({
                   <CheersCard
                     artistName={targetCandidates.find((c) => c.profile_id === recipientId && c.role === recipientRole)?.display_name ?? "Artist"}
                     eventTitle={eventTitle}
-                    artistAvatar={null}
+                    artistAvatar={targetCandidates.find((c) => c.profile_id === recipientId && c.role === recipientRole)?.avatar_url ?? null}
                     imageUrl={imageUrl}
                     amount={priceMode === "fixed" ? fixedAmount : Math.round((minAmount + maxAmount) / 2)}
                     transactionId="PREVIEW"
@@ -590,7 +590,7 @@ export function QRCreateForm({
                   className="flex-1 h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
                 >
                   {targetCandidates.map((c) => (
-                    <option key={c.profile_id} value={c.profile_id}>
+                    <option key={`${c.profile_id}::${c.role}`} value={c.profile_id}>
                       {c.display_name}{c.role === "organizer" ? "（主催者）" : c.status === "pending" ? "（交渉中）" : ""}
                     </option>
                   ))}

@@ -56,6 +56,7 @@ export async function PATCH(
     label,
     image_url,
     recipient_profile_id,
+    recipient_name_context,
     targets,
     strip_image_url,
     bg_color,
@@ -66,6 +67,7 @@ export async function PATCH(
     label?: string;
     image_url?: string | null;
     recipient_profile_id?: string;
+    recipient_name_context?: "organizer" | "artist";
     targets?: { profile_id: string; distribution_ratio: number }[];
     strip_image_url?: string | null;
     bg_color?: string;
@@ -79,7 +81,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (!canEdit && isRecipient) {
-    if (label !== undefined || recipient_profile_id !== undefined || targets !== undefined) {
+    if (label !== undefined || recipient_profile_id !== undefined || recipient_name_context !== undefined || targets !== undefined) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
@@ -93,6 +95,7 @@ export async function PATCH(
   if (fg_color !== undefined) configUpdates.fg_color = fg_color;
   if (label_color !== undefined) configUpdates.label_color = label_color;
   if (recipient_profile_id !== undefined) configUpdates.recipient_profile_id = recipient_profile_id;
+  if (recipient_name_context !== undefined) configUpdates.recipient_name_context = recipient_name_context;
   if (amount_step !== undefined) configUpdates.amount_step = amount_step;
 
   if (Object.keys(configUpdates).length > 0) {
@@ -145,7 +148,7 @@ export async function PATCH(
   // 画像・配色・宛先が変わった場合、Walletパスを更新push（fire-and-forget）
   const visualChanged = image_url !== undefined || strip_image_url !== undefined ||
     bg_color !== undefined || fg_color !== undefined || label_color !== undefined ||
-    recipient_profile_id !== undefined;
+    recipient_profile_id !== undefined || recipient_name_context !== undefined;
   if (visualChanged && Object.keys(configUpdates).length > 0) {
     (async () => {
       try {

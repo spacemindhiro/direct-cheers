@@ -31,7 +31,7 @@ async function QRDetailContent({
 
   const { data: qr } = await adminClient
     .from("qr_configs")
-    .select("qr_config_id, label, image_url, strip_image_url, bg_color, fg_color, label_color, recipient_profile_id, created_at, event_id, bypass_validity, product_id, amount_step, serial_scope")
+    .select("qr_config_id, label, image_url, strip_image_url, bg_color, fg_color, label_color, recipient_profile_id, recipient_name_context, created_at, event_id, bypass_validity, product_id, amount_step, serial_scope")
     .eq("qr_config_id", qrConfigId)
     .eq("event_id", eventId)
     .is("deleted_at", null)
@@ -42,8 +42,8 @@ async function QRDetailContent({
     .from("events")
     .select(`
       title, organizer_profile_id, agent_id, start_at, end_at, venue, serial_scope,
-      organizer:profiles!organizer_profile_id(display_name),
-      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name))
+      organizer:profiles!organizer_profile_id(display_name, organizer_name, organizer_avatar_url, avatar_url),
+      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name, artist_name, artist_avatar_url, avatar_url))
     `)
     .eq("event_id", eventId)
     .single();
@@ -59,10 +59,13 @@ async function QRDetailContent({
   const canEdit = isOrganizer || isAgent;
 
   // 配分対象候補: オーガナイザー + 出演依頼済みアーティスト（rejected/deleted以外）
+  // 表示名・画像は名義（organizer_name/artist_name、organizer_avatar_url/artist_avatar_url）
+  // 優先で、無ければ基本のavatar_urlにフォールバック
   const candidates = [
     {
       profile_id: event.organizer_profile_id,
-      display_name: (event.organizer as any)?.display_name ?? "オーガナイザー",
+      display_name: (event.organizer as any)?.organizer_name ?? (event.organizer as any)?.display_name ?? "オーガナイザー",
+      avatar_url: (event.organizer as any)?.organizer_avatar_url ?? (event.organizer as any)?.avatar_url ?? null,
       role: "organizer" as const,
       status: "confirmed" as const,
     },
@@ -70,7 +73,8 @@ async function QRDetailContent({
       .filter((ea: any) => ea.status !== "rejected" && ea.deleted_at === null)
       .map((ea: any) => ({
         profile_id: ea.artist_profile_id,
-        display_name: ea.artist?.display_name ?? "Unknown",
+        display_name: ea.artist?.artist_name ?? ea.artist?.display_name ?? "Unknown",
+        avatar_url: ea.artist?.artist_avatar_url ?? ea.artist?.avatar_url ?? null,
         role: "artist" as const,
         status: ea.status as string,
       })),
@@ -185,7 +189,7 @@ async function QRDetailContent({
                 qrConfigId={qrConfigId}
                 currentImageUrl={(qr as any).image_url ?? null}
                 eventTitle={event.title}
-                artistName={candidates.find((c) => c.profile_id === user.id)?.display_name ?? ""}
+                artistName={candidates.find((c) => c.profile_id === user.id && c.role === "artist")?.display_name ?? ""}
               />
             ) : (qr as any).image_url ? (
               <img
@@ -257,6 +261,7 @@ async function QRDetailContent({
           currentFgColor={(qr as any).fg_color ?? "#ffffff"}
           currentLabelColor={(qr as any).label_color ?? "#94a3b8"}
           currentRecipientId={qr.recipient_profile_id ?? ""}
+          currentRecipientRole={((qr as any).recipient_name_context as "organizer" | "artist" | null) ?? "artist"}
           currentTargets={currentTargets}
           hasTransactions={hasTransactions}
           candidates={candidates}

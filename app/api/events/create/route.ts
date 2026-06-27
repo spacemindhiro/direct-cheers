@@ -19,15 +19,19 @@ export async function POST(req: Request) {
     .eq("profile_id", user.id)
     .single();
 
-  if (profile?.role !== "organizer") {
+  // ロールは上位互換（agent/adminはorganizerの業務も行える）のため、organizer以上を許可
+  if (!["organizer", "agent", "admin"].includes(profile?.role ?? "")) {
     return NextResponse.json({ error: "Organizer only" }, { status: 403 });
   }
   if (profile?.status !== "active") {
     return NextResponse.json({ error: "Account not active" }, { status: 403 });
   }
-  if (!profile?.responsible_agent_id) {
+  // organizerは担当agentの監督が必須。agent/adminは自分自身が監督者となるため不要
+  // （承認時はapprove/route.tsのセルフ承認ガードにより本人ではなくadminのみ承認可能になる）
+  if (profile?.role === "organizer" && !profile?.responsible_agent_id) {
     return NextResponse.json({ error: "No agent assigned" }, { status: 400 });
   }
+  const eventAgentId = profile?.role === "organizer" ? profile.responsible_agent_id : user.id;
 
   const body = await req.json();
   const { title, venue, start_at, end_at, artists, artist_ids, serial_scope } = body as {
@@ -51,7 +55,7 @@ export async function POST(req: Request) {
     .from("events")
     .insert({
       organizer_profile_id: user.id,
-      agent_id: profile.responsible_agent_id,
+      agent_id: eventAgentId,
       title,
       venue,
       start_at,

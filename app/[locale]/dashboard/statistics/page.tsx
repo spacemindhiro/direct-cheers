@@ -79,7 +79,8 @@ async function StatisticsContent() {
     totalReceivedTxCount = completedDists.length;
   }
 
-  if (role === "artist") {
+  // ロールは上位互換のため、organizer/agentに上がった後もartist時代の受取明細は表示し続ける
+  if (isEarner) {
     const { net_rate } = await getFeeConfig();
     const { data: salesData } = await supabase
       .from("transactions")
@@ -119,8 +120,8 @@ async function StatisticsContent() {
         </div>
       </section>
 
-      {/* ── アーティスト受取 ── */}
-      {role === "artist" && (
+      {/* ── アーティスト受取（organizer/agentに上がった後もartist実績があれば表示） ── */}
+      {artistTxCount > 0 && (
         <section className="space-y-3">
           <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
             <Zap size={12} className="text-indigo-400" /> 受け取りチア（累計）

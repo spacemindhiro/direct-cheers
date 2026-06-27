@@ -37,7 +37,8 @@ async function EventsContent() {
 
   const { data: events } = await query;
 
-  const canCreate = profile?.role === "organizer";
+  // ロールは上位互換（agent/adminはorganizerの業務も行える）のため、organizer以上を許可
+  const canCreate = ["organizer", "agent", "admin"].includes(profile?.role ?? "");
 
   return (
     <div className="space-y-8">

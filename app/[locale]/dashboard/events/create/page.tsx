@@ -17,7 +17,8 @@ async function EventCreateContent() {
     .eq("profile_id", user.id)
     .single();
 
-  if (profile?.role !== "organizer") redirect("/dashboard");
+  // ロールは上位互換（agent/adminはorganizerの業務も行える）のため、organizer以上を許可
+  if (!["organizer", "agent", "admin"].includes(profile?.role ?? "")) redirect("/dashboard");
   if (profile?.status !== "active") redirect("/dashboard");
 
   // コネクション済みアーティストを取得

@@ -254,8 +254,8 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         </div>
       )}
 
-      {/* PayPay設定（オーガナイザー） */}
-      {isOrganizer && !["settled", "cancelled"].includes(event.lifecycle_status) && (
+      {/* PayPay設定（オーガナイザー・エージェント） */}
+      {(isOrganizer || isAgent) && !["settled", "cancelled"].includes(event.lifecycle_status) && (
         <EventPayPayToggle
           eventId={eventId}
           enabled={(event as any).paypay_enabled ?? false}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { PLATFORM_PREFIX } from '@/lib/statement-descriptor';
 import {
   ArrowLeft, ArrowRight, Loader2, ExternalLink, Building2,
 } from 'lucide-react';
@@ -584,7 +585,7 @@ export default function BankSetupPage() {
           <div className="p-3 bg-slate-950/50 border border-slate-800 rounded-xl space-y-1">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">カード利用明細表示</p>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              先頭の「DC」は不正な明細表記によるチャージバックを防ぐためシステムが固定しています（カスタマイズ不可）。
+              先頭の「{PLATFORM_PREFIX}」は不正な明細表記によるチャージバックを防ぐためシステムが固定しています（カスタマイズ不可）。
               その後ろには、決済の宛先に応じて主催者名または演者名（プロフィール画面で設定）が自動で追加されます。
             </p>
           </div>

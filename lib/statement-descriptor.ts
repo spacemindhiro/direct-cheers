@@ -238,7 +238,7 @@ export function buildStatementDescriptorSuffixes(
 // ベース表記（account-level prefix）の制御
 //
 // account-levelのベース表記は、オーガナイザーによるカスタマイズを一切許可せず
-// 常に固定文字列 "DC"（Direct Cheers）とする。事業者名から可変のベースを
+// 常に固定文字列 "DC for"（Direct Cheers）とする。事業者名から可変のベースを
 // 組み立てる仕組みは廃止した（自由文字列を許すと動的suffixと結合した際に
 // 意味不明な明細になりチャージバックの原因になる上、「ベース＋suffix」以外の
 // 第三の可変要素を増やすこと自体が混乱の元になるため）。
@@ -246,12 +246,12 @@ export function buildStatementDescriptorSuffixes(
 // Stripeの合計文字数制限（prefix + 区切り + suffix の合計）:
 //   ASCII: 22文字 / カナ: 22文字 / 漢字: 17文字
 // 超過した場合、Stripeはベース（prefix）側を切り詰めてsuffixを優先表示する
-// （公式ドキュメントの記載に基づく）。"DC" は2文字のみのため、実運用で
-// このベース側が切り詰められることは基本的に発生しない。
-// ============================================================================
-
-/** account-levelベース表記・ASCII版/漢字版で使う固定文字列。"DC" = Direct Cheers。カスタマイズ不可。 */
-export const PLATFORM_PREFIX = "DC";
+// （公式ドキュメントの記載に基づく）。
+//
+// 元は"DC"（2文字）固定だったが、Stripe Connectアカウント作成時の
+// statement_descriptorには「単体で5文字以上」という別の検証があり、本番で
+// 口座登録が完全にブロックされる障害が発生したため、6文字の"DC for"に変更。
+export const PLATFORM_PREFIX = "DC for";
 
 const ASCII_TOTAL_MAX = 22;
 const KANA_TOTAL_MAX = 22;

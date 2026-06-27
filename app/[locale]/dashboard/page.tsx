@@ -244,7 +244,9 @@ async function DashboardContent() {
 
     isAgentOrAdmin
       ? (role === 'agent'
-          ? admin.from('events').select('event_id', { count: 'exact', head: true }).eq('agent_id', user!.id)
+          // セルフ主催（自分がorganizerも兼ねる）イベントはagent自身は承認できない
+          // （/api/events/[eventId]/approve のセルフ承認ガードと同条件）ためカウントから除外
+          ? admin.from('events').select('event_id', { count: 'exact', head: true }).eq('agent_id', user!.id).neq('organizer_profile_id', user!.id)
           : admin.from('events').select('event_id', { count: 'exact', head: true })
         ).eq('lifecycle_status', 'review_requested')
       : Promise.resolve({ count: 0, data: null }),

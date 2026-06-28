@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -17,6 +18,7 @@ function Form({ userEmail }: { userEmail: string | null }) {
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isComplete, setIsComplete] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,8 +26,13 @@ function Form({ userEmail }: { userEmail: string | null }) {
     setLoading(true);
     setError("");
 
-    const { error: confirmError } = await stripe.confirmSetup({
+    const { error: confirmError, setupIntent } = await stripe.confirmSetup({
       elements,
+      // 3DS認証が必要な場合のみリダイレクトする（不要な場合はその場で完了させる）。
+      // デフォルト（redirect未指定="always"）だと3DS不要でも常にリダイレクトに
+      // 依存してしまい、リダイレクト自体が何らかの理由で失敗すると
+      // ローディング画面のまま戻ってこなくなる障害が発生していた。
+      redirect: "if_required",
       confirmParams: {
         return_url: `${window.location.origin}/link-setup/complete`,
         ...(userEmail ? {
@@ -39,9 +46,20 @@ function Form({ userEmail }: { userEmail: string | null }) {
     if (confirmError) {
       setError(confirmError.message ?? "エラーが発生しました");
       setLoading(false);
+      return;
     }
-    // 成功時は return_url にリダイレクトされるためここには戻らない
+
+    if (setupIntent?.status === "succeeded") {
+      // 3DS不要だったケース。リダイレクトされないためここで完了表示に切り替える
+      setIsComplete(true);
+      setLoading(false);
+    }
+    // 3DS認証が必要な場合はここで return_url にリダイレクトされ、このコンポーネントは離脱する
   };
+
+  if (isComplete) {
+    return <LinkSetupComplete />;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -134,6 +152,29 @@ export function LinkSetupForm({ userEmail }: { userEmail: string | null }) {
 }
 
 export function LinkSetupComplete() {
+  // 3DS認証後にStripeからリダイレクトされてきた場合、redirect_statusで
+  // 実際の成否を確認する（3DS不要でその場完了したケースではクエリ自体が無い＝成功扱い）。
+  // これを見ずに常に成功表示していたため、3DS認証が失敗・キャンセルされても
+  // 「登録完了」と表示してしまう不具合があった。
+  const searchParams = useSearchParams();
+  const redirectStatus = searchParams.get("redirect_status");
+  const failed = redirectStatus === "failed" || redirectStatus === "canceled";
+
+  if (failed) {
+    return (
+      <div className="text-center space-y-4 py-10">
+        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/20 mx-auto">
+          <AlertCircle size={32} className="text-red-400" />
+        </div>
+        <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">登録できませんでした</h2>
+        <p className="text-sm text-slate-400">
+          カード認証が完了しませんでした。<br />
+          もう一度お試しください。
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="text-center space-y-4 py-10">
       <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20 mx-auto">

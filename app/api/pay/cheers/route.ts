@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     .select(`
       recipient_name_context,
       event:events!event_id(organizer_profile_id),
-      recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name)
+      recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii)
     `)
     .eq("qr_config_id", qr_config_id)
     .single();
@@ -78,6 +78,8 @@ export async function POST(req: Request) {
     organizerName: recipientRow?.organizer_name,
     artistName: recipientRow?.artist_name,
     recipientDisplayName: recipientRow?.display_name,
+    organizerNameAscii: recipientRow?.organizer_name_ascii,
+    artistNameAscii: recipientRow?.artist_name_ascii,
   });
 
   // 事前登録済みカスタマーIDを引く

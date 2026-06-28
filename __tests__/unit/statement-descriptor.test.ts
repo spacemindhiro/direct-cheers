@@ -372,6 +372,48 @@ describe("TC-SD-06: プレビュー表示と本番送信値（suffix）の整合
     expect(preview.kanji).toBe(prod.suffixKanji ?? null);
   });
 
+  it("漢字名のみ・ASCII上書き無し: suffix（ASCII）は空、suffixKanjiには漢字名が反映される", () => {
+    const prod = buildStatementDescriptorSuffixes({
+      isEntrance: false,
+      recipientNameContext: "artist",
+      artistName: "宇宙太郎",
+    });
+    expect(prod.suffix).toBeUndefined();
+    expect(prod.suffixKanji).toBe("宇宙太郎");
+  });
+
+  it("漢字名 + ASCII上書きあり: suffixは上書き値、suffixKanjiは元の漢字名のまま", () => {
+    const prod = buildStatementDescriptorSuffixes({
+      isEntrance: false,
+      recipientNameContext: "artist",
+      artistName: "宇宙太郎",
+      artistNameAscii: "DJ COSMOTARO",
+    });
+    expect(prod.suffix).toBe("DJ COSMOTARO");
+    expect(prod.suffixKanji).toBe("宇宙太郎");
+  });
+
+  it("主催者名義でもASCII上書きが効く（organizerNameAscii）", () => {
+    const prod = buildStatementDescriptorSuffixes({
+      isEntrance: true,
+      recipientNameContext: "organizer",
+      organizerName: "宇宙運営委員会",
+      organizerNameAscii: "SPACE COMMITTEE",
+    });
+    expect(prod.suffix).toBe("SPACE COMMITTEE");
+    expect(prod.suffixKanji).toBe("宇宙運営委員会");
+  });
+
+  it("ASCII上書きが空文字の場合は無視され、元の名前からの自動生成にフォールバックする", () => {
+    const prod = buildStatementDescriptorSuffixes({
+      isEntrance: false,
+      recipientNameContext: "artist",
+      artistName: "DJ HIRO",
+      artistNameAscii: "",
+    });
+    expect(prod.suffix).toBe("DJ HIRO");
+  });
+
   it("長い名前で切り詰めが発生するケースでも、プレビューと本番のsuffixが一致する", () => {
     const name = "SPACE BBQ FESTIVAL ORGANIZING COMMITTEE 2026";
     const preview = previewSuffixes(name);

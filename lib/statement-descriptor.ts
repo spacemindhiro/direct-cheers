@@ -221,14 +221,30 @@ export type StatementDescriptorSuffixes = {
  * 名前解決 + ASCII/カナ/漢字3種のサニタイズをまとめて行う。
  * 日本語名前の場合、ASCII版は空（undefined）になり、kanji版（場合によりkana版も）に
  * 反映される。3種とも独立して判定するため、呼び出し側は該当するフィールドにそれぞれ渡す。
+ *
+ * organizerNameAscii/artistNameAsciiが指定されていれば、ASCII版（suffix）だけ
+ * それを優先して使う（kana/kanji版は常にorganizerName/artistNameから生成）。
+ * 漢字名の場合にASCII版が空になり海外発行カードで明細なしになる問題への対応。
  */
 export function buildStatementDescriptorSuffixes(
-  params: Parameters<typeof resolveStatementDescriptorSource>[0],
+  params: Parameters<typeof resolveStatementDescriptorSource>[0] & {
+    organizerNameAscii?: string | null;
+    artistNameAscii?: string | null;
+  },
 ): StatementDescriptorSuffixes {
   const source = resolveStatementDescriptorSource(params);
   if (!source) return {};
+
+  const asciiOverrideSource = resolveStatementDescriptorSource({
+    isEntrance: params.isEntrance,
+    recipientNameContext: params.recipientNameContext,
+    organizerName: params.organizerNameAscii?.trim() || null,
+    artistName: params.artistNameAscii?.trim() || null,
+    recipientDisplayName: null,
+  });
+
   return {
-    suffix: sanitizeStatementDescriptorSuffix(source, 19) ?? undefined,
+    suffix: sanitizeStatementDescriptorSuffix(asciiOverrideSource ?? source, 19) ?? undefined,
     suffixKana: sanitizeStatementDescriptorSuffixKana(source, 22) ?? undefined,
     suffixKanji: sanitizeStatementDescriptorSuffixKanji(source, 17) ?? undefined,
   };

@@ -18,6 +18,8 @@ type Props = {
   role: 'artist' | 'organizer';
   /** 入力中の名前（artist_name または organizer_name） */
   name: string;
+  /** 海外カード明細（ASCII）用の英字表記の上書き値。指定があればASCII版だけこちらを使う */
+  nameAscii?: string;
 };
 
 /**
@@ -25,14 +27,16 @@ type Props = {
  * 事業者名から作る別のベース表記（オンボーディング/bank-setup画面の専用機能）は、
  * このプレビューとは無関係な別レイヤーなので一切混ぜない。
  */
-export function StatementDescriptorPreview({ role, name }: Props) {
+export function StatementDescriptorPreview({ role, name, nameAscii }: Props) {
   const isArtistRole = role === 'artist';
   const trimmedName = name.trim();
+  const trimmedNameAscii = nameAscii?.trim();
   const isPlaceholder = !trimmedName;
   const suffixSourceRaw = trimmedName || (isArtistRole ? 'DJ TARO' : 'TARO EVENTS');
+  const suffixAsciiSourceRaw = trimmedNameAscii || suffixSourceRaw;
   const suffixLabel = isArtistRole ? '演者名' : '主催者名';
 
-  const suffixAscii = sanitizeStatementDescriptorSuffix(suffixSourceRaw, 19);
+  const suffixAscii = sanitizeStatementDescriptorSuffix(suffixAsciiSourceRaw, 19);
   const suffixKanji = sanitizeStatementDescriptorSuffixKanji(suffixSourceRaw, 17);
 
   const { combined: combinedKanji } = combineDescriptorPreview(

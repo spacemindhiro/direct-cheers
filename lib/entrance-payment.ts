@@ -44,7 +44,7 @@ export async function buildEntrancePaymentParams(
 ): Promise<EntrancePaymentParams> {
   const { data: event } = await admin
     .from("events")
-    .select("organizer_profile_id, organizer:profiles!organizer_profile_id(organizer_name, display_name, stripe_connect_id)")
+    .select("organizer_profile_id, organizer:profiles!organizer_profile_id(organizer_name, organizer_name_ascii, display_name, stripe_connect_id)")
     .eq("event_id", eventId)
     .single();
 
@@ -56,6 +56,7 @@ export async function buildEntrancePaymentParams(
       recipientNameContext: "organizer",
       organizerName: organizerRow?.organizer_name,
       recipientDisplayName: organizerRow?.display_name,
+      organizerNameAscii: organizerRow?.organizer_name_ascii,
     });
 
   if (!event?.organizer_profile_id) {

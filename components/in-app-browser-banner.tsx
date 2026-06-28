@@ -35,6 +35,7 @@ export function InAppBrowserBanner() {
   const [platform, setPlatform] = useState<Platform>("unknown");
   const [copied, setCopied] = useState(false);
   const [intentUrl, setIntentUrl] = useState("");
+  const [safariUrl, setSafariUrl] = useState("");
 
   useEffect(() => {
     const result = detect(navigator.userAgent);
@@ -44,6 +45,12 @@ export function InAppBrowserBanner() {
       setPlatform(result.platform);
       if (result.platform === "android") {
         setIntentUrl(buildChromeIntentUrl(window.location.href));
+      }
+      // x-safari-https:// はApple非公式だが長年実績のあるスキーム。
+      // LINE等のアプリ内WebViewはこのスキームをハンドルできないことが多いため、
+      // 名前付きアプリ（appName非空）では出さず、iOS+非Safariブラウザ（Chrome等）限定で使う。
+      if (result.platform === "ios" && result.appName === "") {
+        setSafariUrl(window.location.href.replace(/^https?:\/\//, "x-safari-https://"));
       }
     }
   }, []);
@@ -91,6 +98,14 @@ export function InAppBrowserBanner() {
             >
               <ExternalLink size={11} />
               Chromeで開く
+            </a>
+          ) : safariUrl ? (
+            <a
+              href={safariUrl}
+              className="flex items-center gap-1.5 h-8 px-3 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/20 rounded-lg text-[10px] font-black text-amber-300 transition-all"
+            >
+              <ExternalLink size={11} />
+              Safariで開く
             </a>
           ) : (
             <button

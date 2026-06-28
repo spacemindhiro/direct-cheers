@@ -8,12 +8,13 @@ import { useRouter } from 'next/navigation';
 import {
   User, Music, Globe, Camera,
   ArrowLeft, Loader2, Save, Mic2, CalendarDays, Shield, Smartphone, Share, Plus,
-  CheckCircle, Clock, AlertCircle, Building2, Tag, FileText, Layers, ChevronRight,
+  CheckCircle, Clock, AlertCircle, Building2, Tag, FileText, Layers, ChevronRight, Receipt,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PwaInstallButton } from '@/components/pwa-install-button';
 import { StatementDescriptorPreview } from '@/components/statement-descriptor-preview';
 import { AvatarUploadField } from '@/components/avatar-upload-field';
+import { sanitizeStatementDescriptorSuffix } from '@/lib/statement-descriptor';
 
 type Profile = {
   display_name: string;
@@ -30,6 +31,8 @@ type Profile = {
   organization_name: string | null;
   artist_name: string | null;
   organizer_name: string | null;
+  artist_name_ascii: string | null;
+  organizer_name_ascii: string | null;
   artist_avatar_url: string | null;
   organizer_avatar_url: string | null;
 };
@@ -81,6 +84,8 @@ export default function ProfileEditPage() {
   const [organizationName, setOrganizationName] = useState('');
   const [artistName, setArtistName] = useState('');
   const [organizerName, setOrganizerName] = useState('');
+  const [artistNameAscii, setArtistNameAscii] = useState('');
+  const [organizerNameAscii, setOrganizerNameAscii] = useState('');
   const [artistAvatarUrl, setArtistAvatarUrl] = useState('');
   const [organizerAvatarUrl, setOrganizerAvatarUrl] = useState('');
 
@@ -106,6 +111,11 @@ export default function ProfileEditPage() {
     setOrganizationName(data.organization_name ?? '');
     setArtistName(data.artist_name ?? '');
     setOrganizerName(data.organizer_name ?? '');
+    // 海外カード明細用の英字表記。未設定なら名前から自動生成した値を表示する
+    // （DBにはnullのまま=自動生成にお任せの状態。ユーザーが編集して保存すると
+    // 明示的な上書きとして保存される。空にして保存すれば自動生成に戻る）
+    setArtistNameAscii(data.artist_name_ascii ?? sanitizeStatementDescriptorSuffix(data.artist_name) ?? '');
+    setOrganizerNameAscii(data.organizer_name_ascii ?? sanitizeStatementDescriptorSuffix(data.organizer_name) ?? '');
     setArtistAvatarUrl(data.artist_avatar_url ?? '');
     setOrganizerAvatarUrl(data.organizer_avatar_url ?? '');
   };
@@ -121,7 +131,7 @@ export default function ProfileEditPage() {
 
     const { data: extData } = await supabase
       .from('profiles')
-      .select('bio, affiliation, credit_name, genre, organization_name, artist_name, organizer_name, artist_avatar_url, organizer_avatar_url')
+      .select('bio, affiliation, credit_name, genre, organization_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii, artist_avatar_url, organizer_avatar_url')
       .eq('profile_id', userId)
       .single();
 
@@ -194,6 +204,7 @@ export default function ProfileEditPage() {
       if (role === 'organizer' || role === 'agent') {
         updates.organization_name     = organizationName.trim() || null;
         updates.organizer_name        = organizerName.trim() || null;
+        updates.organizer_name_ascii  = organizerNameAscii.trim() || null;
         updates.organizer_avatar_url  = organizerAvatarUrl.trim() || null;
       }
       // artist_name/artist_avatar_url は「アーティスト専用」セクション（role='artist'）と
@@ -203,6 +214,7 @@ export default function ProfileEditPage() {
       // 元の値に戻り「消えた」ように見える）バグがあった。
       if (role === 'artist' || role === 'organizer' || role === 'agent') {
         updates.artist_name       = artistName.trim() || null;
+        updates.artist_name_ascii = artistNameAscii.trim() || null;
         updates.artist_avatar_url = artistAvatarUrl.trim() || null;
       }
 
@@ -331,7 +343,12 @@ export default function ProfileEditPage() {
               hint="演者名義のチアで使われる画像（Walletカード等）。未設定なら基本のアバター画像を使用">
               <AvatarUploadField value={artistAvatarUrl} onChange={setArtistAvatarUrl} placeholderLabel="演者用の画像を選択" />
             </Field>
-            <StatementDescriptorPreview role="artist" name={artistName} />
+            <Field label="海外カード明細用の英字表記" icon={<Receipt size={11} className="text-pink-500" />} optional
+              hint="海外発行カードの利用明細はアーティスト名の漢字部分が表示されないため、英字表記を個別に指定できます。未入力ならアーティスト名から自動生成">
+              <input type="text" value={artistNameAscii} onChange={(e) => setArtistNameAscii(e.target.value)}
+                placeholder="例: DJ TARO" className={inputClass} />
+            </Field>
+            <StatementDescriptorPreview role="artist" name={artistName} nameAscii={artistNameAscii} />
             <Field label="クレジット表記" icon={<Tag size={11} className="text-pink-500" />} optional
               hint="フライヤーやレシートに表示される正式クレジット名">
               <input type="text" value={creditName} onChange={(e) => setCreditName(e.target.value)}
@@ -367,7 +384,12 @@ export default function ProfileEditPage() {
               hint="主催者名義のチアで使われる画像（Walletカード等）。未設定なら基本のアバター画像を使用">
               <AvatarUploadField value={organizerAvatarUrl} onChange={setOrganizerAvatarUrl} placeholderLabel="主催者用の画像を選択" />
             </Field>
-            <StatementDescriptorPreview role="organizer" name={organizerName} />
+            <Field label="海外カード明細用の英字表記" icon={<Receipt size={11} className="text-pink-500" />} optional
+              hint="海外発行カードの利用明細は主催者名の漢字部分が表示されないため、英字表記を個別に指定できます。未入力なら主催者名から自動生成">
+              <input type="text" value={organizerNameAscii} onChange={(e) => setOrganizerNameAscii(e.target.value)}
+                placeholder="例: TARO EVENTS" className={inputClass} />
+            </Field>
+            <StatementDescriptorPreview role="organizer" name={organizerName} nameAscii={organizerNameAscii} />
             <Field label="活動団体名" icon={<Building2 size={11} className="text-pink-500" />} optional>
               <input type="text" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)}
                 placeholder="例: XYZ PRODUCTION / RESIDENT COLLECTIVE" className={inputClass} />
@@ -392,7 +414,12 @@ export default function ProfileEditPage() {
               hint="演者名義のチアで使われる画像（Walletカード等）。未設定なら基本のアバター画像を使用">
               <AvatarUploadField value={artistAvatarUrl} onChange={setArtistAvatarUrl} placeholderLabel="演者用の画像を選択" />
             </Field>
-            <StatementDescriptorPreview role="artist" name={artistName} />
+            <Field label="海外カード明細用の英字表記" icon={<Receipt size={11} className="text-pink-500" />} optional
+              hint="海外発行カードの利用明細はアーティスト名の漢字部分が表示されないため、英字表記を個別に指定できます。未入力ならアーティスト名から自動生成">
+              <input type="text" value={artistNameAscii} onChange={(e) => setArtistNameAscii(e.target.value)}
+                placeholder="例: DJ TARO" className={inputClass} />
+            </Field>
+            <StatementDescriptorPreview role="artist" name={artistName} nameAscii={artistNameAscii} />
           </div>
         )}
 

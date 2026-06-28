@@ -33,6 +33,7 @@ export function AddToHomeScreen() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [showIosModal, setShowIosModal] = useState(false);
+  const [safariUrl, setSafariUrl] = useState('');
 
   useEffect(() => {
     // ホーム画面から起動済みなら表示しない
@@ -45,6 +46,10 @@ export function AddToHomeScreen() {
 
     const p = detectPlatform();
     setPlatform(p);
+    if (p === 'ios-non-safari') {
+      // x-safari-https:// はApple非公式だが長年実績のあるスキーム
+      setSafariUrl(window.location.href.replace(/^https?:\/\//, 'x-safari-https://'));
+    }
 
     if (p === 'android') {
       const handler = (e: Event) => {
@@ -129,11 +134,17 @@ export function AddToHomeScreen() {
                   <div className="w-9 h-9 bg-slate-800 rounded-xl flex items-center justify-center shrink-0 border border-slate-700">
                     <Compass size={16} className="text-slate-300" />
                   </div>
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-black text-white">1. Safariでこのページを開く</p>
                     <p className="text-xs text-slate-500 mt-0.5">
                       iOSの仕様上、Chrome等からはホーム画面に追加できません。一度Safariで開いてください（最初だけです）
                     </p>
+                    <a
+                      href={safariUrl}
+                      className="inline-flex items-center gap-1.5 mt-2 h-8 px-3 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 rounded-lg text-[10px] font-black text-indigo-300 transition-all"
+                    >
+                      <Compass size={12} /> Safariで開く
+                    </a>
                   </div>
                 </div>
 

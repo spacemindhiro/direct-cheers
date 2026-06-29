@@ -3,10 +3,16 @@ import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
-import { ShieldCheck, Loader2, Clock } from "lucide-react";
+import { ShieldCheck, Loader2, Clock, FileSignature, ChevronRight } from "lucide-react";
 import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import { AdminConnectReview } from "@/components/admin-connect-review";
 import { AdminRetryPendingTransferButton } from "@/components/admin-retry-pending-transfer-button";
+
+const ROLE_LABELS: Record<string, string> = {
+  agent: "エージェント",
+  organizer: "オーガナイザー",
+  artist: "アーティスト / DJ",
+};
 
 function fmt(n: number) {
   return `¥${n.toLocaleString("ja-JP")}`;
@@ -32,6 +38,25 @@ async function ConnectReviewContent() {
     .eq("verification_status", "pending")
     .order("created_at", { ascending: true });
 
+  // 口座承認は完了済みだが、organizer/agentに必須の調印式（対面確認）がまだの人。
+  // 口座承認と調印式は独立した手続きで、調印式を後回しにして口座だけ先に
+  // 有効化したいケース（例: オーガナイザー登録したが最初はアーティストとして
+  // 使う）があるため、承認後もここに残して忘れないようにする。
+  const { data: verifiedOrganizersAndAgents } = await admin
+    .from("profiles")
+    .select("profile_id, display_name, role, created_at")
+    .eq("verification_status", "verified")
+    .in("role", ["organizer", "agent"])
+    .order("created_at", { ascending: true });
+
+  const { data: signedDocs } = await admin
+    .from("signed_documents")
+    .select("profile_id");
+  const signedProfileIds = new Set((signedDocs ?? []).map((d) => d.profile_id));
+  const needsSigning = (verifiedOrganizersAndAgents ?? []).filter(
+    (u) => !signedProfileIds.has(u.profile_id),
+  );
+
   // オンボーディング未完了で settle 時にTransferできずプールされている分配
   const { data: pendingTransfers } = await admin
     .from("pending_connect_transfers")
@@ -50,6 +75,38 @@ async function ConnectReviewContent() {
           審査待ち — {pendingUsers?.length ?? 0}件
         </p>
         <AdminConnectReview users={pendingUsers ?? []} />
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
+          口座承認済み・調印式待ち — {needsSigning.length}件
+        </p>
+        {needsSigning.length === 0 ? (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center">
+            <p className="text-slate-600 text-sm font-bold">調印式待ちのユーザーはいません</p>
+          </div>
+        ) : (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-800">
+            {needsSigning.map((u) => (
+              <Link
+                key={u.profile_id}
+                href={`/admin/terms/sign/${u.profile_id}`}
+                className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-800/50 transition-colors group"
+              >
+                <div className="min-w-0 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center shrink-0">
+                    <FileSignature size={14} className="text-amber-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{u.display_name ?? "—"}</p>
+                    <p className="text-[10px] text-slate-500">{ROLE_LABELS[u.role] ?? u.role}・口座は有効化済み</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-slate-600 group-hover:text-amber-400 transition-colors shrink-0" />
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">

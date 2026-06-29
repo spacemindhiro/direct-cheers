@@ -7,6 +7,7 @@ import { ShieldCheck, Loader2, Clock, FileSignature, ChevronRight } from "lucide
 import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import { AdminConnectReview } from "@/components/admin-connect-review";
 import { AdminRetryPendingTransferButton } from "@/components/admin-retry-pending-transfer-button";
+import { getRequiredTermsTypes } from "@/lib/terms";
 
 const ROLE_LABELS: Record<string, string> = {
   agent: "エージェント",
@@ -49,13 +50,25 @@ async function ConnectReviewContent() {
     .in("role", ["organizer", "agent"])
     .order("created_at", { ascending: true });
 
+  // signed_documentsは1人につき複数レコードを持ちうる（ロールが上がるたびに
+  // 追加で署名するため）。「行が1件でもあるか」だけでは、organizerとして署名済みの
+  // 人がagentに上がった場合にagent規約への署名漏れを見逃してしまうため、
+  // 現在のroleが要求する全タイプ（getRequiredTermsTypes）が、その人の
+  // signed_documents全レコードのterms_typesを合算した集合に含まれているかで判定する。
   const { data: signedDocs } = await admin
     .from("signed_documents")
-    .select("profile_id");
-  const signedProfileIds = new Set((signedDocs ?? []).map((d) => d.profile_id));
-  const needsSigning = (verifiedOrganizersAndAgents ?? []).filter(
-    (u) => !signedProfileIds.has(u.profile_id),
-  );
+    .select("profile_id, terms_types");
+  const signedTypesByProfile = new Map<string, Set<string>>();
+  for (const d of signedDocs ?? []) {
+    const set = signedTypesByProfile.get(d.profile_id) ?? new Set<string>();
+    for (const t of d.terms_types ?? []) set.add(t);
+    signedTypesByProfile.set(d.profile_id, set);
+  }
+  const needsSigning = (verifiedOrganizersAndAgents ?? []).filter((u) => {
+    const required = getRequiredTermsTypes(u.role);
+    const signedTypes = signedTypesByProfile.get(u.profile_id) ?? new Set<string>();
+    return !required.every((t) => signedTypes.has(t));
+  });
 
   // オンボーディング未完了で settle 時にTransferできずプールされている分配
   const { data: pendingTransfers } = await admin

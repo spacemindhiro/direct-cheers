@@ -123,6 +123,50 @@ describe("TC-CRW-01: account.updated（details_submitted=true）でverification_
   });
 });
 
+describe("TC-CRW-04: adminのstatusが'pending_onboarding'（本番の実態）でも通知が届く", () => {
+  it("admin.statusで絞り込んでいないため、status='active'でなくても通知が作られる", async () => {
+    // 本番のadminは口座開設をしないため status は永久に 'pending_onboarding' のまま。
+    // ここでstatusをactive以外に変えてもadmin検索にヒットすることを確認する
+    // （admin検索にstatus='active'を要求していたことが原因で、adminへのメール送信が
+    // 一度も実行されていなかった障害の再発防止）。
+    await testAdmin
+      .from("profiles")
+      .update({ status: "pending_onboarding" })
+      .eq("profile_id", adminProfileId);
+
+    const ts = Date.now();
+    const profileId = await insertProfile({
+      role: "artist",
+      displayName: "テストアーティスト（CRW admin status）",
+      email: `artist-crw-adminstatus-${ts}@test.local`,
+      stripeConnectId: `acct_test_crw_adminstatus_${ts}`,
+    });
+    cleanup.profileIds.push(profileId);
+
+    await postWebhook(buildAccountUpdatedEvent({
+      accountId: `acct_test_crw_adminstatus_${ts}`,
+      detailsSubmitted: true,
+      chargesEnabled: true,
+      payoutsEnabled: true,
+    }));
+
+    const { data: notif } = await testAdmin
+      .from("notifications")
+      .select("profile_id")
+      .eq("profile_id", adminProfileId)
+      .eq("type", "connect_review_request")
+      .contains("metadata", { subject_profile_id: profileId })
+      .maybeSingle();
+    expect(notif?.profile_id).toBe(adminProfileId);
+
+    // 後続テストに影響しないよう元に戻す
+    await testAdmin
+      .from("profiles")
+      .update({ status: "active" })
+      .eq("profile_id", adminProfileId);
+  });
+});
+
 describe("TC-CRW-02: details_submitted=false の場合は何も起きない", () => {
   it("verification_statusはunverifiedのまま", async () => {
     const ts = Date.now();

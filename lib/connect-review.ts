@@ -33,12 +33,16 @@ export async function advanceToReviewPendingIfNeeded(
     .update({ verification_status: "pending" })
     .eq("profile_id", profileId);
 
-  // 通知先: ロールにかかわらず常に admin（オーナー）のみ。口座付与の最終権限はオーナーが持つ
+  // 通知先: ロールにかかわらず常に admin（オーナー）のみ。口座付与の最終権限はオーナーが持つ。
+  // statusは口座開設オンボーディングの進行状況を表すカラムで、admin自身は口座を
+  // 持たないため永久にactiveにならない。statusでの絞り込みがあったため、
+  // adminへのメール送信（DB通知insertも含む）が一度も実行されていなかった
+  // （他の通知箇所 cancel/route.ts, request-review/route.ts, evidence/route.ts は
+  // いずれもroleのみで検索しており、statusを要求していたのはここだけだった）。
   const { data: admins } = await admin
     .from("profiles")
     .select("profile_id")
     .eq("role", "admin")
-    .eq("status", "active")
     .limit(1);
   const notifyProfileId: string | null = admins?.[0]?.profile_id ?? null;
 

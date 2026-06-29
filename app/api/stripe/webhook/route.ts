@@ -5,6 +5,7 @@ import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 import { retryPendingTransfersForProfile } from "@/lib/pending-transfers";
+import { advanceToReviewPendingIfNeeded } from "@/lib/connect-review";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 // Stripeの送信先は1つにつき1つのスコープ（自社アカウント/連結アカウント）しか
@@ -82,6 +83,15 @@ export async function POST(req: Request) {
             .from("profiles")
             .update({ stripe_restricted: isRestricted })
             .eq("profile_id", targetProfile.profile_id);
+
+          // /api/stripe/connect/status（connect-returnページ到達時のみ呼ばれる）
+          // だけに依存すると、ユーザーがそのページに到達しなかった場合
+          // （リダイレクト失敗・ページを閉じる等）永久にunverifiedのままになり
+          // adminに通知が届かない障害があった。Webhookからも同じ処理を呼び、
+          // ページ到達に依存しないセーフティネットにする。
+          if (account.details_submitted) {
+            await advanceToReviewPendingIfNeeded(admin, targetProfile.profile_id);
+          }
 
           if (isRestricted && !targetProfile.stripe_restricted) {
             const due = account.requirements?.currently_due ?? [];

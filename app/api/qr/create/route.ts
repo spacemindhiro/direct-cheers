@@ -99,6 +99,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // organizer は有効期間バイパスを使用不可
+  const effectiveBypassValidity = me?.role === "organizer" ? false : bypass_validity;
+
   // 金額バリデーション（DB定義を参照）
   const productTypeRanges = await getProductTypeRanges(supabase);
   const range = productTypeRanges[product_type];
@@ -151,7 +154,7 @@ export async function POST(req: Request) {
     p_stock_limit:          stock_limit,
     p_track_inventory:      track_inventory,
     p_serial_scope:         serial_scope,
-    p_bypass_validity:      bypass_validity,
+    p_bypass_validity:      effectiveBypassValidity,
     p_strip_image_url:      strip_image_url,
     p_bg_color:             bg_color,
     p_fg_color:             fg_color,

@@ -38,6 +38,7 @@ export function QRCreateForm({
   paypayEnabled = false,
   organizerBalance = 0,
   productTypeConfigs = [],
+  userRole = "",
 }: {
   eventId: string;
   eventTitle?: string;
@@ -48,6 +49,7 @@ export function QRCreateForm({
   paypayEnabled?: boolean;
   organizerBalance?: number;
   productTypeConfigs?: ProductTypeConfig[];
+  userRole?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -718,8 +720,8 @@ export function QRCreateForm({
           </div>
         </div>
 
-        {/* テスト用バイパス */}
-        <div className="flex items-center justify-between bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3">
+        {/* テスト用バイパス（organizer は使用不可） */}
+        {userRole !== "organizer" && <div className="flex items-center justify-between bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3">
           <div>
             <p className="text-xs font-black text-amber-400">テスト用：有効期間バイパス</p>
             <p className="text-[10px] text-slate-500 mt-0.5">ONにするとイベント時間外でも決済可能になります</p>
@@ -733,7 +735,7 @@ export function QRCreateForm({
           >
             <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${bypassValidity ? "translate-x-5" : "translate-x-1"}`} />
           </button>
-        </div>
+        </div>}
 
         {error && <p className="text-sm text-red-400 font-bold">{error}</p>}
       </div>

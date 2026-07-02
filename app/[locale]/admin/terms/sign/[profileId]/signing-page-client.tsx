@@ -130,7 +130,9 @@ export function SigningPageClient({ profileId }: { profileId: string }) {
       <div className="max-w-5xl mx-auto px-8 py-8 space-y-8 pb-32">
 
         {/* 書面タイトル */}
-        <div className="text-center space-y-3 py-6 border-b border-slate-800">
+        <div className="relative text-center space-y-3 py-6 border-b border-slate-800">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/dc-seal.png" alt="" className="absolute right-0 top-4 w-24 h-24 opacity-70" />
           <p className="text-sm font-black text-slate-500 uppercase tracking-[0.4em]">Direct Cheers</p>
           <h1 className="text-4xl font-black text-white">利用規約 同意書</h1>
           <p className="text-base text-slate-500">{today}</p>

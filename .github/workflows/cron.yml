@@ -1,12 +1,14 @@
-name: Cron Jobs (Vercel Hobbyプラン代替)
+name: Cron Jobs
 
 on:
   schedule:
     # UTC表記。JST = UTC+9（UTC 15:00/20:00は「翌日」のJST 0:00/5:00になる）
-    - cron: '0 15 * * *'  # 00:00 JST → entrance-auth（日付が変わったら即時）
+    - cron: '0 15 * * *'  # 00:00 JST → entrance-auth
     - cron: '0 20 * * *'  # 05:00 JST → reconcile
+    - cron: '0 21 * * *'  # 06:00 JST → retry-pending-transfers
     - cron: '0 0 * * *'   # 09:00 JST → entrance-card-check
     - cron: '0 1 * * *'   # 10:00 JST → check-auth-expiry
+    - cron: '0 2 1 * *'   # 11:00 JST (毎月1日) → monthly-accounting
   workflow_dispatch:      # 手動実行も可能
 
 env:
@@ -107,6 +109,54 @@ jobs:
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "$PROD_URL/api/admin/check-auth-expiry" \
+            -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  retry-pending-transfers-stg:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 21 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 未送金Transfer再試行バッチ - STG (06:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$STG_URL/api/cron/retry-pending-transfers" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  retry-pending-transfers-prod:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 21 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 未送金Transfer再試行バッチ - PROD (06:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$PROD_URL/api/cron/retry-pending-transfers" \
+            -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  monthly-accounting-stg:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 2 1 * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 月次会計集計バッチ - STG (毎月1日 11:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$STG_URL/api/cron/monthly-accounting" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  monthly-accounting-prod:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 2 1 * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 月次会計集計バッチ - PROD (毎月1日 11:00 JST)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$PROD_URL/api/cron/monthly-accounting" \
             -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
           echo "HTTP $STATUS"
           [ "$STATUS" = "200" ] || exit 1

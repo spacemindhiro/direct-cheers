@@ -44,6 +44,25 @@ export async function deleteTestConnectAccount(accountId: string): Promise<void>
   }
 }
 
+// プラットフォームアカウントの available balance を補充する（テストモード専用）。
+// charge_id なし（source_transaction なし）のプレーンTransferはavailable balanceから引き落とすため、
+// CIが繰り返されると枯渇する。pm_card_bypassPending (=4000000000000077) は
+// 即座にavailableになるStripeテスト用カードなので補充に使う。
+export async function topUpTestBalance(amountJpy: number = 50000): Promise<void> {
+  try {
+    await stripe.paymentIntents.create({
+      amount: amountJpy,
+      currency: "jpy",
+      capture_method: "automatic",
+      payment_method: "pm_card_bypassPending",
+      confirm: true,
+      return_url: "http://localhost:3000",
+    });
+  } catch (err: any) {
+    console.warn("[stripe-fixtures] topUp失敗（テスト継続）:", err.message);
+  }
+}
+
 // PaymentIntent を作成（requires_capture 状態で返す）
 // on_behalf_of のみ設定し transfer_data.destination は使わない。
 // settle 時に source_transaction で organizer / artist へ個別 Transfer するため。

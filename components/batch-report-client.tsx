@@ -111,7 +111,10 @@ export function BatchReportClient({ reports, initialDetails }: {
                         : "border-slate-800/50 hover:bg-slate-900/50"
                     } ${isSelected ? "ring-1 ring-inset ring-pink-500/30" : ""}`}
                   >
-                    <td className="py-3 pr-4 text-slate-400 text-xs whitespace-nowrap">{r.process_date}</td>
+                    <td className="py-3 pr-4 text-slate-400 text-xs whitespace-nowrap">
+                      {r.process_date}
+                      <span className="block text-[10px] text-slate-600">{new Date(r.created_at).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" })}</span>
+                    </td>
                     <td className="py-3 pr-4 text-white font-bold text-xs">{r.task_name}</td>
                     <td className="py-3 pr-4 text-slate-300 text-xs text-right">{r.target_count.toLocaleString()}件</td>
                     <td className="py-3 pr-4 text-slate-300 text-xs text-right">{fmt(r.target_amount)}</td>

@@ -59,11 +59,13 @@ export function ArtistSettlementClient({
             <p className="text-sm text-slate-400 mt-0.5 print:text-slate-600">{event.startStr}{event.venue ? ` — ${event.venue}` : ""}</p>
             <p className="text-xs text-slate-600 mt-1 print:text-slate-400">{approvedAtStr ? `精算確定: ${approvedAtStr}` : "精算確定済み"}</p>
           </div>
-          <div className="text-right">
+          <div className="flex flex-col items-end gap-3">
             <button onClick={() => window.print()} className="flex items-center gap-2 text-xs font-black text-slate-400 hover:text-white border border-slate-800 hover:border-slate-600 px-3 py-2 rounded-xl transition-all print:hidden">
               <Printer size={14} /> 印刷
             </button>
-            <p className="text-xs text-slate-600 mt-2 print:text-slate-500">受取人: {artistName}</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/dc-seal.png" alt="" className="w-20 h-20 opacity-70 print:opacity-90" />
+            <p className="text-xs text-slate-600 print:text-slate-500">受取人: {artistName}</p>
           </div>
         </div>
 

@@ -55,7 +55,17 @@ export async function GET(request: Request) {
     .maybeSingle();
 
   if (profile) {
-    return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
+    const res = NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
+    // マジックリンク（token_hashフロー）はメールOTPで本人確認済みなのでstep-upをバイパスする
+    if (token_hash && type === 'email') {
+      res.cookies.set('dc_stepup', String(Date.now()), {
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: 480 * 60,
+        path: '/',
+      });
+    }
+    return res;
   }
 
   // Google 等 OAuth ログインはオンボーディング不要

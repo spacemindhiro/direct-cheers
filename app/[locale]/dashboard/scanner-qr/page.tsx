@@ -1,11 +1,12 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ScannerQrClient } from "@/components/scanner-qr-client";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
-export default async function ScannerQrPage() {
+async function ScannerQrContent() {
   const user = await getUser();
   if (!user) redirect("/auth/login");
 
@@ -37,5 +38,17 @@ export default async function ScannerQrPage() {
 
       <ScannerQrClient />
     </div>
+  );
+}
+
+export default function ScannerQrPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin text-slate-600" size={24} />
+      </div>
+    }>
+      <ScannerQrContent />
+    </Suspense>
   );
 }

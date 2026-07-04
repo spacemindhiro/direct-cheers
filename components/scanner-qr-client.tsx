@@ -37,9 +37,8 @@ export function ScannerQrClient() {
     if (!url || !canvasRef.current) return;
     import("qrcode").then(({ default: QRCode }) => {
       QRCode.toCanvas(canvasRef.current!, url, {
-        width: 400,
+        width: 300,
         margin: 2,
-        errorCorrectionLevel: "L",
         color: { dark: "#000000", light: "#ffffff" },
       }).catch(console.error);
     });

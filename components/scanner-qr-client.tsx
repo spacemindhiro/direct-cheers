@@ -37,8 +37,9 @@ export function ScannerQrClient() {
     if (!url || !canvasRef.current) return;
     import("qrcode").then(({ default: QRCode }) => {
       QRCode.toCanvas(canvasRef.current!, url, {
-        width: 280,
+        width: 400,
         margin: 2,
+        errorCorrectionLevel: "L",
         color: { dark: "#000000", light: "#ffffff" },
       }).catch(console.error);
     });
@@ -85,8 +86,8 @@ export function ScannerQrClient() {
 
         {!loading && url && (
           <>
-            <div className={`bg-white p-4 rounded-2xl shadow-lg ${isExpired ? "opacity-30" : ""}`}>
-              <canvas ref={canvasRef} />
+            <div className={`bg-white p-2 rounded-2xl shadow-lg ${isExpired ? "opacity-30" : ""}`}>
+              <canvas ref={canvasRef} style={{ display: "block" }} />
             </div>
 
             <div className="flex items-center gap-3">

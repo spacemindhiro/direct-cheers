@@ -55,8 +55,10 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     .eq("is_read", false)
     .filter("metadata->>event_id", "eq", eventId);
 
-  const isAgent = profile?.role === "agent" || profile?.role === "admin";
-  const isOrganizer = profile?.role === "organizer" || profile?.role === "admin";
+  const isAdmin = profile?.role === "admin";
+  // ロールではなく「このイベントとの関係」で判定する
+  const isEventOrganizer = event.organizer_profile_id === user.id;
+  const isEventAgent = event.agent_id === user.id && (profile?.role === "agent" || isAdmin);
   const isArtist = profile?.role === "artist";
 
   const { data: allQrConfigs } = await adminClient
@@ -77,28 +79,23 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     const myQrIds = new Set((myTargets ?? []).map((t: any) => t.qr_config_id));
     qrConfigs = qrConfigs.filter((qr) => myQrIds.has(qr.qr_config_id));
   }
-  // API側（request-review）はevent.organizer_profile_id本人かどうかのみで判定するため、
-  // agentが自身をorganizerとしてイベントを主催したケース（セルフ主催）もここで拾う。
-  const isEventOwner = event.organizer_profile_id === user.id;
-  const canRequestReview = (isOrganizer || isEventOwner) && event.lifecycle_status === "draft";
+  const canRequestReview = isEventOrganizer && event.lifecycle_status === "draft";
   const isSelfOrganized = event.agent_id === event.organizer_profile_id;
-  const canApprove = isAgent && event.lifecycle_status === "review_requested" &&
-    (!isSelfOrganized || profile?.role === "admin");
-  const canCreateQR = (isOrganizer || isAgent) &&
+  const canApprove = (isEventAgent || isAdmin) && event.lifecycle_status === "review_requested" &&
+    (!isSelfOrganized || isAdmin);
+  const canCreateQR = (isEventOrganizer || isEventAgent) &&
     ["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status);
   const hasEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
-  // 「自身が担当する興行において」開催実績の提出も代理できる（agentは自分が担当のイベントのみ）
   const canSubmitEvidence =
-    (isOrganizer || (profile?.role === "agent" && event.agent_id === user.id)) &&
+    (isEventOrganizer || isEventAgent) &&
     hasEnded && event.lifecycle_status !== "settled";
-  const canEndEvent = (isOrganizer || isEventOwner) && ["published", "ongoing"].includes(event.lifecycle_status);
+  const canEndEvent = isEventOrganizer && ["published", "ongoing"].includes(event.lifecycle_status);
 
   const cancellableStatuses = ["draft", "review_requested", "published", "ongoing"];
-  const canRequestCancel = (isOrganizer || isEventOwner) &&
+  const canRequestCancel = isEventOrganizer &&
     cancellableStatuses.includes(event.lifecycle_status);
-  const canApproveCancellation = isAgent &&
-    event.lifecycle_status === "cancellation_requested" &&
-    (profile?.role === "admin" || event.agent_id === user.id);
+  const canApproveCancellation = (isEventAgent || isAdmin) &&
+    event.lifecycle_status === "cancellation_requested";
 
   const { data: evidences } = await adminClient
     .from("event_evidences")
@@ -120,7 +117,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Event</p>
             <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">{event.title}</h1>
           </div>
-          {(isOrganizer || isAgent) && event.lifecycle_status !== "settled" && (
+          {(isEventOrganizer || isEventAgent) && event.lifecycle_status !== "settled" && (
             <Link
               href={`/dashboard/events/${eventId}/edit`}
               className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-black text-slate-300 transition-all shrink-0 mt-1"
@@ -138,7 +135,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
           <span className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-800 border border-slate-700 text-slate-400">
             {LIFECYCLE_LABELS[event.lifecycle_status] ?? event.lifecycle_status}
           </span>
-          {event.lifecycle_status === "settled" && (isOrganizer || isAgent) && (
+          {event.lifecycle_status === "settled" && (isEventOrganizer || isEventAgent) && (
             <Link
               href={`/dashboard/events/${eventId}/settlement`}
               className="flex items-center gap-1.5 px-3 py-1 bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/30 rounded-xl text-[10px] font-black text-emerald-400 hover:text-emerald-300 transition-all"
@@ -212,7 +209,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       })()}
 
       {/* 入場チェックインスキャナ */}
-      {(isOrganizer || isAgent) && (event.lifecycle_status === "ongoing" || event.lifecycle_status === "published") && (
+      {(isEventOrganizer || isEventAgent) && (event.lifecycle_status === "ongoing" || event.lifecycle_status === "published") && (
         <Link
           href={`/dashboard/events/${eventId}/checkin`}
           className="flex items-center gap-4 bg-indigo-500/10 border border-indigo-500/20 hover:border-indigo-500/40 rounded-[1.5rem] p-5 transition-all group"
@@ -228,7 +225,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       )}
 
       {/* QR表示端末コントロール */}
-      {(isOrganizer || isAgent) && ["published", "ongoing"].includes(event.lifecycle_status) && (
+      {(isEventOrganizer || isEventAgent) && ["published", "ongoing"].includes(event.lifecycle_status) && (
         <div className="grid grid-cols-2 gap-3">
           <Link
             href={`/dashboard/events/${eventId}/control`}
@@ -258,7 +255,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       )}
 
       {/* PayPay設定（オーガナイザー・エージェント） */}
-      {(isOrganizer || isAgent) && !["settled", "cancelled"].includes(event.lifecycle_status) && (
+      {(isEventOrganizer || isEventAgent) && !["settled", "cancelled"].includes(event.lifecycle_status) && (
         <EventPayPayToggle
           eventId={eventId}
           enabled={(event as any).paypay_enabled ?? false}
@@ -368,7 +365,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         )}
       </div>
         </>}
-        sales={(isOrganizer || isAgent || isArtist) ? (
+        sales={(isEventOrganizer || isEventAgent || isArtist || isAdmin) ? (
           <div className="space-y-3">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
               <BarChart2 size={14} className="text-pink-500" /> 着金予測

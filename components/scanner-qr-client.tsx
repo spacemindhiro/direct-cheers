@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw, Tablet } from "lucide-react";
 
-const EXPIRY_SECONDS = 3600; // Supabase magiclink デフォルト1時間
+const EXPIRY_SECONDS = 3600;
 
 export function ScannerQrClient() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,12 +33,15 @@ export function ScannerQrClient() {
 
   useEffect(() => { generate(); }, [generate]);
 
-  // QRコードを canvas に描画
+  // QRコードを canvas に描画（コンテナ幅いっぱいに表示）
   useEffect(() => {
     if (!url || !canvasRef.current) return;
+    const container = containerRef.current;
+    // パディング(16px×2)を引いた幅、最低320px
+    const size = container ? Math.max(320, container.offsetWidth - 32) : 320;
     import("qrcode").then(({ default: QRCode }) => {
       QRCode.toCanvas(canvasRef.current!, url, {
-        width: 280,
+        width: size,
         margin: 2,
         color: { dark: "#000000", light: "#ffffff" },
       }).catch(console.error);
@@ -62,20 +66,20 @@ export function ScannerQrClient() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 flex flex-col items-center gap-6">
+      <div ref={containerRef} className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-4 flex flex-col items-center gap-6">
         <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
           <Tablet size={14} />
           子機ログインQR
         </div>
 
         {loading && (
-          <div className="w-[280px] h-[280px] bg-slate-800 rounded-2xl flex items-center justify-center">
+          <div className="w-full aspect-square bg-slate-800 rounded-2xl flex items-center justify-center">
             <RefreshCw size={32} className="text-slate-600 animate-spin" />
           </div>
         )}
 
         {!loading && error && (
-          <div className="w-[280px] h-[280px] bg-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3 p-6">
+          <div className="w-full aspect-square bg-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3 p-6">
             <p className="text-red-400 text-xs text-center">{error}</p>
             <button onClick={generate} className="text-xs font-black text-pink-500 hover:text-pink-400">
               再試行
@@ -85,8 +89,8 @@ export function ScannerQrClient() {
 
         {!loading && url && (
           <>
-            <div className={`bg-white p-4 rounded-2xl shadow-lg ${isExpired ? "opacity-30" : ""}`}>
-              <canvas ref={canvasRef} />
+            <div className={`bg-white p-1 rounded-2xl shadow-lg w-full ${isExpired ? "opacity-30" : ""}`}>
+              <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "auto" }} />
             </div>
 
             <div className="flex items-center gap-3">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { randomBytes } from "crypto";
 
 const ALLOWED_ROLES = ["organizer", "agent", "admin"];
 
@@ -38,5 +39,18 @@ export async function POST() {
     return NextResponse.json({ error: "リンクの生成に失敗しました" }, { status: 500 });
   }
 
-  return NextResponse.json({ url: data.properties.action_link });
+  const token = randomBytes(5).toString("base64url"); // 7文字の URL-safe トークン
+  const { error: insertError } = await admin
+    .from("scanner_qr_tokens")
+    .insert({
+      token,
+      action_link: data.properties.action_link,
+      created_by: user.id,
+    });
+
+  if (insertError) {
+    return NextResponse.json({ error: "トークン保存に失敗しました" }, { status: 500 });
+  }
+
+  return NextResponse.json({ url: `${siteUrl}/auth/qr/${token}` });
 }

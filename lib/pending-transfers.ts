@@ -42,7 +42,7 @@ export async function retryPendingTransfersForProfile(
   admin: any,
   stripe: Stripe,
   profileId: string,
-): Promise<{ attempted: number; succeeded: number }> {
+): Promise<{ attempted: number; succeeded: number; succeededAmount: number; failedAmount: number }> {
   const { data: profile } = await admin
     .from("profiles")
     .select("stripe_connect_id")
@@ -50,7 +50,7 @@ export async function retryPendingTransfersForProfile(
     .single();
 
   const connectId = profile?.stripe_connect_id ?? null;
-  if (!connectId) return { attempted: 0, succeeded: 0 };
+  if (!connectId) return { attempted: 0, succeeded: 0, succeededAmount: 0, failedAmount: 0 };
 
   const { data: pendingRows } = await admin
     .from("pending_connect_transfers")
@@ -60,6 +60,8 @@ export async function retryPendingTransfersForProfile(
 
   const rows = pendingRows ?? [];
   let succeeded = 0;
+  let succeededAmount = 0;
+  let failedAmount = 0;
 
   for (const row of rows) {
     try {
@@ -93,6 +95,7 @@ export async function retryPendingTransfersForProfile(
         .eq("pending_transfer_id", row.pending_transfer_id);
 
       succeeded++;
+      succeededAmount += row.amount;
     } catch (err: any) {
       console.error(`[pending-transfers] retry失敗 profile=${profileId} pending_transfer_id=${row.pending_transfer_id}:`, err.message);
       await admin
@@ -102,8 +105,9 @@ export async function retryPendingTransfersForProfile(
           attempt_count: (row.attempt_count ?? 0) + 1,
         })
         .eq("pending_transfer_id", row.pending_transfer_id);
+      failedAmount += row.amount;
     }
   }
 
-  return { attempted: rows.length, succeeded };
+  return { attempted: rows.length, succeeded, succeededAmount, failedAmount };
 }

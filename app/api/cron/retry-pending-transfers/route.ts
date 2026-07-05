@@ -15,6 +15,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { retryPendingTransfersForProfile } from "@/lib/pending-transfers";
+import { saveCronReport } from "@/lib/cron-report";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -37,6 +38,16 @@ export async function GET(req: Request) {
 
   if (profileIds.length === 0) {
     console.log("[retry-pending-transfers] 滞留Transferなし");
+    await saveCronReport({
+      taskName: "未送金Transfer再試行",
+      targetCount: 0,
+      targetAmount: 0,
+      successCount: 0,
+      successAmount: 0,
+      failedCount: 0,
+      failedAmount: 0,
+      failures: [],
+    });
     return NextResponse.json({ success: true, profiles: 0, attempted: 0, succeeded: 0 });
   }
 
@@ -52,14 +63,29 @@ export async function GET(req: Request) {
 
   let totalAttempted = 0;
   let totalSucceeded = 0;
+  let totalSucceededAmount = 0;
+  let totalFailedAmount = 0;
 
   for (const profileId of readyProfileIds) {
-    const { attempted, succeeded } = await retryPendingTransfersForProfile(admin, stripe, profileId);
+    const { attempted, succeeded, succeededAmount, failedAmount } = await retryPendingTransfersForProfile(admin, stripe, profileId);
     totalAttempted += attempted;
     totalSucceeded += succeeded;
+    totalSucceededAmount += succeededAmount;
+    totalFailedAmount += failedAmount;
   }
 
   console.log(`[retry-pending-transfers] profiles=${readyProfileIds.length} attempted=${totalAttempted} succeeded=${totalSucceeded}`);
+
+  await saveCronReport({
+    taskName: "未送金Transfer再試行",
+    targetCount: totalAttempted,
+    targetAmount: totalSucceededAmount + totalFailedAmount,
+    successCount: totalSucceeded,
+    successAmount: totalSucceededAmount,
+    failedCount: totalAttempted - totalSucceeded,
+    failedAmount: totalFailedAmount,
+    failures: [],
+  });
 
   return NextResponse.json({
     success: true,

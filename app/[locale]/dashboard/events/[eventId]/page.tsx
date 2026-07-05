@@ -59,7 +59,10 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   // ロールではなく「このイベントとの関係」で判定する
   const isEventOrganizer = event.organizer_profile_id === user.id;
   const isEventAgent = event.agent_id === user.id && (profile?.role === "agent" || isAdmin);
-  const isArtist = profile?.role === "artist";
+  // ロールではなく「このイベントの出演者として招待されているか」で判定
+  const isLineupArtist = (event.event_artists ?? []).some(
+    (ea: any) => ea.artist_profile_id === user.id && ea.deleted_at === null && ea.status !== "rejected"
+  );
 
   const { data: allQrConfigs } = await adminClient
     .from("qr_configs")
@@ -70,7 +73,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
   let qrConfigs = allQrConfigs ?? [];
 
-  if (isArtist) {
+  if (isLineupArtist && !isEventOrganizer && !isEventAgent) {
     const { data: myTargets } = await adminClient
       .from("qr_config_targets")
       .select("qr_config_id")
@@ -143,7 +146,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
               <CheckCircle2 size={12} /> 確定精算レポート
             </Link>
           )}
-          {event.lifecycle_status === "settled" && isArtist && (
+          {event.lifecycle_status === "settled" && isLineupArtist && (
             <Link
               href={`/dashboard/events/${eventId}/artist-settlement`}
               className="flex items-center gap-1.5 px-3 py-1 bg-emerald-950/40 hover:bg-emerald-950/60 border border-emerald-500/30 rounded-xl text-[10px] font-black text-emerald-400 hover:text-emerald-300 transition-all"
@@ -365,7 +368,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         )}
       </div>
         </>}
-        sales={(isEventOrganizer || isEventAgent || isArtist || isAdmin) ? (
+        sales={(isEventOrganizer || isEventAgent || isLineupArtist || isAdmin) ? (
           <div className="space-y-3">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
               <BarChart2 size={14} className="text-pink-500" /> 着金予測

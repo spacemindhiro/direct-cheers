@@ -54,7 +54,10 @@ async function QRDetailContent({
   const isAgent =
     (profile?.role === "agent" || profile?.role === "admin") &&
     event.agent_id === user.id;
-  const isArtist = profile?.role === "artist";
+  // ロールではなく「このイベントの出演者として招待されているか」で判定
+  const isLineupArtist = (event.event_artists ?? []).some(
+    (ea: any) => ea.artist_profile_id === user.id && ea.deleted_at === null && ea.status !== "rejected"
+  );
   const isRecipient = qr.recipient_profile_id === user.id;
   const canEdit = isOrganizer || isAgent;
 
@@ -177,7 +180,7 @@ async function QRDetailContent({
         </div>
       )}
 
-      {!canEdit && isArtist && (
+      {!canEdit && isLineupArtist && (
         <div className="space-y-6">
           {/* Cheersカードプレビュー / 画像変更 */}
           <div className="space-y-3">

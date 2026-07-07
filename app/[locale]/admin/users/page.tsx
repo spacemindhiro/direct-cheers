@@ -14,7 +14,7 @@ const ROLE_LABELS: Record<string, string> = {
   agent: "エージェント",
   organizer: "オーガナイザー",
   artist: "アーティスト / DJ",
-  user: "ファン",
+  user: "メンバー",
 };
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {

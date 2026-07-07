@@ -38,7 +38,7 @@ type Profile = {
 };
 
 const roleLabel: Record<string, { label: string; icon: React.ReactNode }> = {
-  user:      { label: 'ファン',           icon: <User size={14} /> },
+  user:      { label: 'メンバー',          icon: <User size={14} /> },
   artist:    { label: 'アーティスト / DJ', icon: <Mic2 size={14} /> },
   organizer: { label: 'オーガナイザー',    icon: <CalendarDays size={14} /> },
   agent:     { label: 'エージェント',      icon: <Shield size={14} /> },

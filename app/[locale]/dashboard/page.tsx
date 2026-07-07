@@ -396,7 +396,7 @@ async function DashboardContent() {
     : [];
 
   const roleLabelMap: Record<string, string> = {
-    user: 'ファン',
+    user: 'メンバー',
     artist: 'アーティスト',
     organizer: 'オーガナイザー',
     agent: 'エージェント',

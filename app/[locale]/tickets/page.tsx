@@ -16,7 +16,7 @@ async function TicketsContent() {
     ticket_id, ticket_code, status, checked_in_at, email, created_at,
     reservation_id,
     reservation:entrance_reservations(status),
-    product:products(name, payment_type, min_amount),
+    product:products(name, type, payment_type, min_amount),
     event:events(event_id, title, venue, start_at),
     transaction:transactions!transaction_id(
       total_gross_amount,
@@ -84,6 +84,7 @@ async function TicketsContent() {
               status={t.status}
               checkedInAt={t.checked_in_at ?? null}
               paymentType={t.product?.payment_type ?? null}
+              productType={t.product?.type ?? undefined}
               amount={t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0}
               stripImageUrl={t.transaction?.qr_config?.strip_image_url ?? null}
               bgColor={t.transaction?.qr_config?.bg_color ?? undefined}

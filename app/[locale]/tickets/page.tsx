@@ -95,6 +95,16 @@ async function TicketsContent() {
           ))}
         </div>
       )}
+
+      {/* フッター：ダッシュボードに戻る */}
+      <div className="pt-4 border-t border-slate-800">
+        <Link
+          href="/dashboard"
+          className="flex items-center justify-center gap-2 w-full h-12 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-2xl text-xs font-black text-slate-500 hover:text-slate-300 transition-all"
+        >
+          <ArrowLeft size={14} /> ダッシュボードに戻る
+        </Link>
+      </div>
     </div>
   );
 }

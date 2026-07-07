@@ -135,10 +135,13 @@ export function QRCreateForm({
     setMaxAmount(snappedMax <= snappedMin ? Math.min(snappedMin + s, cfgMax) : snappedMax);
   };
 
-  // エントランス・カスタムはワンプライス固定
+  // custom かつ payment_type='V' のとき true
+  const isVoucher = productType === "custom" && customSubtype === "V";
+
+  // エントランス・バウチャーはワンプライス固定
   useEffect(() => {
-    if (productType === "entrance" || productType === "custom") setPriceMode("fixed");
-  }, [productType]);
+    if (productType === "entrance" || isVoucher) setPriceMode("fixed");
+  }, [productType, isVoucher]);
 
   // 配分リストが変わったとき、宛先が配分に含まれなくなったら先頭に戻す
   useEffect(() => {
@@ -166,7 +169,7 @@ export function QRCreateForm({
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!label.trim()) { setError("ラベルを入力してください"); return; }
-    if (productType !== "entrance" && productType !== "custom" && !imageUrl) { setError("QR画像をアップロードしてください"); return; }
+    if (productType !== "entrance" && !isVoucher && !imageUrl) { setError("QR画像をアップロードしてください"); return; }
     if (!recipientId) { setError("宛先を選択してください"); return; }
     if (targets.length === 0) { setError("配分先を1人以上設定してください"); return; }
     if (Math.abs(totalRatio - 100) > 0.1) { setError("配分比率の合計を100%にしてください"); return; }
@@ -192,7 +195,7 @@ export function QRCreateForm({
         body: JSON.stringify({
           event_id: eventId,
           label: label || undefined,
-          image_url: productType !== "entrance" && productType !== "custom" ? (imageUrl || undefined) : undefined,
+          image_url: productType !== "entrance" && !isVoucher ? (imageUrl || undefined) : undefined,
           product_type: productType,
           min_amount: priceMode === "fixed" ? fixedAmount : minAmount,
           max_amount: priceMode === "fixed" ? fixedAmount : maxAmount,
@@ -217,7 +220,7 @@ export function QRCreateForm({
             fg_color: fgColor,
             label_color: labelColor,
           }),
-          ...(productType === "custom" && {
+          ...(isVoucher && {
             payment_type: customSubtype,
             stock_limit: voucherStockLimit ? Number(voucherStockLimit) : null,
             track_inventory: !!voucherStockLimit,
@@ -309,7 +312,7 @@ export function QRCreateForm({
         </div>
 
         {/* 画像・プレビュー（タイプ別） */}
-        {(productType === "entrance" || productType === "custom") ? (
+        {(productType === "entrance" || isVoucher) ? (
           <div className="space-y-6">
             <StripImageUpload onUploadComplete={setStripImageUrl} />
 
@@ -496,8 +499,8 @@ export function QRCreateForm({
           </div>
         )}
 
-        {/* custom タイプ：バウチャー設定 */}
-        {productType === "custom" && (
+        {/* バウチャー設定（custom かつ payment_type='V' のとき） */}
+        {isVoucher && (
           <div className="space-y-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4">
             <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
               <Info size={10} /> バウチャー設定
@@ -521,11 +524,11 @@ export function QRCreateForm({
           </div>
         )}
 
-        {/* 価格モード（エントランス・カスタムはワンプライス固定） */}
+        {/* 価格モード（エントランス・バウチャーはワンプライス固定） */}
         <div className="space-y-3">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">価格設定</label>
 
-          {productType !== "entrance" && productType !== "custom" && (
+          {productType !== "entrance" && !isVoucher && (
             <div className="grid grid-cols-2 gap-2">
               {(["fixed", "range"] as const).map((mode) => (
                 <button
@@ -808,7 +811,7 @@ export function QRCreateForm({
 
       <button
         type="submit"
-        disabled={isPending || !label.trim() || (productType !== "entrance" && productType !== "custom" && !imageUrl) || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
+        disabled={isPending || !label.trim() || (productType !== "entrance" && !isVoucher && !imageUrl) || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
         className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>QRを作成 <ArrowRight size={18} /></>}

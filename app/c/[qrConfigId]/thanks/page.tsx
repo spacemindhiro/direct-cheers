@@ -1,11 +1,39 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useParams, useRouter } from "next/navigation";
 import { CheersCard } from "@/components/cheers-card";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
 import { FollowButton } from "@/components/follow-button";
 import { Loader2, ArrowLeft, PlusCircle, MessageSquare, Send, LayoutDashboard } from "lucide-react";
+
+function VoucherQR({ ticketId, productName, amount }: { ticketId: string; productName: string; amount: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    import("qrcode").then((QRCode) => {
+      if (canvasRef.current) {
+        QRCode.toCanvas(canvasRef.current, ticketId, {
+          width: 240,
+          margin: 2,
+          color: { dark: "#0f172a", light: "#ffffff" },
+        });
+      }
+    });
+  }, [ticketId]);
+
+  return (
+    <div className="bg-white rounded-3xl p-6 text-center space-y-4">
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">引換券</p>
+      <p className="text-xl font-black text-slate-900 leading-tight">{productName}</p>
+      <p className="text-sm font-bold text-slate-500">¥{amount.toLocaleString()}</p>
+      <div className="flex justify-center">
+        <canvas ref={canvasRef} className="rounded-xl" />
+      </div>
+      <p className="text-[10px] text-slate-400 font-medium">スタッフにこの画面を見せてください</p>
+    </div>
+  );
+}
 import Link from "next/link";
 
 const DEVICE_TOKEN_KEY = "dc_dt";
@@ -23,6 +51,7 @@ type PaymentResult = {
   artist_avatar: string | null;
   product_name: string | null;
   product_type: string | null;
+  payment_type: string | null;
   stripe_customer_id: string | null;
   serial_number: number | null;
   qr_image_url: string | null;
@@ -242,19 +271,26 @@ function ThanksContent() {
           </a>
         )}
 
-        {/* Cheers カード */}
-        <CheersCard
-          artistName={result.recipient_name ?? result.artist_name ?? "Artist"}
-          eventTitle={result.event_title ?? ""}
-          artistAvatar={result.recipient_avatar ?? result.artist_avatar}
-          amount={result.amount}
-          transactionId={result.transaction_id}
-          serialNumber={result.serial_number}
-          thanks={thanks}
-          imageUrl={result.qr_image_url}
-          nickname={msgSent ? (msgNickname || null) : null}
-          comment={msgSent ? (msgComment || null) : null}
-        />
+        {/* バウチャー引換QR（custom/V の場合） */}
+        {result.product_type === "custom" && result.payment_type === "V" && result.ticket_id && (
+          <VoucherQR ticketId={result.ticket_id} productName={result.product_name ?? ""} amount={result.amount} />
+        )}
+
+        {/* Cheers カード（バウチャー以外） */}
+        {!(result.product_type === "custom" && result.payment_type === "V") && (
+          <CheersCard
+            artistName={result.recipient_name ?? result.artist_name ?? "Artist"}
+            eventTitle={result.event_title ?? ""}
+            artistAvatar={result.recipient_avatar ?? result.artist_avatar}
+            amount={result.amount}
+            transactionId={result.transaction_id}
+            serialNumber={result.serial_number}
+            thanks={thanks}
+            imageUrl={result.qr_image_url}
+            nickname={msgSent ? (msgNickname || null) : null}
+            comment={msgSent ? (msgComment || null) : null}
+          />
+        )}
 
         {/* メッセージ送信（message タイプのみ） */}
         {result.product_type === "message" && (

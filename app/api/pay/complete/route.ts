@@ -65,7 +65,8 @@ export async function POST(req: Request) {
       checkHasPasskey(admin, senderProfileId),
     ]);
     let existingTicketId: string | null = null;
-    if (product.product_type === "entrance") {
+    if (product.product_type === "entrance" ||
+        (product.product_type === "custom" && product.payment_type === "V")) {
       const { data: t } = await admin
         .from("tickets")
         .select("ticket_id")
@@ -177,7 +178,11 @@ export async function POST(req: Request) {
 
   // エントランスタイプならチケット発行 — profile_id は冒頭で解決済み
   let ticketId: string | null = null;
-  if (product.product_type === "entrance" && qrcInfo.eventId && productId) {
+  const needsTicket =
+    (product.product_type === "entrance" ||
+     (product.product_type === "custom" && product.payment_type === "V")) &&
+    qrcInfo.eventId && productId;
+  if (needsTicket) {
     const { data: t } = await admin
       .from("tickets")
       .insert({
@@ -339,16 +344,17 @@ function buildResponse(
     has_passkey: hasPasskey,
     ...product,
   });
+
 }
 
 async function getProductInfo(
   admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
   productId: string | null
 ) {
-  if (!productId) return { artist_id: null, artist_name: null, event_title: null, artist_avatar: null, product_name: null, product_type: null };
+  if (!productId) return { artist_id: null, artist_name: null, event_title: null, artist_avatar: null, product_name: null, product_type: null, payment_type: null };
   const { data } = await admin
     .from("products")
-    .select("name, type, artist_id, artist:profiles!artist_id(display_name, avatar_url), event:events!event_id(title)")
+    .select("name, type, payment_type, artist_id, artist:profiles!artist_id(display_name, avatar_url), event:events!event_id(title)")
     .eq("product_id", productId)
     .single();
   return {
@@ -358,5 +364,6 @@ async function getProductInfo(
     artist_avatar: (data?.artist as any)?.avatar_url ?? null,
     product_name: data?.name ?? null,
     product_type: data?.type ?? null,
+    payment_type: (data as any)?.payment_type ?? null,
   };
 }

@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     .select(`
       ticket_id, ticket_code, status, email, event_id, product_id,
       reservation_id, transaction_id,
-      product:products(name, payment_type, min_amount),
+      product:products(name, type, payment_type, min_amount),
       event:events(title, organizer_profile_id, agent_id)
     `)
     .eq("ticket_code", ticket_code)
@@ -98,7 +98,34 @@ export async function POST(req: Request) {
   }
 
   const prod = ticket.product as any;
-  const paymentType = prod?.payment_type as "A" | "B" | "C";
+  const productType = prod?.type as string | undefined;
+  const paymentType = prod?.payment_type as "A" | "B" | "C" | "V";
+  const isVoucher = productType === "custom" && paymentType === "V";
+
+  // バウチャー（custom/V）: 再利用不可。usedは一発エラー。
+  if (isVoucher) {
+    if (ticket.status === "used") {
+      return NextResponse.json({ error: "ALREADY_USED", is_voucher: true }, { status: 409 });
+    }
+    if (ticket.status === "cancelled") {
+      return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
+    }
+    const { error: checkinError } = await admin.rpc("checkin_ticket", {
+      p_ticket_code: ticket_code,
+      p_organizer_id: user.id,
+    });
+    if (checkinError) {
+      return NextResponse.json({ error: checkinError.message }, { status: 500 });
+    }
+    return NextResponse.json({
+      ok: true,
+      is_voucher: true,
+      ticket_id: ticket.ticket_id,
+      event_title: ev?.title ?? "",
+      product_name: prod?.name ?? "",
+      email: ticket.email,
+    });
+  }
 
   // タイプC: チェックイン時に決済実行
   if (paymentType === "C" && !ticket.transaction_id) {

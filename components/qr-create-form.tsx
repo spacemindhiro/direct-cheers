@@ -221,6 +221,10 @@ export function QRCreateForm({
             payment_type: customSubtype,
             stock_limit: voucherStockLimit ? Number(voucherStockLimit) : null,
             track_inventory: !!voucherStockLimit,
+            strip_image_url: stripImageUrl || undefined,
+            bg_color: bgColor,
+            fg_color: fgColor,
+            label_color: labelColor,
           }),
           bypass_validity: bypassValidity,
         }),
@@ -305,7 +309,7 @@ export function QRCreateForm({
         </div>
 
         {/* 画像・プレビュー（タイプ別） */}
-        {productType === "entrance" ? (
+        {(productType === "entrance" || productType === "custom") ? (
           <div className="space-y-6">
             <StripImageUpload onUploadComplete={setStripImageUrl} />
 
@@ -346,7 +350,7 @@ export function QRCreateForm({
               labelColor={labelColor}
             />
           </div>
-        ) : productType === "custom" ? null : (
+        ) : (
           <>
             <QRImageUpload
               eventTitle={eventTitle}

@@ -203,6 +203,8 @@ function ThanksContent() {
   }
 
   const email = result.email ?? emailFromCookie();
+  const isVoucher = result.product_type === "custom" && result.payment_type === "V";
+  const isPurchase = result.product_type === "entrance" || isVoucher;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-20">
@@ -214,9 +216,9 @@ function ThanksContent() {
             Payment Complete
           </p>
           <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
-            {result.product_type === "entrance" ? "ご購入ありがとうございます" : "応援ありがとう！"}
+            {isPurchase ? "ご購入ありがとうございます" : "応援ありがとう！"}
           </h1>
-          {result.product_type !== "entrance" && (
+          {!isPurchase && (
             <p className="text-sm text-slate-400">
               {result.recipient_name ?? result.artist_name ?? "アーティスト"} へのCheersが届きました
             </p>
@@ -238,7 +240,7 @@ function ThanksContent() {
               {"#" + String(result.serial_number).padStart(3, "0")}
             </p>
             <p className="text-sm font-bold text-slate-300">
-              番目のサポーター
+              {isPurchase ? "番目のご購入者" : "番目のサポーター"}
             </p>
             {result.serial_number <= 10 && (
               <p className="text-xs text-pink-500 font-black mt-1">
@@ -395,7 +397,7 @@ function ThanksContent() {
                   <div>
                     <p className="text-sm font-black text-white">ログインしてコレクションを確認</p>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      {email} でアカウントが登録されています。パスキーでログインして応援履歴を確認できます。
+                      {email} でアカウントが登録されています。パスキーでログインして{isPurchase ? "購入" : "応援"}履歴を確認できます。
                     </p>
                   </div>
                   {PasskeySetup && <PasskeySetup
@@ -421,9 +423,9 @@ function ThanksContent() {
               ) : (
                 <>
                   <div>
-                    <p className="text-sm font-black text-white">応援履歴をアカウントに保存</p>
+                    <p className="text-sm font-black text-white">{isPurchase ? "購入" : "応援"}履歴をアカウントに保存</p>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      顔認証・指紋認証でアカウントを作成し、応援コレクションをいつでも確認できます。
+                      顔認証・指紋認証でアカウントを作成し、{isPurchase ? "購入" : "応援"}コレクションをいつでも確認できます。
                     </p>
                   </div>
                   {PasskeySetup && <PasskeySetup
@@ -485,7 +487,7 @@ function ThanksContent() {
             className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-400 text-xs font-bold transition-colors"
           >
             <ArrowLeft size={14} />
-            {result.product_type === "entrance" ? "QRページに戻る" : "もう一度応援する"}
+            {isPurchase ? "QRページに戻る" : "もう一度応援する"}
           </Link>
         </div>
       </div>

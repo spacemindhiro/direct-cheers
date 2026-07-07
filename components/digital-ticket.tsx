@@ -140,7 +140,7 @@ export function DigitalTicket({
       {isUsed && <div className="absolute inset-0 bg-slate-800/60" />}
 
       {/* ストリップ画像 */}
-      {stripImageUrl && !isUsed && (
+      {stripImageUrl && (
         <div className="w-full overflow-hidden" style={{ aspectRatio: String(1125 / 294) }}>
           <img src={stripImageUrl} className="w-full h-full object-cover" alt="" />
         </div>
@@ -235,7 +235,9 @@ export function DigitalTicket({
           </div>
           <div className="bg-slate-900/60 rounded-2xl px-4 py-3 border border-slate-700/40">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Plan</p>
-            {paymentType ? (
+            {isVoucher ? (
+              <p className="text-sm font-black text-indigo-300 mt-0.5">バウチャー</p>
+            ) : paymentType && paymentTypeLabel[paymentType] ? (
               <>
                 <p className="text-sm font-black text-indigo-300 mt-0.5">{paymentType}タイプ</p>
                 <p className="text-[9px] text-slate-500">{paymentTypeLabel[paymentType]}</p>

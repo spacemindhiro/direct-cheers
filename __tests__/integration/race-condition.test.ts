@@ -19,6 +19,11 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(() => new Headers()),
 }));
 
+vi.mock("@/lib/supabase/server", () => ({
+  getUser: vi.fn().mockResolvedValue(null),
+  createClient: vi.fn(),
+}));
+
 // Stripe をモック（reserve は Stripe Customer + SetupIntent/Session を作成する）
 vi.mock("stripe", async (importOriginal) => {
   const StripeModule = (await importOriginal()) as any;

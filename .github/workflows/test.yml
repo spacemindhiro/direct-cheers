@@ -1,16 +1,18 @@
 name: Integration Test Suite
 
 # ──────────────────────────────────────────────────────────────────
-# トリガー: main への PR 作成・更新時のみ
+# トリガー: develop への push + main への PR
 #
-# 通常の develop push では実行しない（ローカルテストで代替）。
-# main への PR がマージゲートとして機能する。
+# develop push で先にテストを回し、グリーンを確認してから PR を作る。
+# main への PR 時も同様に走り、マージゲートとして機能する。
 #
 # branch protection 設定:
 #   ✅ Require status checks to pass before merging
 #   ✅ "test / 985ケース全テスト" を必須ステータスに追加
 # ──────────────────────────────────────────────────────────────────
 on:
+  push:
+    branches: [develop]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]

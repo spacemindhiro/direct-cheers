@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
-import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
 import { checkConnectCapabilities } from "@/lib/stripe-check";
 import { buildStatementDescriptorSuffixes } from "@/lib/statement-descriptor";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -84,7 +83,7 @@ export async function POST(req: Request) {
   });
 
   // 事前登録済みカスタマーIDを引く
-  // ログイン済みの場合はそのメールを優先（フォーム入力ミスを排除）
+  // ログイン済みの場合はそのメールを優先（フォームはロック表示済みだが API 側でも保証）
   let savedCustomerId: string | null = null;
   const emailForCustomer = loggedInEmail ?? customer_email;
   if (emailForCustomer && payment_method === "card") {
@@ -94,19 +93,6 @@ export async function POST(req: Request) {
       .eq("email", emailForCustomer)
       .maybeSingle();
     savedCustomerId = prov?.stripe_customer_id ?? null;
-
-    // provisional_users に該当なし → auth.users 経由で profile_id を解決してから再検索
-    if (!savedCustomerId) {
-      const profileId = await resolveProfileIdByEmail(admin, emailForCustomer);
-      if (profileId) {
-        const { data: provByProfile } = await admin
-          .from("provisional_users")
-          .select("stripe_customer_id")
-          .eq("profile_id", profileId)
-          .maybeSingle();
-        savedCustomerId = provByProfile?.stripe_customer_id ?? null;
-      }
-    }
   }
 
   // PayPay は Stripe Connect の on_behalf_of を現行 API でサポートしていない。
@@ -167,8 +153,7 @@ export async function POST(req: Request) {
   } else {
     // 未登録 → 新規作成 & メアド pre-fill（ログイン済みメール優先）
     sessionParams.customer_creation = "always";
-    const prefillEmail = emailForCustomer;
-    if (prefillEmail) sessionParams.customer_email = prefillEmail;
+    if (emailForCustomer) sessionParams.customer_email = emailForCustomer;
   }
 
   // カード系（card / AP / GP / Link）は 3DS を有効化。PayPay は非対応のため除外。

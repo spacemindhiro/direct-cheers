@@ -139,6 +139,7 @@ export function CheersPaymentForm({
 
   const [amount, setAmount] = useState(products[0]?.min_amount ?? 500);
   const [email, setEmail] = useState(lockedEmail ?? "");
+  const [isEmailLocked, setIsEmailLocked] = useState(!!lockedEmail);
   const [pendingMethod, setPendingMethod] = useState<"card" | "paypay" | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -151,9 +152,12 @@ export function CheersPaymentForm({
   const [entranceDone, setEntranceDone] = useState(false);
 
   useEffect(() => {
-    if (lockedEmail) return; // ログイン済みはクッキー不要
+    if (lockedEmail) return; // サーバーからロック済み（ログイン済み）
     const match = document.cookie.match(new RegExp(`${CUSTOMER_EMAIL_COOKIE}=([^;]+)`));
-    if (match) setEmail(decodeURIComponent(match[1]));
+    if (match) {
+      setEmail(decodeURIComponent(match[1]));
+      setIsEmailLocked(true); // クッキーがあれば事前登録済み客 → ロック
+    }
   }, [lockedEmail]);
 
   // タイプA: SetupIntentフロー
@@ -199,16 +203,7 @@ export function CheersPaymentForm({
   };
 
   const handleCheckout = (paymentMethod: "card" | "paypay") => {
-    if (!email) {
-      if (lockedEmail) {
-        // ログイン済みなのにemailが空はありえないが念のため
-        if (isTypeA) { proceedEntranceTypeA(lockedEmail); return; }
-        proceedToCheckout(paymentMethod, lockedEmail);
-        return;
-      }
-      setPendingMethod(paymentMethod);
-      return;
-    }
+    if (!email) { setPendingMethod(paymentMethod); return; }
     if (isTypeA) { proceedEntranceTypeA(email); return; }
     proceedToCheckout(paymentMethod, email);
   };
@@ -359,7 +354,7 @@ export function CheersPaymentForm({
             <Mail size={12} className="text-slate-500" />
             <p className="text-xs text-slate-400 font-medium">{email}</p>
           </div>
-          {!lockedEmail && (
+          {!isEmailLocked && (
             <button
               type="button"
               onClick={() => setEmail("")}

@@ -7,6 +7,8 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/supabase/server";
+import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
 import { buildEntrancePaymentParams, EntranceAccountIncompleteError } from "@/lib/entrance-payment";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -21,13 +23,18 @@ export async function POST(req: Request) {
     qr_config_id?: string;
   };
 
-  const { product_id, customer_email, holder_name, qr_config_id } = body;
+  const { product_id, holder_name, qr_config_id } = body;
+  let { customer_email } = body;
 
   if (!product_id || !customer_email) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   const admin = createAdminClient();
+
+  // ログイン済みの場合はそのメールで上書き（フォーム入力ミスを排除）
+  const loggedInUser = await getUser();
+  if (loggedInUser?.email) customer_email = loggedInUser.email;
 
   // 商品情報取得
   const { data: product } = await admin
@@ -130,6 +137,7 @@ export async function POST(req: Request) {
   // ----- タイプA/C: カード入力（SetupIntent or 5日以内はPaymentIntent直接オーソリ） -----
 
   // Stripe Customer を作成 or 取得
+  // provisional_users 直引き → auth.users 経由 → 新規作成の順で解決
   let stripeCustomerId: string;
   const { data: provisional } = await admin
     .from("provisional_users")
@@ -137,8 +145,22 @@ export async function POST(req: Request) {
     .eq("email", customer_email)
     .maybeSingle();
 
-  if (provisional?.stripe_customer_id) {
-    stripeCustomerId = provisional.stripe_customer_id;
+  let resolvedCustomerId = provisional?.stripe_customer_id ?? null;
+
+  if (!resolvedCustomerId) {
+    const profileId = await resolveProfileIdByEmail(admin, customer_email);
+    if (profileId) {
+      const { data: provByProfile } = await admin
+        .from("provisional_users")
+        .select("stripe_customer_id")
+        .eq("profile_id", profileId)
+        .maybeSingle();
+      resolvedCustomerId = provByProfile?.stripe_customer_id ?? null;
+    }
+  }
+
+  if (resolvedCustomerId) {
+    stripeCustomerId = resolvedCustomerId;
   } else {
     const customer = await stripe.customers.create({
       email: customer_email,

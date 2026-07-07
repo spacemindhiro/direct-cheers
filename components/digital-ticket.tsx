@@ -140,7 +140,7 @@ export function DigitalTicket({
       {isUsed && <div className="absolute inset-0 bg-slate-800/60" />}
 
       {/* ストリップ画像 */}
-      {stripImageUrl && !isUsed && (
+      {stripImageUrl && (
         <div className="w-full overflow-hidden" style={{ aspectRatio: String(1125 / 294) }}>
           <img src={stripImageUrl} className="w-full h-full object-cover" alt="" />
         </div>

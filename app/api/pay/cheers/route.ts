@@ -83,14 +83,16 @@ export async function POST(req: Request) {
   });
 
   // 事前登録済みカスタマーIDを引く
+  // ログイン済みの場合はそのメールを優先（フォームはロック表示済みだが API 側でも保証）
   let savedCustomerId: string | null = null;
-  if (customer_email && payment_method === "card") {
-    const { data } = await admin
+  const emailForCustomer = loggedInEmail ?? customer_email;
+  if (emailForCustomer && payment_method === "card") {
+    const { data: prov } = await admin
       .from("provisional_users")
       .select("stripe_customer_id")
-      .eq("email", customer_email)
-      .single();
-    savedCustomerId = data?.stripe_customer_id ?? null;
+      .eq("email", emailForCustomer)
+      .maybeSingle();
+    savedCustomerId = prov?.stripe_customer_id ?? null;
   }
 
   // PayPay は Stripe Connect の on_behalf_of を現行 API でサポートしていない。
@@ -149,9 +151,9 @@ export async function POST(req: Request) {
     // 保存済みカード → customer で渡す（customer_creation 不要）
     sessionParams.customer = savedCustomerId;
   } else {
-    // 未登録 → 新規作成 & メアド pre-fill
+    // 未登録 → 新規作成 & メアド pre-fill（ログイン済みメール優先）
     sessionParams.customer_creation = "always";
-    if (customer_email) sessionParams.customer_email = customer_email;
+    if (emailForCustomer) sessionParams.customer_email = emailForCustomer;
   }
 
   // カード系（card / AP / GP / Link）は 3DS を有効化。PayPay は非対応のため除外。

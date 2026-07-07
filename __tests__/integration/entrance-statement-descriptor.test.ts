@@ -22,6 +22,11 @@ const captured: {
   accountCapabilities: { card_payments: "active", transfers: "active" },
 };
 
+vi.mock("@/lib/supabase/server", () => ({
+  getUser: vi.fn().mockResolvedValue(null),
+  createClient: vi.fn(),
+}));
+
 vi.mock("stripe", async (importOriginal) => {
   const StripeModule = (await importOriginal()) as any;
   const OrigStripe = StripeModule.default ?? StripeModule;

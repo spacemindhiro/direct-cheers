@@ -124,6 +124,7 @@ export function CheersPaymentForm({
   eventTitle,
   paypayEnabled = false,
   deviceName,
+  lockedEmail,
 }: {
   qrConfigId: string;
   products: Product[];
@@ -131,12 +132,14 @@ export function CheersPaymentForm({
   eventTitle: string;
   paypayEnabled?: boolean;
   deviceName?: string;
+  lockedEmail?: string;
 }) {
   const selectedProduct = products[0];
   const isTypeA = selectedProduct?.type === "entrance" && selectedProduct?.payment_type === "A";
 
   const [amount, setAmount] = useState(products[0]?.min_amount ?? 500);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(lockedEmail ?? "");
+  const [isEmailLocked, setIsEmailLocked] = useState(!!lockedEmail);
   const [pendingMethod, setPendingMethod] = useState<"card" | "paypay" | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -149,9 +152,13 @@ export function CheersPaymentForm({
   const [entranceDone, setEntranceDone] = useState(false);
 
   useEffect(() => {
+    if (lockedEmail) return; // サーバーからロック済み（ログイン済み）
     const match = document.cookie.match(new RegExp(`${CUSTOMER_EMAIL_COOKIE}=([^;]+)`));
-    if (match) setEmail(decodeURIComponent(match[1]));
-  }, []);
+    if (match) {
+      setEmail(decodeURIComponent(match[1]));
+      setIsEmailLocked(true); // クッキーがあれば事前登録済み客 → ロック
+    }
+  }, [lockedEmail]);
 
   // タイプA: SetupIntentフロー
   const proceedEntranceTypeA = (confirmedEmail: string) => {
@@ -347,13 +354,15 @@ export function CheersPaymentForm({
             <Mail size={12} className="text-slate-500" />
             <p className="text-xs text-slate-400 font-medium">{email}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setEmail("")}
-            className="text-[10px] text-slate-600 hover:text-pink-500 transition-colors font-bold"
-          >
-            変更
-          </button>
+          {!isEmailLocked && (
+            <button
+              type="button"
+              onClick={() => setEmail("")}
+              className="text-[10px] text-slate-600 hover:text-pink-500 transition-colors font-bold"
+            >
+              変更
+            </button>
+          )}
         </div>
       )}
 

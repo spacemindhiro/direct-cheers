@@ -2,6 +2,7 @@ import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/supabase/server";
 import { CheersPaymentForm } from "@/components/cheers-payment-form";
 import { InAppBrowserBanner } from "@/components/in-app-browser-banner";
 import { resolveStatementDescriptorSource, resolveRecipientAvatarUrl } from "@/lib/statement-descriptor";
@@ -30,6 +31,8 @@ async function CheersContent({
   const { qrConfigId } = await params;
   const { device: deviceName } = await searchParams;
   const admin = createAdminClient();
+  const user = await getUser();
+  const lockedEmail = user?.email ?? null;
 
   const { data: qr } = await admin
     .from("qr_configs")
@@ -229,6 +232,7 @@ async function CheersContent({
           eventTitle={event.title}
           paypayEnabled={event.paypay_enabled ?? false}
           deviceName={deviceName}
+          lockedEmail={lockedEmail ?? undefined}
         />
 
         <div className="flex items-center justify-center gap-2 text-[10px] text-slate-700 font-bold uppercase tracking-widest">

@@ -7,6 +7,7 @@ const PRODUCT_TYPE_FALLBACK: Record<string, { min: number; max: number; label: s
   standard:  { min: 500,  max: 3_000,   label: "スタンダード" },
   message:   { min: 1000, max: 5_000,   label: "メッセージ" },
   entrance:  { min: 300,  max: 30_000,  label: "エントランス" },
+  custom:    { min: 500,  max: 100_000, label: "カスタム" },
 };
 
 // DB から有効な商品タイプ定義を取得
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
     recipient_name_context?: "organizer" | "artist";
     targets: { profile_id: string; distribution_ratio: number }[];
     is_personal?: boolean;
-    payment_type?: "A" | "B" | "C";
+    payment_type?: "A" | "B" | "C" | "V";
     stock_limit?: number | null;
     track_inventory?: boolean;
     image_url?: string | null;

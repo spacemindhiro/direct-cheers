@@ -16,6 +16,11 @@ const PAYMENT_TYPE_INFO = {
   C: { label: "Cタイプ：当日決済",  desc: "予約→カード保存、チェックイン時に決済" },
 };
 
+const CUSTOM_SUBTYPE_INFO = {
+  V: { label: "バウチャー（引換券）", desc: "1回のみ使用可能なデジタル引換コード。未使用分はイベント終了後に自動返金。" },
+} as const;
+type CustomSubtype = keyof typeof CUSTOM_SUBTYPE_INFO;
+
 // フォールバック（DBから取得できなかった場合）
 const PRODUCT_TYPE_FALLBACK = [
   { type: "standard", label: "スタンダード", min_amount: 500,  max_amount: 3000,  is_enabled: true },
@@ -81,6 +86,9 @@ export function QRCreateForm({
   // entrance タイプ用
   const [paymentType, setPaymentType] = useState<"A" | "B" | "C">("A");
   const [stockLimit, setStockLimit] = useState<string>("");
+  // custom タイプ用
+  const [customSubtype, setCustomSubtype] = useState<CustomSubtype>("V");
+  const [voucherStockLimit, setVoucherStockLimit] = useState<string>("");
   const [trackInventoryC, setTrackInventoryC] = useState(false);
   const [serialScope, setSerialScope] = useState<"event" | "qr" | "artist">("event");
   // 前売り販売期間（A/B タイプ必須）
@@ -127,10 +135,13 @@ export function QRCreateForm({
     setMaxAmount(snappedMax <= snappedMin ? Math.min(snappedMin + s, cfgMax) : snappedMax);
   };
 
-  // エントランスはワンプライス固定
+  // custom かつ payment_type='V' のとき true
+  const isVoucher = productType === "custom" && customSubtype === "V";
+
+  // エントランス・バウチャーはワンプライス固定
   useEffect(() => {
-    if (productType === "entrance") setPriceMode("fixed");
-  }, [productType]);
+    if (productType === "entrance" || isVoucher) setPriceMode("fixed");
+  }, [productType, isVoucher]);
 
   // 配分リストが変わったとき、宛先が配分に含まれなくなったら先頭に戻す
   useEffect(() => {
@@ -158,7 +169,7 @@ export function QRCreateForm({
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!label.trim()) { setError("ラベルを入力してください"); return; }
-    if (productType !== "entrance" && !imageUrl) { setError("QR画像をアップロードしてください"); return; }
+    if (productType !== "entrance" && !isVoucher && !imageUrl) { setError("QR画像をアップロードしてください"); return; }
     if (!recipientId) { setError("宛先を選択してください"); return; }
     if (targets.length === 0) { setError("配分先を1人以上設定してください"); return; }
     if (Math.abs(totalRatio - 100) > 0.1) { setError("配分比率の合計を100%にしてください"); return; }
@@ -184,7 +195,7 @@ export function QRCreateForm({
         body: JSON.stringify({
           event_id: eventId,
           label: label || undefined,
-          image_url: productType !== "entrance" ? (imageUrl || undefined) : undefined,
+          image_url: productType !== "entrance" && !isVoucher ? (imageUrl || undefined) : undefined,
           product_type: productType,
           min_amount: priceMode === "fixed" ? fixedAmount : minAmount,
           max_amount: priceMode === "fixed" ? fixedAmount : maxAmount,
@@ -204,6 +215,15 @@ export function QRCreateForm({
               sales_start_at: jstLocalToUtcIso(salesStartAt),
               sales_end_at: jstLocalToUtcIso(salesEndAt),
             }),
+            strip_image_url: stripImageUrl || undefined,
+            bg_color: bgColor,
+            fg_color: fgColor,
+            label_color: labelColor,
+          }),
+          ...(isVoucher && {
+            payment_type: customSubtype,
+            stock_limit: voucherStockLimit ? Number(voucherStockLimit) : null,
+            track_inventory: !!voucherStockLimit,
             strip_image_url: stripImageUrl || undefined,
             bg_color: bgColor,
             fg_color: fgColor,
@@ -256,6 +276,30 @@ export function QRCreateForm({
           </div>
         </div>
 
+        {/* カスタム：サブタイプ選択（ラベル入力より前） */}
+        {productType === "custom" && (
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">カスタムタイプ</label>
+            <div className="space-y-2">
+              {(Object.entries(CUSTOM_SUBTYPE_INFO) as [CustomSubtype, (typeof CUSTOM_SUBTYPE_INFO)[CustomSubtype]][]).map(([type, info]) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setCustomSubtype(type)}
+                  className={`w-full p-3 rounded-xl text-left transition-all border ${
+                    customSubtype === type
+                      ? "bg-amber-500/20 border-amber-500/50 text-white"
+                      : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
+                  }`}
+                >
+                  <p className="text-xs font-black">{info.label}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">{info.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ラベル */}
         <div className="space-y-2">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">ラベル <span className="text-pink-500">*</span></label>
@@ -268,7 +312,7 @@ export function QRCreateForm({
         </div>
 
         {/* 画像・プレビュー（タイプ別） */}
-        {productType === "entrance" ? (
+        {(productType === "entrance" || isVoucher) ? (
           <div className="space-y-6">
             <StripImageUpload onUploadComplete={setStripImageUrl} />
 
@@ -455,11 +499,36 @@ export function QRCreateForm({
           </div>
         )}
 
-        {/* 価格モード（エントランスはワンプライス固定） */}
+        {/* バウチャー設定（custom かつ payment_type='V' のとき） */}
+        {isVoucher && (
+          <div className="space-y-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4">
+            <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+              <Info size={10} /> バウチャー設定
+            </p>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                発行上限数（空欄 = 無制限）
+              </label>
+              <Input
+                type="number"
+                value={voucherStockLimit}
+                onChange={(e) => setVoucherStockLimit(e.target.value)}
+                placeholder="例: 50"
+                min={1}
+                className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-amber-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+              <p className="text-[10px] text-slate-500">
+                購入者はQRコードを1回のみ引換に使用できます。イベント終了後に未消込のバウチャーは自動返金されます。
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 価格モード（エントランス・バウチャーはワンプライス固定） */}
         <div className="space-y-3">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">価格設定</label>
 
-          {productType !== "entrance" && (
+          {productType !== "entrance" && !isVoucher && (
             <div className="grid grid-cols-2 gap-2">
               {(["fixed", "range"] as const).map((mode) => (
                 <button
@@ -742,7 +811,7 @@ export function QRCreateForm({
 
       <button
         type="submit"
-        disabled={isPending || !label.trim() || (productType !== "entrance" && !imageUrl) || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
+        disabled={isPending || !label.trim() || (productType !== "entrance" && !isVoucher && !imageUrl) || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
         className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>QRを作成 <ArrowRight size={18} /></>}

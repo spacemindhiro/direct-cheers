@@ -298,7 +298,7 @@ export function CheersPaymentForm({
               <Loader2 size={16} className="animate-spin" />
             ) : pendingMethod === "paypay" ? (
               "PayPay で支払う"
-            ) : selectedProduct?.type === "entrance" ? (
+            ) : (selectedProduct?.type === "entrance" || (selectedProduct?.type === "custom" && selectedProduct?.payment_type === "V")) ? (
               <>¥{amount.toLocaleString()} を購入する</>
             ) : (
               <><Heart size={16} className="fill-current" />¥{amount.toLocaleString()} を応援する</>
@@ -383,7 +383,7 @@ export function CheersPaymentForm({
         >
           {isPending ? (
             <Loader2 size={20} className="animate-spin" />
-          ) : selectedProduct?.type === "entrance" ? (
+          ) : (selectedProduct?.type === "entrance" || (selectedProduct?.type === "custom" && selectedProduct?.payment_type === "V")) ? (
             <>¥{amount.toLocaleString()} を購入する</>
           ) : (
             <>

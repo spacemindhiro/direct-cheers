@@ -160,7 +160,8 @@ export function CheckinClient() {
                     ? latestEntry.result.is_voucher
                       ? `【引換成功】${latestEntry.result.product_name ?? ""}`
                       : "入場OK"
-                    : latestEntry.status === "warn" ? "入場済みです"
+                    : latestEntry.status === "warn"
+                      ? latestEntry.result.is_voucher ? "引き換え済みです" : "入場済みです"
                     : errorMessage(latestEntry.result.error)}
                 </p>
                 {latestEntry.result.ok && (
@@ -212,7 +213,9 @@ export function CheckinClient() {
                           ? `【引換成功】${overlay.result.product_name ?? ""}`
                           : "入場OK"
                         : overlay.status === "warn"
-                          ? `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
+                          ? overlay.result.is_voucher
+                            ? `引き換え済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
+                            : `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
                           : errorMessage(overlay.result.error)}
                     </p>
                     {overlay.result.email && overlay.status !== "warn" && (

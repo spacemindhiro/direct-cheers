@@ -15,7 +15,8 @@ type DigitalTicketProps = {
   holderEmail: string;
   status: "valid" | "used" | "cancelled";
   checkedInAt?: string | null;
-  paymentType: "A" | "B" | "C" | null;
+  paymentType: "A" | "B" | "C" | "V" | null;
+  productType?: string;
   amount: number;
   stripImageUrl?: string | null;
   bgColor?: string;
@@ -36,6 +37,7 @@ export function DigitalTicket({
   status,
   checkedInAt,
   paymentType,
+  productType,
   amount,
   stripImageUrl,
   bgColor = "#0f172a",
@@ -89,6 +91,8 @@ export function DigitalTicket({
     });
   }, [ticketCode]);
 
+  const isVoucher = productType === "custom" && paymentType === "V";
+
   const statusConfig = {
     valid: {
       label: "有効",
@@ -97,7 +101,7 @@ export function DigitalTicket({
       icon: <CheckCircle size={12} className="text-green-400" />,
     },
     used: {
-      label: "入場済み",
+      label: isVoucher ? "引き換え済み" : "入場済み",
       color: "text-slate-400",
       bg: "bg-slate-700/50 border-slate-600",
       icon: <CheckCircle size={12} className="text-slate-400" />,
@@ -242,7 +246,7 @@ export function DigitalTicket({
           </div>
         </div>
 
-        {/* 入場済み情報 */}
+        {/* 入場済み / 引き換え済み情報 */}
         {checkedInAt && (
           <div className="flex items-center gap-2 bg-green-500/5 border border-green-500/15 rounded-xl px-4 py-2.5">
             <Clock size={12} className="text-green-400 shrink-0" />
@@ -253,7 +257,7 @@ export function DigitalTicket({
                 day: "numeric",
                 hour: "2-digit",
                 minute: "2-digit",
-              })} に入場済み
+              })} に{isVoucher ? "引き換え済み" : "入場済み"}
             </p>
           </div>
         )}

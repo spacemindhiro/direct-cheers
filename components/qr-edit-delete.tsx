@@ -16,6 +16,7 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   A: "Aタイプ：5日前確定",
   B: "Bタイプ：即時確定",
   C: "Cタイプ：当日決済",
+  V: "バウチャー（引換券）",
 };
 
 export function QREditDelete({
@@ -25,6 +26,7 @@ export function QREditDelete({
   eventStartAt,
   eventVenue,
   isEntrance = false,
+  isVoucher = false,
   currentLabel,
   currentImageUrl,
   currentStripImageUrl,
@@ -53,6 +55,7 @@ export function QREditDelete({
   eventStartAt?: string | null;
   eventVenue?: string | null;
   isEntrance?: boolean;
+  isVoucher?: boolean;
   currentLabel: string;
   currentImageUrl?: string | null;
   currentStripImageUrl?: string | null;
@@ -69,7 +72,7 @@ export function QREditDelete({
   isRange?: boolean;
   minAmount?: number;
   maxAmount?: number;
-  paymentType?: "A" | "B" | "C" | null;
+  paymentType?: "A" | "B" | "C" | "V" | null;
   stockLimit?: number | null;
   trackInventory?: boolean;
   serialScopeLabel?: string;
@@ -117,7 +120,7 @@ export function QREditDelete({
       setError("ラベルを入力してください");
       return;
     }
-    if (!isEntrance && !imageUrl) {
+    if (!isEntrance && !isVoucher && !imageUrl) {
       setError("QR画像をアップロードしてください");
       return;
     }
@@ -146,7 +149,7 @@ export function QREditDelete({
           distribution_ratio: (parseFloat(t.ratio) || 0) / 100,
         }));
       }
-      if (isEntrance) {
+      if (isEntrance || isVoucher) {
         body.strip_image_url = stripImageUrl;
         body.bg_color = bgColor;
         body.fg_color = fgColor;
@@ -208,7 +211,7 @@ export function QREditDelete({
 
   const isSaveDisabled = isPending
     || !label.trim()
-    || (!isEntrance && !imageUrl)
+    || (!isEntrance && !isVoucher && !imageUrl)
     || Math.abs(totalRatio - 100) > 0.1;
 
   return (
@@ -241,7 +244,7 @@ export function QREditDelete({
             />
           </div>
 
-          {isEntrance ? (
+          {(isEntrance || isVoucher) ? (
             <>
               {/* ストリップ画像 */}
               <StripImageUpload
@@ -322,8 +325,8 @@ export function QREditDelete({
             </>
           )}
 
-          {/* スライド単位（レンジ指定の非 entrance のみ） */}
-          {!isEntrance && isRange && (
+          {/* スライド単位（レンジ指定の非 entrance・非 custom のみ） */}
+          {!isEntrance && !isVoucher && isRange && (
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">スライド単位</label>
               <div className="grid grid-cols-3 gap-2">
@@ -505,7 +508,7 @@ export function QREditDelete({
                   <span className="font-bold text-slate-200">¥{currentAmountStep.toLocaleString("ja-JP")}</span>
                 </div>
               )}
-              {isEntrance && (
+              {(isEntrance || isVoucher) && (
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-400">在庫上限</span>
                   <span className="font-bold text-slate-200">
@@ -528,7 +531,7 @@ export function QREditDelete({
             </div>
           )}
 
-          {isEntrance ? (
+          {(isEntrance || isVoucher) ? (
             <>
               {currentStripImageUrl && (
                 <img

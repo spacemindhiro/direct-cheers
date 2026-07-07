@@ -106,12 +106,13 @@ async function QRDetailContent({
   const productId = (qr as any).product_id as string | null;
   let validityInfo: { label: string; from: string; to: string } | null = null;
   let isEntrance = false;
+  let isVoucher = false; // custom かつ payment_type='V' のとき true
   let productInfo: {
     typeLabel: string;
     isRange: boolean;
     minAmount: number;
     maxAmount: number;
-    paymentType: "A" | "B" | "C" | null;
+    paymentType: "A" | "B" | "C" | "V" | null;
     stockLimit: number | null;
     trackInventory: boolean;
   } | null = null;
@@ -123,6 +124,7 @@ async function QRDetailContent({
       .single();
     if (product) {
       isEntrance = product.type === "entrance";
+      isVoucher = product.type === "custom" && product.payment_type === "V";
       const isEntranceAB = isEntrance && (product.payment_type === "A" || product.payment_type === "B");
       const fmt = (d: string) => new Date(d).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
       if (isEntranceAB && product.sales_start_at && product.sales_end_at) {
@@ -132,11 +134,11 @@ async function QRDetailContent({
         validityInfo = { label: "決済有効期間", from: fmt((event as any).start_at), to: fmt(endPlus3h) };
       }
       productInfo = {
-        typeLabel: ({ standard: "スタンダード", message: "メッセージ", entrance: "エントランス", custom: "カスタム" } as Record<string, string>)[product.type as string] ?? (product.type as string),
+        typeLabel: ({ standard: "スタンダード", message: "メッセージ", entrance: "エントランス", custom: "カスタム（バウチャー）" } as Record<string, string>)[product.type as string] ?? (product.type as string),
         isRange: (product.min_amount ?? 0) !== (product.max_amount ?? 0),
         minAmount: product.min_amount ?? 0,
         maxAmount: product.max_amount ?? 0,
-        paymentType: isEntrance ? (product.payment_type as "A" | "B" | "C" | null) : null,
+        paymentType: (isEntrance || isVoucher) ? (product.payment_type as "A" | "B" | "C" | "V" | null) : null,
         stockLimit: product.stock_limit ?? null,
         trackInventory: product.track_inventory ?? true,
       };
@@ -257,6 +259,7 @@ async function QRDetailContent({
           eventStartAt={(event as any).start_at ?? null}
           eventVenue={(event as any).venue ?? null}
           isEntrance={isEntrance}
+          isVoucher={isVoucher}
           currentLabel={qr.label ?? ""}
           currentImageUrl={(qr as any).image_url ?? null}
           currentStripImageUrl={(qr as any).strip_image_url ?? null}

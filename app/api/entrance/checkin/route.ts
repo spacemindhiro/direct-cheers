@@ -74,6 +74,7 @@ export async function POST(req: Request) {
     if (checkinError) {
       return NextResponse.json({ error: checkinError.message }, { status: 500 });
     }
+    pushWalletUpdateBySerial(ticket.ticket_id).catch(() => {});
     return NextResponse.json({
       ok: true,
       is_voucher: true,

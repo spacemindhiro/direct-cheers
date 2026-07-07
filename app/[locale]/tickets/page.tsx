@@ -16,7 +16,7 @@ async function TicketsContent() {
     ticket_id, ticket_code, status, checked_in_at, email, created_at,
     reservation_id,
     reservation:entrance_reservations(status),
-    product:products(name, payment_type, min_amount),
+    product:products(name, type, payment_type, min_amount),
     event:events(event_id, title, venue, start_at),
     transaction:transactions!transaction_id(
       total_gross_amount,
@@ -84,6 +84,7 @@ async function TicketsContent() {
               status={t.status}
               checkedInAt={t.checked_in_at ?? null}
               paymentType={t.product?.payment_type ?? null}
+              productType={t.product?.type ?? undefined}
               amount={t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0}
               stripImageUrl={t.transaction?.qr_config?.strip_image_url ?? null}
               bgColor={t.transaction?.qr_config?.bg_color ?? undefined}
@@ -95,6 +96,16 @@ async function TicketsContent() {
           ))}
         </div>
       )}
+
+      {/* フッター：ダッシュボードに戻る */}
+      <div className="pt-4 border-t border-slate-800">
+        <Link
+          href="/dashboard"
+          className="flex items-center justify-center gap-2 w-full h-12 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-2xl text-xs font-black text-slate-500 hover:text-slate-300 transition-all"
+        >
+          <ArrowLeft size={14} /> ダッシュボードに戻る
+        </Link>
+      </div>
     </div>
   );
 }

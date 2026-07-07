@@ -12,6 +12,7 @@ type CheckinResult = {
   event_title?: string;
   product_name?: string;
   email?: string;
+  is_voucher?: boolean;
   ticket?: { checked_in_at?: string | null };
 };
 
@@ -155,9 +156,12 @@ export function CheckinClient() {
                   latestEntry.status === "success" ? "text-green-400" :
                   latestEntry.status === "warn"    ? "text-amber-400" : "text-red-400"
                 }`}>
-                  {latestEntry.status === "success" ? "入場OK" :
-                   latestEntry.status === "warn"    ? "入場済みです" :
-                   errorMessage(latestEntry.result.error)}
+                  {latestEntry.status === "success"
+                    ? latestEntry.result.is_voucher
+                      ? `【引換成功】${latestEntry.result.product_name ?? ""}`
+                      : "入場OK"
+                    : latestEntry.status === "warn" ? "入場済みです"
+                    : errorMessage(latestEntry.result.error)}
                 </p>
                 {latestEntry.result.ok && (
                   <div className="text-xs text-slate-300 mt-1 space-y-0.5">
@@ -203,10 +207,13 @@ export function CheckinClient() {
                     : <XCircle size={22} className="text-white shrink-0" />}
                   <div className="min-w-0">
                     <p className="text-white font-black text-sm leading-tight">
-                      {overlay.status === "success" ? "入場OK" :
-                       overlay.status === "warn"
-                         ? `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
-                         : errorMessage(overlay.result.error)}
+                      {overlay.status === "success"
+                        ? overlay.result.is_voucher
+                          ? `【引換成功】${overlay.result.product_name ?? ""}`
+                          : "入場OK"
+                        : overlay.status === "warn"
+                          ? `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
+                          : errorMessage(overlay.result.error)}
                     </p>
                     {overlay.result.email && overlay.status !== "warn" && (
                       <p className="text-white/80 text-xs truncate">{overlay.result.email}</p>

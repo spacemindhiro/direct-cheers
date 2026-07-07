@@ -431,6 +431,31 @@ export async function POST(req: Request) {
 
         const newTxId: string = rows[0].out_transaction_id;
 
+        // custom/V（バウチャー）: tickets にチケット発行（pay/complete が処理済みの場合はスキップ）
+        if (meta.product_id && wEventId) {
+          const { data: prod } = await admin
+            .from("products")
+            .select("type, payment_type")
+            .eq("product_id", meta.product_id)
+            .maybeSingle();
+          if (prod?.type === "custom" && prod?.payment_type === "V") {
+            const { data: existingTicket } = await admin
+              .from("tickets")
+              .select("ticket_id")
+              .eq("transaction_id", newTxId)
+              .maybeSingle();
+            if (!existingTicket) {
+              await admin.from("tickets").insert({
+                product_id: meta.product_id,
+                event_id: wEventId,
+                email: email ?? null,
+                transaction_id: newTxId,
+                status: "valid",
+              });
+            }
+          }
+        }
+
         // QR 子機画面へブロードキャスト（fire-and-forget）
         if (meta.qr_config_id) {
           (async () => {

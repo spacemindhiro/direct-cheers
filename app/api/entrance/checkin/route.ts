@@ -52,57 +52,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "TICKET_NOT_FOUND" }, { status: 404 });
   }
 
-  // ステータスチェック
-  // used は「再入場」として通す（QRを維持しているため再スキャンが起きる）
-  if (ticket.status === "used") {
-    // 権限チェック（再入場も担当スタッフのみ許可）
-    const ev2 = ticket.event as any;
-    if (
-      ev2?.organizer_profile_id !== user.id &&
-      ev2?.agent_id !== user.id &&
-      profile?.role !== "admin"
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    // 再入場を記録（checked_in_at を現在時刻に上書き）
-    await admin
-      .from("tickets")
-      .update({ checked_in_at: new Date().toISOString(), checked_in_by: user.id })
-      .eq("ticket_id", ticket.ticket_id);
-    // Wallet パスも更新（入場時刻を最新化）
-    pushWalletUpdateBySerial(ticket.ticket_id).catch(() => {});
-    return NextResponse.json({
-      ok: true,
-      re_entry: true,
-      ticket_id: ticket.ticket_id,
-      event_title: ev2?.title ?? "",
-      product_name: (ticket.product as any)?.name ?? "",
-      email: ticket.email,
-    });
-  }
-  if (ticket.status === "cancelled") {
-    return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
-  }
-  if (ticket.status === "suspended") {
-    return NextResponse.json({ error: "TICKET_SUSPENDED" }, { status: 409 });
-  }
-
-  // イベントへのアクセス権チェック
-  const ev = ticket.event as any;
-  if (
-    ev?.organizer_profile_id !== user.id &&
-    ev?.agent_id !== user.id &&
-    profile?.role !== "admin"
-  ) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const prod = ticket.product as any;
+  const ev = ticket.event as any;
   const productType = prod?.type as string | undefined;
   const paymentType = prod?.payment_type as "A" | "B" | "C" | "V";
   const isVoucher = productType === "custom" && paymentType === "V";
 
-  // バウチャー（custom/V）: 再利用不可。usedは一発エラー。
+  // バウチャー（custom/V）: 再利用不可。used/cancelled は問答無用でエラー。
+  // ※ エントランスの再入場ロジック（後続の used チェック）より先に判定する。
   if (isVoucher) {
     if (ticket.status === "used") {
       return NextResponse.json({ error: "ALREADY_USED", is_voucher: true }, { status: 409 });
@@ -125,6 +82,45 @@ export async function POST(req: Request) {
       product_name: prod?.name ?? "",
       email: ticket.email,
     });
+  }
+
+  // エントランス: used は「再入場」として通す（QRを維持しているため再スキャンが起きる）
+  if (ticket.status === "used") {
+    if (
+      ev?.organizer_profile_id !== user.id &&
+      ev?.agent_id !== user.id &&
+      profile?.role !== "admin"
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    await admin
+      .from("tickets")
+      .update({ checked_in_at: new Date().toISOString(), checked_in_by: user.id })
+      .eq("ticket_id", ticket.ticket_id);
+    pushWalletUpdateBySerial(ticket.ticket_id).catch(() => {});
+    return NextResponse.json({
+      ok: true,
+      re_entry: true,
+      ticket_id: ticket.ticket_id,
+      event_title: ev?.title ?? "",
+      product_name: prod?.name ?? "",
+      email: ticket.email,
+    });
+  }
+  if (ticket.status === "cancelled") {
+    return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
+  }
+  if (ticket.status === "suspended") {
+    return NextResponse.json({ error: "TICKET_SUSPENDED" }, { status: 409 });
+  }
+
+  // イベントへのアクセス権チェック
+  if (
+    ev?.organizer_profile_id !== user.id &&
+    ev?.agent_id !== user.id &&
+    profile?.role !== "admin"
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // タイプC: チェックイン時に決済実行
@@ -212,7 +208,6 @@ export async function POST(req: Request) {
 
   if (checkinError) {
     const msg = checkinError.message ?? "";
-    // ALREADY_USED はルート層で先に処理済み（再入場として通す）
     if (msg.includes("TICKET_CANCELLED")) return NextResponse.json({ error: "TICKET_CANCELLED" }, { status: 409 });
     if (msg.includes("TICKET_SUSPENDED")) return NextResponse.json({ error: "TICKET_SUSPENDED" }, { status: 409 });
     return NextResponse.json({ error: checkinError.message }, { status: 500 });

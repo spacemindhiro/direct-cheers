@@ -44,6 +44,8 @@ export async function insertEvent(params: {
   organizerProfileId: string;
   agentId?: string | null;
   title?: string;
+  startAt?: Date;
+  endAt?: Date;
 }): Promise<string> {
   const id = params.eventId ?? newId();
   // agent_id は NOT NULL。指定がない場合は organizer を代入（テスト用の自己参照）
@@ -53,8 +55,8 @@ export async function insertEvent(params: {
     organizer_profile_id: params.organizerProfileId,
     agent_id: params.agentId ?? params.organizerProfileId,
     lifecycle_status: "published",
-    start_at: new Date(Date.now() + 86400_000).toISOString(),
-    end_at: new Date(Date.now() + 172800_000).toISOString(),
+    start_at: (params.startAt ?? new Date(Date.now() + 86400_000)).toISOString(),
+    end_at: (params.endAt ?? new Date(Date.now() + 172800_000)).toISOString(),
   });
   if (error) throw new Error(`イベント挿入失敗: ${error.message}`);
   return id;
@@ -191,12 +193,12 @@ export async function insertEventEvidence(params: {
   return data.evidence_id;
 }
 
-// products を挿入（入場チケット商品）
+// products を挿入（入場チケット・バウチャー等）
 export async function insertProduct(params: {
   eventId: string;
   name?: string;
   type?: string;
-  paymentType?: "A" | "B" | "C";
+  paymentType?: "A" | "B" | "C" | "V";
   minAmount?: number;
   stockLimit?: number;
   soldCount?: number;

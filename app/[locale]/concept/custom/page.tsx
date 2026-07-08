@@ -86,8 +86,17 @@ export default function CustomPlanPage() {
         {/* --- Value Examples --- */}
         <section className="mb-24">
           <h2 className="text-xs font-black text-amber-500 uppercase tracking-[0.3em] mb-12 text-center">Value Creation Examples</h2>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="p-10 rounded-[2.5rem] bg-slate-900/50 border border-emerald-500/30 hover:border-emerald-500/60 transition-colors">
+              <span className="inline-block mb-6 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase tracking-widest">標準メニュー</span>
+              <div className="text-emerald-500 mb-6"><Ticket size={32} /></div>
+              <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight">バウチャー（引換券）</h3>
+              <p className="text-slate-400 text-sm leading-relaxed font-medium">
+                会場でのグッズ・特典引換に使える、1回のみ使用可能なデジタル引換コード。未使用分はイベント終了後に自動返金されます。
+              </p>
+            </div>
             <div className="p-10 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 hover:border-amber-500/30 transition-colors">
+              <span className="inline-block mb-6 px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[9px] font-black uppercase tracking-widest">要相談・都度開発</span>
               <div className="text-amber-500 mb-6"><Video size={32} /></div>
               <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight">パーソナルビデオ提供</h3>
               <p className="text-slate-400 text-sm leading-relaxed font-medium">
@@ -95,6 +104,7 @@ export default function CustomPlanPage() {
               </p>
             </div>
             <div className="p-10 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 hover:border-amber-500/30 transition-colors">
+              <span className="inline-block mb-6 px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[9px] font-black uppercase tracking-widest">要相談・都度開発</span>
               <div className="text-amber-500 mb-6"><Mic2 size={32} /></div>
               <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight">一点物の音声・音源</h3>
               <p className="text-slate-400 text-sm leading-relaxed font-medium">
@@ -102,6 +112,7 @@ export default function CustomPlanPage() {
               </p>
             </div>
             <div className="p-10 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 hover:border-amber-500/30 transition-colors">
+              <span className="inline-block mb-6 px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[9px] font-black uppercase tracking-widest">要相談・都度開発</span>
               <div className="text-amber-500 mb-6"><Camera size={32} /></div>
               <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight">現場エビデンス保持</h3>
               <p className="text-slate-400 text-sm leading-relaxed font-medium">
@@ -109,6 +120,9 @@ export default function CustomPlanPage() {
               </p>
             </div>
           </div>
+          <p className="text-slate-600 text-xs text-center mt-10 font-medium">
+            バウチャー以外の企画は個別のご相談内容に応じて都度開発いたします。エージェントが企画段階から伴走します。
+          </p>
         </section>
 
         {/* --- Governance Section --- */}

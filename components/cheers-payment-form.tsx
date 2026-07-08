@@ -17,6 +17,7 @@ type Product = {
   min_amount: number;
   max_amount: number;
   amount_step?: number;
+  default_amount?: number;
 };
 
 function saveEmailCookie(email: string) {
@@ -137,7 +138,7 @@ export function CheersPaymentForm({
   const selectedProduct = products[0];
   const isTypeA = selectedProduct?.type === "entrance" && selectedProduct?.payment_type === "A";
 
-  const [amount, setAmount] = useState(products[0]?.min_amount ?? 500);
+  const [amount, setAmount] = useState(products[0]?.default_amount ?? products[0]?.min_amount ?? 500);
   const [email, setEmail] = useState(lockedEmail ?? "");
   const [isEmailLocked, setIsEmailLocked] = useState(!!lockedEmail);
   const [pendingMethod, setPendingMethod] = useState<"card" | "paypay" | null>(null);

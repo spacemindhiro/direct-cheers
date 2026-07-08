@@ -73,6 +73,7 @@ export function QRCreateForm({
   const [fixedAmount, setFixedAmount] = useState(currentConfig?.min_amount ?? 500);
   const [minAmount, setMinAmount] = useState(currentConfig?.min_amount ?? 500);
   const [maxAmount, setMaxAmount] = useState(currentConfig?.max_amount ?? 3000);
+  const [defaultAmount, setDefaultAmount] = useState(currentConfig?.min_amount ?? 500);
   const [amountStep, setAmountStep] = useState<100 | 500 | 1000>(100);
   const [label, setLabel] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -123,6 +124,7 @@ export function QRCreateForm({
     setFixedAmount(cfg.min_amount);
     setMinAmount(cfg.min_amount);
     setMaxAmount(cfg.max_amount);
+    setDefaultAmount(cfg.min_amount);
   };
 
   const handleStepChange = (s: 100 | 500 | 1000) => {
@@ -131,8 +133,13 @@ export function QRCreateForm({
     const cfgMax = currentConfig?.max_amount ?? 3000;
     const snappedMin = Math.max(cfgMin, Math.round(minAmount / s) * s);
     const snappedMax = Math.min(cfgMax, Math.round(maxAmount / s) * s);
+    const newMax = snappedMax <= snappedMin ? Math.min(snappedMin + s, cfgMax) : snappedMax;
     setMinAmount(snappedMin);
-    setMaxAmount(snappedMax <= snappedMin ? Math.min(snappedMin + s, cfgMax) : snappedMax);
+    setMaxAmount(newMax);
+    setDefaultAmount((prev) => {
+      const snapped = Math.round(prev / s) * s;
+      return Math.min(Math.max(snapped, snappedMin), newMax);
+    });
   };
 
   // custom かつ payment_type='V' のとき true
@@ -199,6 +206,7 @@ export function QRCreateForm({
           product_type: productType,
           min_amount: priceMode === "fixed" ? fixedAmount : minAmount,
           max_amount: priceMode === "fixed" ? fixedAmount : maxAmount,
+          default_amount: priceMode === "fixed" ? fixedAmount : defaultAmount,
           amount_step: priceMode === "range" ? amountStep : 100,
           recipient_profile_id: recipientId,
           recipient_name_context: recipientRole,
@@ -604,7 +612,12 @@ export function QRCreateForm({
                   onChange={(e) => {
                     const v = Number(e.target.value);
                     setMinAmount(v);
-                    if (v >= maxAmount) setMaxAmount(Math.min(v + amountStep, currentConfig?.max_amount ?? 3000));
+                    let newMax = maxAmount;
+                    if (v >= maxAmount) {
+                      newMax = Math.min(v + amountStep, currentConfig?.max_amount ?? 3000);
+                      setMaxAmount(newMax);
+                    }
+                    setDefaultAmount((prev) => Math.min(Math.max(prev, v), newMax));
                   }}
                   className="w-full accent-pink-500"
                 />
@@ -624,7 +637,12 @@ export function QRCreateForm({
                   onChange={(e) => {
                     const v = Number(e.target.value);
                     setMaxAmount(v);
-                    if (v <= minAmount) setMinAmount(Math.max(v - amountStep, currentConfig?.min_amount ?? 500));
+                    let newMin = minAmount;
+                    if (v <= minAmount) {
+                      newMin = Math.max(v - amountStep, currentConfig?.min_amount ?? 500);
+                      setMinAmount(newMin);
+                    }
+                    setDefaultAmount((prev) => Math.max(Math.min(prev, v), newMin));
                   }}
                   className="w-full accent-pink-500"
                 />
@@ -632,6 +650,23 @@ export function QRCreateForm({
                   <span>¥{(currentConfig?.min_amount ?? 500).toLocaleString()}</span>
                   <span>¥{(currentConfig?.max_amount ?? 3000).toLocaleString()}</span>
                 </div>
+              </div>
+              {/* デフォルト金額スライダー（QR読み取り時の初期表示金額） */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">デフォルト金額</label>
+                  <span className="text-sm font-black text-white">¥{defaultAmount.toLocaleString()}</span>
+                </div>
+                <input
+                  type="range"
+                  min={minAmount}
+                  max={maxAmount}
+                  step={amountStep}
+                  value={defaultAmount}
+                  onChange={(e) => setDefaultAmount(Number(e.target.value))}
+                  className="w-full accent-emerald-500"
+                />
+                <p className="text-[10px] text-slate-600">QR読み取り時に最初から表示される金額</p>
               </div>
             </div>
           )}

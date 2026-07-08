@@ -9,7 +9,7 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
 
   const { data: qr } = await admin
     .from("qr_configs")
-    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id")
+    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id, product_id")
     .eq("qr_config_id", qrConfigId)
     .is("deleted_at", null)
     .single();
@@ -63,6 +63,7 @@ export async function PATCH(
     fg_color,
     label_color,
     amount_step,
+    default_amount,
   } = await req.json() as {
     label?: string;
     image_url?: string | null;
@@ -74,6 +75,7 @@ export async function PATCH(
     fg_color?: string;
     label_color?: string;
     amount_step?: 100 | 500 | 1000;
+    default_amount?: number | null;
   };
 
   // 宛先本人は image_url / strip_image_url のみ更新可。それ以外のフィールドは organizer/agent のみ。
@@ -83,6 +85,21 @@ export async function PATCH(
   if (!canEdit && isRecipient) {
     if (label !== undefined || recipient_profile_id !== undefined || recipient_name_context !== undefined || targets !== undefined) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  // デフォルト金額は商品のmin/max範囲内であることを確認
+  if (default_amount !== undefined && default_amount !== null) {
+    const { data: product } = await (admin ?? createAdminClient())
+      .from("products")
+      .select("min_amount, max_amount")
+      .eq("product_id", qr.product_id)
+      .single();
+    if (product && (default_amount < product.min_amount || default_amount > product.max_amount)) {
+      return NextResponse.json(
+        { error: `Default amount must be between ${product.min_amount} and ${product.max_amount}` },
+        { status: 400 },
+      );
     }
   }
 
@@ -97,6 +114,7 @@ export async function PATCH(
   if (recipient_profile_id !== undefined) configUpdates.recipient_profile_id = recipient_profile_id;
   if (recipient_name_context !== undefined) configUpdates.recipient_name_context = recipient_name_context;
   if (amount_step !== undefined) configUpdates.amount_step = amount_step;
+  if (default_amount !== undefined) configUpdates.default_amount = default_amount;
 
   if (Object.keys(configUpdates).length > 0) {
     const { error: configError } = await sb

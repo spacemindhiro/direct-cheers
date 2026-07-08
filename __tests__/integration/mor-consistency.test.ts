@@ -28,6 +28,7 @@ import {
   insertTransaction,
   insertDistribution,
   insertSettleTransfer,
+  insertProduct,
 } from "../helpers/seed";
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 import Stripe from "stripe";
@@ -82,6 +83,7 @@ const cleanup = {
   profileIds: [] as string[],
   eventIds: [] as string[],
   qrConfigIds: [] as string[],
+  productIds: [] as string[],
   transactionIds: [] as string[],
   distributionIds: [] as string[],
   settleTransferIds: [] as string[],
@@ -142,7 +144,19 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  await cleanupTestData(cleanup);
+  // FK制約(qr_configs.product_id / products.event_id は ON DELETE RESTRICT)のため
+  // 決済関連データ・qr_configs → products → events の順で削除する必要がある
+  await cleanupTestData({
+    debtClaimIds: cleanup.debtClaimIds,
+    settleTransferIds: cleanup.settleTransferIds,
+    distributionIds: cleanup.distributionIds,
+    transactionIds: cleanup.transactionIds,
+    qrConfigIds: cleanup.qrConfigIds,
+  });
+  if (cleanup.productIds.length) {
+    await testAdmin.from("products").delete().in("product_id", cleanup.productIds);
+  }
+  await cleanupTestData({ eventIds: cleanup.eventIds, profileIds: cleanup.profileIds });
   await deleteAuthUsers(cleanup.profileIds);
   await Promise.all([
     deleteTestConnectAccount(organizerConnectId),
@@ -154,15 +168,18 @@ afterAll(async () => {
 describe("TC-MOR-01: 宛先=アーティストのQRでも on_behalf_of はオーガナイザーのまま", () => {
   let eventId: string;
   let qrConfigId: string;
+  let productId: string;
 
   beforeAll(async () => {
     eventId = await insertEvent({ organizerProfileId, title: "TC-MOR-01 イベント" });
+    productId = await insertProduct({ eventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
     qrConfigId = await insertQrConfig({
-      eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId,
+      eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId, productId,
     });
     await testAdmin.from("qr_configs").update({ recipient_name_context: "artist" }).eq("qr_config_id", qrConfigId);
     cleanup.eventIds.push(eventId);
     cleanup.qrConfigIds.push(qrConfigId);
+    cleanup.productIds.push(productId);
   }, 60_000);
 
   it("on_behalf_of はアーティストのConnectIDではなく、オーガナイザーのConnectIDになる", async () => {
@@ -171,7 +188,7 @@ describe("TC-MOR-01: 宛先=アーティストのQRでも on_behalf_of はオー
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         qr_config_id: qrConfigId,
-        product_id: crypto.randomUUID(),
+        product_id: productId,
         amount: 1_000,
         payment_method: "card",
       }),

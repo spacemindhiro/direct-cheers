@@ -200,6 +200,7 @@ export async function insertProduct(params: {
   type?: string;
   paymentType?: "A" | "B" | "C" | "V";
   minAmount?: number;
+  maxAmount?: number;
   stockLimit?: number;
   soldCount?: number;
   trackInventory?: boolean;
@@ -213,6 +214,7 @@ export async function insertProduct(params: {
     type: params.type ?? "entrance",
     payment_type: params.paymentType ?? "B",
     min_amount: params.minAmount ?? 3000,
+    max_amount: params.maxAmount ?? 5000,
     stock_limit: params.stockLimit ?? 100,
     sold_count: params.soldCount ?? 0,
     track_inventory: params.trackInventory ?? true,

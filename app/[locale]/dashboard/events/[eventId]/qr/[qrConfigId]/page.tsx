@@ -31,7 +31,7 @@ async function QRDetailContent({
 
   const { data: qr } = await adminClient
     .from("qr_configs")
-    .select("qr_config_id, label, image_url, strip_image_url, bg_color, fg_color, label_color, recipient_profile_id, recipient_name_context, created_at, event_id, bypass_validity, product_id, amount_step, serial_scope")
+    .select("qr_config_id, label, image_url, strip_image_url, bg_color, fg_color, label_color, recipient_profile_id, recipient_name_context, created_at, event_id, bypass_validity, product_id, amount_step, default_amount, serial_scope")
     .eq("qr_config_id", qrConfigId)
     .eq("event_id", eventId)
     .is("deleted_at", null)
@@ -272,6 +272,7 @@ async function QRDetailContent({
           hasTransactions={hasTransactions}
           candidates={candidates}
           currentAmountStep={((qr as any).amount_step ?? 100) as 100 | 500 | 1000}
+          currentDefaultAmount={(qr as any).default_amount ?? productInfo?.minAmount ?? 0}
           productTypeLabel={productInfo?.typeLabel ?? ""}
           isRange={productInfo?.isRange ?? false}
           minAmount={productInfo?.minAmount ?? 0}

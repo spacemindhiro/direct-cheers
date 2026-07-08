@@ -69,7 +69,7 @@ export function ScannerQrClient() {
       <div ref={containerRef} className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-4 flex flex-col items-center gap-6">
         <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
           <Tablet size={14} />
-          子機ログインQR
+          別端末でログイン
         </div>
 
         {loading && (

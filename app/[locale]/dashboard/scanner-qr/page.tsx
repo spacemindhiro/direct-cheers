@@ -19,8 +19,8 @@ async function ScannerQrContent() {
           <ArrowLeft size={16} className="text-slate-400" />
         </Link>
         <div>
-          <h1 className="text-xl font-black text-white">子機ログインQR</h1>
-          <p className="text-[11px] text-slate-500 mt-0.5">タブレット・子機端末にこのアカウントでログインさせる</p>
+          <h1 className="text-xl font-black text-white">別端末でログイン</h1>
+          <p className="text-[11px] text-slate-500 mt-0.5">タブレット・別端末にこのアカウントでログインさせる</p>
         </div>
       </div>
 

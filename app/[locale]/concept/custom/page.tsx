@@ -113,7 +113,7 @@ export default function CustomPlanPage() {
               <div className="text-emerald-500 mb-6"><Ticket size={32} /></div>
               <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter leading-tight">バウチャー（引換券）</h3>
               <p className="text-slate-400 text-sm leading-relaxed font-medium">
-                会場でのグッズ・特典引換に使える、1回のみ使用可能なデジタル引換コード。未使用分はイベント終了後に自動返金されるため、余剰在庫のリスクなく発行できます。
+                会場でのグッズ・特典引換に使える、1回のみ使用可能なデジタル引換コード。未使用分はイベント終了後に自動返金されます。
               </p>
             </div>
           </div>

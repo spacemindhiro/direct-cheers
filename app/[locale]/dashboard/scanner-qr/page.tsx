@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { ScannerQrClient } from "@/components/scanner-qr-client";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -9,17 +8,6 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 async function ScannerQrContent() {
   const user = await getUser();
   if (!user) redirect("/auth/login");
-
-  const admin = createAdminClient();
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("profile_id", user.id)
-    .single();
-
-  if (!profile || !["organizer", "agent", "admin"].includes(profile.role)) {
-    redirect("/dashboard");
-  }
 
   return (
     <div className="max-w-md mx-auto space-y-6">

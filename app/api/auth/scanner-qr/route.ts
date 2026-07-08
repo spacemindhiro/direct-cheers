@@ -1,24 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { randomBytes } from "crypto";
 
-const ALLOWED_ROLES = ["organizer", "agent", "admin"];
-
 export async function POST() {
-  const supabase = await createClient();
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("profile_id", user.id)
-    .single();
-
-  if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const admin = createAdminClient();
   const { data: authUser } = await admin.auth.admin.getUserById(user.id);
@@ -31,7 +18,7 @@ export async function POST() {
     type: "magiclink",
     email,
     options: {
-      redirectTo: `${siteUrl}/auth/callback`,
+      redirectTo: `${siteUrl}/auth/callback?redirect=${encodeURIComponent("/auth/passkey-setup")}`,
     },
   });
 

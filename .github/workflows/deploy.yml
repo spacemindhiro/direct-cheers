@@ -20,29 +20,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      # develop pushのとき: mainに入っていないコミットがなければsync pushなのでスキップ
-      - name: Detect sync-only push
-        id: skip_check
-        if: github.event_name == 'push'
-        run: |
-          git fetch origin main
-          COUNT=$(git rev-list origin/main..HEAD --count)
-          echo "Commits ahead of main: $COUNT"
-          if [ "$COUNT" -eq 0 ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Setup Supabase CLI
-        if: steps.skip_check.outputs.skip != 'true'
         uses: supabase/setup-cli@v2
         with:
           version: 2.84.2
 
       # 1. どっちにデプロイするか判定
       - name: Set Environment Variables
-        if: steps.skip_check.outputs.skip != 'true'
         run: |
           if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
             echo "TARGET_PROJECT_ID=${{ secrets.STG_SUPABASE_PROJECT_ID }}" >> $GITHUB_ENV
@@ -54,7 +38,6 @@ jobs:
 
       # 2. DBの変更（マイグレーション）を適用
       - name: Link and Push Migrations
-        if: steps.skip_check.outputs.skip != 'true'
         run: |
           supabase link --project-ref $TARGET_PROJECT_ID --password $TARGET_DB_PASSWORD
           supabase migration repair --status reverted 20260528000000 || true

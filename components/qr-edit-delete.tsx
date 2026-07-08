@@ -39,6 +39,7 @@ export function QREditDelete({
   hasTransactions = false,
   candidates,
   currentAmountStep = 100,
+  currentDefaultAmount,
   productTypeLabel = "",
   isRange = false,
   minAmount = 0,
@@ -68,6 +69,7 @@ export function QREditDelete({
   hasTransactions?: boolean;
   candidates: TargetCandidate[];
   currentAmountStep?: 100 | 500 | 1000;
+  currentDefaultAmount?: number;
   productTypeLabel?: string;
   isRange?: boolean;
   minAmount?: number;
@@ -94,6 +96,7 @@ export function QREditDelete({
   // 別途roleを保持し、qr_configs.recipient_name_context として送る
   const [recipientRole, setRecipientRole] = useState<"organizer" | "artist">(currentRecipientRole);
   const [amountStep, setAmountStep] = useState<100 | 500 | 1000>(currentAmountStep);
+  const [defaultAmount, setDefaultAmount] = useState(currentDefaultAmount ?? minAmount);
   const [targets, setTargets] = useState<DistTarget[]>(
     currentTargets.map((t) => ({
       profile_id: t.profile_id,
@@ -157,6 +160,7 @@ export function QREditDelete({
       } else {
         body.image_url = imageUrl;
         body.amount_step = amountStep;
+        if (isRange) body.default_amount = defaultAmount;
       }
 
       const res = await fetch(`/api/qr/${qrConfigId}`, {
@@ -184,6 +188,7 @@ export function QREditDelete({
     setLabelColor(currentLabelColor);
     setRecipientId(currentRecipientId);
     setRecipientRole(currentRecipientRole);
+    setDefaultAmount(currentDefaultAmount ?? minAmount);
     setTargets(
       currentTargets.map((t) => ({
         profile_id: t.profile_id,
@@ -348,6 +353,26 @@ export function QREditDelete({
             </div>
           )}
 
+          {/* デフォルト金額（レンジ指定の非 entrance・非 custom のみ） */}
+          {!isEntrance && !isVoucher && isRange && (
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">デフォルト金額</label>
+                <span className="text-sm font-black text-white">¥{defaultAmount.toLocaleString()}</span>
+              </div>
+              <input
+                type="range"
+                min={minAmount}
+                max={maxAmount}
+                step={amountStep}
+                value={defaultAmount}
+                onChange={(e) => setDefaultAmount(Number(e.target.value))}
+                className="w-full accent-emerald-500"
+              />
+              <p className="text-[10px] text-slate-600">QR読み取り時に最初から表示される金額</p>
+            </div>
+          )}
+
           {/* 宛先 */}
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
@@ -506,6 +531,12 @@ export function QREditDelete({
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-400">スライド単位</span>
                   <span className="font-bold text-slate-200">¥{currentAmountStep.toLocaleString("ja-JP")}</span>
+                </div>
+              )}
+              {isRange && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">デフォルト金額</span>
+                  <span className="font-bold text-slate-200">¥{(currentDefaultAmount ?? minAmount).toLocaleString("ja-JP")}</span>
                 </div>
               )}
               {(isEntrance || isVoucher) && (

@@ -57,6 +57,7 @@ export async function POST(req: Request) {
     fg_color = "#ffffff",
     label_color = "#94a3b8",
     amount_step = 100,
+    default_amount = null,
   } = body as {
     event_id: string;
     label?: string;
@@ -80,6 +81,7 @@ export async function POST(req: Request) {
     fg_color?: string;
     label_color?: string;
     amount_step?: 100 | 500 | 1000;
+    default_amount?: number | null;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -112,6 +114,12 @@ export async function POST(req: Request) {
   if (min_amount < range.min || max_amount > range.max || min_amount > max_amount) {
     return NextResponse.json(
       { error: `Amount must be between ${range.min} and ${range.max}` },
+      { status: 400 },
+    );
+  }
+  if (default_amount != null && (default_amount < min_amount || default_amount > max_amount)) {
+    return NextResponse.json(
+      { error: `Default amount must be between ${min_amount} and ${max_amount}` },
       { status: 400 },
     );
   }
@@ -164,6 +172,7 @@ export async function POST(req: Request) {
     p_sales_end_at:         sales_end_at,
     p_targets:              targets,
     p_amount_step:          amount_step,
+    p_default_amount:       default_amount,
   });
 
   if (rpcError) {

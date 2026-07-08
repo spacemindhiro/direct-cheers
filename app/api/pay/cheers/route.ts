@@ -41,40 +41,79 @@ export async function POST(req: Request) {
 
   const paymentMethodTypes = resolvePaymentMethodTypes(payment_method);
 
-  const loggedInUser = await getUser();
-  const loggedInEmail = loggedInUser?.email ?? null;
-
   const admin = createAdminClient();
 
-  // organizer の Connect ID を取得（全決済手段で on_behalf_of に使用 — MoR はオーガナイザー）
-  // 同時に statement_descriptor_suffix の元になる宛先名義情報も取得する。
-  let organizerConnectId: string | null = null;
-  const { data: qrc } = await admin
-    .from("qr_configs")
-    .select(`
-      recipient_name_context,
-      event:events!event_id(organizer_profile_id),
-      recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii)
-    `)
-    .eq("qr_config_id", qr_config_id)
-    .single();
+  // getUser()（自前のcookie読取）と qr_configs 本体の取得は互いに依存しないため並列実行する。
+  // qr_configs には event の organizer_profile_id・宛先名義情報・このQRに紐づく商品(min/max)を
+  // 1クエリにまとめて埋め込み、以前は3回に分かれていたDB往復を1回に減らす。
+  const [loggedInUser, { data: qrc }] = await Promise.all([
+    getUser(),
+    admin
+      .from("qr_configs")
+      .select(`
+        product_id,
+        event_id,
+        recipient_name_context,
+        event:events!event_id(organizer_profile_id),
+        recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii),
+        product:products!product_id(min_amount, max_amount, deleted_at)
+      `)
+      .eq("qr_config_id", qr_config_id)
+      .single(),
+  ]);
 
-  const eventRow = qrc?.event as any;
-  const recipientRow = qrc?.recipient as any;
+  if (!qrc) {
+    return NextResponse.json({ error: "QR not found" }, { status: 404 });
+  }
 
-  if (eventRow?.organizer_profile_id) {
-    const { data: orgProfile } = await admin
-      .from("profiles")
-      .select("stripe_connect_id")
-      .eq("profile_id", eventRow.organizer_profile_id)
+  const loggedInEmail = loggedInUser?.email ?? null;
+  const eventRow = qrc.event as any;
+  const recipientRow = qrc.recipient as any;
+  const qrcProduct = qrc.product as any;
+
+  // amount・product_id はクライアント(スライダー/フォーム)から送られてくる値をそのまま信用できないため、
+  // このQRに紐づく商品と product_id が一致すること、その商品のmin/max範囲内であることをサーバー側で必ず検証する。
+  // これが無いと「別のQR・別のイベントの安い商品のproduct_id」を正規のqr_config_idと組み合わせて
+  // 送ることで、min/maxチェックをすり抜けられてしまう（product_idはページ閲覧時点で誰でも見える値のため）。
+  // qr_configs.product_id が未設定の古いQR（1QR:1商品の紐付け導入以前のデータ）は、
+  // 同一イベントの商品であることのみを検証するフォールバックにする。
+  let resolvedProduct: { min_amount: number; max_amount: number } | null = null;
+  if (qrc.product_id) {
+    if (product_id !== qrc.product_id) {
+      return NextResponse.json({ error: "この決済リンクに対応する商品ではありません" }, { status: 400 });
+    }
+    if (!qrcProduct || qrcProduct.deleted_at) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+    resolvedProduct = qrcProduct;
+  } else {
+    const { data: fallbackProduct } = await admin
+      .from("products")
+      .select("event_id, min_amount, max_amount")
+      .eq("product_id", product_id)
+      .is("deleted_at", null)
       .single();
-    organizerConnectId = orgProfile?.stripe_connect_id ?? null;
+    if (!fallbackProduct || fallbackProduct.event_id !== qrc.event_id) {
+      return NextResponse.json({ error: "この決済リンクに対応する商品ではありません" }, { status: 400 });
+    }
+    resolvedProduct = fallbackProduct;
+  }
+
+  if (!resolvedProduct) {
+    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  }
+
+  if (amount < resolvedProduct.min_amount || amount > resolvedProduct.max_amount) {
+    return NextResponse.json(
+      { error: `Amount must be between ${resolvedProduct.min_amount} and ${resolvedProduct.max_amount}` },
+      { status: 400 },
+    );
   }
 
   // このルートはチア/メッセージ決済専用（入場券は /api/entrance/reserve）なので isEntrance は常にfalse
   const { suffix: statementDescriptorSuffix, suffixKana, suffixKanji } = buildStatementDescriptorSuffixes({
     isEntrance: false,
-    recipientNameContext: (qrc?.recipient_name_context as "organizer" | "artist") ?? "artist",
+    recipientNameContext: (qrc.recipient_name_context as "organizer" | "artist") ?? "artist",
     organizerName: recipientRow?.organizer_name,
     artistName: recipientRow?.artist_name,
     recipientDisplayName: recipientRow?.display_name,
@@ -82,18 +121,23 @@ export async function POST(req: Request) {
     artistNameAscii: recipientRow?.artist_name_ascii,
   });
 
-  // 事前登録済みカスタマーIDを引く
-  // ログイン済みの場合はそのメールを優先（フォームはロック表示済みだが API 側でも保証）
-  let savedCustomerId: string | null = null;
   const emailForCustomer = loggedInEmail ?? customer_email;
-  if (emailForCustomer && payment_method === "card") {
-    const { data: prov } = await admin
-      .from("provisional_users")
-      .select("stripe_customer_id")
-      .eq("email", emailForCustomer)
-      .maybeSingle();
-    savedCustomerId = prov?.stripe_customer_id ?? null;
-  }
+
+  // organizer の Connect ID 取得（on_behalf_of 用）と、事前登録済みカスタマーIDの取得は
+  // 互いに依存しないため並列実行する。
+  const [orgProfileResult, provResult] = await Promise.all([
+    eventRow?.organizer_profile_id
+      ? admin.from("profiles").select("stripe_connect_id").eq("profile_id", eventRow.organizer_profile_id).single()
+      : Promise.resolve({ data: null as { stripe_connect_id: string | null } | null }),
+    emailForCustomer && payment_method === "card"
+      ? admin.from("provisional_users").select("stripe_customer_id").eq("email", emailForCustomer).maybeSingle()
+      : Promise.resolve({ data: null as { stripe_customer_id: string | null } | null }),
+  ]);
+
+  // organizer の Connect ID（全決済手段で on_behalf_of に使用 — MoR はオーガナイザー）
+  const organizerConnectId: string | null = orgProfileResult.data?.stripe_connect_id ?? null;
+  // 事前登録済みカスタマーID（ログイン済みの場合はそのメールを優先。フォームはロック表示済みだが API 側でも保証）
+  const savedCustomerId: string | null = provResult.data?.stripe_customer_id ?? null;
 
   // PayPay は Stripe Connect の on_behalf_of を現行 API でサポートしていない。
   // カード（AP/GP/Link）のみ on_behalf_of を設定し、MoR をオーガナイザーに移転する。

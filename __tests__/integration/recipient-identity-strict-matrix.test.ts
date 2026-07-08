@@ -35,7 +35,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import {
   insertProfile, deleteAuthUsers, insertEvent, insertQrConfig,
-  insertTransaction, insertDistribution,
+  insertTransaction, insertDistribution, insertProduct,
 } from "../helpers/seed";
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 
@@ -85,13 +85,13 @@ const cleanup = {
   distributionIds: [] as string[],
 };
 
-async function makeQrCheersRequest(qrConfigId: string) {
+async function makeQrCheersRequest(qrConfigId: string, productId: string) {
   const req = new Request("http://localhost/api/pay/cheers", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       qr_config_id: qrConfigId,
-      product_id: crypto.randomUUID(),
+      product_id: productId,
       amount: 1_000,
       payment_method: "card",
     }),
@@ -100,7 +100,20 @@ async function makeQrCheersRequest(qrConfigId: string) {
 }
 
 afterAll(async () => {
-  await cleanupTestData(cleanup);
+  // FK制約(すべて ON DELETE RESTRICT)のため
+  // distributions/transactions → qr_configs → products → events の順で削除する必要がある
+  await cleanupTestData({
+    distributionIds: cleanup.distributionIds,
+    transactionIds: cleanup.transactionIds,
+  });
+  if (cleanup.qrConfigIds.length) {
+    await testAdmin.from("qr_config_targets").delete().in("qr_config_id", cleanup.qrConfigIds);
+    await testAdmin.from("qr_configs").delete().in("qr_config_id", cleanup.qrConfigIds);
+  }
+  if (cleanup.productIds.length) {
+    await testAdmin.from("products").delete().in("product_id", cleanup.productIds);
+  }
+  await cleanupTestData({ eventIds: cleanup.eventIds, profileIds: cleanup.profileIds });
   await deleteAuthUsers(cleanup.profileIds);
 });
 
@@ -109,6 +122,7 @@ describe("TC-MATRIX-A: 挿入順序を入れ替えても解決結果は変わら
   let organizerConnectId: string;
   let organizerProfileId: string;
   let eventId: string;
+  let productId: string;
   let qrOrganizerConfigId: string;
   let qrArtistConfigId: string;
 
@@ -133,16 +147,19 @@ describe("TC-MATRIX-A: 挿入順序を入れ替えても解決結果は変わら
     eventId = await insertEvent({ organizerProfileId, title: eventTitle });
     cleanup.eventIds.push(eventId);
 
+    productId = await insertProduct({ eventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
+    cleanup.productIds.push(productId);
+
     // artist_name を先に更新し、organizer_name は後から更新する（逆順）
     await testAdmin.from("profiles").update({ artist_name: artistName, artist_avatar_url: artistAvatarUrl }).eq("profile_id", organizerProfileId);
     await testAdmin.from("profiles").update({ organizer_name: organizerName, organizer_avatar_url: organizerAvatarUrl }).eq("profile_id", organizerProfileId);
 
     // artist文脈のQRを先に作り、organizer文脈のQRを後で作る（逆順）
-    qrArtistConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
+    qrArtistConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId, productId });
     await testAdmin.from("qr_configs").update({ recipient_name_context: "artist" }).eq("qr_config_id", qrArtistConfigId);
     cleanup.qrConfigIds.push(qrArtistConfigId);
 
-    qrOrganizerConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
+    qrOrganizerConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId, productId });
     await testAdmin.from("qr_configs").update({ recipient_name_context: "organizer" }).eq("qr_config_id", qrOrganizerConfigId);
     cleanup.qrConfigIds.push(qrOrganizerConfigId);
   }, 30_000);
@@ -152,7 +169,7 @@ describe("TC-MATRIX-A: 挿入順序を入れ替えても解決結果は変わら
   });
 
   it("organizer文脈: Stripe suffixはsanitize(organizer_name)と完全一致し、event.titleとは不一致", async () => {
-    const res = await makeQrCheersRequest(qrOrganizerConfigId);
+    const res = await makeQrCheersRequest(qrOrganizerConfigId, productId);
     expect(res.status).toBe(200);
     const pid = captured.sessionCreateParams?.payment_intent_data;
     const expectedSuffix = sanitizeStatementDescriptorSuffix(organizerName, 19);
@@ -161,7 +178,7 @@ describe("TC-MATRIX-A: 挿入順序を入れ替えても解決結果は変わら
   });
 
   it("artist文脈: Stripe suffixはsanitize(artist_name)と完全一致", async () => {
-    const res = await makeQrCheersRequest(qrArtistConfigId);
+    const res = await makeQrCheersRequest(qrArtistConfigId, productId);
     expect(res.status).toBe(200);
     const pid = captured.sessionCreateParams?.payment_intent_data;
     const expectedSuffix = sanitizeStatementDescriptorSuffix(artistName, 19);
@@ -202,6 +219,7 @@ describe("TC-MATRIX-B: 双方のtransactionがaccrued状態でも名義解決が
   let organizerConnectId: string;
   let organizerProfileId: string;
   let eventId: string;
+  let productId: string;
   let qrOrganizerConfigId: string;
   let qrArtistConfigId: string;
   let txOrganizerId: string;
@@ -229,11 +247,14 @@ describe("TC-MATRIX-B: 双方のtransactionがaccrued状態でも名義解決が
     eventId = await insertEvent({ organizerProfileId, title: "MATRIX-B FESTIVAL" });
     cleanup.eventIds.push(eventId);
 
-    qrOrganizerConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
+    productId = await insertProduct({ eventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
+    cleanup.productIds.push(productId);
+
+    qrOrganizerConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId, productId });
     await testAdmin.from("qr_configs").update({ recipient_name_context: "organizer" }).eq("qr_config_id", qrOrganizerConfigId);
     cleanup.qrConfigIds.push(qrOrganizerConfigId);
 
-    qrArtistConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
+    qrArtistConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId, productId });
     await testAdmin.from("qr_configs").update({ recipient_name_context: "artist" }).eq("qr_config_id", qrArtistConfigId);
     cleanup.qrConfigIds.push(qrArtistConfigId);
 
@@ -266,7 +287,7 @@ describe("TC-MATRIX-B: 双方のtransactionがaccrued状態でも名義解決が
   });
 
   it("organizer文脈のtransaction（accrued）→ Stripe suffix・Walletパス名義ともにorganizer_nameと完全一致", async () => {
-    const res = await makeQrCheersRequest(qrOrganizerConfigId);
+    const res = await makeQrCheersRequest(qrOrganizerConfigId, productId);
     expect(res.status).toBe(200);
     const pid = captured.sessionCreateParams?.payment_intent_data;
     expect(pid?.statement_descriptor_suffix).toBe(sanitizeStatementDescriptorSuffix(organizerName, 19));
@@ -285,7 +306,7 @@ describe("TC-MATRIX-B: 双方のtransactionがaccrued状態でも名義解決が
   });
 
   it("artist文脈のtransaction（accrued）→ Stripe suffix・Walletパス名義ともにartist_nameと完全一致", async () => {
-    const res = await makeQrCheersRequest(qrArtistConfigId);
+    const res = await makeQrCheersRequest(qrArtistConfigId, productId);
     expect(res.status).toBe(200);
     const pid = captured.sessionCreateParams?.payment_intent_data;
     expect(pid?.statement_descriptor_suffix).toBe(sanitizeStatementDescriptorSuffix(artistName, 19));

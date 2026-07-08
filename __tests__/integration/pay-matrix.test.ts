@@ -15,8 +15,8 @@ import {
   createTestConnectAccount,
   deleteTestConnectAccount,
 } from "../helpers/stripe-fixtures";
-import { insertProfile, deleteAuthUsers, insertEvent, insertQrConfig } from "../helpers/seed";
-import { cleanupTestData } from "../helpers/db-reset";
+import { insertProfile, deleteAuthUsers, insertEvent, insertQrConfig, insertProduct } from "../helpers/seed";
+import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 
 // pay-cheers.test.ts と同じ mock 戦略:
 // captured を module スコープに置き、InstrumentedStripe で参照する
@@ -73,13 +73,16 @@ let organizerProfileId: string;
 let noConnectOrgProfileId: string;
 let eventId: string;
 let qrConfigId: string;
+let productId: string;
 let noConnectEventId: string;
 let noConnectQrConfigId: string;
+let noConnectProductId: string;
 
 const cleanup = {
   profileIds: [] as string[],
   eventIds: [] as string[],
   qrConfigIds: [] as string[],
+  productIds: [] as string[],
 };
 
 beforeAll(async () => {
@@ -101,10 +104,13 @@ beforeAll(async () => {
   cleanup.profileIds.push(organizerProfileId, noConnectOrgProfileId);
 
   eventId = await insertEvent({ organizerProfileId, title: "PAY-MATRIX テストイベント" });
+  productId = await insertProduct({ eventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
+  cleanup.productIds.push(productId);
   qrConfigId = await insertQrConfig({
     eventId,
     creatorProfileId: organizerProfileId,
     recipientProfileId: organizerProfileId,
+    productId,
   });
   cleanup.eventIds.push(eventId);
   cleanup.qrConfigIds.push(qrConfigId);
@@ -113,17 +119,29 @@ beforeAll(async () => {
     organizerProfileId: noConnectOrgProfileId,
     title: "PAY-MATRIX Connect なしイベント",
   });
+  noConnectProductId = await insertProduct({ eventId: noConnectEventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
+  cleanup.productIds.push(noConnectProductId);
   noConnectQrConfigId = await insertQrConfig({
     eventId: noConnectEventId,
     creatorProfileId: noConnectOrgProfileId,
     recipientProfileId: noConnectOrgProfileId,
+    productId: noConnectProductId,
   });
   cleanup.eventIds.push(noConnectEventId);
   cleanup.qrConfigIds.push(noConnectQrConfigId);
 }, 60_000);
 
 afterAll(async () => {
-  await cleanupTestData(cleanup);
+  // FK制約(qr_configs.product_id / products.event_id は ON DELETE RESTRICT)のため
+  // qr_configs → products → events の順で削除する必要がある
+  if (cleanup.qrConfigIds.length) {
+    await testAdmin.from("qr_config_targets").delete().in("qr_config_id", cleanup.qrConfigIds);
+    await testAdmin.from("qr_configs").delete().in("qr_config_id", cleanup.qrConfigIds);
+  }
+  if (cleanup.productIds.length) {
+    await testAdmin.from("products").delete().in("product_id", cleanup.productIds);
+  }
+  await cleanupTestData({ eventIds: cleanup.eventIds, profileIds: cleanup.profileIds });
   await deleteAuthUsers(cleanup.profileIds);
   await deleteTestConnectAccount(organizerConnectId);
 });
@@ -178,7 +196,7 @@ describe("TC-PAY-MATRIX-CARD: カード系手段 × Capability状態（4×7=28�
 
       const res = await POST(makePayReq({
         qr_config_id: qrConfigId,
-        product_id: crypto.randomUUID(),
+        product_id: productId,
         amount: 5_000,
         payment_method: method,
       }));
@@ -210,7 +228,7 @@ describe("TC-PAY-MATRIX-PAYPAY: PayPay は Capability チェック対象外（7�
 
       const res = await POST(makePayReq({
         qr_config_id: qrConfigId,
-        product_id: crypto.randomUUID(),
+        product_id: productId,
         amount: 3_000,
         payment_method: "paypay",
       }));
@@ -263,7 +281,7 @@ describe("TC-PAY-MATRIX-AMOUNT: 有効金額境界値×カード系手段（4×5
       // capabilities は afterEach でリセット済み → (active, active)
       const res = await POST(makePayReq({
         qr_config_id: qrConfigId,
-        product_id: crypto.randomUUID(),
+        product_id: productId,
         amount,
         payment_method: method,
       }));
@@ -296,7 +314,7 @@ describe("TC-PAY-MATRIX-MISSING-CAPS: 422レスポンスの missing_capabilities
 
       const res = await POST(makePayReq({
         qr_config_id: qrConfigId,
-        product_id: crypto.randomUUID(),
+        product_id: productId,
         amount: 5_000,
         payment_method: "card",
       }));
@@ -335,7 +353,7 @@ describe("TC-PAY-NO-CONNECT: Connect 未設定オーガナイザー（on_behalf_
 
       const res = await POST(makePayReq({
         qr_config_id: noConnectQrConfigId,
-        product_id: crypto.randomUUID(),
+        product_id: noConnectProductId,
         amount: 5_000,
         payment_method: method,
       }));

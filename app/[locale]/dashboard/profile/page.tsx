@@ -587,7 +587,7 @@ export default function ProfileEditPage() {
         <ArrowLeft size={16} className="text-slate-600 rotate-180 group-hover:text-pink-500 transition-colors" />
       </Link>
 
-      {/* 子機ログインQR */}
+      {/* 別端末でログイン */}
       <Link
         href="/dashboard/scanner-qr"
         className="flex items-center justify-between bg-slate-900 border border-slate-800 hover:border-pink-500/30 rounded-[2.5rem] p-6 transition-all group"
@@ -597,8 +597,8 @@ export default function ProfileEditPage() {
             <Tablet size={18} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
           </div>
           <div>
-            <p className="text-sm font-black text-white">子機ログインQR</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">タブレット・子機端末にこのアカウントでログインさせる</p>
+            <p className="text-sm font-black text-white">別端末でログイン</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">タブレット・別端末にこのアカウントでログインさせる</p>
           </div>
         </div>
         <ArrowLeft size={16} className="text-slate-600 rotate-180 group-hover:text-pink-500 transition-colors" />

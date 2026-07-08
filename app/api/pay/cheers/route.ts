@@ -99,6 +99,10 @@ export async function POST(req: Request) {
     resolvedProduct = fallbackProduct;
   }
 
+  if (!resolvedProduct) {
+    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  }
+
   if (amount < resolvedProduct.min_amount || amount > resolvedProduct.max_amount) {
     return NextResponse.json(
       { error: `Amount must be between ${resolvedProduct.min_amount} and ${resolvedProduct.max_amount}` },

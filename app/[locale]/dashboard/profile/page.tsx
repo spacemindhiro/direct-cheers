@@ -587,24 +587,22 @@ export default function ProfileEditPage() {
         <ArrowLeft size={16} className="text-slate-600 rotate-180 group-hover:text-pink-500 transition-colors" />
       </Link>
 
-      {/* 子機ログインQR（organizer/agent/adminのみ） */}
-      {["organizer", "agent", "admin"].includes(role) && (
-        <Link
-          href="/dashboard/scanner-qr"
-          className="flex items-center justify-between bg-slate-900 border border-slate-800 hover:border-pink-500/30 rounded-[2.5rem] p-6 transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-pink-500/10 transition-colors">
-              <Tablet size={18} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
-            </div>
-            <div>
-              <p className="text-sm font-black text-white">子機ログインQR</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">タブレット・子機端末にこのアカウントでログインさせる</p>
-            </div>
+      {/* 子機ログインQR */}
+      <Link
+        href="/dashboard/scanner-qr"
+        className="flex items-center justify-between bg-slate-900 border border-slate-800 hover:border-pink-500/30 rounded-[2.5rem] p-6 transition-all group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center group-hover:bg-pink-500/10 transition-colors">
+            <Tablet size={18} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
           </div>
-          <ArrowLeft size={16} className="text-slate-600 rotate-180 group-hover:text-pink-500 transition-colors" />
-        </Link>
-      )}
+          <div>
+            <p className="text-sm font-black text-white">子機ログインQR</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">タブレット・子機端末にこのアカウントでログインさせる</p>
+          </div>
+        </div>
+        <ArrowLeft size={16} className="text-slate-600 rotate-180 group-hover:text-pink-500 transition-colors" />
+      </Link>
 
     </div>
     </>

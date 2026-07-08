@@ -37,37 +37,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      # develop pushのとき: mainに入っていないコミットがなければsync pushなのでスキップ
-      - name: Detect sync-only push
-        id: skip_check
-        if: github.event_name == 'push'
-        run: |
-          git fetch origin main
-          COUNT=$(git rev-list origin/main..HEAD --count)
-          echo "Commits ahead of main: $COUNT"
-          if [ "$COUNT" -eq 0 ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
       # ── 2. Node.js セットアップ ────────────────────────────────────
       - name: Setup Node.js
-        if: steps.skip_check.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '25.x'
           cache: 'npm'
 
       - name: Install dependencies (npm ci)
-        if: steps.skip_check.outputs.skip != 'true'
         run: npm ci
 
       # ── 2.5. 生カード番号がコードに混入していないか検査 ──────────────
       # 本番APIキーで実行されると PCI DSS 違反・アカウント停止につながるため
       # Stripeテスト番号パターン（4242...等）をソースに直書きしたまま push させない
       - name: Check no raw card numbers in source
-        if: steps.skip_check.outputs.skip != 'true'
         run: |
           # Stripeの代表的なテストカード番号パターンを検索
           if grep -rn --include="*.ts" --include="*.tsx" --include="*.js" \
@@ -81,13 +64,11 @@ jobs:
       # ── 3. Supabase ローカル DB 起動 ───────────────────────────────
       # supabase start はマイグレーションを自動適用してコンテナを起動する
       - name: Setup Supabase CLI
-        if: steps.skip_check.outputs.skip != 'true'
         uses: supabase/setup-cli@v2
         with:
           version: latest
 
       - name: Start local Supabase (with migrations)
-        if: steps.skip_check.outputs.skip != 'true'
         run: supabase start
         timeout-minutes: 10
 
@@ -95,7 +76,6 @@ jobs:
       # 全シークレットは GitHub Secrets から注入
       # Supabase CLI v2.x は出力形式が変わったため動的取得せず Secrets を使用
       - name: Generate .env.test
-        if: steps.skip_check.outputs.skip != 'true'
         env:
           STRIPE_SECRET_KEY:                  ${{ secrets.STRIPE_SECRET_KEY }}
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
@@ -122,7 +102,6 @@ jobs:
       # ── 5. テスト実行（985ケース）──────────────────────────────────
       # 1件でも失敗したら終了コード 1 → ジョブ FAIL → Vercel デプロイ遮断
       - name: Run 985 integration tests
-        if: steps.skip_check.outputs.skip != 'true'
         run: npm run test:ci
         env:
           CI: true

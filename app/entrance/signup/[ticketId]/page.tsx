@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, MailCheck, CheckCircle2 } from "lucide-react";
 
 type Step = "loading" | "landing" | "magic_sent" | "skipped" | "already_done";
 
-export default function TouchpaySignupPage() {
+function TouchpaySignupPageContent() {
   const { ticketId } = useParams<{ ticketId: string }>();
   const supabase = createClient();
 
@@ -113,5 +113,17 @@ export default function TouchpaySignupPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function TouchpaySignupPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 size={28} className="text-indigo-400 animate-spin" />
+      </div>
+    }>
+      <TouchpaySignupPageContent />
+    </Suspense>
   );
 }

@@ -1,9 +1,10 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/supabase/server";
 import { reconcileTicketForUser } from "@/lib/touchpay-reconcile";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 
-export default async function TouchpaySignupCompletePage({
+async function TouchpaySignupCompleteContent({
   params,
 }: {
   params: Promise<{ ticketId: string }>;
@@ -20,5 +21,21 @@ export default async function TouchpaySignupCompletePage({
       <p className="text-lg font-black text-white">アカウントに紐付けました</p>
       <p className="text-sm text-slate-400">マイチケットからご確認いただけます</p>
     </div>
+  );
+}
+
+export default function TouchpaySignupCompletePage({
+  params,
+}: {
+  params: Promise<{ ticketId: string }>;
+}) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 size={28} className="text-indigo-400 animate-spin" />
+      </div>
+    }>
+      <TouchpaySignupCompleteContent params={params} />
+    </Suspense>
   );
 }

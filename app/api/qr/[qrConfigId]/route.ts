@@ -64,6 +64,7 @@ export async function PATCH(
     label_color,
     amount_step,
     default_amount,
+    touchpay_enabled,
   } = await req.json() as {
     label?: string;
     image_url?: string | null;
@@ -76,6 +77,7 @@ export async function PATCH(
     label_color?: string;
     amount_step?: 100 | 500 | 1000;
     default_amount?: number | null;
+    touchpay_enabled?: boolean;
   };
 
   // 宛先本人は image_url / strip_image_url のみ更新可。それ以外のフィールドは organizer/agent のみ。
@@ -103,6 +105,23 @@ export async function PATCH(
     }
   }
 
+  // 対面タッチ決済（Case④）はentrance×Cタイプ、またはcustom×バウチャー(V)×金額固定のみ許可。
+  // クライアントの申告を信用せず、サーバー側で対象条件を再検証する。
+  if (touchpay_enabled === true) {
+    const { data: product } = await (admin ?? createAdminClient())
+      .from("products")
+      .select("type, payment_type, min_amount, max_amount")
+      .eq("product_id", qr.product_id)
+      .single();
+    const eligible = !!product && (
+      (product.type === "entrance" && product.payment_type === "C") ||
+      (product.type === "custom" && product.payment_type === "V" && product.min_amount === product.max_amount)
+    );
+    if (!eligible) {
+      return NextResponse.json({ error: "この商品は対面タッチ決済に対応していません" }, { status: 400 });
+    }
+  }
+
   // qr_configs 更新
   const configUpdates: Record<string, unknown> = {};
   if (label !== undefined) configUpdates.label = label || null;
@@ -115,6 +134,7 @@ export async function PATCH(
   if (recipient_name_context !== undefined) configUpdates.recipient_name_context = recipient_name_context;
   if (amount_step !== undefined) configUpdates.amount_step = amount_step;
   if (default_amount !== undefined) configUpdates.default_amount = default_amount;
+  if (touchpay_enabled !== undefined) configUpdates.touchpay_enabled = touchpay_enabled;
 
   if (Object.keys(configUpdates).length > 0) {
     const { error: configError } = await sb

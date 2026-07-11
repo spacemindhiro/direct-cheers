@@ -44,21 +44,30 @@ export async function POST(req: Request) {
 
   const { data: product } = await admin
     .from("products")
-    .select("product_id, min_amount, event_id, type, payment_type")
+    .select("product_id, min_amount, max_amount, event_id, type, payment_type")
     .eq("product_id", product_id)
     .is("deleted_at", null)
     .single();
 
-  if (!product || product.type !== "entrance" || product.payment_type !== "C") {
+  // 対面タッチ決済の対象はentrance×Cタイプ、またはcustom×バウチャー(V)×金額固定のみ
+  const productEligible = !!product && (
+    (product.type === "entrance" && product.payment_type === "C") ||
+    (product.type === "custom" && product.payment_type === "V" && product.min_amount === product.max_amount)
+  );
+  if (!productEligible) {
     return NextResponse.json({ error: "対面タッチ決済に対応していない商品です" }, { status: 400 });
   }
 
   const { data: qrc } = await admin
     .from("qr_configs")
-    .select("qr_config_id, event:events!event_id(organizer_profile_id, agent_id)")
+    .select("qr_config_id, touchpay_enabled, event:events!event_id(organizer_profile_id, agent_id)")
     .eq("product_id", product_id)
     .is("deleted_at", null)
     .maybeSingle();
+
+  if (!qrc?.touchpay_enabled) {
+    return NextResponse.json({ error: "この商品は対面タッチ決済が許可されていません" }, { status: 400 });
+  }
 
   const eventRow = qrc?.event as unknown as { organizer_profile_id: string | null; agent_id: string | null } | null;
 

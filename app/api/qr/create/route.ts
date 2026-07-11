@@ -58,6 +58,7 @@ export async function POST(req: Request) {
     label_color = "#94a3b8",
     amount_step = 100,
     default_amount = null,
+    touchpay_enabled = false,
   } = body as {
     event_id: string;
     label?: string;
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
     label_color?: string;
     amount_step?: 100 | 500 | 1000;
     default_amount?: number | null;
+    touchpay_enabled?: boolean;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -144,6 +146,13 @@ export async function POST(req: Request) {
   const artistId = targets.length === 1 ? targets[0].profile_id : null;
   const productName = label ?? `${range.label} チア`;
 
+  // 対面タッチ決済（Case④）はentrance×Cタイプ、またはcustom×バウチャー(V)×金額固定のみ許可。
+  // クライアントの申告を信用せず、サーバー側で対象条件を再検証する。
+  const touchpayAllowedType =
+    (product_type === "entrance" && payment_type === "C") ||
+    (product_type === "custom" && payment_type === "V" && min_amount === max_amount);
+  const effectiveTouchpayEnabled = touchpay_enabled && touchpayAllowedType;
+
   // products + qr_configs + qr_config_targets をアトミックに作成
   const adminClient = createAdminClient();
   const { data: rpcRows, error: rpcError } = await adminClient.rpc("create_qr_bundle", {
@@ -173,6 +182,7 @@ export async function POST(req: Request) {
     p_targets:              targets,
     p_amount_step:          amount_step,
     p_default_amount:       default_amount,
+    p_touchpay_enabled:     effectiveTouchpayEnabled,
   });
 
   if (rpcError) {

@@ -40,6 +40,7 @@ export function QREditDelete({
   candidates,
   currentAmountStep = 100,
   currentDefaultAmount,
+  currentTouchpayEnabled = false,
   productTypeLabel = "",
   isRange = false,
   minAmount = 0,
@@ -70,6 +71,7 @@ export function QREditDelete({
   candidates: TargetCandidate[];
   currentAmountStep?: 100 | 500 | 1000;
   currentDefaultAmount?: number;
+  currentTouchpayEnabled?: boolean;
   productTypeLabel?: string;
   isRange?: boolean;
   minAmount?: number;
@@ -97,6 +99,10 @@ export function QREditDelete({
   const [recipientRole, setRecipientRole] = useState<"organizer" | "artist">(currentRecipientRole);
   const [amountStep, setAmountStep] = useState<100 | 500 | 1000>(currentAmountStep);
   const [defaultAmount, setDefaultAmount] = useState(currentDefaultAmount ?? minAmount);
+  const [touchpayEnabled, setTouchpayEnabled] = useState(currentTouchpayEnabled);
+
+  // 対面タッチ決済（Case④）: エントランスCタイプ、またはバウチャー×金額固定のみ対象
+  const touchpayEligible = (isEntrance && paymentType === "C") || (isVoucher && !isRange);
   const [targets, setTargets] = useState<DistTarget[]>(
     currentTargets.map((t) => ({
       profile_id: t.profile_id,
@@ -162,6 +168,7 @@ export function QREditDelete({
         body.amount_step = amountStep;
         if (isRange) body.default_amount = defaultAmount;
       }
+      if (touchpayEligible) body.touchpay_enabled = touchpayEnabled;
 
       const res = await fetch(`/api/qr/${qrConfigId}`, {
         method: "PATCH",
@@ -189,6 +196,7 @@ export function QREditDelete({
     setRecipientId(currentRecipientId);
     setRecipientRole(currentRecipientRole);
     setDefaultAmount(currentDefaultAmount ?? minAmount);
+    setTouchpayEnabled(currentTouchpayEnabled);
     setTargets(
       currentTargets.map((t) => ({
         profile_id: t.profile_id,
@@ -370,6 +378,25 @@ export function QREditDelete({
                 className="w-full accent-emerald-500"
               />
               <p className="text-[10px] text-slate-600">QR読み取り時に最初から表示される金額</p>
+            </div>
+          )}
+
+          {/* 対面タッチ決済（Case④）許可スイッチ */}
+          {touchpayEligible && (
+            <div className="flex items-center justify-between bg-indigo-500/5 border border-indigo-500/20 rounded-2xl px-4 py-3">
+              <div>
+                <p className="text-xs font-black text-indigo-400">対面タッチ決済を許可する</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">親機のカードリーダーでこの商品を選択できるようになります</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={touchpayEnabled}
+                onClick={() => setTouchpayEnabled((v) => !v)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${touchpayEnabled ? "bg-indigo-500" : "bg-slate-700"}`}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${touchpayEnabled ? "translate-x-5" : "translate-x-1"}`} />
+              </button>
             </div>
           )}
 
@@ -559,6 +586,14 @@ export function QREditDelete({
                   {serialScopeLabel}{serialScopeInherited ? "（イベント設定を継承）" : ""}
                 </span>
               </div>
+              {touchpayEligible && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">対面タッチ決済</span>
+                  <span className={`font-bold ${currentTouchpayEnabled ? "text-emerald-400" : "text-slate-500"}`}>
+                    {currentTouchpayEnabled ? "許可" : "不許可"}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

@@ -183,6 +183,9 @@ export async function POST(req: Request) {
      (product.product_type === "custom" && product.payment_type === "V")) &&
     qrcInfo.eventId && productId;
   if (needsTicket) {
+    // 人数（当日現地QR決済で複数人分をまとめて購入した場合）。未指定は1名。
+    const parsedQuantity = parseInt(meta.quantity ?? "", 10);
+    const quantity = Number.isInteger(parsedQuantity) && parsedQuantity >= 1 ? parsedQuantity : 1;
     const { data: t } = await admin
       .from("tickets")
       .insert({
@@ -192,6 +195,7 @@ export async function POST(req: Request) {
         holder_profile_id: senderProfileId,
         transaction_id: transactionId,
         status: "valid",
+        quantity,
       })
       .select("ticket_id")
       .single();

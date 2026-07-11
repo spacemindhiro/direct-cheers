@@ -1,0 +1,291 @@
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Capacitor } from "@capacitor/core";
+import {
+  StripeTerminal,
+  TerminalConnectTypes,
+  TerminalEventsEnum,
+  type ReaderInterface,
+} from "@capgo/capacitor-stripe-terminal";
+import { Loader2, Bluetooth, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+
+type Product = { product_id: string; name: string; min_amount: number };
+
+type Phase =
+  | "unsupported"
+  | "init"
+  | "discovering"
+  | "connecting"
+  | "ready"
+  | "charging"
+  | "done"
+  | "error";
+
+// 対面タッチ決済（Case④）。この画面はCapacitorでネイティブラップされたAndroidアプリ内でのみ
+// 動作する（Bluetoothカードリーダーとの接続はブラウザからは不可能なため）。
+// 通常のブラウザでアクセスした場合は非対応メッセージを表示するのみ。
+export function TouchPayClient({
+  eventId,
+  eventTitle,
+  products,
+  terminalLocationId,
+}: {
+  eventId: string;
+  eventTitle: string;
+  products: Product[];
+  terminalLocationId: string | null;
+}) {
+  const [phase, setPhase] = useState<Phase>("init");
+  const [error, setError] = useState("");
+  const [readers, setReaders] = useState<ReaderInterface[]>([]);
+  const [connectedReader, setConnectedReader] = useState<ReaderInterface | null>(null);
+  const [productId, setProductId] = useState(products[0]?.product_id ?? "");
+  const [quantity, setQuantity] = useState(1);
+  const [result, setResult] = useState<{ ticket_id: string | null; quantity: number } | null>(null);
+  const listenersRegistered = useRef(false);
+
+  const selectedProduct = products.find((p) => p.product_id === productId);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      setPhase("unsupported");
+      return;
+    }
+    if (listenersRegistered.current) return;
+    listenersRegistered.current = true;
+
+    StripeTerminal.addListener(TerminalEventsEnum.RequestedConnectionToken, async () => {
+      try {
+        const res = await fetch("/api/entrance/terminal/connection-token", { method: "POST" });
+        const data = await res.json();
+        await StripeTerminal.setConnectionToken({ token: data.secret });
+      } catch {
+        setError("接続トークンの取得に失敗しました");
+        setPhase("error");
+      }
+    });
+
+    const isTest = !process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.startsWith("pk_live");
+
+    StripeTerminal.initialize({ isTest })
+      .then(() => setPhase("ready"))
+      .catch(() => { setError("Stripe Terminalの初期化に失敗しました"); setPhase("error"); });
+  }, []);
+
+  const discoverAndConnect = useCallback(async () => {
+    if (!terminalLocationId) {
+      setError("Terminal Locationが未設定です（管理者に確認してください）");
+      setPhase("error");
+      return;
+    }
+    setPhase("discovering");
+    setError("");
+    try {
+      const { readers: found } = await StripeTerminal.discoverReaders({
+        type: TerminalConnectTypes.Bluetooth,
+        locationId: terminalLocationId,
+      });
+      setReaders(found);
+      if (found.length === 0) {
+        setError("リーダーが見つかりませんでした。電源・ペアリングを確認してください");
+        setPhase("error");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "リーダー検索に失敗しました");
+      setPhase("error");
+    }
+  }, [terminalLocationId]);
+
+  const connectTo = useCallback(async (reader: ReaderInterface) => {
+    setPhase("connecting");
+    setError("");
+    try {
+      await StripeTerminal.connectReader({ reader, autoReconnectOnUnexpectedDisconnect: true });
+      setConnectedReader(reader);
+      setPhase("ready");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "リーダー接続に失敗しました");
+      setPhase("error");
+    }
+  }, []);
+
+  const startCharge = useCallback(async () => {
+    if (!productId) return;
+    setPhase("charging");
+    setError("");
+    try {
+      const piRes = await fetch("/api/entrance/terminal/payment-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: productId, quantity }),
+      });
+      const piData = await piRes.json();
+      if (!piRes.ok) throw new Error(piData.error ?? "決済準備に失敗しました");
+
+      await StripeTerminal.collectPaymentMethod({ paymentIntent: piData.client_secret });
+      await StripeTerminal.confirmPaymentIntent();
+
+      const completeRes = await fetch("/api/entrance/terminal/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payment_intent_id: piData.payment_intent_id }),
+      });
+      const completeData = await completeRes.json();
+      if (!completeRes.ok) throw new Error(completeData.error ?? "決済確定に失敗しました");
+
+      setResult({ ticket_id: completeData.ticket_id, quantity: completeData.quantity });
+      setPhase("done");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "決済に失敗しました");
+      setPhase("error");
+    }
+  }, [productId, quantity]);
+
+  if (phase === "unsupported") {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center px-6">
+        <div className="max-w-sm text-center space-y-3">
+          <AlertCircle size={32} className="text-amber-400 mx-auto" />
+          <p className="text-sm font-black text-white">この画面はタッチ決済用アプリからのみ利用できます</p>
+          <p className="text-xs text-slate-500">ブラウザからは物理カードリーダーに接続できません</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200 pb-20">
+      <div className="max-w-md mx-auto px-4 py-8 space-y-6">
+        <div className="space-y-1">
+          <Link href={`/dashboard/events/${eventId}`} className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors">
+            <ArrowLeft size={12} /> イベントに戻る
+          </Link>
+          <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Touch Pay</p>
+          <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">タッチ決済</h1>
+          <p className="text-slate-500 text-sm">{eventTitle}</p>
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-xs">
+            <AlertCircle size={14} className="shrink-0" /> {error}
+          </div>
+        )}
+
+        {/* リーダー未接続 */}
+        {!connectedReader && phase !== "done" && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 text-center space-y-4">
+            <Bluetooth size={28} className="text-indigo-400 mx-auto" />
+            <p className="text-sm font-black text-white">カードリーダーに接続</p>
+            {phase === "discovering" || phase === "connecting" ? (
+              <Loader2 size={24} className="text-indigo-400 animate-spin mx-auto" />
+            ) : readers.length > 0 ? (
+              <div className="space-y-2">
+                {readers.map((r) => (
+                  <button
+                    key={r.serialNumber}
+                    type="button"
+                    onClick={() => connectTo(r)}
+                    className="w-full h-12 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-bold text-white transition-all"
+                  >
+                    {r.label || r.serialNumber}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={discoverAndConnect}
+                className="w-full h-12 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:brightness-110 transition-all"
+              >
+                リーダーを検索
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* 商品・人数選択 + 決済実行 */}
+        {connectedReader && phase !== "done" && (
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 space-y-5">
+            <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+              <CheckCircle size={14} /> {connectedReader.label || connectedReader.serialNumber} 接続済み
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">商品</p>
+              <select
+                value={productId}
+                onChange={(e) => setProductId(e.target.value)}
+                disabled={phase === "charging"}
+                className="w-full h-12 bg-slate-800 border border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus:outline-none"
+              >
+                {products.map((p) => (
+                  <option key={p.product_id} value={p.product_id}>
+                    {p.name}（¥{p.min_amount.toLocaleString()}）
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">人数</p>
+              <div className="flex items-center justify-between bg-slate-800/50 border border-slate-700/50 rounded-2xl px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1 || phase === "charging"}
+                  className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-white font-black text-lg disabled:opacity-40"
+                >
+                  −
+                </button>
+                <span className="text-2xl font-black text-white tabular-nums">{quantity}<span className="text-xs text-slate-500 ml-1">名</span></span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.min(20, q + 1))}
+                  disabled={quantity >= 20 || phase === "charging"}
+                  className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-white font-black text-lg disabled:opacity-40"
+                >
+                  ＋
+                </button>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">合計金額</p>
+              <p className="text-3xl font-black text-white italic">
+                ¥{((selectedProduct?.min_amount ?? 0) * quantity).toLocaleString()}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={startCharge}
+              disabled={phase === "charging" || !productId}
+              className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.15em] hover:brightness-110 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {phase === "charging" ? <Loader2 size={20} className="animate-spin" /> : "カードをタッチして決済"}
+            </button>
+          </div>
+        )}
+
+        {/* 完了 */}
+        {phase === "done" && result && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-[2rem] p-6 text-center space-y-3">
+            <CheckCircle size={32} className="text-green-400 mx-auto" />
+            <p className="text-lg font-black text-white">決済完了</p>
+            <p className="text-sm text-slate-300">{result.quantity}名分の入場を確定しました</p>
+            <p className="text-xs text-slate-500">子機にサインアップ用QRを表示しました</p>
+            <button
+              type="button"
+              onClick={() => { setResult(null); setPhase("ready"); }}
+              className="w-full h-12 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all mt-2"
+            >
+              次のお客様へ
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

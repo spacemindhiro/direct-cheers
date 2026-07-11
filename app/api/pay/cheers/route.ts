@@ -21,6 +21,7 @@ export async function POST(req: Request) {
     qr_config_id,
     product_id,
     amount,
+    quantity: rawQuantity,
     payment_method, // 'card' | 'paypay'
     customer_email,
     metadata,
@@ -28,6 +29,7 @@ export async function POST(req: Request) {
     qr_config_id: string;
     product_id: string;
     amount: number;
+    quantity?: number;
     payment_method: PaymentMethod;
     customer_email?: string;
     metadata?: Record<string, string>;
@@ -35,6 +37,12 @@ export async function POST(req: Request) {
 
   if (!qr_config_id || !product_id || !amount) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
+
+  // 人数（エントランスの当日現地QR決済用）。未指定は1名。
+  const quantity = rawQuantity ?? 1;
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
+    return NextResponse.json({ error: "Invalid quantity" }, { status: 400 });
   }
 
   const thanksUrl = `${SITE_URL}/c/${qr_config_id}/thanks?session_id={CHECKOUT_SESSION_ID}`;
@@ -175,7 +183,7 @@ export async function POST(req: Request) {
           },
           unit_amount: amount,
         },
-        quantity: 1,
+        quantity,
       },
     ],
     mode: "payment",
@@ -184,6 +192,7 @@ export async function POST(req: Request) {
     metadata: {
       qr_config_id,
       product_id,
+      quantity: String(quantity),
       artist_name: metadata?.artist_name ?? "",
       event_title: metadata?.event_title ?? "",
       device_name: metadata?.device_name ?? "",

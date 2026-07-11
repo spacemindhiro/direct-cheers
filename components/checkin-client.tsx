@@ -13,6 +13,7 @@ type CheckinResult = {
   product_name?: string;
   email?: string;
   is_voucher?: boolean;
+  quantity?: number;
   ticket?: { checked_in_at?: string | null };
 };
 
@@ -167,6 +168,9 @@ export function CheckinClient() {
                 {latestEntry.result.ok && (
                   <div className="text-xs text-slate-300 mt-1 space-y-0.5">
                     {latestEntry.result.product_name && <p>{latestEntry.result.product_name}</p>}
+                    {!!latestEntry.result.quantity && latestEntry.result.quantity > 1 && (
+                      <p className="text-indigo-400 font-black">{latestEntry.result.quantity}名分</p>
+                    )}
                     {latestEntry.result.email && <p className="text-slate-500">{latestEntry.result.email}</p>}
                   </div>
                 )}
@@ -218,6 +222,9 @@ export function CheckinClient() {
                             : `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
                           : errorMessage(overlay.result.error)}
                     </p>
+                    {!!overlay.result.quantity && overlay.result.quantity > 1 && (
+                      <p className="text-white font-black text-xs">{overlay.result.quantity}名分</p>
+                    )}
                     {overlay.result.email && overlay.status !== "warn" && (
                       <p className="text-white/80 text-xs truncate">{overlay.result.email}</p>
                     )}
@@ -281,6 +288,9 @@ export function CheckinClient() {
                   }`}>
                     {entry.status === "success" ? "OK" : entry.status === "warn" ? "入場済" : errorMessage(entry.result.error)}
                   </span>
+                  {!!entry.result.quantity && entry.result.quantity > 1 && (
+                    <span className="text-indigo-400 font-black shrink-0">{entry.result.quantity}名</span>
+                  )}
                   {entry.status === "warn" && entry.result.ticket?.checked_in_at && (
                     <span className="text-amber-500/70 shrink-0">
                       {new Date(entry.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}入場

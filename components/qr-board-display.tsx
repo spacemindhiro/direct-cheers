@@ -206,6 +206,11 @@ export function QRBoardDisplay({
 
   const [qrSize, setQrSize] = useState(320);
 
+  // タッチ決済（Case④）完了時のサインアップ用QRオーバーレイ
+  const [touchpaySignup, setTouchpaySignup] = useState<{ ticketId: string; quantity: number } | null>(null);
+  const touchpaySignupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const signupCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const canvasRef      = useRef<HTMLCanvasElement>(null);
   const holdTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -480,6 +485,19 @@ export function QRBoardDisplay({
     });
   }, [qrState?.qr_url, qrSize, deviceName]);
 
+  // サインアップ用QR描画（タッチ決済完了時のみ）
+  useEffect(() => {
+    if (!touchpaySignup || !signupCanvasRef.current) return;
+    const signupUrl = `${siteUrlRef.current}/entrance/signup/${touchpaySignup.ticketId}`;
+    import("qrcode").then(({ default: QRCode }) => {
+      QRCode.toCanvas(signupCanvasRef.current!, signupUrl, {
+        width: Math.min(qrSize, 320),
+        margin: 2,
+        color: { dark: "#000000", light: "#ffffff" },
+      }).catch(() => {});
+    });
+  }, [touchpaySignup, qrSize]);
+
   // 初期チア数取得 + ポーリングフォールバック（Realtimeが届かない場合の保険）
   useEffect(() => {
     const fetchCount = (isInitial: boolean) =>
@@ -560,6 +578,14 @@ export function QRBoardDisplay({
       onCheerNew();
     });
 
+    // タッチ決済（Case④）完了 → サインアップ用QRを一定時間表示する
+    channel.on("broadcast", { event: "touchpay-signup" }, ({ payload }) => {
+      const { ticket_id, quantity } = payload as { ticket_id: string; quantity: number };
+      if (touchpaySignupTimerRef.current) clearTimeout(touchpaySignupTimerRef.current);
+      setTouchpaySignup({ ticketId: ticket_id, quantity });
+      touchpaySignupTimerRef.current = setTimeout(() => setTouchpaySignup(null), 45_000);
+    });
+
     // コントロールパネルからトラック割当が変更された → 再登録してタイムテーブルを更新
     channel.on("broadcast", { event: "track-assigned" }, ({ payload }) => {
       const { device_id: targetDeviceId } = payload as { device_id: string; track_id: string | null };
@@ -592,6 +618,7 @@ export function QRBoardDisplay({
       clearInterval(timer);
       if (surgeTimerRef.current) clearTimeout(surgeTimerRef.current);
       if (counterPulseTimerRef.current) clearTimeout(counterPulseTimerRef.current);
+      if (touchpaySignupTimerRef.current) clearTimeout(touchpaySignupTimerRef.current);
       if (celebrationTimerRef.current) {
         clearInterval(celebrationTimerRef.current);
         celebrationTimerRef.current = null;
@@ -815,6 +842,22 @@ export function QRBoardDisplay({
               ? <p className="text-red-400 font-bold text-sm">{channelError}</p>
               : <p className="text-slate-400 font-bold text-sm">親機からの指示を待機中</p>}
             <p className="text-slate-600 text-xs">{eventTitle}</p>
+          </div>
+        )}
+
+        {/* タッチ決済完了 → サインアップ用QRオーバーレイ */}
+        {touchpaySignup && (
+          <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center z-40 px-6 gap-4">
+            <p className="text-2xl font-black text-white text-center">
+              {touchpaySignup.quantity}名分のご購入ありがとうございます！
+            </p>
+            <p className="text-sm text-slate-400 text-center">
+              スマホでQRを読み取ってサインアップ（任意）
+            </p>
+            <div className="p-5 pb-3 bg-white rounded-3xl shadow-2xl flex flex-col items-center gap-1.5">
+              <canvas ref={signupCanvasRef} />
+            </div>
+            <p className="text-xs text-slate-600">サインアップしなくても入場は完了しています</p>
           </div>
         )}
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Wifi, WifiOff, Lock, X, Smartphone, Sparkles } from "lucide-react";
+import { Wifi, WifiOff, Lock, X, Smartphone, Sparkles, ChevronDown } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PasskeySetup } from "@/components/passkey-setup";
 
@@ -12,6 +12,7 @@ type QRState = {
   product_name: string;
   label?: string;
   artist_name?: string;
+  image_url?: string | null;
 };
 
 type QrConfigInfo = {
@@ -47,8 +48,12 @@ function qrConfigToState(qc: QrConfigInfo, siteUrl: string, overrideLabel?: stri
     product_name: qc.product?.name ?? "",
     label: overrideLabel ?? qc.label ?? qc.product?.name ?? "",
     artist_name: qc.product?.artist?.display_name ?? "",
+    image_url: qc.image_url,
   };
 }
+
+// グループ表示（一覧タップ→単体QR拡大）で一覧に自動で戻るまでの時間
+const GROUP_RETURN_MS = 60_000;
 
 type FloatingHeart = {
   id: string;
@@ -155,11 +160,15 @@ export function QRBoardDisplay({
   // タイムテーブル
   const [schedules, setSchedules] = useState<DisplaySchedule[]>([]);
   const [isForcedOverride, setIsForcedOverride] = useState(false);
-  const [, setDefaultQrState] = useState<QRState | null>(null);
+  // トラックに割り当てられたQR群。1件なら単一QR表示（従来通り）、2件以上なら
+  // タイル一覧を表示し、客がタップした1件だけを拡大表示する「グループモード」に入る
+  const [trackQrList, setTrackQrList] = useState<QRState[]>([]);
+  const [groupMode, setGroupMode] = useState(false);
   const schedulesRef = useRef<DisplaySchedule[]>([]);
   const isForcedRef  = useRef(false);
   const trackIdRef   = useRef<string | null>(null);
-  const defaultQrStateRef = useRef<QRState | null>(null);
+  const trackQrListRef = useRef<QRState[]>([]);
+  const groupReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const siteUrlRef   = useRef(typeof window !== "undefined" ? window.location.origin : "");
   const qrStateRef   = useRef<QRState | null>(null);
   const [deviceName, setDeviceName] = useState(() => {
@@ -209,6 +218,16 @@ export function QRBoardDisplay({
   // タッチ決済（Case④）完了時のサインアップ用QRオーバーレイ
   const [touchpaySignup, setTouchpaySignup] = useState<{ ticketId: string; quantity: number } | null>(null);
   const signupCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // グループ一覧（タイル）のスクロール状態。下にまだタイルがあることを
+  // 見切れ表示＋フェード矢印で明示するため、スクロール位置を監視する
+  const groupListScrollRef = useRef<HTMLDivElement>(null);
+  const [hasMoreBelow, setHasMoreBelow] = useState(false);
+  const checkScrollBottom = useCallback(() => {
+    const el = groupListScrollRef.current;
+    if (!el) { setHasMoreBelow(false); return; }
+    setHasMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 24);
+  }, []);
 
   const canvasRef      = useRef<HTMLCanvasElement>(null);
   const holdTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -297,7 +316,16 @@ export function QRBoardDisplay({
     }
   }, [spawnHearts, spawnTexts]);
 
-  // タイムテーブルの現在スロットを適用（スロット外/転換スロットはトラックのデフォルトQRへ）
+  // グループ一覧に戻すヘルパー(タイマー解除込み)
+  const clearGroupReturnTimer = useCallback(() => {
+    if (groupReturnTimerRef.current) { clearTimeout(groupReturnTimerRef.current); groupReturnTimerRef.current = null; }
+  }, []);
+
+  // タイムテーブルの現在スロットを適用。
+  //   1. スケジュールが有効なスロット中 → そのQRを単一表示（最優先）
+  //   2. スロット外で、トラックのQRが1件だけ → 従来通り単一QR表示
+  //   3. スロット外で、トラックのQRが2件以上 → グループモード（一覧タップ→拡大表示）
+  //      客がタイルをタップして拡大表示中(qrStateがリスト内の1件と一致)なら、その選択状態は維持する
   const applySchedule = useCallback((scheds: DisplaySchedule[]) => {
     if (isForcedRef.current) return;
     const now = new Date();
@@ -305,7 +333,10 @@ export function QRBoardDisplay({
     const next = active?.qr_config
       ? qrConfigToState(active.qr_config, siteUrlRef.current, active.label ?? active.qr_config.label ?? active.qr_config.product?.name ?? "")
       : null;
+
     if (next) {
+      setGroupMode(false);
+      clearGroupReturnTimer();
       setQrState(prev => {
         if (prev?.qr_config_id === next.qr_config_id) return prev;
         setFlash(true);
@@ -313,23 +344,45 @@ export function QRBoardDisplay({
         try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
         return next;
       });
-    } else {
-      // スロット外 or 転換スロット → トラックのデフォルトQRに戻す
+      return;
+    }
+
+    const list = trackQrListRef.current;
+    if (list.length <= 1) {
+      setGroupMode(false);
+      const def = list[0] ?? null;
       setQrState(prev => {
-        const def = defaultQrStateRef.current;
-        if (!def || prev?.qr_config_id === def.qr_config_id) return prev;
+        if (prev?.qr_config_id === def?.qr_config_id) return prev;
         setFlash(true);
         setTimeout(() => setFlash(false), 350);
-        try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(def)); } catch {}
+        if (def) { try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(def)); } catch {} }
         return def;
       });
+      return;
     }
-  }, [eventId]);
 
-  // NFCタグのリダイレクト先（booth_devices.current_qr_config_id）を実際の表示に同期
+    // 複数QR → グループモード。既に一覧内の1件を選択中ならそのまま維持する
+    setGroupMode(true);
+    setQrState(prev => (prev && list.some(q => q.qr_config_id === prev.qr_config_id)) ? prev : null);
+  }, [eventId, clearGroupReturnTimer]);
+
+  // 一覧からタイルをタップ→そのQRだけを拡大表示。一定時間操作が無ければ一覧へ自動で戻す
+  const selectGroupQr = useCallback((qr: QRState) => {
+    setQrState(qr);
+    clearGroupReturnTimer();
+    groupReturnTimerRef.current = setTimeout(() => setQrState(null), GROUP_RETURN_MS);
+  }, [clearGroupReturnTimer]);
+
+  // 一覧へ手動で戻る
+  const returnToGroupList = useCallback(() => {
+    clearGroupReturnTimer();
+    setQrState(null);
+  }, [clearGroupReturnTimer]);
+
+  // NFCタグのリダイレクト先（booth_devices.current_qr_config_id）を実際の表示に同期。
+  // グループモードで一覧表示中(qrState=null)はnullを送りホームへのフォールバックに任せる。
   const syncBoothDevice = useCallback(() => {
-    const qrConfigId = qrStateRef.current?.qr_config_id;
-    if (!qrConfigId) return;
+    const qrConfigId = qrStateRef.current?.qr_config_id ?? null;
     fetch("/api/booth-devices/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -352,19 +405,21 @@ export function QRBoardDisplay({
       .catch(() => {});
   }, [eventId, applySchedule]);
 
-  // 子機を自己登録し、割り当てトラック・トラックのデフォルトQRを取得
+  // 子機を自己登録し、割り当てトラック・トラックのQR構成(1件以上)を取得
   const registerDevice = useCallback(() => {
     return fetch(`/api/events/${eventId}/display-devices`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_id: getOrCreateDeviceId(deviceName), device_name: deviceName }),
     })
-      .then(r => r.ok ? r.json() : { track_id: null, default_qr_config: null })
-      .then((data: { track_id: string | null; default_qr_config: QrConfigInfo }) => {
+      .then(r => r.ok ? r.json() : { track_id: null, qr_configs: [] })
+      .then((data: { track_id: string | null; qr_configs: QrConfigInfo[] }) => {
         trackIdRef.current = data.track_id;
-        const def = qrConfigToState(data.default_qr_config, siteUrlRef.current);
-        defaultQrStateRef.current = def;
-        setDefaultQrState(def);
+        const list = (data.qr_configs ?? [])
+          .map((qc) => qrConfigToState(qc, siteUrlRef.current))
+          .filter((q): q is QRState => q !== null);
+        trackQrListRef.current = list;
+        setTrackQrList(list);
         return data.track_id;
       })
       .catch(() => trackIdRef.current);
@@ -454,6 +509,14 @@ export function QRBoardDisplay({
     qrStateRef.current = qrState;
     syncBoothDevice();
   }, [qrState, syncBoothDevice]);
+
+  // グループ一覧を表示した瞬間、下に隠れているタイルがあるか判定する
+  useEffect(() => {
+    if (!groupMode || qrState) return;
+    // レイアウト確定後に測るため次フレームで判定
+    const raf = requestAnimationFrame(checkScrollBottom);
+    return () => cancelAnimationFrame(raf);
+  }, [groupMode, qrState, trackQrList, checkScrollBottom]);
 
   // 画面サイズに応じてQRサイズを動的計算
   useEffect(() => {
@@ -547,26 +610,21 @@ export function QRBoardDisplay({
       // target_device_id指定時、自分宛てでなければ無視（端末別の強制表示・解除）
       if (target_device_id != null && target_device_id !== deviceId) return;
       if (cancel_forced) {
-        // 強制モード解除 → タイムテーブルに戻す
+        // 強制モード解除 → タイムテーブル/トラックのQR構成に戻す(単一表示 or グループ一覧)
         isForcedRef.current = false;
         setIsForcedOverride(false);
-        const active = getActiveSchedule(schedulesRef.current, new Date());
-        const next = active?.qr_config
-          ? qrConfigToState(active.qr_config, siteUrlRef.current, active.label ?? active.qr_config.label ?? active.qr_config.product?.name ?? "")
-          : defaultQrStateRef.current;
-        setQrState(next);
-        if (next) {
-          try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
-        }
+        applySchedule(schedulesRef.current);
         setFlash(true);
         setTimeout(() => setFlash(false), 350);
         return;
       }
-      // 通常の強制切り替え
+      // 通常の強制切り替え(単一QRの上書き表示。グループ一覧は解除する)
       if (is_forced) {
         isForcedRef.current = true;
         setIsForcedOverride(true);
       }
+      setGroupMode(false);
+      clearGroupReturnTimer();
       setQrState(qrData);
       try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(qrData)); } catch {}
       setFlash(true);
@@ -622,34 +680,46 @@ export function QRBoardDisplay({
       clearInterval(timer);
       if (surgeTimerRef.current) clearTimeout(surgeTimerRef.current);
       if (counterPulseTimerRef.current) clearTimeout(counterPulseTimerRef.current);
+      if (groupReturnTimerRef.current) clearTimeout(groupReturnTimerRef.current);
       if (celebrationTimerRef.current) {
         clearInterval(celebrationTimerRef.current);
         celebrationTimerRef.current = null;
       }
       supabase.removeChannel(channel);
     };
-  }, [eventId, deviceName, onCheerNew, registerDevice, fetchSchedules]);
+  }, [eventId, deviceName, onCheerNew, registerDevice, fetchSchedules, applySchedule, clearGroupReturnTimer]);
 
   // 長押し検出（3秒でロック解除モーダル表示）
   const HOLD_DURATION = 3000;
 
+  // タッチデバイスではtouchstart/touchendの後にブラウザが疑似マウスイベント
+  // (mousedown/mouseup)を遅延発火することがあり、対応するendが来ないまま
+  // handleHoldStartが二重に呼ばれると setInterval の参照が上書きされ、
+  // 古い方が二度とclearされず永遠に進捗を書き換え続けるバグがあった。
+  // 多重起動そのものを防ぐガードで根本的に塞ぐ。
+  const holdActiveRef = useRef(false);
+
   const handleHoldStart = (e: React.TouchEvent | React.MouseEvent) => {
-    if (showUnlock) return;
+    if (showUnlock || holdActiveRef.current) return;
+    holdActiveRef.current = true;
     holdStartRef.current = Date.now();
     holdIntervalRef.current = setInterval(() => {
       const elapsed = Date.now() - holdStartRef.current;
       setHoldProgress(Math.min(100, (elapsed / HOLD_DURATION) * 100));
     }, 30);
     holdTimerRef.current = setTimeout(() => {
-      clearInterval(holdIntervalRef.current!);
+      if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
+      holdIntervalRef.current = null;
+      holdActiveRef.current = false;
       setHoldProgress(0);
       setShowUnlock(true);
     }, HOLD_DURATION);
   };
 
   const handleHoldEnd = () => {
-    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
-    if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
+    if (holdTimerRef.current) { clearTimeout(holdTimerRef.current); holdTimerRef.current = null; }
+    if (holdIntervalRef.current) { clearInterval(holdIntervalRef.current); holdIntervalRef.current = null; }
+    holdActiveRef.current = false;
     setHoldProgress(0);
   };
 
@@ -817,6 +887,15 @@ export function QRBoardDisplay({
         {/* QR表示 */}
         {qrState ? (
           <div className="relative flex flex-col items-center gap-4 px-4 py-6 w-full pointer-events-none">
+            {groupMode && (
+              <button
+                type="button"
+                onClick={returnToGroupList}
+                className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 pointer-events-auto flex items-center gap-1.5 bg-slate-800/90 border border-slate-700 text-slate-300 text-xs font-bold rounded-full px-4 py-2"
+              >
+                ← 一覧に戻る
+              </button>
+            )}
             <p className="text-4xl font-black text-white uppercase tracking-tight text-center leading-tight">
               {qrState.label || qrState.product_name}
             </p>
@@ -833,6 +912,42 @@ export function QRBoardDisplay({
             <p className="text-xs text-slate-600 font-mono uppercase tracking-widest">
               {qrState.qr_config_id.slice(0, 8)}
             </p>
+          </div>
+        ) : groupMode && trackQrList.length > 1 ? (
+          <div className="relative flex flex-col items-center gap-4 px-6 py-8 w-full h-full max-h-full">
+            <p className="text-2xl font-black text-white text-center">読み取りたい宛先を選んでください</p>
+            <div
+              ref={groupListScrollRef}
+              onScroll={checkScrollBottom}
+              className="w-full max-w-3xl overflow-y-auto pointer-events-auto"
+              style={{ maxHeight: "calc(100vh - 260px)" }}
+            >
+              <div className="grid grid-cols-3 gap-4 pb-6">
+                {trackQrList.map((qr) => (
+                  <button
+                    key={qr.qr_config_id}
+                    type="button"
+                    onClick={() => selectGroupQr(qr)}
+                    className="flex flex-col items-center gap-2 bg-slate-900 border border-slate-800 rounded-2xl p-3 hover:border-pink-500/50 transition-colors"
+                  >
+                    <div className="w-full aspect-square rounded-xl overflow-hidden bg-slate-800 flex items-center justify-center">
+                      {qr.image_url
+                        ? <img src={qr.image_url} alt="" className="w-full h-full object-cover" />
+                        : <Smartphone size={28} className="text-slate-600" />}
+                    </div>
+                    <p className="text-xs font-black text-white text-center leading-tight line-clamp-2">
+                      {qr.label || qr.product_name}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {hasMoreBelow && (
+              <div className="absolute inset-x-0 bottom-0 h-16 pointer-events-none flex items-end justify-center pb-1"
+                style={{ background: "linear-gradient(to bottom, transparent, rgba(2,6,23,0.92))" }}>
+                <ChevronDown size={22} className="text-slate-300 animate-bounce" />
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4 text-center px-8 pointer-events-none">

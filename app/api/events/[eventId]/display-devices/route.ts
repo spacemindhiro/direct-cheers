@@ -78,20 +78,21 @@ export async function POST(
     trackId = null;
   }
 
-  let defaultQrConfig = null;
+  let qrConfigs: unknown[] = [];
   if (trackId) {
-    const { data: track } = await admin
-      .from("display_tracks")
+    const { data: rows } = await admin
+      .from("display_track_qr_configs")
       .select(`
-        default_qr_config:qr_configs!default_qr_config_id(
+        sort_order,
+        qr_config:qr_configs!qr_config_id(
           qr_config_id, label, image_url,
           product:products!product_id(name, type, artist:profiles!artist_id(display_name))
         )
       `)
       .eq("track_id", trackId)
-      .maybeSingle();
-    defaultQrConfig = track?.default_qr_config ?? null;
+      .order("sort_order", { ascending: true });
+    qrConfigs = (rows ?? []).map((r) => r.qr_config);
   }
 
-  return NextResponse.json({ track_id: trackId, default_qr_config: defaultQrConfig });
+  return NextResponse.json({ track_id: trackId, qr_configs: qrConfigs });
 }

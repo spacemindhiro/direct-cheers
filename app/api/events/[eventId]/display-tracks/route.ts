@@ -30,10 +30,13 @@ export async function GET(
   const { data, error } = await admin
     .from("display_tracks")
     .select(`
-      track_id, name, default_qr_config_id, sort_order,
-      default_qr_config:qr_configs!default_qr_config_id(
-        qr_config_id, label, image_url,
-        product:products!product_id(name, type, artist:profiles!artist_id(display_name))
+      track_id, name, sort_order,
+      qr_configs:display_track_qr_configs(
+        qr_config_id, sort_order,
+        qr_config:qr_configs!qr_config_id(
+          qr_config_id, label, image_url,
+          product:products!product_id(name, type, artist:profiles!artist_id(display_name))
+        )
       )
     `)
     .eq("event_id", eventId)
@@ -41,7 +44,16 @@ export async function GET(
     .order("sort_order", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+
+  // display_track_qr_configs はネストしたsort_orderで並べ替え(PostgRESTの埋め込みは順序保証がないため)
+  const normalized = (data ?? []).map((t) => ({
+    ...t,
+    qr_configs: [...(t.qr_configs ?? [])]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((row) => row.qr_config),
+  }));
+
+  return NextResponse.json(normalized);
 }
 
 // トラック作成
@@ -58,17 +70,28 @@ export async function POST(
   if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { name, default_qr_config_id } = body;
+  const { name, qr_config_ids } = body as { name?: string; qr_config_ids?: string[] };
 
   if (!name) return NextResponse.json({ error: "name は必須です" }, { status: 400 });
 
   const { data, error } = await admin
     .from("display_tracks")
-    .insert({ event_id: eventId, name, default_qr_config_id: default_qr_config_id ?? null })
+    .insert({ event_id: eventId, name })
     .select("track_id")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (qr_config_ids?.length) {
+    const rows = qr_config_ids.map((qrConfigId, i) => ({
+      track_id: data.track_id,
+      qr_config_id: qrConfigId,
+      sort_order: i,
+    }));
+    const { error: qrError } = await admin.from("display_track_qr_configs").insert(rows);
+    if (qrError) return NextResponse.json({ error: qrError.message }, { status: 500 });
+  }
+
   return NextResponse.json(data, { status: 201 });
 }
 
@@ -86,20 +109,37 @@ export async function PATCH(
   if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { track_id, name, default_qr_config_id } = body;
+  const { track_id, name, qr_config_ids } = body as { track_id?: string; name?: string; qr_config_ids?: string[] };
   if (!track_id) return NextResponse.json({ error: "track_id required" }, { status: 400 });
 
-  const update: Record<string, unknown> = {};
-  if (name !== undefined) update.name = name;
-  if (default_qr_config_id !== undefined) update.default_qr_config_id = default_qr_config_id;
+  if (name !== undefined) {
+    const { error } = await admin
+      .from("display_tracks")
+      .update({ name })
+      .eq("track_id", track_id)
+      .eq("event_id", eventId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  const { error } = await admin
-    .from("display_tracks")
-    .update(update)
-    .eq("track_id", track_id)
-    .eq("event_id", eventId);
+  // QR構成の入れ替え(順序込み)。指定があれば全件置き換え
+  if (qr_config_ids !== undefined) {
+    const { error: delError } = await admin
+      .from("display_track_qr_configs")
+      .delete()
+      .eq("track_id", track_id);
+    if (delError) return NextResponse.json({ error: delError.message }, { status: 500 });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (qr_config_ids.length) {
+      const rows = qr_config_ids.map((qrConfigId, i) => ({
+        track_id,
+        qr_config_id: qrConfigId,
+        sort_order: i,
+      }));
+      const { error: insError } = await admin.from("display_track_qr_configs").insert(rows);
+      if (insError) return NextResponse.json({ error: insError.message }, { status: 500 });
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
 

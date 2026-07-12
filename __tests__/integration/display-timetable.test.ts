@@ -90,7 +90,7 @@ describe("TC-DISPLAY-A: display-tracks — トラックCRUD・権限", () => {
     const req = new Request("http://localhost", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "メインステージ", default_qr_config_id: qrConfigA }),
+      body: JSON.stringify({ name: "メインステージ", qr_config_ids: [qrConfigA] }),
     });
     const res = await tracksPOST(req, { params: Promise.resolve({ eventId }) });
     expect(res.status).toBe(201);
@@ -99,7 +99,7 @@ describe("TC-DISPLAY-A: display-tracks — トラックCRUD・権限", () => {
     mainTrackId = data.track_id;
   });
 
-  it("TC-DISPLAY-A-02: GET一覧に作成したトラック・default_qr_configがjoinされる", async () => {
+  it("TC-DISPLAY-A-02: GET一覧に作成したトラック・QR構成(1件)がjoinされる", async () => {
     mockAs(organizerProfileId, "organizer");
     const req = new Request("http://localhost", { method: "GET" });
     const res = await tracksGET(req, { params: Promise.resolve({ eventId }) });
@@ -108,7 +108,54 @@ describe("TC-DISPLAY-A: display-tracks — トラックCRUD・権限", () => {
     const track = data.find((t: any) => t.track_id === mainTrackId);
     expect(track).toBeTruthy();
     expect(track.name).toBe("メインステージ");
-    expect(track.default_qr_config?.qr_config_id).toBe(qrConfigA);
+    expect(track.qr_configs).toHaveLength(1);
+    expect(track.qr_configs[0].qr_config_id).toBe(qrConfigA);
+  });
+
+  it("TC-DISPLAY-A-02b: PATCHでQR構成を複数・順序付きに入れ替え → GETに順序通り反映される", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const patchReq = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track_id: mainTrackId, qr_config_ids: [qrConfigB, qrConfigA] }),
+    });
+    const patchRes = await tracksPATCH(patchReq, { params: Promise.resolve({ eventId }) });
+    expect(patchRes.status).toBe(200);
+
+    const getReq = new Request("http://localhost", { method: "GET" });
+    const getRes = await tracksGET(getReq, { params: Promise.resolve({ eventId }) });
+    const data = await getRes.json();
+    const track = data.find((t: any) => t.track_id === mainTrackId);
+    expect(track.qr_configs).toHaveLength(2);
+    expect(track.qr_configs[0].qr_config_id).toBe(qrConfigB);
+    expect(track.qr_configs[1].qr_config_id).toBe(qrConfigA);
+  });
+
+  it("TC-DISPLAY-A-02c: PATCHでqr_config_ids=[]を指定 → QR構成が空になる", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const patchReq = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track_id: mainTrackId, qr_config_ids: [] }),
+    });
+    const patchRes = await tracksPATCH(patchReq, { params: Promise.resolve({ eventId }) });
+    expect(patchRes.status).toBe(200);
+
+    const getReq = new Request("http://localhost", { method: "GET" });
+    const getRes = await tracksGET(getReq, { params: Promise.resolve({ eventId }) });
+    const data = await getRes.json();
+    const track = data.find((t: any) => t.track_id === mainTrackId);
+    expect(track.qr_configs).toHaveLength(0);
+
+    // 後続テストのため単一QRの状態に戻す
+    await tracksPATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ track_id: mainTrackId, qr_config_ids: [qrConfigA] }),
+      }),
+      { params: Promise.resolve({ eventId }) },
+    );
   });
 
   it("TC-DISPLAY-A-03: 別オーガナイザーによるトラック作成 → 403", async () => {
@@ -221,7 +268,7 @@ describe("TC-DISPLAY-B: display-devices — 子機自己登録（upsert）", () 
   const deviceId = crypto.randomUUID();
   let trackId: string;
 
-  it("TC-DISPLAY-B-01: 新規デバイスをPOST → track_id=null・default_qr_config=null", async () => {
+  it("TC-DISPLAY-B-01: 新規デバイスをPOST → track_id=null・qr_configs=[]", async () => {
     mockAs(organizerProfileId, "organizer");
     const req = new Request("http://localhost", {
       method: "POST",
@@ -232,20 +279,20 @@ describe("TC-DISPLAY-B: display-devices — 子機自己登録（upsert）", () 
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.track_id).toBeNull();
-    expect(data.default_qr_config).toBeNull();
+    expect(data.qr_configs).toEqual([]);
 
     const { data: dev } = await testAdmin.from("display_devices").select("device_name, track_id").eq("event_id", eventId).eq("device_id", deviceId).single();
     expect(dev?.device_name).toBe("iPad-AAAA");
     expect(dev?.track_id).toBeNull();
   });
 
-  it("TC-DISPLAY-B-02: トラック割当済みデバイスを再POST → track_id保持・device_name更新・default_qr_config返却", async () => {
-    // トラックを作成しデフォルトQRを設定
+  it("TC-DISPLAY-B-02: トラック割当済みデバイスを再POST → track_id保持・device_name更新・qr_configs返却(1件)", async () => {
+    // トラックを作成しQRを1件設定
     mockAs(organizerProfileId, "organizer");
     const trackReq = new Request("http://localhost", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Bテスト用トラック", default_qr_config_id: qrConfigB }),
+      body: JSON.stringify({ name: "Bテスト用トラック", qr_config_ids: [qrConfigB] }),
     });
     const trackRes = await tracksPOST(trackReq, { params: Promise.resolve({ eventId }) });
     trackId = (await trackRes.json()).track_id;
@@ -263,11 +310,33 @@ describe("TC-DISPLAY-B: display-devices — 子機自己登録（upsert）", () 
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.track_id).toBe(trackId);
-    expect(data.default_qr_config?.qr_config_id).toBe(qrConfigB);
+    expect(data.qr_configs).toHaveLength(1);
+    expect(data.qr_configs[0].qr_config_id).toBe(qrConfigB);
 
     const { data: dev } = await testAdmin.from("display_devices").select("device_name, track_id").eq("event_id", eventId).eq("device_id", deviceId).single();
     expect(dev?.device_name).toBe("iPad-AAAA-renamed");
     expect(dev?.track_id).toBe(trackId);
+  });
+
+  it("TC-DISPLAY-B-04: トラックに複数QRを設定してから再POST → qr_configsが順序通り複数件返却される", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const patchReq = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track_id: trackId, qr_config_ids: [qrConfigA, qrConfigB] }),
+    });
+    await tracksPATCH(patchReq, { params: Promise.resolve({ eventId }) });
+
+    const req = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: deviceId, device_name: "iPad-AAAA-renamed" }),
+    });
+    const res = await devicesPOST(req, { params: Promise.resolve({ eventId }) });
+    const data = await res.json();
+    expect(data.qr_configs).toHaveLength(2);
+    expect(data.qr_configs[0].qr_config_id).toBe(qrConfigA);
+    expect(data.qr_configs[1].qr_config_id).toBe(qrConfigB);
   });
 
   it("TC-DISPLAY-B-03: GET一覧に登録したデバイスが含まれる", async () => {

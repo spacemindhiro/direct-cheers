@@ -49,14 +49,15 @@ type DisplaySchedule = {
 type DisplayTrack = {
   track_id: string;
   name: string;
-  default_qr_config_id: string | null;
   sort_order: number;
-  default_qr_config: {
+  // トラックのQR構成。1件なら子機は単一表示、2件以上なら客が選ぶ一覧表示になる。
+  // 並び順はここでの並び＝チェックした順のまま固定される
+  qr_configs: {
     qr_config_id: string;
     label: string | null;
     image_url: string | null;
     product: { name: string; type: string; artist: { display_name: string } | null } | null;
-  } | null;
+  }[];
 };
 
 type DisplayDeviceRecord = {
@@ -490,16 +491,34 @@ export function QRControlPanel({
     } catch {}
   };
 
-  // トラックのデフォルトQR変更
-  const updateTrackDefaultQr = async (trackId: string, qrConfigId: string | null) => {
+  // トラックのQR構成（チェックした順が並び順として固定される）
+  const [trackQrDraft, setTrackQrDraft] = useState<string[]>([]);
+  const [savingTrackQr, setSavingTrackQr] = useState(false);
+
+  useEffect(() => {
+    const t = tracks.find(t => t.track_id === selectedTrackId);
+    setTrackQrDraft(t?.qr_configs.map(qc => qc.qr_config_id) ?? []);
+  }, [selectedTrackId, tracks]);
+
+  const toggleTrackQr = (qrConfigId: string) => {
+    setTrackQrDraft(prev =>
+      prev.includes(qrConfigId) ? prev.filter(id => id !== qrConfigId) : [...prev, qrConfigId]
+    );
+  };
+
+  const saveTrackQrConfigs = async () => {
+    if (!selectedTrackId) return;
+    setSavingTrackQr(true);
     try {
       await fetch(`/api/events/${eventId}/display-tracks`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ track_id: trackId, default_qr_config_id: qrConfigId }),
+        body: JSON.stringify({ track_id: selectedTrackId, qr_config_ids: trackQrDraft }),
       });
       await fetchTracks();
-    } catch {}
+    } finally {
+      setSavingTrackQr(false);
+    }
   };
 
   return (
@@ -793,25 +812,47 @@ export function QRControlPanel({
             ))}
           </div>
 
-          {/* 選択中トラックのデフォルトQR */}
+          {/* 選択中トラックのQR構成（スロット外の時間に表示。1件=単一表示、2件以上=客が選ぶ一覧表示） */}
           {selectedTrackId && (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
               <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
-                このトラックのデフォルトQR（スロット外の時間に表示）
+                このトラックのQR構成（1件なら単一表示、2件以上は客が選ぶ一覧表示）
               </label>
-              <select
-                value={tracks.find(t => t.track_id === selectedTrackId)?.default_qr_config_id ?? ""}
-                onChange={e => updateTrackDefaultQr(selectedTrackId, e.target.value || null)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                {qrConfigs.map(qc => {
+                  const idx = trackQrDraft.indexOf(qc.qr_config_id);
+                  const checked = idx !== -1;
+                  return (
+                    <label
+                      key={qc.qr_config_id}
+                      className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/60 rounded-xl px-3 py-2 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleTrackQr(qc.qr_config_id)}
+                        className="accent-indigo-500"
+                      />
+                      {checked && (
+                        <span className="text-[10px] font-mono text-indigo-400 w-4 text-center shrink-0">{idx + 1}</span>
+                      )}
+                      <span className="text-xs text-white flex-1 truncate">
+                        {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
+                        {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-slate-600">チェックした順番がそのまま子機での並び順になります（一覧表示時）</p>
+              <button
+                type="button"
+                onClick={saveTrackQrConfigs}
+                disabled={savingTrackQr}
+                className="w-full px-3 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
               >
-                <option value="">— 設定なし</option>
-                {qrConfigs.map(qc => (
-                  <option key={qc.qr_config_id} value={qc.qr_config_id}>
-                    {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
-                    {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
-                  </option>
-                ))}
-              </select>
+                {savingTrackQr ? "保存中..." : "保存"}
+              </button>
             </div>
           )}
 

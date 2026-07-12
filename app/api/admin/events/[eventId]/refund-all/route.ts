@@ -41,11 +41,23 @@ export async function POST(
   let errors = 0;
   for (const tx of txs ?? []) {
     try {
-      await stripe.refunds.create({ payment_intent: tx.stripe_payment_intent_id });
-      await admin
-        .from("transactions")
-        .update({ status: "refunded" })
-        .eq("transaction_id", tx.transaction_id);
+      // capture_method:manual のためsettle前は大半がrequires_capture(未キャプチャ)。
+      // 未キャプチャのPIはrefunds.createでは返金できない(Stripe側でエラーになる)ため、
+      // まずcancelで資金移動ゼロのまま解放し、既にキャプチャ済みの場合のみrefundする。
+      const pi = await stripe.paymentIntents.retrieve(tx.stripe_payment_intent_id);
+      if (pi.status === "requires_capture") {
+        await stripe.paymentIntents.cancel(tx.stripe_payment_intent_id);
+        await admin
+          .from("transactions")
+          .update({ status: "cancelled" })
+          .eq("transaction_id", tx.transaction_id);
+      } else {
+        await stripe.refunds.create({ payment_intent: tx.stripe_payment_intent_id });
+        await admin
+          .from("transactions")
+          .update({ status: "refunded" })
+          .eq("transaction_id", tx.transaction_id);
+      }
       refunded++;
     } catch (err: any) {
       errors++;

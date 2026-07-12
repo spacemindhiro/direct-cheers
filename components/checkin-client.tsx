@@ -3,7 +3,7 @@
 import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { CheckCircle, XCircle, AlertCircle, QrCode, Loader2, ArrowLeft, Users } from "lucide-react";
+import { CheckCircle, XCircle, AlertCircle, QrCode, Loader2, ArrowLeft, Users, CreditCard } from "lucide-react";
 import Link from "next/link";
 
 type CheckinResult = {
@@ -140,6 +140,21 @@ export function CheckinClient() {
           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Check-in</p>
           <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">入場スキャナ</h1>
         </div>
+
+        {/* 対面タッチ決済への導線 */}
+        <Link
+          href={`/dashboard/events/${params.eventId}/entrance/touch-pay`}
+          className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/30 rounded-2xl px-4 py-3 hover:bg-indigo-500/20 transition-all"
+        >
+          <div className="flex items-center gap-2.5">
+            <CreditCard size={16} className="text-indigo-400" />
+            <div>
+              <p className="text-xs font-black text-indigo-400">対面タッチ決済</p>
+              <p className="text-[10px] text-slate-500">その場でカード決済して入場させる</p>
+            </div>
+          </div>
+          <ArrowLeft size={14} className="text-indigo-400 rotate-180" />
+        </Link>
 
         {/* スキャン結果サマリー（スキャン停止中に最新結果を表示） */}
         {!scanning && latestEntry && (

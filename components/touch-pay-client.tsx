@@ -173,6 +173,14 @@ export function TouchPayClient({
           </div>
         )}
 
+        {products.length === 0 ? (
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 text-center space-y-2">
+            <AlertCircle size={24} className="text-amber-400 mx-auto" />
+            <p className="text-sm font-black text-white">対面タッチ決済が有効な商品がありません</p>
+            <p className="text-xs text-slate-500">QRの設定画面で「対面タッチ決済を許可する」をONにしてください</p>
+          </div>
+        ) : (
+        <>
         {/* リーダー未接続 */}
         {!connectedReader && phase !== "done" && (
           <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 text-center space-y-4">
@@ -284,6 +292,8 @@ export function TouchPayClient({
               次のお客様へ
             </button>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>

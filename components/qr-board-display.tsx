@@ -208,7 +208,6 @@ export function QRBoardDisplay({
 
   // タッチ決済（Case④）完了時のサインアップ用QRオーバーレイ
   const [touchpaySignup, setTouchpaySignup] = useState<{ ticketId: string; quantity: number } | null>(null);
-  const touchpaySignupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const signupCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const canvasRef      = useRef<HTMLCanvasElement>(null);
@@ -578,12 +577,17 @@ export function QRBoardDisplay({
       onCheerNew();
     });
 
-    // タッチ決済（Case④）完了 → サインアップ用QRを一定時間表示する
+    // タッチ決済（Case④）完了・新規客 → サインアップ用QRを表示する。
+    // 親機スタッフが「次の決済へ」を押す（touchpay-clearイベント）まで、
+    // タイマーでは絶対に消さない（客がQRを読み取る時間を確実に確保するため）。
     channel.on("broadcast", { event: "touchpay-signup" }, ({ payload }) => {
       const { ticket_id, quantity } = payload as { ticket_id: string; quantity: number };
-      if (touchpaySignupTimerRef.current) clearTimeout(touchpaySignupTimerRef.current);
       setTouchpaySignup({ ticketId: ticket_id, quantity });
-      touchpaySignupTimerRef.current = setTimeout(() => setTouchpaySignup(null), 45_000);
+    });
+
+    // 親機スタッフの明示操作でのみサインアップQRをクリアする
+    channel.on("broadcast", { event: "touchpay-clear" }, () => {
+      setTouchpaySignup(null);
     });
 
     // コントロールパネルからトラック割当が変更された → 再登録してタイムテーブルを更新
@@ -618,7 +622,6 @@ export function QRBoardDisplay({
       clearInterval(timer);
       if (surgeTimerRef.current) clearTimeout(surgeTimerRef.current);
       if (counterPulseTimerRef.current) clearTimeout(counterPulseTimerRef.current);
-      if (touchpaySignupTimerRef.current) clearTimeout(touchpaySignupTimerRef.current);
       if (celebrationTimerRef.current) {
         clearInterval(celebrationTimerRef.current);
         celebrationTimerRef.current = null;

@@ -54,3 +54,32 @@ export async function broadcastTouchpaySignup(eventId: string, ticketId: string,
     });
   } catch { /* サイレント */ }
 }
+
+/**
+ * 親機のスタッフが「次の決済へ」を明示的にタップした時にのみ呼ぶ。
+ * 子機のサインアップQRオーバーレイはタイマーでは消えない仕様のため、
+ * このイベントだけがクリアのトリガーになる。
+ */
+export async function broadcastTouchpayClear(eventId: string): Promise<void> {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) return;
+
+    await fetch(`${supabaseUrl}/realtime/v1/api/broadcast`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey":        serviceKey,
+        "Authorization": `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
+        messages: [{
+          topic:   `event-display:${eventId}`,
+          event:   "touchpay-clear",
+          payload: {},
+        }],
+      }),
+    });
+  } catch { /* サイレント */ }
+}

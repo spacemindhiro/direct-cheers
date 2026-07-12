@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
-import { broadcastTouchpaySignup } from "@/lib/realtime-broadcast";
+import { broadcastCheerNew, broadcastTouchpaySignup } from "@/lib/realtime-broadcast";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -41,11 +41,26 @@ export async function POST(req: Request) {
   if (existingTx) {
     const { data: existingTicket } = await admin
       .from("tickets")
-      .select("ticket_id, quantity")
+      .select("ticket_id, quantity, holder_profile_id")
       .eq("transaction_id", existingTx.transaction_id)
       .maybeSingle();
     if (existingTicket) {
-      return NextResponse.json({ ok: true, ticket_id: existingTicket.ticket_id, quantity: existingTicket.quantity });
+      let customerName: string | null = null;
+      if (existingTicket.holder_profile_id) {
+        const { data: profileRow } = await admin
+          .from("profiles")
+          .select("display_name")
+          .eq("profile_id", existingTicket.holder_profile_id)
+          .single();
+        customerName = profileRow?.display_name ?? null;
+      }
+      return NextResponse.json({
+        ok: true,
+        ticket_id: existingTicket.ticket_id,
+        quantity: existingTicket.quantity,
+        is_repeat: !!existingTicket.holder_profile_id,
+        customer_name: customerName,
+      });
     }
   }
 
@@ -84,6 +99,30 @@ export async function POST(req: Request) {
     agentFee = Math.floor(platformFee * (feeConfig.agent_fee_rate / feeConfig.platform_rate));
   }
 
+  // リピーター判定: 同じcard_fingerprintが既に実在アカウントへ紐付いたticketに
+  // 使われていれば、その客だと分かっている（過去のサインアップで名寄せ済み）。
+  let knownProfileId: string | null = null;
+  let customerName: string | null = null;
+  if (cardFingerprint) {
+    const { data: existingLink } = await admin
+      .from("tickets")
+      .select("holder_profile_id")
+      .eq("card_fingerprint", cardFingerprint)
+      .not("holder_profile_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    if (existingLink?.holder_profile_id) {
+      knownProfileId = existingLink.holder_profile_id;
+      const { data: profileRow } = await admin
+        .from("profiles")
+        .select("display_name")
+        .eq("profile_id", knownProfileId)
+        .single();
+      customerName = profileRow?.display_name ?? null;
+    }
+  }
+  const isRepeat = knownProfileId !== null;
+
   const { data: rpcRows, error: rpcError } = await admin.rpc("complete_touchpay_payment", {
     p_stripe_payment_intent_id: payment_intent_id,
     p_product_id:               productId,
@@ -97,6 +136,7 @@ export async function POST(req: Request) {
     p_agent_fee:                agentFee,
     p_device_name:              meta.device_name || null,
     p_card_fingerprint:         cardFingerprint,
+    p_known_profile_id:         knownProfileId,
   });
 
   if (rpcError) {
@@ -126,7 +166,7 @@ export async function POST(req: Request) {
       product_id: productId,
       event_id: eventId,
       email: null,
-      holder_profile_id: null,
+      holder_profile_id: knownProfileId,
       transaction_id: transactionId,
       status: "used",
       checked_in_at: new Date().toISOString(),
@@ -138,8 +178,20 @@ export async function POST(req: Request) {
     .single();
 
   if (ticket) {
-    broadcastTouchpaySignup(eventId, ticket.ticket_id, quantity).catch(() => {});
+    // リピーターは既にアカウントと紐付いているため、サインアップQRではなく
+    // 既存の投げ銭演出（ハート等）で完了フィードバックのみ行う。
+    if (isRepeat) {
+      broadcastCheerNew(eventId, gross).catch(() => {});
+    } else {
+      broadcastTouchpaySignup(eventId, ticket.ticket_id, quantity).catch(() => {});
+    }
   }
 
-  return NextResponse.json({ ok: true, ticket_id: ticket?.ticket_id ?? null, quantity });
+  return NextResponse.json({
+    ok: true,
+    ticket_id: ticket?.ticket_id ?? null,
+    quantity,
+    is_repeat: isRepeat,
+    customer_name: customerName,
+  });
 }

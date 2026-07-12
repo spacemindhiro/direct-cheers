@@ -35,6 +35,7 @@ export function TouchPayClient({
   const [error, setError] = useState("");
   const [readers, setReaders] = useState<ReaderInterface[]>([]);
   const [connectedReader, setConnectedReader] = useState<ReaderInterface | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
   const [productId, setProductId] = useState(products[0]?.product_id ?? "");
   const [quantity, setQuantity] = useState(1);
   const [result, setResult] = useState<{ ticket_id: string | null; quantity: number } | null>(null);
@@ -58,6 +59,30 @@ export function TouchPayClient({
       } catch {
         setError("接続トークンの取得に失敗しました");
       }
+    });
+
+    // リーダーの切断を検知し、UIの「接続済み」表示が実際の状態とズレないようにする。
+    // autoReconnectOnUnexpectedDisconnect:true で接続しているため、予期せぬ切断は
+    // まず自動再接続が試みられる（Reconnect系イベント）。
+    StripeTerminal.addListener(TerminalEventsEnum.DisconnectedReader, ({ reason }) => {
+      if (!reason) return; // reasonなし = 自前のdisconnectReader()呼び出しへの応答（未使用のため無視）
+      setReconnecting(false);
+      setConnectedReader(null);
+      setError(`リーダーが切断されました（${reason}）`);
+    });
+    StripeTerminal.addListener(TerminalEventsEnum.UnexpectedReaderDisconnect, () => {
+      setReconnecting(true);
+      setError("リーダーとの接続が切れました。再接続しています…");
+    });
+    StripeTerminal.addListener(TerminalEventsEnum.ReaderReconnectSucceeded, ({ reader }) => {
+      setReconnecting(false);
+      setConnectedReader(reader);
+      setError("");
+    });
+    StripeTerminal.addListener(TerminalEventsEnum.ReaderReconnectFailed, () => {
+      setReconnecting(false);
+      setConnectedReader(null);
+      setError("リーダーとの再接続に失敗しました。もう一度接続してください");
     });
 
     const isTest = !process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.startsWith("pk_live");
@@ -139,8 +164,8 @@ export function TouchPayClient({
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-20">
       <div className="max-w-md mx-auto px-4 py-8 space-y-6">
         <div className="space-y-1">
-          <Link href={`/dashboard/events/${eventId}`} className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors">
-            <ArrowLeft size={12} /> イベントに戻る
+          <Link href={`/dashboard/events/${eventId}/checkin`} className="flex items-center gap-1.5 text-slate-600 hover:text-slate-400 text-xs font-bold mb-3 transition-colors">
+            <ArrowLeft size={12} /> 入場スキャナに戻る
           </Link>
           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Touch Pay</p>
           <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">タッチ決済</h1>
@@ -263,6 +288,10 @@ export function TouchPayClient({
                   </button>
                 )}
               </div>
+            ) : reconnecting ? (
+              <div className="flex items-center gap-2 text-amber-400 text-xs font-bold bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3">
+                <Loader2 size={14} className="animate-spin" /> リーダーに再接続しています…
+              </div>
             ) : (
               <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-4 py-3">
                 <CheckCircle size={14} /> {connectedReader.label || connectedReader.serialNumber} 接続済み
@@ -272,7 +301,7 @@ export function TouchPayClient({
             <button
               type="button"
               onClick={startCharge}
-              disabled={phase === "charging" || !productId || !connectedReader}
+              disabled={phase === "charging" || !productId || !connectedReader || reconnecting}
               className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.15em] hover:brightness-110 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {phase === "charging" ? <Loader2 size={20} className="animate-spin" /> : "カードをタッチして決済"}

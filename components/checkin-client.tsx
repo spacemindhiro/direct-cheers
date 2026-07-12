@@ -143,7 +143,7 @@ export function CheckinClient() {
 
         {/* 対面タッチ決済への導線 */}
         <Link
-          href={`/dashboard/events/${params.eventId}/entrance/touch-pay`}
+          href={`/dashboard/events/${params.eventId}/checkin/touch-pay`}
           className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/30 rounded-2xl px-4 py-3 hover:bg-indigo-500/20 transition-all"
         >
           <div className="flex items-center gap-2.5">

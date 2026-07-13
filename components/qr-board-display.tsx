@@ -47,7 +47,7 @@ type QrGroupInfo = {
 // スケジュールスロット・トラックのデフォルト・強制表示のいずれから来ても同じ形に解決する。
 type ResolvedTarget =
   | { type: "single"; qrState: QRState }
-  | { type: "group"; list: QRState[] }
+  | { type: "group"; list: QRState[]; groupId: string }
   | null;
 
 type DisplaySchedule = {
@@ -243,6 +243,11 @@ export function QRBoardDisplay({
   // トラックのデフォルト表示(スロット外の時間に使うフォールバック)。単一QR or グループのどちらか
   const trackDefaultRef = useRef<ResolvedTarget>(null);
   const groupReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 直近に適用したグループのID。単一QR強制表示中にたまたま同じqr_config_idが
+  // 別グループのメンバーにも含まれているだけで「既に選択中」と誤判定し、
+  // 新しいグループへの切り替えが効かなくなる不具合があったため、
+  // 「本当に同じグループの再適用か」をIDで厳密に区別する
+  const activeGroupIdRef = useRef<string | null>(null);
   const siteUrlRef   = useRef(typeof window !== "undefined" ? window.location.origin : "");
   const qrStateRef   = useRef<QRState | null>(null);
   const [deviceName, setDeviceName] = useState(() => {
@@ -406,6 +411,7 @@ export function QRBoardDisplay({
 
   // 単一QRを表示する(スロット・トラックのデフォルト・強制表示のいずれでも共通)
   const applySingle = useCallback((next: QRState) => {
+    activeGroupIdRef.current = null;
     setGroupMode(false);
     clearGroupReturnTimer();
     setQrState(prev => {
@@ -418,14 +424,20 @@ export function QRBoardDisplay({
   }, [eventId, clearGroupReturnTimer]);
 
   // グループを表示する(スロット・トラックのデフォルト・強制表示のいずれでも共通)。
-  // 既に一覧内の1件を選択中(拡大表示中)ならその選択状態を維持する
-  const applyGroup = useCallback((list: QRState[]) => {
+  // 既に「同じグループ」の1件を選択中(拡大表示中)ならその選択状態を維持する。
+  // 単にqr_config_idがメンバーに含まれるかどうかだけで判定すると、単一QR強制表示や
+  // 別グループでたまたま同じQRを表示していた場合にも「選択維持」と誤判定し、
+  // 新しいグループへの切り替え(一覧表示)が効かなくなるため、グループID自体を比較する
+  const applyGroup = useCallback((list: QRState[], groupId: string) => {
+    const sameGroup = activeGroupIdRef.current === groupId;
+    activeGroupIdRef.current = groupId;
     setGroupMode(true);
     setGroupList(list);
-    setQrState(prev => (prev && list.some(q => q.qr_config_id === prev.qr_config_id)) ? prev : null);
+    setQrState(prev => (sameGroup && prev && list.some(q => q.qr_config_id === prev.qr_config_id)) ? prev : null);
   }, []);
 
   const applyEmpty = useCallback(() => {
+    activeGroupIdRef.current = null;
     setGroupMode(false);
     setQrState(prev => {
       if (prev === null) return prev;
@@ -449,7 +461,7 @@ export function QRBoardDisplay({
       const list = active.qr_group.members
         .map((qc) => qrConfigToState(qc, siteUrlRef.current))
         .filter((q): q is QRState => q !== null);
-      applyGroup(list);
+      applyGroup(list, active.qr_group.qr_group_id);
       return;
     }
     if (active?.qr_config) {
@@ -458,7 +470,7 @@ export function QRBoardDisplay({
     }
 
     const def = trackDefaultRef.current;
-    if (def?.type === "group") { applyGroup(def.list); return; }
+    if (def?.type === "group") { applyGroup(def.list, def.groupId); return; }
     if (def?.type === "single") { applySingle(def.qrState); return; }
     applyEmpty();
   }, [applySingle, applyGroup, applyEmpty]);
@@ -525,7 +537,7 @@ export function QRBoardDisplay({
           const list = data.default_target.qr_group.members
             .map((qc) => qrConfigToState(qc, siteUrlRef.current))
             .filter((q): q is QRState => q !== null);
-          trackDefaultRef.current = { type: "group", list };
+          trackDefaultRef.current = { type: "group", list, groupId: data.default_target.qr_group.qr_group_id };
         } else {
           trackDefaultRef.current = null;
         }
@@ -716,11 +728,12 @@ export function QRBoardDisplay({
     });
 
     channel.on("broadcast", { event: "qr-switch" }, ({ payload }) => {
-      const { target_device_id, is_forced, cancel_forced, group_members, ...qrData } = payload as QRState & {
+      const { target_device_id, is_forced, cancel_forced, group_members, qr_group_id, ...qrData } = payload as QRState & {
         target_device_id?: string | null;
         is_forced?: boolean;
         cancel_forced?: boolean;
         group_members?: QRState[];
+        qr_group_id?: string;
       };
       // target_device_id指定時、自分宛てでなければ無視（端末別の強制表示・解除）
       if (target_device_id != null && target_device_id !== deviceId) return;
@@ -740,8 +753,9 @@ export function QRBoardDisplay({
       // グループの強制表示(group_members同梱)か、単一QRの強制表示かを分岐
       if (group_members) {
         clearGroupReturnTimer();
-        applyGroup(group_members);
+        applyGroup(group_members, qr_group_id ?? "");
       } else if (isValidQrState(qrData)) {
+        activeGroupIdRef.current = null;
         setGroupMode(false);
         clearGroupReturnTimer();
         setQrState(qrData);

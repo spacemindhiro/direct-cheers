@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   Wifi, WifiOff, Battery, BatteryLow, BatteryMedium, BatteryFull,
   Send, Users, Radio, CheckCircle2, Clock, Plus, Trash2, Calendar, RotateCcw,
-  X, LayoutGrid, Pencil, Save, Nfc, Loader2,
+  X, LayoutGrid, Pencil, Save, Nfc, Loader2, Settings, Layers,
 } from "lucide-react";
 import { DISPLAY_TZ } from "@/lib/display-tz";
 import { jstLocalToUtcIso, utcIsoToJstLocal, addHoursToLocalDT } from "@/lib/utils";
@@ -126,7 +126,10 @@ export function QRControlPanel({
   qrConfigs: QRConfig[];
   siteUrl: string;
 }) {
-  const [tab, setTab] = useState<"push" | "timetable" | "overview">("push");
+  // 大分類タブ: 設定(何を/いつ出すか定義)・割り当て(今どこに出すか操作)・全体表(確認)
+  const [tab, setTab] = useState<"settings" | "assign" | "overview">("settings");
+  // 「設定」タブ内のサブタブ
+  const [settingsSubTab, setSettingsSubTab] = useState<"track_group" | "timetable">("track_group");
 
   // ── Push tab ──────────────────────────────────────
   const [devices, setDevices] = useState<Device[]>([]);
@@ -223,9 +226,11 @@ export function QRControlPanel({
     }
   }, [eventId]);
 
+  const onTimetableSubTab = tab === "settings" && settingsSubTab === "timetable";
+
   useEffect(() => {
-    if (tab === "timetable") fetchSchedules(selectedTrackId);
-  }, [tab, selectedTrackId, fetchSchedules]);
+    if (onTimetableSubTab) fetchSchedules(selectedTrackId);
+  }, [onTimetableSubTab, selectedTrackId, fetchSchedules]);
 
   // トラック切替時、新規スロットフォームをリセット（デフォルト値は下のeffectで再計算される）
   useEffect(() => {
@@ -237,12 +242,12 @@ export function QRControlPanel({
   // 既存スロットが無ければ開始をパーティ開始日時に、あれば最遅の終了時刻を開始のデフォルトに、
   // 終了は開始の1時間後をデフォルトにする
   useEffect(() => {
-    if (tab !== "timetable" || newSlot.start_at) return;
+    if (!onTimetableSubTab || newSlot.start_at) return;
     const defaultStart = schedules.length === 0
       ? utcIsoToJstLocal(eventStartAt)
       : utcIsoToJstLocal(schedules.reduce((latest, s) => (s.end_at > latest ? s.end_at : latest), schedules[0].end_at));
     setNewSlot(s => ({ ...s, start_at: defaultStart, end_at: addHoursToLocalDT(defaultStart, 1) }));
-  }, [schedules, tab, eventStartAt, newSlot.start_at]);
+  }, [schedules, onTimetableSubTab, eventStartAt, newSlot.start_at]);
 
   // トラック一覧取得
   const fetchTracks = useCallback(async () => {
@@ -707,127 +712,9 @@ export function QRControlPanel({
           : <div className="flex items-center gap-1.5 text-xs text-red-400 font-bold"><WifiOff size={12} /> 切断中</div>}
       </div>
 
-      {/* 接続デバイス一覧 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <Users size={12} className="text-slate-500" />
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-            接続中の子機 ({mergedDevices.length})
-          </p>
-        </div>
-        {mergedDevices.length === 0 ? (
-          <p className="text-xs text-slate-600 italic font-bold">子機が接続されていません</p>
-        ) : (
-          <div className="space-y-2">
-            {mergedDevices.map((d) => {
-              const nfcValue = nfcInputs[d.device_name] ?? nfcRoutingMap[d.device_name] ?? "";
-              const nfcDirty = nfcValue !== (nfcRoutingMap[d.device_name] ?? "");
-              return (
-              <div key={d.device_id} className="bg-slate-800/50 rounded-xl px-4 py-3 space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${d.online ? "bg-green-400 animate-pulse" : "bg-slate-600"}`} />
-                    <span className="text-sm font-bold text-slate-200 truncate">{d.device_name}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {d.online && (
-                      <div className="flex items-center gap-1.5">
-                        <BatteryIcon level={d.battery_level} />
-                        <span className="text-xs font-mono text-slate-400">
-                          {d.battery_level !== null ? `${d.battery_level}%` : "--"}
-                        </span>
-                      </div>
-                    )}
-                    <select
-                      value={d.track_id ?? ""}
-                      onChange={e => assignTrack(d.device_id, e.target.value || null)}
-                      className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="">共通</option>
-                      {tracks.map(t => (
-                        <option key={t.track_id} value={t.track_id}>{t.name}</option>
-                      ))}
-                    </select>
-                    {!d.online && (
-                      <button
-                        type="button"
-                        onClick={() => removeDevice(d.device_id)}
-                        className="text-slate-600 hover:text-red-400 transition-colors shrink-0 p-1"
-                        title="この端末エントリを削除"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
-                  <Nfc size={13} className="text-slate-500 shrink-0" />
-                  <input
-                    type="text"
-                    value={nfcValue}
-                    onChange={e => setNfcInputs(prev => ({ ...prev, [d.device_name]: e.target.value }))}
-                    placeholder="NFCタグID（例: nfc_001）"
-                    className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => saveNfc(d.device_name)}
-                    disabled={nfcSaving[d.device_name] || !nfcDirty}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-xs font-bold text-indigo-300 hover:bg-indigo-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-                  >
-                    {nfcSaving[d.device_name] ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                    保存
-                  </button>
-                </div>
-              </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* トラック管理 */}
-        <div className="pt-3 border-t border-slate-800 space-y-2">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">トラック</p>
-          {tracks.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {tracks.map(t => (
-                <div key={t.track_id} className="flex items-center gap-1.5 bg-slate-800/60 border border-slate-700 rounded-full pl-3 pr-1.5 py-1">
-                  <span className="text-xs font-bold text-slate-200">{t.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => deleteTrack(t.track_id)}
-                    className="text-slate-500 hover:text-red-400 transition-colors p-0.5"
-                  >
-                    <X size={11} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newTrackName}
-              onChange={e => setNewTrackName(e.target.value)}
-              placeholder="新しいトラック名（例：メインステージ）"
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
-            />
-            <button
-              type="button"
-              onClick={addTrack}
-              disabled={savingTrack || !newTrackName.trim()}
-              className="px-3 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 rounded-xl font-black uppercase tracking-widest transition-all disabled:opacity-50"
-            >
-              <Plus size={12} />
-            </button>
-          </div>
-          {trackError && <p className="text-[10px] text-red-400 font-bold">{trackError}</p>}
-        </div>
-      </div>
-
-      {/* タブ切り替え */}
+      {/* タブ切り替え（大分類） */}
       <div className="flex gap-2">
-        {(["push", "timetable", "overview"] as const).map(t => (
+        {(["settings", "assign", "overview"] as const).map(t => (
           <button
             key={t}
             type="button"
@@ -838,16 +725,121 @@ export function QRControlPanel({
                 : "bg-slate-900 text-slate-500 border border-slate-800 hover:border-slate-600"
             }`}
           >
-            {t === "push" && <span className="flex items-center justify-center gap-1.5"><Send size={11} /> 手動配信</span>}
-            {t === "timetable" && <span className="flex items-center justify-center gap-1.5"><Clock size={11} /> タイムテーブル</span>}
+            {t === "settings" && <span className="flex items-center justify-center gap-1.5"><Settings size={11} /> 設定</span>}
+            {t === "assign" && <span className="flex items-center justify-center gap-1.5"><Send size={11} /> 割り当て</span>}
             {t === "overview" && <span className="flex items-center justify-center gap-1.5"><LayoutGrid size={11} /> 全体表</span>}
           </button>
         ))}
       </div>
 
-      {/* ── 手動配信タブ ── */}
-      {tab === "push" && (
-        <div className="space-y-3">
+      {/* 「設定」タブ内のサブタブ切り替え */}
+      {tab === "settings" && (
+        <div className="flex gap-2">
+          {(["track_group", "timetable"] as const).map(st => (
+            <button
+              key={st}
+              type="button"
+              onClick={() => setSettingsSubTab(st)}
+              className={`flex-1 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
+                settingsSubTab === st
+                  ? "bg-indigo-500/10 text-indigo-300 border border-indigo-500/30"
+                  : "bg-slate-950 text-slate-600 border border-slate-800 hover:border-slate-700"
+              }`}
+            >
+              {st === "track_group" && <span className="flex items-center justify-center gap-1.5"><Layers size={10} /> トラック / グループ</span>}
+              {st === "timetable" && <span className="flex items-center justify-center gap-1.5"><Clock size={10} /> タイムテーブル</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── 割り当てタブ ── */}
+      {tab === "assign" && (
+        <div className="space-y-5">
+          {/* 接続中の子機一覧＋トラック割り当て＋NFC紐付け */}
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Users size={12} className="text-slate-500" />
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                接続中の子機 ({mergedDevices.length})
+              </p>
+            </div>
+            {mergedDevices.length === 0 ? (
+              <p className="text-xs text-slate-600 italic font-bold">子機が接続されていません</p>
+            ) : (
+              <div className="space-y-2">
+                {mergedDevices.map((d) => {
+                  const nfcValue = nfcInputs[d.device_name] ?? nfcRoutingMap[d.device_name] ?? "";
+                  const nfcDirty = nfcValue !== (nfcRoutingMap[d.device_name] ?? "");
+                  return (
+                  <div key={d.device_id} className="bg-slate-800/50 rounded-xl px-4 py-3 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${d.online ? "bg-green-400 animate-pulse" : "bg-slate-600"}`} />
+                        <span className="text-sm font-bold text-slate-200 truncate">{d.device_name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {d.online && (
+                          <div className="flex items-center gap-1.5">
+                            <BatteryIcon level={d.battery_level} />
+                            <span className="text-xs font-mono text-slate-400">
+                              {d.battery_level !== null ? `${d.battery_level}%` : "--"}
+                            </span>
+                          </div>
+                        )}
+                        <select
+                          value={d.track_id ?? ""}
+                          onChange={e => assignTrack(d.device_id, e.target.value || null)}
+                          className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="">共通</option>
+                          {tracks.map(t => (
+                            <option key={t.track_id} value={t.track_id}>{t.name}</option>
+                          ))}
+                        </select>
+                        {!d.online && (
+                          <button
+                            type="button"
+                            onClick={() => removeDevice(d.device_id)}
+                            className="text-slate-600 hover:text-red-400 transition-colors shrink-0 p-1"
+                            title="この端末エントリを削除"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
+                      <Nfc size={13} className="text-slate-500 shrink-0" />
+                      <input
+                        type="text"
+                        value={nfcValue}
+                        onChange={e => setNfcInputs(prev => ({ ...prev, [d.device_name]: e.target.value }))}
+                        placeholder="NFCタグID（例: nfc_001）"
+                        className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => saveNfc(d.device_name)}
+                        disabled={nfcSaving[d.device_name] || !nfcDirty}
+                        className="flex items-center gap-1 px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-xs font-bold text-indigo-300 hover:bg-indigo-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                      >
+                        {nfcSaving[d.device_name] ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                        保存
+                      </button>
+                    </div>
+                  </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 手動配信 */}
+          <div className="space-y-3">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-1.5">
+            <Send size={11} /> 手動配信（強制表示）
+          </p>
           {/* 配信先選択 */}
           <div className="space-y-2">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">配信先</p>
@@ -980,87 +972,53 @@ export function QRControlPanel({
               })}
             </div>
           )}
+          </div>
         </div>
       )}
 
-      {/* ── タイムテーブルタブ ── */}
-      {tab === "timetable" && (
+      {/* ── 設定タブ：トラック / グループ サブタブ ── */}
+      {tab === "settings" && settingsSubTab === "track_group" && (
         <div className="space-y-4">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-            時間になると子機が自動でQRを切り替えます
-          </p>
-
-          {/* トラック選択ピル */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedTrackId(null)}
-              className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
-                selectedTrackId === null
-                  ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
-                  : "bg-slate-900 text-slate-500 border border-slate-800 hover:border-slate-600"
-              }`}
-            >
-              共通
-            </button>
-            {tracks.map(t => (
+          {/* トラック管理 */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
+              トラック管理（イベント内のステージ・ブースなどの区分）
+            </label>
+            {tracks.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {tracks.map(t => (
+                  <div key={t.track_id} className="flex items-center gap-1.5 bg-slate-800/60 border border-slate-700 rounded-full pl-3 pr-1.5 py-1">
+                    <span className="text-xs font-bold text-slate-200">{t.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => deleteTrack(t.track_id)}
+                      className="text-slate-500 hover:text-red-400 transition-colors p-0.5"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newTrackName}
+                onChange={e => setNewTrackName(e.target.value)}
+                placeholder="新しいトラック名（例：メインステージ）"
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+              />
               <button
-                key={t.track_id}
                 type="button"
-                onClick={() => setSelectedTrackId(t.track_id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
-                  selectedTrackId === t.track_id
-                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
-                    : "bg-slate-900 text-slate-500 border border-slate-800 hover:border-slate-600"
-                }`}
+                onClick={addTrack}
+                disabled={savingTrack || !newTrackName.trim()}
+                className="px-3 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 rounded-xl font-black uppercase tracking-widest transition-all disabled:opacity-50"
               >
-                {t.name}
+                <Plus size={12} />
               </button>
-            ))}
-          </div>
-
-          {/* 選択中トラックのデフォルト表示（スロット外の時間に表示。単体QR or グループのどちらか一方） */}
-          {selectedTrackId && (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-              <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
-                このトラックのデフォルト表示（スロット外の時間）
-              </label>
-              <select
-                value={encodeTarget(
-                  tracks.find(t => t.track_id === selectedTrackId)?.default_qr_config_id,
-                  tracks.find(t => t.track_id === selectedTrackId)?.default_qr_group_id
-                )}
-                onChange={e => saveTrackDefault(e.target.value)}
-                disabled={savingTrackDefault}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-              >
-                <option value="">— 設定なし</option>
-                <optgroup label="単体QR">
-                  {qrConfigs.map(qc => (
-                    <option key={qc.qr_config_id} value={`single:${qc.qr_config_id}`}>
-                      {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
-                      {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
-                    </option>
-                  ))}
-                </optgroup>
-                {qrGroups.length > 0 && (
-                  <optgroup label="グループ（客が選ぶ一覧表示）">
-                    {qrGroups.map(g => (
-                      <option key={g.qr_group_id} value={`group:${g.qr_group_id}`}>
-                        {g.name}（{g.members.length}件）
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-              {trackDefaultError && (
-                <p className="text-xs text-red-400 bg-red-500/10 rounded-xl px-3 py-2 font-bold">{trackDefaultError}</p>
-              )}
-              {trackDefaultSaved && (
-                <p className="text-xs text-emerald-400 font-bold flex items-center gap-1.5"><CheckCircle2 size={14} /> 保存しました・子機に反映済み</p>
-              )}
             </div>
-          )}
+            {trackError && <p className="text-[10px] text-red-400 font-bold">{trackError}</p>}
+          </div>
 
           {/* QRグループ管理 */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
@@ -1157,6 +1115,87 @@ export function QRControlPanel({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── 設定タブ：タイムテーブル サブタブ ── */}
+      {tab === "settings" && settingsSubTab === "timetable" && (
+        <div className="space-y-4">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+            時間になると子機が自動でQRを切り替えます
+          </p>
+
+          {/* トラック選択ピル */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedTrackId(null)}
+              className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
+                selectedTrackId === null
+                  ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
+                  : "bg-slate-900 text-slate-500 border border-slate-800 hover:border-slate-600"
+              }`}
+            >
+              共通
+            </button>
+            {tracks.map(t => (
+              <button
+                key={t.track_id}
+                type="button"
+                onClick={() => setSelectedTrackId(t.track_id)}
+                className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
+                  selectedTrackId === t.track_id
+                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
+                    : "bg-slate-900 text-slate-500 border border-slate-800 hover:border-slate-600"
+                }`}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+
+          {/* 選択中トラックのデフォルト表示（スロット外の時間に表示。単体QR or グループのどちらか一方） */}
+          {selectedTrackId && (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+              <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
+                このトラックのデフォルト表示（スロット外の時間）
+              </label>
+              <select
+                value={encodeTarget(
+                  tracks.find(t => t.track_id === selectedTrackId)?.default_qr_config_id,
+                  tracks.find(t => t.track_id === selectedTrackId)?.default_qr_group_id
+                )}
+                onChange={e => saveTrackDefault(e.target.value)}
+                disabled={savingTrackDefault}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+              >
+                <option value="">— 設定なし</option>
+                <optgroup label="単体QR">
+                  {qrConfigs.map(qc => (
+                    <option key={qc.qr_config_id} value={`single:${qc.qr_config_id}`}>
+                      {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
+                      {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+                {qrGroups.length > 0 && (
+                  <optgroup label="グループ（客が選ぶ一覧表示）">
+                    {qrGroups.map(g => (
+                      <option key={g.qr_group_id} value={`group:${g.qr_group_id}`}>
+                        {g.name}（{g.members.length}件）
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              {trackDefaultError && (
+                <p className="text-xs text-red-400 bg-red-500/10 rounded-xl px-3 py-2 font-bold">{trackDefaultError}</p>
+              )}
+              {trackDefaultSaved && (
+                <p className="text-xs text-emerald-400 font-bold flex items-center gap-1.5"><CheckCircle2 size={14} /> 保存しました・子機に反映済み</p>
+              )}
+            </div>
+          )}
 
           {scheduleError && (
             <p className="text-xs text-red-400 bg-red-500/10 rounded-xl px-4 py-3 font-bold">{scheduleError}</p>
@@ -1409,6 +1448,30 @@ export function QRControlPanel({
           ) : (
             <DisplayTimetableGrid tracks={tracks} schedules={allSchedules} />
           )}
+
+          {/* 子機のトラック割り当て状況 */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              子機の割り当て状況 ({mergedDevices.length})
+            </p>
+            {mergedDevices.length === 0 ? (
+              <p className="text-xs text-slate-600 italic font-bold">子機が接続されていません</p>
+            ) : (
+              <div className="space-y-1.5">
+                {mergedDevices.map((d) => (
+                  <div key={d.device_id} className="flex items-center justify-between gap-3 bg-slate-800/50 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${d.online ? "bg-green-400 animate-pulse" : "bg-slate-600"}`} />
+                      <span className="text-xs font-bold text-slate-200 truncate">{d.device_name}</span>
+                    </div>
+                    <span className="text-xs text-slate-400 shrink-0">
+                      {d.track_id ? (tracks.find(t => t.track_id === d.track_id)?.name ?? "?") : "共通"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

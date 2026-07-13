@@ -32,9 +32,25 @@ type QRConfig = {
   } | null;
 };
 
+type QrGroupMember = {
+  qr_config_id: string;
+  label: string | null;
+  image_url: string | null;
+  product: { name: string; type: string; artist: { display_name: string } | null } | null;
+};
+
+// 名前付きQRグループ。トラックのデフォルト・タイムテーブルのスロット・強制表示の
+// いずれにも単一QRと同格で指定できる第一級の存在
+type QrGroup = {
+  qr_group_id: string;
+  name: string;
+  members: QrGroupMember[];
+};
+
 type DisplaySchedule = {
   schedule_id: string;
   qr_config_id: string | null;
+  qr_group_id: string | null;
   track_id: string | null;
   start_at: string;
   end_at: string;
@@ -44,20 +60,22 @@ type DisplaySchedule = {
     label: string | null;
     product: { name: string; artist: { display_name: string } | null } | null;
   } | null;
+  qr_group: QrGroup | null;
 };
 
 type DisplayTrack = {
   track_id: string;
   name: string;
   sort_order: number;
-  // トラックのQR構成。1件なら子機は単一表示、2件以上なら客が選ぶ一覧表示になる。
-  // 並び順はここでの並び＝チェックした順のまま固定される
-  qr_configs: {
+  default_qr_config_id: string | null;
+  default_qr_group_id: string | null;
+  default_qr_config: {
     qr_config_id: string;
     label: string | null;
     image_url: string | null;
     product: { name: string; type: string; artist: { display_name: string } | null } | null;
-  }[];
+  } | null;
+  default_qr_group: QrGroup | null;
 };
 
 type DisplayDeviceRecord = {
@@ -74,6 +92,19 @@ type MergedDevice = {
   online: boolean;
   track_id: string | null;
 };
+
+// スロット・トラックデフォルトの選択UIは「単体QR」と「グループ」を同格の1つの<select>で
+// 選ばせるため、value文字列に種別を埋め込んでエンコード/デコードする
+function encodeTarget(qrConfigId: string | null | undefined, qrGroupId: string | null | undefined): string {
+  if (qrGroupId) return `group:${qrGroupId}`;
+  if (qrConfigId) return `single:${qrConfigId}`;
+  return "";
+}
+function decodeTarget(value: string): { qr_config_id: string | null; qr_group_id: string | null } {
+  if (value.startsWith("group:")) return { qr_config_id: null, qr_group_id: value.slice(6) };
+  if (value.startsWith("single:")) return { qr_config_id: value.slice(7), qr_group_id: null };
+  return { qr_config_id: null, qr_group_id: null };
+}
 
 function BatteryIcon({ level }: { level: number | null }) {
   if (level === null) return <Battery size={12} className="text-slate-500" />;
@@ -124,15 +155,27 @@ export function QRControlPanel({
   const [schedules, setSchedules] = useState<DisplaySchedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
-  const [newSlot, setNewSlot] = useState({ qr_config_id: "", start_at: "", end_at: "", label: "" });
+  const [newSlot, setNewSlot] = useState({ qr_config_id: "", qr_group_id: "", start_at: "", end_at: "", label: "" });
   const [savingSlot, setSavingSlot] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editSlot, setEditSlot] = useState({ qr_config_id: "", start_at: "", end_at: "", label: "" });
+  const [editSlot, setEditSlot] = useState({ qr_config_id: "", qr_group_id: "", start_at: "", end_at: "", label: "" });
   const [savingEdit, setSavingEdit] = useState(false);
 
   // ── Overview tab ──────────────────────────────────
   const [allSchedules, setAllSchedules] = useState<DisplaySchedule[]>([]);
   const [loadingAll, setLoadingAll] = useState(false);
+
+  // ── QRグループ ─────────────────────────────────────
+  const [qrGroups, setQrGroups] = useState<QrGroup[]>([]);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupMemberIds, setNewGroupMemberIds] = useState<string[]>([]);
+  const [savingGroup, setSavingGroup] = useState(false);
+  const [groupError, setGroupError] = useState<string | null>(null);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editGroupName, setEditGroupName] = useState("");
+  const [editGroupMemberIds, setEditGroupMemberIds] = useState<string[]>([]);
+  const [savingGroupEdit, setSavingGroupEdit] = useState(false);
 
   // Realtime channel setup
   useEffect(() => {
@@ -186,7 +229,7 @@ export function QRControlPanel({
 
   // トラック切替時、新規スロットフォームをリセット（デフォルト値は下のeffectで再計算される）
   useEffect(() => {
-    setNewSlot({ qr_config_id: "", start_at: "", end_at: "", label: "" });
+    setNewSlot({ qr_config_id: "", qr_group_id: "", start_at: "", end_at: "", label: "" });
     setEditingId(null);
   }, [selectedTrackId]);
 
@@ -217,6 +260,14 @@ export function QRControlPanel({
     } catch {}
   }, [eventId]);
 
+  // QRグループ一覧取得
+  const fetchQrGroups = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/qr-groups`);
+      if (res.ok) setQrGroups(await res.json());
+    } catch {}
+  }, [eventId]);
+
   // NFCタグ⇔子機 ペアリング一覧取得
   const fetchBoothDevices = useCallback(async () => {
     try {
@@ -234,7 +285,8 @@ export function QRControlPanel({
     fetchTracks();
     fetchDbDevices();
     fetchBoothDevices();
-  }, [fetchTracks, fetchDbDevices, fetchBoothDevices]);
+    fetchQrGroups();
+  }, [fetchTracks, fetchDbDevices, fetchBoothDevices, fetchQrGroups]);
 
   // 全体表（overview）用：全トラックのスケジュールを一括取得
   const fetchAllSchedules = useCallback(async () => {
@@ -279,7 +331,7 @@ export function QRControlPanel({
     return Array.from(map.values());
   }, [dbDevices, devices]);
 
-  // QRをプッシュ（強制モード）
+  // QRをプッシュ（強制モード・単一QR）
   const pushQR = useCallback(async (config: QRConfig) => {
     if (!channelRef.current || pushing) return;
     setPushing(true);
@@ -300,8 +352,44 @@ export function QRControlPanel({
       });
       if (result === "ok") {
         setActiveConfigId(config.qr_config_id);
+        setActiveGroupId(null);
         setIsForcedActive(true);
         // NFCタグのリダイレクト先は子機側が表示更新時に自己同期する（qr-board-display.tsx）
+      } else {
+        setPushError(`送信失敗: ${result}`);
+      }
+    } finally {
+      setPushing(false);
+    }
+  }, [pushing, siteUrl, targetDeviceId]);
+
+  // QRグループをプッシュ（強制モード・一覧表示。子機は一覧タップ→拡大表示のグループモードに入る）
+  const pushGroup = useCallback(async (group: QrGroup) => {
+    if (!channelRef.current || pushing) return;
+    setPushing(true);
+    setPushError(null);
+    try {
+      const result = await channelRef.current.send({
+        type: "broadcast",
+        event: "qr-switch",
+        payload: {
+          target_device_id: targetDeviceId,
+          is_forced: true,
+          qr_group_id: group.qr_group_id,
+          group_members: group.members.map((qc) => ({
+            qr_config_id: qc.qr_config_id,
+            qr_url: `${siteUrl}/c/${qc.qr_config_id}`,
+            product_name: qc.product?.name ?? "",
+            label: qc.label || qc.product?.name || "",
+            artist_name: qc.product?.artist?.display_name ?? "",
+            image_url: qc.image_url,
+          })),
+        },
+      });
+      if (result === "ok") {
+        setActiveGroupId(group.qr_group_id);
+        setActiveConfigId(null);
+        setIsForcedActive(true);
       } else {
         setPushError(`送信失敗: ${result}`);
       }
@@ -322,6 +410,7 @@ export function QRControlPanel({
       });
       if (result === "ok") {
         setActiveConfigId(null);
+        setActiveGroupId(null);
         setIsForcedActive(false);
       }
     } finally {
@@ -340,6 +429,7 @@ export function QRControlPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           qr_config_id: newSlot.qr_config_id || null,
+          qr_group_id: newSlot.qr_group_id || null,
           track_id: selectedTrackId,
           start_at: jstLocalToUtcIso(newSlot.start_at),
           end_at:   jstLocalToUtcIso(newSlot.end_at),
@@ -349,7 +439,7 @@ export function QRControlPanel({
       if (!res.ok) throw new Error(await res.text());
       // 先に最新スケジュールを取得してから空にする（次のスロットの開始デフォルトに反映される）
       await fetchSchedules(selectedTrackId);
-      setNewSlot({ qr_config_id: "", start_at: "", end_at: "", label: "" });
+      setNewSlot({ qr_config_id: "", qr_group_id: "", start_at: "", end_at: "", label: "" });
       // 子機に即時反映させる（タイムテーブル変更を通知）
       channelRef.current?.send({ type: "broadcast", event: "schedule-updated", payload: {} });
     } catch (e: any) {
@@ -373,6 +463,7 @@ export function QRControlPanel({
     setEditingId(s.schedule_id);
     setEditSlot({
       qr_config_id: s.qr_config_id ?? "",
+      qr_group_id: s.qr_group_id ?? "",
       start_at: utcIsoToJstLocal(s.start_at),
       end_at: utcIsoToJstLocal(s.end_at),
       label: s.label ?? "",
@@ -393,6 +484,7 @@ export function QRControlPanel({
         body: JSON.stringify({
           schedule_id: editingId,
           qr_config_id: editSlot.qr_config_id || null,
+          qr_group_id: editSlot.qr_group_id || null,
           start_at: jstLocalToUtcIso(editSlot.start_at),
           end_at:   jstLocalToUtcIso(editSlot.end_at),
           label: editSlot.label || null,
@@ -491,34 +583,115 @@ export function QRControlPanel({
     } catch {}
   };
 
-  // トラックのQR構成（チェックした順が並び順として固定される）
-  const [trackQrDraft, setTrackQrDraft] = useState<string[]>([]);
-  const [savingTrackQr, setSavingTrackQr] = useState(false);
+  // トラックのデフォルト表示（単一QR or 名前付きグループ、どちらか一方）
+  const [savingTrackDefault, setSavingTrackDefault] = useState(false);
+  const [trackDefaultSaved, setTrackDefaultSaved] = useState(false);
+  const [trackDefaultError, setTrackDefaultError] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = tracks.find(t => t.track_id === selectedTrackId);
-    setTrackQrDraft(t?.qr_configs.map(qc => qc.qr_config_id) ?? []);
-  }, [selectedTrackId, tracks]);
+    setTrackDefaultSaved(false);
+    setTrackDefaultError(null);
+  }, [selectedTrackId]);
 
-  const toggleTrackQr = (qrConfigId: string) => {
-    setTrackQrDraft(prev =>
+  const saveTrackDefault = async (value: string) => {
+    if (!selectedTrackId) return;
+    const { qr_config_id, qr_group_id } = decodeTarget(value);
+    setSavingTrackDefault(true);
+    setTrackDefaultError(null);
+    try {
+      const res = await fetch(`/api/events/${eventId}/display-tracks`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ track_id: selectedTrackId, default_qr_config_id: qr_config_id, default_qr_group_id: qr_group_id }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await fetchTracks();
+      // 既にこのトラックを表示中の子機へ即時反映させる(手動リロード不要にする)
+      channelRef.current?.send({ type: "broadcast", event: "qr-group-updated", payload: {} });
+      setTrackDefaultSaved(true);
+      setTimeout(() => setTrackDefaultSaved(false), 2500);
+    } catch (e) {
+      setTrackDefaultError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingTrackDefault(false);
+    }
+  };
+
+  // QRグループ: 作成
+  const toggleNewGroupMember = (qrConfigId: string) => {
+    setNewGroupMemberIds(prev =>
       prev.includes(qrConfigId) ? prev.filter(id => id !== qrConfigId) : [...prev, qrConfigId]
     );
   };
 
-  const saveTrackQrConfigs = async () => {
-    if (!selectedTrackId) return;
-    setSavingTrackQr(true);
+  const createGroup = async () => {
+    if (!newGroupName.trim() || newGroupMemberIds.length < 2) return;
+    setSavingGroup(true);
+    setGroupError(null);
     try {
-      await fetch(`/api/events/${eventId}/display-tracks`, {
+      const res = await fetch(`/api/events/${eventId}/qr-groups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newGroupName.trim(), qr_config_ids: newGroupMemberIds }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setNewGroupName("");
+      setNewGroupMemberIds([]);
+      await fetchQrGroups();
+    } catch (e) {
+      setGroupError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingGroup(false);
+    }
+  };
+
+  // QRグループ: 編集開始・メンバー切替・保存
+  const startEditGroup = (g: QrGroup) => {
+    setEditingGroupId(g.qr_group_id);
+    setEditGroupName(g.name);
+    setEditGroupMemberIds(g.members.map(m => m.qr_config_id));
+    setGroupError(null);
+  };
+
+  const cancelEditGroup = () => setEditingGroupId(null);
+
+  const toggleEditGroupMember = (qrConfigId: string) => {
+    setEditGroupMemberIds(prev =>
+      prev.includes(qrConfigId) ? prev.filter(id => id !== qrConfigId) : [...prev, qrConfigId]
+    );
+  };
+
+  const saveGroupEdit = async () => {
+    if (!editingGroupId || !editGroupName.trim() || editGroupMemberIds.length < 2) return;
+    setSavingGroupEdit(true);
+    setGroupError(null);
+    try {
+      const res = await fetch(`/api/events/${eventId}/qr-groups`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ track_id: selectedTrackId, qr_config_ids: trackQrDraft }),
+        body: JSON.stringify({ qr_group_id: editingGroupId, name: editGroupName.trim(), qr_config_ids: editGroupMemberIds }),
       });
+      if (!res.ok) throw new Error(await res.text());
+      setEditingGroupId(null);
+      await fetchQrGroups();
       await fetchTracks();
+      // このグループを参照しているトラック/スロットを表示中の子機へ即時反映
+      channelRef.current?.send({ type: "broadcast", event: "qr-group-updated", payload: {} });
+    } catch (e) {
+      setGroupError(e instanceof Error ? e.message : String(e));
     } finally {
-      setSavingTrackQr(false);
+      setSavingGroupEdit(false);
     }
+  };
+
+  // QRグループ: 削除
+  const deleteGroup = async (qrGroupId: string) => {
+    try {
+      await fetch(`/api/events/${eventId}/qr-groups?qr_group_id=${qrGroupId}`, { method: "DELETE" });
+      setQrGroups(prev => prev.filter(g => g.qr_group_id !== qrGroupId));
+      await fetchTracks();
+      channelRef.current?.send({ type: "broadcast", event: "qr-group-updated", payload: {} });
+    } catch {}
   };
 
   return (
@@ -773,6 +946,40 @@ export function QRControlPanel({
               })}
             </div>
           )}
+
+          {/* QRグループの強制配信 */}
+          {qrGroups.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">グループを配信</p>
+              {qrGroups.map((g) => {
+                const isActive = activeGroupId === g.qr_group_id;
+                return (
+                  <button
+                    key={g.qr_group_id}
+                    type="button"
+                    onClick={() => pushGroup(g)}
+                    disabled={pushing}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border text-left transition-all disabled:opacity-60 ${
+                      isActive
+                        ? "bg-indigo-500/15 border-indigo-500/40"
+                        : "bg-slate-900 border-slate-800 hover:border-slate-600 active:scale-[0.98]"
+                    }`}
+                  >
+                    <div className="w-12 h-12 rounded-xl shrink-0 bg-slate-800 border border-slate-700 flex items-center justify-center">
+                      <LayoutGrid size={18} className="text-indigo-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-black text-white truncate">{g.name}</p>
+                      <p className="text-xs text-slate-500">{g.members.length}件のQR</p>
+                    </div>
+                    {isActive
+                      ? <div className="flex items-center gap-1 shrink-0"><CheckCircle2 size={14} className="text-indigo-400" /><span className="text-[10px] font-black text-indigo-400 uppercase">配信中</span></div>
+                      : <Send size={14} className="text-slate-600 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -812,30 +1019,124 @@ export function QRControlPanel({
             ))}
           </div>
 
-          {/* 選択中トラックのQR構成（スロット外の時間に表示。1件=単一表示、2件以上=客が選ぶ一覧表示） */}
+          {/* 選択中トラックのデフォルト表示（スロット外の時間に表示。単体QR or グループのどちらか一方） */}
           {selectedTrackId && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
               <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
-                このトラックのQR構成（1件なら単一表示、2件以上は客が選ぶ一覧表示）
+                このトラックのデフォルト表示（スロット外の時間）
               </label>
-              <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+              <select
+                value={encodeTarget(
+                  tracks.find(t => t.track_id === selectedTrackId)?.default_qr_config_id,
+                  tracks.find(t => t.track_id === selectedTrackId)?.default_qr_group_id
+                )}
+                onChange={e => saveTrackDefault(e.target.value)}
+                disabled={savingTrackDefault}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+              >
+                <option value="">— 設定なし</option>
+                <optgroup label="単体QR">
+                  {qrConfigs.map(qc => (
+                    <option key={qc.qr_config_id} value={`single:${qc.qr_config_id}`}>
+                      {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
+                      {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+                {qrGroups.length > 0 && (
+                  <optgroup label="グループ（客が選ぶ一覧表示）">
+                    {qrGroups.map(g => (
+                      <option key={g.qr_group_id} value={`group:${g.qr_group_id}`}>
+                        {g.name}（{g.members.length}件）
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              {trackDefaultError && (
+                <p className="text-xs text-red-400 bg-red-500/10 rounded-xl px-3 py-2 font-bold">{trackDefaultError}</p>
+              )}
+              {trackDefaultSaved && (
+                <p className="text-xs text-emerald-400 font-bold flex items-center gap-1.5"><CheckCircle2 size={14} /> 保存しました・子機に反映済み</p>
+              )}
+            </div>
+          )}
+
+          {/* QRグループ管理 */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
+              QRグループ管理（名前を付けて複数QRをまとめる。スロット・デフォルト・強制配信のどこでも選べる）
+            </label>
+
+            {qrGroups.length > 0 && (
+              <div className="space-y-2">
+                {qrGroups.map(g => (
+                  editingGroupId === g.qr_group_id ? (
+                    <div key={g.qr_group_id} className="bg-slate-800/60 border border-indigo-500/40 rounded-xl p-3 space-y-2">
+                      <input
+                        type="text"
+                        value={editGroupName}
+                        onChange={e => setEditGroupName(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      />
+                      <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                        {qrConfigs.map(qc => {
+                          const idx = editGroupMemberIds.indexOf(qc.qr_config_id);
+                          const checked = idx !== -1;
+                          return (
+                            <label key={qc.qr_config_id} className="flex items-center gap-2 bg-slate-900/60 border border-slate-700/60 rounded-lg px-2.5 py-1.5 cursor-pointer">
+                              <input type="checkbox" checked={checked} onChange={() => toggleEditGroupMember(qc.qr_config_id)} className="accent-indigo-500" />
+                              {checked && <span className="text-[10px] font-mono text-indigo-400 w-4 text-center shrink-0">{idx + 1}</span>}
+                              <span className="text-xs text-white flex-1 truncate">
+                                {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={saveGroupEdit} disabled={savingGroupEdit || !editGroupName.trim() || editGroupMemberIds.length < 2}
+                          className="flex-1 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 rounded-lg font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50">
+                          {savingGroupEdit ? "保存中..." : "保存"}
+                        </button>
+                        <button type="button" onClick={cancelEditGroup}
+                          className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-lg font-black text-xs uppercase tracking-widest transition-all">
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={g.qr_group_id} className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/60 rounded-xl px-3 py-2">
+                      <LayoutGrid size={14} className="text-indigo-400 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-white truncate">{g.name}</p>
+                        <p className="text-[10px] text-slate-500">{g.members.length}件のQR</p>
+                      </div>
+                      <button type="button" onClick={() => startEditGroup(g)} className="text-slate-500 hover:text-indigo-400 transition-colors p-1"><Pencil size={13} /></button>
+                      <button type="button" onClick={() => deleteGroup(g.qr_group_id)} className="text-slate-500 hover:text-red-400 transition-colors p-1"><Trash2 size={13} /></button>
+                    </div>
+                  )
+                ))}
+              </div>
+            )}
+
+            <div className="border-t border-slate-800 pt-3 space-y-2">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Plus size={10} /> 新しいグループを作成</p>
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                placeholder="グループ名（例：物販ブース）"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
+              />
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                 {qrConfigs.map(qc => {
-                  const idx = trackQrDraft.indexOf(qc.qr_config_id);
+                  const idx = newGroupMemberIds.indexOf(qc.qr_config_id);
                   const checked = idx !== -1;
                   return (
-                    <label
-                      key={qc.qr_config_id}
-                      className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/60 rounded-xl px-3 py-2 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleTrackQr(qc.qr_config_id)}
-                        className="accent-indigo-500"
-                      />
-                      {checked && (
-                        <span className="text-[10px] font-mono text-indigo-400 w-4 text-center shrink-0">{idx + 1}</span>
-                      )}
+                    <label key={qc.qr_config_id} className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/60 rounded-xl px-3 py-2 cursor-pointer">
+                      <input type="checkbox" checked={checked} onChange={() => toggleNewGroupMember(qc.qr_config_id)} className="accent-indigo-500" />
+                      {checked && <span className="text-[10px] font-mono text-indigo-400 w-4 text-center shrink-0">{idx + 1}</span>}
                       <span className="text-xs text-white flex-1 truncate">
                         {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
                         {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
@@ -844,17 +1145,18 @@ export function QRControlPanel({
                   );
                 })}
               </div>
-              <p className="text-[10px] text-slate-600">チェックした順番がそのまま子機での並び順になります（一覧表示時）</p>
+              <p className="text-[10px] text-slate-600">チェックした順番がそのままグループ内の並び順になります（2件以上必要）</p>
+              {groupError && <p className="text-xs text-red-400 bg-red-500/10 rounded-xl px-3 py-2 font-bold">{groupError}</p>}
               <button
                 type="button"
-                onClick={saveTrackQrConfigs}
-                disabled={savingTrackQr}
+                onClick={createGroup}
+                disabled={savingGroup || !newGroupName.trim() || newGroupMemberIds.length < 2}
                 className="w-full px-3 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
               >
-                {savingTrackQr ? "保存中..." : "保存"}
+                {savingGroup ? "作成中..." : "グループを作成"}
               </button>
             </div>
-          )}
+          </div>
 
           {scheduleError && (
             <p className="text-xs text-red-400 bg-red-500/10 rounded-xl px-4 py-3 font-bold">{scheduleError}</p>
@@ -868,30 +1170,47 @@ export function QRControlPanel({
           ) : (
             <div className="space-y-2">
               {schedules.map(s => {
-                const qcLabel = s.qr_config?.label ?? s.qr_config?.product?.name ?? "QR";
+                const qcLabel = s.qr_group?.name ?? s.qr_config?.label ?? s.qr_config?.product?.name ?? "QR";
                 const artistName = s.qr_config?.product?.artist?.display_name;
 
                 if (editingId === s.schedule_id) {
                   return (
                     <div key={s.schedule_id} className="bg-slate-900 border border-indigo-500/40 rounded-2xl p-4 space-y-3">
                       <div>
-                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">QRコード（省略 = デフォルト）</label>
+                        <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">QRコード / グループ（省略 = デフォルト）</label>
                         <select
-                          value={editSlot.qr_config_id}
+                          value={encodeTarget(editSlot.qr_config_id, editSlot.qr_group_id)}
                           onChange={e => {
-                            const qcId = e.target.value;
-                            const qc = qrConfigs.find(q => q.qr_config_id === qcId);
-                            setEditSlot(prev => ({ ...prev, qr_config_id: qcId, label: qc ? (qc.label || qc.product?.name || "") : "" }));
+                            const { qr_config_id, qr_group_id } = decodeTarget(e.target.value);
+                            const qc = qr_config_id ? qrConfigs.find(q => q.qr_config_id === qr_config_id) : null;
+                            const g = qr_group_id ? qrGroups.find(x => x.qr_group_id === qr_group_id) : null;
+                            setEditSlot(prev => ({
+                              ...prev,
+                              qr_config_id: qr_config_id ?? "",
+                              qr_group_id: qr_group_id ?? "",
+                              label: qc ? (qc.label || qc.product?.name || "") : g ? g.name : "",
+                            }));
                           }}
                           className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
                         >
                           <option value="">— デフォルト（転換・休憩など）</option>
-                          {qrConfigs.map(qc => (
-                            <option key={qc.qr_config_id} value={qc.qr_config_id}>
-                              {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
-                              {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
-                            </option>
-                          ))}
+                          <optgroup label="単体QR">
+                            {qrConfigs.map(qc => (
+                              <option key={qc.qr_config_id} value={`single:${qc.qr_config_id}`}>
+                                {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
+                                {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
+                              </option>
+                            ))}
+                          </optgroup>
+                          {qrGroups.length > 0 && (
+                            <optgroup label="グループ">
+                              {qrGroups.map(g => (
+                                <option key={g.qr_group_id} value={`group:${g.qr_group_id}`}>
+                                  {g.name}（{g.members.length}件）
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                       </div>
 
@@ -961,8 +1280,11 @@ export function QRControlPanel({
                         {" → "}
                         {new Date(s.end_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}
                       </p>
-                      {!s.qr_config_id && (
+                      {!s.qr_config_id && !s.qr_group_id && (
                         <p className="text-[10px] text-amber-500/70 mt-0.5">デフォルトQR表示</p>
+                      )}
+                      {s.qr_group_id && (
+                        <p className="text-[10px] text-indigo-400/70 mt-0.5">グループ（一覧表示）</p>
                       )}
                     </div>
                     <button
@@ -991,25 +1313,42 @@ export function QRControlPanel({
               <Plus size={10} /> スロットを追加
             </p>
 
-            {/* QR選択 */}
+            {/* QR / グループ選択 */}
             <div>
-              <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">QRコード（省略 = デフォルト）</label>
+              <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest">QRコード / グループ（省略 = デフォルト）</label>
               <select
-                value={newSlot.qr_config_id}
+                value={encodeTarget(newSlot.qr_config_id, newSlot.qr_group_id)}
                 onChange={e => {
-                  const qcId = e.target.value;
-                  const qc = qrConfigs.find(q => q.qr_config_id === qcId);
-                  setNewSlot(s => ({ ...s, qr_config_id: qcId, label: qc ? (qc.label || qc.product?.name || "") : "" }));
+                  const { qr_config_id, qr_group_id } = decodeTarget(e.target.value);
+                  const qc = qr_config_id ? qrConfigs.find(q => q.qr_config_id === qr_config_id) : null;
+                  const g = qr_group_id ? qrGroups.find(x => x.qr_group_id === qr_group_id) : null;
+                  setNewSlot(s => ({
+                    ...s,
+                    qr_config_id: qr_config_id ?? "",
+                    qr_group_id: qr_group_id ?? "",
+                    label: qc ? (qc.label || qc.product?.name || "") : g ? g.name : "",
+                  }));
                 }}
                 className="mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
               >
                 <option value="">— デフォルト（転換・休憩など）</option>
-                {qrConfigs.map(qc => (
-                  <option key={qc.qr_config_id} value={qc.qr_config_id}>
-                    {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
-                    {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
-                  </option>
-                ))}
+                <optgroup label="単体QR">
+                  {qrConfigs.map(qc => (
+                    <option key={qc.qr_config_id} value={`single:${qc.qr_config_id}`}>
+                      {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
+                      {qc.product?.artist ? ` — ${qc.product.artist.display_name}` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+                {qrGroups.length > 0 && (
+                  <optgroup label="グループ">
+                    {qrGroups.map(g => (
+                      <option key={g.qr_group_id} value={`group:${g.qr_group_id}`}>
+                        {g.name}（{g.members.length}件）
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 

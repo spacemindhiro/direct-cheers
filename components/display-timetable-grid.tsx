@@ -15,6 +15,7 @@ type GridTrack = {
 type GridSchedule = {
   schedule_id: string;
   qr_config_id: string | null;
+  qr_group_id: string | null;
   track_id: string | null;
   start_at: string;
   end_at: string;
@@ -23,6 +24,7 @@ type GridSchedule = {
     label: string | null;
     product: { name: string; artist: { display_name: string } | null } | null;
   } | null;
+  qr_group: { name: string } | null;
 };
 
 export function DisplayTimetableGrid({
@@ -90,8 +92,8 @@ export function DisplayTimetableGrid({
                     (new Date(s.end_at).getTime() - new Date(s.start_at).getTime()) / HOUR_MS * PX_PER_HOUR,
                     32
                   );
-                  const isDefault = !s.qr_config_id;
-                  const label = s.label || s.qr_config?.label || s.qr_config?.product?.name || "デフォルト";
+                  const isDefault = !s.qr_config_id && !s.qr_group_id;
+                  const label = s.label || s.qr_group?.name || s.qr_config?.label || s.qr_config?.product?.name || "デフォルト";
                   const artist = s.qr_config?.product?.artist?.display_name;
                   return (
                     <div

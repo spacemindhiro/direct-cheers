@@ -35,10 +35,20 @@ export async function GET(
   let query = admin
     .from("display_schedules")
     .select(`
-      schedule_id, qr_config_id, track_id, start_at, end_at, label, sort_order,
+      schedule_id, qr_config_id, qr_group_id, track_id, start_at, end_at, label, sort_order,
       qr_config:qr_configs!qr_config_id(
         qr_config_id, label, image_url,
         product:products!product_id(name, type, artist:profiles!artist_id(display_name))
+      ),
+      qr_group:qr_groups!qr_group_id(
+        qr_group_id, name,
+        members:qr_group_members(
+          qr_config_id, sort_order,
+          qr_config:qr_configs!qr_config_id(
+            qr_config_id, label, image_url,
+            product:products!product_id(name, type, artist:profiles!artist_id(display_name))
+          )
+        )
       )
     `)
     .eq("event_id", eventId)
@@ -51,7 +61,21 @@ export async function GET(
   const { data, error } = await query.order("start_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+
+  const normalized = (data ?? []).map((s: any) => ({
+    ...s,
+    qr_group: s.qr_group
+      ? {
+          qr_group_id: s.qr_group.qr_group_id,
+          name: s.qr_group.name,
+          members: [...(s.qr_group.members ?? [])]
+            .sort((a: any, b: any) => a.sort_order - b.sort_order)
+            .map((row: any) => row.qr_config),
+        }
+      : null,
+  }));
+
+  return NextResponse.json(normalized);
 }
 
 // スケジュール作成
@@ -68,13 +92,16 @@ export async function POST(
   if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { qr_config_id, track_id, start_at, end_at, label } = body;
+  const { qr_config_id, qr_group_id, track_id, start_at, end_at, label } = body;
 
   if (!start_at || !end_at) {
     return NextResponse.json({ error: "start_at と end_at は必須です" }, { status: 400 });
   }
   if (new Date(end_at) <= new Date(start_at)) {
     return NextResponse.json({ error: "end_at は start_at より後にしてください" }, { status: 400 });
+  }
+  if (qr_config_id && qr_group_id) {
+    return NextResponse.json({ error: "単一QRとグループは同時に指定できません" }, { status: 400 });
   }
 
   if (track_id) {
@@ -90,7 +117,14 @@ export async function POST(
 
   const { data, error } = await admin
     .from("display_schedules")
-    .insert({ event_id: eventId, qr_config_id: qr_config_id ?? null, track_id: track_id ?? null, start_at, end_at, label: label ?? null })
+    .insert({
+      event_id: eventId,
+      qr_config_id: qr_config_id ?? null,
+      qr_group_id: qr_group_id ?? null,
+      track_id: track_id ?? null,
+      start_at, end_at,
+      label: label ?? null,
+    })
     .select("schedule_id")
     .single();
 
@@ -112,7 +146,7 @@ export async function PATCH(
   if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { schedule_id, qr_config_id, start_at, end_at, label } = body;
+  const { schedule_id, qr_config_id, qr_group_id, start_at, end_at, label } = body;
 
   if (!schedule_id) return NextResponse.json({ error: "schedule_id required" }, { status: 400 });
   if (!start_at || !end_at) {
@@ -121,10 +155,13 @@ export async function PATCH(
   if (new Date(end_at) <= new Date(start_at)) {
     return NextResponse.json({ error: "end_at は start_at より後にしてください" }, { status: 400 });
   }
+  if (qr_config_id && qr_group_id) {
+    return NextResponse.json({ error: "単一QRとグループは同時に指定できません" }, { status: 400 });
+  }
 
   const { error } = await admin
     .from("display_schedules")
-    .update({ qr_config_id: qr_config_id ?? null, start_at, end_at, label: label ?? null })
+    .update({ qr_config_id: qr_config_id ?? null, qr_group_id: qr_group_id ?? null, start_at, end_at, label: label ?? null })
     .eq("schedule_id", schedule_id)
     .eq("event_id", eventId);
 

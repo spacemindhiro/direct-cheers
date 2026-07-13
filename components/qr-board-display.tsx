@@ -22,14 +22,29 @@ type QrConfigInfo = {
   product: { name: string; type: string; artist: { display_name: string } | null } | null;
 } | null;
 
+type QrGroupInfo = {
+  qr_group_id: string;
+  name: string;
+  members: QrConfigInfo[];
+} | null;
+
+// 現在表示すべき対象を「単一QR」か「名前付きグループ」かに関わらず統一的に扱うための型。
+// スケジュールスロット・トラックのデフォルト・強制表示のいずれから来ても同じ形に解決する。
+type ResolvedTarget =
+  | { type: "single"; qrState: QRState }
+  | { type: "group"; list: QRState[] }
+  | null;
+
 type DisplaySchedule = {
   schedule_id: string;
   qr_config_id: string | null;
+  qr_group_id: string | null;
   track_id: string | null;
   start_at: string;
   end_at: string;
   label: string | null;
   qr_config: QrConfigInfo;
+  qr_group: QrGroupInfo;
 };
 
 // タイムテーブルから現在時刻に該当するスロットを返す
@@ -160,14 +175,16 @@ export function QRBoardDisplay({
   // タイムテーブル
   const [schedules, setSchedules] = useState<DisplaySchedule[]>([]);
   const [isForcedOverride, setIsForcedOverride] = useState(false);
-  // トラックに割り当てられたQR群。1件なら単一QR表示（従来通り）、2件以上なら
-  // タイル一覧を表示し、客がタップした1件だけを拡大表示する「グループモード」に入る
-  const [trackQrList, setTrackQrList] = useState<QRState[]>([]);
+  // 現在アクティブなグループの中身。スロット・トラックのデフォルト・強制表示のいずれから
+  // 来たかに関わらず、グループが解決されたらここにセットする。
+  // groupMode=true かつ qrState=null ならタイル一覧を表示し、客がタップした1件だけ拡大表示する
+  const [groupList, setGroupList] = useState<QRState[]>([]);
   const [groupMode, setGroupMode] = useState(false);
   const schedulesRef = useRef<DisplaySchedule[]>([]);
   const isForcedRef  = useRef(false);
   const trackIdRef   = useRef<string | null>(null);
-  const trackQrListRef = useRef<QRState[]>([]);
+  // トラックのデフォルト表示(スロット外の時間に使うフォールバック)。単一QR or グループのどちらか
+  const trackDefaultRef = useRef<ResolvedTarget>(null);
   const groupReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const siteUrlRef   = useRef(typeof window !== "undefined" ? window.location.origin : "");
   const qrStateRef   = useRef<QRState | null>(null);
@@ -321,50 +338,64 @@ export function QRBoardDisplay({
     if (groupReturnTimerRef.current) { clearTimeout(groupReturnTimerRef.current); groupReturnTimerRef.current = null; }
   }, []);
 
+  // 単一QRを表示する(スロット・トラックのデフォルト・強制表示のいずれでも共通)
+  const applySingle = useCallback((next: QRState) => {
+    setGroupMode(false);
+    clearGroupReturnTimer();
+    setQrState(prev => {
+      if (prev?.qr_config_id === next.qr_config_id) return prev;
+      setFlash(true);
+      setTimeout(() => setFlash(false), 350);
+      try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, [eventId, clearGroupReturnTimer]);
+
+  // グループを表示する(スロット・トラックのデフォルト・強制表示のいずれでも共通)。
+  // 既に一覧内の1件を選択中(拡大表示中)ならその選択状態を維持する
+  const applyGroup = useCallback((list: QRState[]) => {
+    setGroupMode(true);
+    setGroupList(list);
+    setQrState(prev => (prev && list.some(q => q.qr_config_id === prev.qr_config_id)) ? prev : null);
+  }, []);
+
+  const applyEmpty = useCallback(() => {
+    setGroupMode(false);
+    setQrState(prev => {
+      if (prev === null) return prev;
+      setFlash(true);
+      setTimeout(() => setFlash(false), 350);
+      return null;
+    });
+  }, []);
+
   // タイムテーブルの現在スロットを適用。
-  //   1. スケジュールが有効なスロット中 → そのQRを単一表示（最優先）
-  //   2. スロット外で、トラックのQRが1件だけ → 従来通り単一QR表示
-  //   3. スロット外で、トラックのQRが2件以上 → グループモード（一覧タップ→拡大表示）
-  //      客がタイルをタップして拡大表示中(qrStateがリスト内の1件と一致)なら、その選択状態は維持する
+  //   1. スケジュールが有効なスロット中 → そのスロットの単一QR or グループを表示（最優先）
+  //   2. スロット外で、トラックのデフォルトが単一QR → 従来通り単一QR表示
+  //   3. スロット外で、トラックのデフォルトがグループ → グループモード（一覧タップ→拡大表示）
+  //   4. どちらも無ければ「親機からの指示を待機中」の空表示
   const applySchedule = useCallback((scheds: DisplaySchedule[]) => {
     if (isForcedRef.current) return;
     const now = new Date();
     const active = getActiveSchedule(scheds, now);
-    const next = active?.qr_config
-      ? qrConfigToState(active.qr_config, siteUrlRef.current, active.label ?? active.qr_config.label ?? active.qr_config.product?.name ?? "")
-      : null;
 
-    if (next) {
-      setGroupMode(false);
-      clearGroupReturnTimer();
-      setQrState(prev => {
-        if (prev?.qr_config_id === next.qr_config_id) return prev;
-        setFlash(true);
-        setTimeout(() => setFlash(false), 350);
-        try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(next)); } catch {}
-        return next;
-      });
+    if (active?.qr_group) {
+      const list = active.qr_group.members
+        .map((qc) => qrConfigToState(qc, siteUrlRef.current))
+        .filter((q): q is QRState => q !== null);
+      applyGroup(list);
       return;
     }
-
-    const list = trackQrListRef.current;
-    if (list.length <= 1) {
-      setGroupMode(false);
-      const def = list[0] ?? null;
-      setQrState(prev => {
-        if (prev?.qr_config_id === def?.qr_config_id) return prev;
-        setFlash(true);
-        setTimeout(() => setFlash(false), 350);
-        if (def) { try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(def)); } catch {} }
-        return def;
-      });
-      return;
+    if (active?.qr_config) {
+      const next = qrConfigToState(active.qr_config, siteUrlRef.current, active.label ?? active.qr_config.label ?? active.qr_config.product?.name ?? "");
+      if (next) { applySingle(next); return; }
     }
 
-    // 複数QR → グループモード。既に一覧内の1件を選択中ならそのまま維持する
-    setGroupMode(true);
-    setQrState(prev => (prev && list.some(q => q.qr_config_id === prev.qr_config_id)) ? prev : null);
-  }, [eventId, clearGroupReturnTimer]);
+    const def = trackDefaultRef.current;
+    if (def?.type === "group") { applyGroup(def.list); return; }
+    if (def?.type === "single") { applySingle(def.qrState); return; }
+    applyEmpty();
+  }, [applySingle, applyGroup, applyEmpty]);
 
   // 一覧からタイルをタップ→そのQRだけを拡大表示。一定時間操作が無ければ一覧へ自動で戻す
   const selectGroupQr = useCallback((qr: QRState) => {
@@ -405,21 +436,34 @@ export function QRBoardDisplay({
       .catch(() => {});
   }, [eventId, applySchedule]);
 
-  // 子機を自己登録し、割り当てトラック・トラックのQR構成(1件以上)を取得
+  // 子機を自己登録し、割り当てトラック・トラックのデフォルト表示(単一QR or グループ)を取得
   const registerDevice = useCallback(() => {
+    type DefaultTargetPayload =
+      | { type: "single"; qr_config: QrConfigInfo }
+      | { type: "group"; qr_group: { qr_group_id: string; name: string; members: QrConfigInfo[] } }
+      | null;
+
     return fetch(`/api/events/${eventId}/display-devices`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_id: getOrCreateDeviceId(deviceName), device_name: deviceName }),
     })
-      .then(r => r.ok ? r.json() : { track_id: null, qr_configs: [] })
-      .then((data: { track_id: string | null; qr_configs: QrConfigInfo[] }) => {
+      .then(r => r.ok ? r.json() : { track_id: null, default_target: null })
+      .then((data: { track_id: string | null; default_target: DefaultTargetPayload }) => {
         trackIdRef.current = data.track_id;
-        const list = (data.qr_configs ?? [])
-          .map((qc) => qrConfigToState(qc, siteUrlRef.current))
-          .filter((q): q is QRState => q !== null);
-        trackQrListRef.current = list;
-        setTrackQrList(list);
+
+        if (data.default_target?.type === "single") {
+          const qs = qrConfigToState(data.default_target.qr_config, siteUrlRef.current);
+          trackDefaultRef.current = qs ? { type: "single", qrState: qs } : null;
+        } else if (data.default_target?.type === "group") {
+          const list = data.default_target.qr_group.members
+            .map((qc) => qrConfigToState(qc, siteUrlRef.current))
+            .filter((q): q is QRState => q !== null);
+          trackDefaultRef.current = { type: "group", list };
+        } else {
+          trackDefaultRef.current = null;
+        }
+
         return data.track_id;
       })
       .catch(() => trackIdRef.current);
@@ -516,7 +560,7 @@ export function QRBoardDisplay({
     // レイアウト確定後に測るため次フレームで判定
     const raf = requestAnimationFrame(checkScrollBottom);
     return () => cancelAnimationFrame(raf);
-  }, [groupMode, qrState, trackQrList, checkScrollBottom]);
+  }, [groupMode, qrState, groupList, checkScrollBottom]);
 
   // 画面サイズに応じてQRサイズを動的計算
   useEffect(() => {
@@ -606,11 +650,16 @@ export function QRBoardDisplay({
     });
 
     channel.on("broadcast", { event: "qr-switch" }, ({ payload }) => {
-      const { target_device_id, is_forced, cancel_forced, ...qrData } = payload as QRState & { target_device_id?: string | null; is_forced?: boolean; cancel_forced?: boolean };
+      const { target_device_id, is_forced, cancel_forced, group_members, ...qrData } = payload as QRState & {
+        target_device_id?: string | null;
+        is_forced?: boolean;
+        cancel_forced?: boolean;
+        group_members?: QRState[];
+      };
       // target_device_id指定時、自分宛てでなければ無視（端末別の強制表示・解除）
       if (target_device_id != null && target_device_id !== deviceId) return;
       if (cancel_forced) {
-        // 強制モード解除 → タイムテーブル/トラックのQR構成に戻す(単一表示 or グループ一覧)
+        // 強制モード解除 → タイムテーブル/トラックのデフォルトに戻す(単一表示 or グループ一覧)
         isForcedRef.current = false;
         setIsForcedOverride(false);
         applySchedule(schedulesRef.current);
@@ -618,15 +667,20 @@ export function QRBoardDisplay({
         setTimeout(() => setFlash(false), 350);
         return;
       }
-      // 通常の強制切り替え(単一QRの上書き表示。グループ一覧は解除する)
       if (is_forced) {
         isForcedRef.current = true;
         setIsForcedOverride(true);
       }
-      setGroupMode(false);
-      clearGroupReturnTimer();
-      setQrState(qrData);
-      try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(qrData)); } catch {}
+      // グループの強制表示(group_members同梱)か、単一QRの強制表示かを分岐
+      if (group_members) {
+        clearGroupReturnTimer();
+        applyGroup(group_members);
+      } else {
+        setGroupMode(false);
+        clearGroupReturnTimer();
+        setQrState(qrData);
+        try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(qrData)); } catch {}
+      }
       setFlash(true);
       setTimeout(() => setFlash(false), 350);
     });
@@ -660,6 +714,14 @@ export function QRBoardDisplay({
       fetchSchedules(trackIdRef.current);
     });
 
+    // コントロールパネルでトラックのデフォルト表示、またはQRグループの中身(名前・メンバー)が
+    // 変更された → 手動リロード不要で即座に再取得・再適用する。
+    // どのトラック/グループが影響を受けたかを子機側で判定するより、常に再取得する方が
+    // シンプルかつ確実(頻度が低い管理操作のため負荷は問題にならない)
+    channel.on("broadcast", { event: "qr-group-updated" }, () => {
+      registerDevice().then((trackId) => fetchSchedules(trackId));
+    });
+
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         setConnected(true);
@@ -687,7 +749,7 @@ export function QRBoardDisplay({
       }
       supabase.removeChannel(channel);
     };
-  }, [eventId, deviceName, onCheerNew, registerDevice, fetchSchedules, applySchedule, clearGroupReturnTimer]);
+  }, [eventId, deviceName, onCheerNew, registerDevice, fetchSchedules, applySchedule, applyGroup, clearGroupReturnTimer]);
 
   // 長押し検出（3秒でロック解除モーダル表示）
   const HOLD_DURATION = 3000;
@@ -913,7 +975,7 @@ export function QRBoardDisplay({
               {qrState.qr_config_id.slice(0, 8)}
             </p>
           </div>
-        ) : groupMode && trackQrList.length > 1 ? (
+        ) : groupMode && groupList.length > 1 ? (
           <div className="relative flex flex-col items-center gap-4 px-6 py-8 w-full h-full max-h-full">
             <p className="text-2xl font-black text-white text-center">読み取りたい宛先を選んでください</p>
             <div
@@ -923,7 +985,7 @@ export function QRBoardDisplay({
               style={{ maxHeight: "calc(100vh - 260px)" }}
             >
               <div className="grid grid-cols-3 gap-4 pb-6">
-                {trackQrList.map((qr) => (
+                {groupList.map((qr) => (
                   <button
                     key={qr.qr_config_id}
                     type="button"

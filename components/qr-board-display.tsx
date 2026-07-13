@@ -70,6 +70,19 @@ function qrConfigToState(qc: QrConfigInfo, siteUrl: string, overrideLabel?: stri
 // グループ表示（一覧タップ→単体QR拡大）で一覧に自動で戻るまでの時間
 const GROUP_RETURN_MS = 60_000;
 
+// localStorageの復元値・Realtimeブロードキャストのpayloadは実行時には型保証が無いため、
+// qr_config_idを持つ妥当な形かどうかを検証してから使う。
+// (過去バージョンで保存された形の異なるキャッシュが残っていると、qrState.qr_config_id.slice()が
+//  undefinedに対して呼ばれてクラッシュする実害があったため)
+function isValidQrState(value: unknown): value is QRState {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    typeof (value as { qr_config_id?: unknown }).qr_config_id === "string" &&
+    (value as { qr_config_id: string }).qr_config_id.length > 0
+  );
+}
+
 type FloatingHeart = {
   id: string;
   x: number;       // vw%
@@ -166,8 +179,12 @@ export function QRBoardDisplay({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [qrState, setQrState] = useState<QRState | null>(() => {
-    try { const s = localStorage.getItem(STORAGE_KEY(eventId)); return s ? JSON.parse(s) : null; }
-    catch { return null; }
+    try {
+      const s = localStorage.getItem(STORAGE_KEY(eventId));
+      if (!s) return null;
+      const parsed = JSON.parse(s);
+      return isValidQrState(parsed) ? parsed : null;
+    } catch { return null; }
   });
   const [flash, setFlash] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -725,11 +742,14 @@ export function QRBoardDisplay({
       if (group_members) {
         clearGroupReturnTimer();
         applyGroup(group_members);
-      } else {
+      } else if (isValidQrState(qrData)) {
         setGroupMode(false);
         clearGroupReturnTimer();
         setQrState(qrData);
         try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(qrData)); } catch {}
+      } else {
+        pushDebugLog(`qr-switch: 不正なpayloadのため無視: ${JSON.stringify(qrData)}`);
+        return;
       }
       setFlash(true);
       setTimeout(() => setFlash(false), 350);
@@ -1023,7 +1043,7 @@ export function QRBoardDisplay({
               </div>
             </div>
             <p className="text-xs text-slate-600 font-mono uppercase tracking-widest">
-              {qrState.qr_config_id.slice(0, 8)}
+              {qrState.qr_config_id?.slice(0, 8) ?? ""}
             </p>
           </div>
         ) : groupMode && groupList.length > 1 ? (

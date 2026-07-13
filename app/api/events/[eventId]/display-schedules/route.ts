@@ -37,16 +37,18 @@ export async function GET(
     .select(`
       schedule_id, qr_config_id, qr_group_id, track_id, start_at, end_at, label, sort_order,
       qr_config:qr_configs!qr_config_id(
-        qr_config_id, label, image_url,
-        product:products!product_id(name, type, artist:profiles!artist_id(display_name))
+        qr_config_id, label, image_url, recipient_profile_id, recipient_name_context,
+        product:products!product_id(name, type, artist:profiles!artist_id(display_name, artist_name, avatar_url)),
+        recipient:profiles!recipient_profile_id(display_name, avatar_url, artist_name, organizer_name, artist_avatar_url, organizer_avatar_url)
       ),
       qr_group:qr_groups!qr_group_id(
         qr_group_id, name,
         members:qr_group_members(
           qr_config_id, sort_order,
           qr_config:qr_configs!qr_config_id(
-            qr_config_id, label, image_url,
-            product:products!product_id(name, type, artist:profiles!artist_id(display_name))
+            qr_config_id, label, image_url, recipient_profile_id, recipient_name_context,
+            product:products!product_id(name, type, artist:profiles!artist_id(display_name, artist_name, avatar_url)),
+            recipient:profiles!recipient_profile_id(display_name, avatar_url, artist_name, organizer_name, artist_avatar_url, organizer_avatar_url)
           )
         )
       )

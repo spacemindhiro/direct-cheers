@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Wifi, WifiOff, Lock, X, Smartphone, Sparkles, ChevronDown } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PasskeySetup } from "@/components/passkey-setup";
+import { resolveCheerCardIdentity, type RecipientNameContext } from "@/lib/statement-descriptor";
 
 type QRState = {
   qr_config_id: string;
@@ -12,14 +13,28 @@ type QRState = {
   product_name: string;
   label?: string;
   artist_name?: string;
-  image_url?: string | null;
+  artist_avatar_url?: string | null;
 };
 
 type QrConfigInfo = {
   qr_config_id: string;
   label: string | null;
   image_url: string | null;
-  product: { name: string; type: string; artist: { display_name: string } | null } | null;
+  recipient_profile_id: string | null;
+  recipient_name_context: RecipientNameContext | null;
+  product: {
+    name: string;
+    type: string;
+    artist: { display_name: string; artist_name: string | null; avatar_url: string | null } | null;
+  } | null;
+  recipient: {
+    display_name: string | null;
+    avatar_url: string | null;
+    artist_name: string | null;
+    organizer_name: string | null;
+    artist_avatar_url: string | null;
+    organizer_avatar_url: string | null;
+  } | null;
 } | null;
 
 type QrGroupInfo = {
@@ -54,16 +69,41 @@ function getActiveSchedule(schedules: DisplaySchedule[], now: Date): DisplaySche
   ) ?? null;
 }
 
-// qr_config情報からQR表示状態を構築（タイムテーブルスロット・トラックのデフォルトQR共通）
+// qr_config情報からQR表示状態を構築（タイムテーブルスロット・トラックのデフォルトQR共通）。
+// 名前・画像は「チアカード（/c/[qrConfigId]）」が使うのと同じ優先順位ロジック
+// （recipient_name_contextに応じたorganizer/artist名義 → product.artist → 未設定）で解決する。
+// 複数QRの選択タイルで見分けが付くようにするための画像なので、全QRでほぼ同じになりがちな
+// qr_configs.image_url（チアカード自体の画像）ではなく、宛先本人の写真を使う。
 function qrConfigToState(qc: QrConfigInfo, siteUrl: string, overrideLabel?: string | null): QRState | null {
   if (!qc) return null;
+  const { name: artistName, avatarUrl: artistAvatarUrl } = resolveCheerCardIdentity({
+    recipientNameContext: qc.recipient_name_context ?? "artist",
+    recipient: qc.recipient
+      ? {
+          organizerName: qc.recipient.organizer_name,
+          artistName: qc.recipient.artist_name,
+          displayName: qc.recipient.display_name,
+          organizerAvatarUrl: qc.recipient.organizer_avatar_url,
+          artistAvatarUrl: qc.recipient.artist_avatar_url,
+          avatarUrl: qc.recipient.avatar_url,
+        }
+      : null,
+    productArtist: qc.product?.artist
+      ? {
+          artistName: qc.product.artist.artist_name,
+          displayName: qc.product.artist.display_name,
+          avatarUrl: qc.product.artist.avatar_url,
+        }
+      : null,
+    fallbackName: "",
+  });
   return {
     qr_config_id: qc.qr_config_id,
     qr_url: `${siteUrl}/c/${qc.qr_config_id}`,
     product_name: qc.product?.name ?? "",
     label: overrideLabel ?? qc.label ?? qc.product?.name ?? "",
-    artist_name: qc.product?.artist?.display_name ?? "",
-    image_url: qc.image_url,
+    artist_name: artistName,
+    artist_avatar_url: artistAvatarUrl,
   };
 }
 
@@ -188,15 +228,6 @@ export function QRBoardDisplay({
   });
   const [flash, setFlash] = useState(false);
   const [connected, setConnected] = useState(false);
-
-  // 調査用デバッグログ。JSの未処理エラー・Promise rejection・
-  // これまで黙って握りつぶしていたfetch失敗を画面に直接表示する(現地でコンソールを
-  // 見られない端末があるため)。原因特定が済んだら削除する
-  const [debugLog, setDebugLog] = useState<string[]>([]);
-  const pushDebugLog = useCallback((msg: string) => {
-    const line = `${new Date().toLocaleTimeString("ja-JP", { hour12: false })} ${msg}`;
-    setDebugLog((prev) => [...prev.slice(-19), line]);
-  }, []);
 
   // タイムテーブル
   const [schedules, setSchedules] = useState<DisplaySchedule[]>([]);
@@ -453,10 +484,8 @@ export function QRBoardDisplay({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_code: deviceName, event_id: eventId, qr_config_id: qrConfigId }),
-    })
-      .then((r) => { if (!r.ok) pushDebugLog(`syncBoothDevice HTTP ${r.status}`); })
-      .catch((err) => pushDebugLog(`syncBoothDevice failed: ${err?.message ?? err}`));
-  }, [eventId, deviceName, pushDebugLog]);
+    }).catch(() => {});
+  }, [eventId, deviceName]);
 
   // 割り当てられたトラックのタイムテーブルを取得
   const fetchSchedules = useCallback((trackId: string | null) => {
@@ -464,18 +493,14 @@ export function QRBoardDisplay({
       ? `/api/events/${eventId}/display-schedules?track_id=${trackId}`
       : `/api/events/${eventId}/display-schedules`;
     return fetch(url)
-      .then(r => {
-        if (!r.ok) pushDebugLog(`fetchSchedules HTTP ${r.status}`);
-        return r.ok ? r.json() : [];
-      })
+      .then(r => r.ok ? r.json() : [])
       .then((data: DisplaySchedule[]) => {
         schedulesRef.current = data;
         setSchedules(data);
         applySchedule(data);
-        pushDebugLog(`fetchSchedules ok: ${data.length}件`);
       })
-      .catch((err) => pushDebugLog(`fetchSchedules failed: ${err?.message ?? err}`));
-  }, [eventId, applySchedule, pushDebugLog]);
+      .catch(() => {});
+  }, [eventId, applySchedule]);
 
   // 子機を自己登録し、割り当てトラック・トラックのデフォルト表示(単一QR or グループ)を取得
   const registerDevice = useCallback(() => {
@@ -489,10 +514,7 @@ export function QRBoardDisplay({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_id: getOrCreateDeviceId(deviceName), device_name: deviceName }),
     })
-      .then(r => {
-        if (!r.ok) pushDebugLog(`registerDevice HTTP ${r.status}`);
-        return r.ok ? r.json() : { track_id: null, default_target: null };
-      })
+      .then(r => r.ok ? r.json() : { track_id: null, default_target: null })
       .then((data: { track_id: string | null; default_target: DefaultTargetPayload }) => {
         trackIdRef.current = data.track_id;
 
@@ -508,14 +530,10 @@ export function QRBoardDisplay({
           trackDefaultRef.current = null;
         }
 
-        pushDebugLog(`registerDevice ok: track=${data.track_id ?? "なし"} target=${data.default_target?.type ?? "なし"}`);
         return data.track_id;
       })
-      .catch((err) => {
-        pushDebugLog(`registerDevice failed: ${err?.message ?? err}`);
-        return trackIdRef.current;
-      });
-  }, [eventId, deviceName, pushDebugLog]);
+      .catch(() => trackIdRef.current);
+  }, [eventId, deviceName]);
 
   // 端末名（識別名）を変更し、localStorageとサーバーに反映
   const updateDeviceName = useCallback((name: string) => {
@@ -531,24 +549,6 @@ export function QRBoardDisplay({
       body: JSON.stringify({ device_id: getOrCreateDeviceId(trimmed), device_name: trimmed }),
     }).catch(() => {});
   }, [eventId, deviceName]);
-
-  // window.onerror / unhandledrejection を画面上のデバッグログに記録する。
-  // 現地でコンソールを見られない端末での原因調査用
-  useEffect(() => {
-    const onError = (e: ErrorEvent) => {
-      pushDebugLog(`window.onerror: ${e.message} @ ${e.filename ?? "?"}:${e.lineno ?? "?"}`);
-    };
-    const onRejection = (e: PromiseRejectionEvent) => {
-      pushDebugLog(`unhandledrejection: ${String(e.reason?.message ?? e.reason)}`);
-    };
-    window.addEventListener("error", onError);
-    window.addEventListener("unhandledrejection", onRejection);
-    pushDebugLog("画面初期化開始");
-    return () => {
-      window.removeEventListener("error", onError);
-      window.removeEventListener("unhandledrejection", onRejection);
-    };
-  }, [pushDebugLog]);
 
   // 子機は終日QRを表示し続ける用途のため、OSの画面タイムアウト設定に依存せず
   // Wake Lock APIで画面消灯を防ぐ。タブが非表示→復帰した際は権限が失われるため再取得する。
@@ -722,7 +722,6 @@ export function QRBoardDisplay({
         cancel_forced?: boolean;
         group_members?: QRState[];
       };
-      pushDebugLog(`qr-switch受信: forced=${!!is_forced} cancel=${!!cancel_forced} group=${!!group_members} target=${target_device_id ?? "全機"}`);
       // target_device_id指定時、自分宛てでなければ無視（端末別の強制表示・解除）
       if (target_device_id != null && target_device_id !== deviceId) return;
       if (cancel_forced) {
@@ -748,7 +747,6 @@ export function QRBoardDisplay({
         setQrState(qrData);
         try { localStorage.setItem(STORAGE_KEY(eventId), JSON.stringify(qrData)); } catch {}
       } else {
-        pushDebugLog(`qr-switch: 不正なpayloadのため無視: ${JSON.stringify(qrData)}`);
         return;
       }
       setFlash(true);
@@ -793,7 +791,6 @@ export function QRBoardDisplay({
     });
 
     channel.subscribe(async (status) => {
-      pushDebugLog(`Realtime channel status: ${status}`);
       if (status === "SUBSCRIBED") {
         setConnected(true);
         const battery = await getBatteryLevel();
@@ -820,7 +817,7 @@ export function QRBoardDisplay({
       }
       supabase.removeChannel(channel);
     };
-  }, [eventId, deviceName, onCheerNew, registerDevice, fetchSchedules, applySchedule, applyGroup, clearGroupReturnTimer, pushDebugLog]);
+  }, [eventId, deviceName, onCheerNew, registerDevice, fetchSchedules, applySchedule, applyGroup, clearGroupReturnTimer]);
 
   // 長押し検出（3秒でロック解除モーダル表示）
   const HOLD_DURATION = 3000;
@@ -1064,8 +1061,8 @@ export function QRBoardDisplay({
                     className="flex flex-col items-center gap-2 bg-slate-900 border border-slate-800 rounded-2xl p-3 hover:border-pink-500/50 transition-colors"
                   >
                     <div className="w-full aspect-square rounded-xl overflow-hidden bg-slate-800 flex items-center justify-center">
-                      {qr.image_url && !isLowMemoryDevice
-                        ? <img src={qr.image_url} alt="" loading="lazy" decoding="async" width={200} height={200} className="w-full h-full object-cover" />
+                      {qr.artist_avatar_url && !isLowMemoryDevice
+                        ? <img src={qr.artist_avatar_url} alt="" loading="lazy" decoding="async" width={200} height={200} className="w-full h-full object-cover" />
                         : <Smartphone size={28} className="text-slate-600" />}
                     </div>
                     <p className="text-xs font-black text-white text-center leading-tight line-clamp-2">
@@ -1161,15 +1158,6 @@ export function QRBoardDisplay({
                 <X size={14} /> キャンセル（QR表示に戻る）
               </button>
             </div>
-          </div>
-        )}
-
-        {/* 調査用デバッグログ(原因特定が済んだら削除する) */}
-        {debugLog.length > 0 && (
-          <div className="absolute inset-x-0 bottom-0 z-[60] bg-black/85 border-t border-red-500/30 px-2 py-1.5 max-h-[35vh] overflow-y-auto pointer-events-auto">
-            {debugLog.map((line, i) => (
-              <p key={i} className="text-[9px] font-mono text-lime-400 leading-tight break-all">{line}</p>
-            ))}
           </div>
         )}
       </div>

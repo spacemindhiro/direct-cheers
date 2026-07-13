@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QRBoardDisplay } from "@/components/qr-board-display";
+import { QrBoardErrorBoundary } from "@/components/qr-board-error-boundary";
 
 async function DisplayContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -29,7 +30,11 @@ async function DisplayContent({ params }: { params: Promise<{ eventId: string }>
 
   if (!event) notFound();
 
-  return <QRBoardDisplay eventId={eventId} eventTitle={event.title} />;
+  return (
+    <QrBoardErrorBoundary>
+      <QRBoardDisplay eventId={eventId} eventTitle={event.title} />
+    </QrBoardErrorBoundary>
+  );
 }
 
 export default function DisplayPage({ params }: { params: Promise<{ eventId: string }> }) {

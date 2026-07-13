@@ -78,12 +78,18 @@ jobs:
       # 起動直後は最新マイグレーションで追加したテーブルをまだ認識していないことがある。
       # 反映前にテストが走ると該当テーブル操作が500/400で失敗するため、
       # REST APIがそのテーブルを認識するまで明示的にポーリングする。
+      #
+      # 注意: ここでチェックするテーブル名は「直近のマイグレーションで新規追加した
+      # テーブル」を指す必要がある。テーブルをリネーム・削除するマイグレーションを
+      # 追加した際は、このcurlの対象テーブル名も一緒に更新すること
+      # (2026-07-13: display_track_qr_configs→qr_groupsへの置き換えで
+      #  このチェックが存在しないテーブルを永遠にポーリングして失敗した実例あり)
       - name: Wait for PostgREST schema cache
         env:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           for i in $(seq 1 30); do
-            if curl -sf "http://127.0.0.1:54321/rest/v1/display_track_qr_configs?limit=0" \
+            if curl -sf "http://127.0.0.1:54321/rest/v1/qr_groups?limit=0" \
                  -H "apikey: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
                  -H "Authorization: Bearer ${NEXT_PUBLIC_SUPABASE_ANON_KEY}" >/dev/null 2>&1; then
               echo "✅ PostgREST schema cache is ready (${i}回目で確認)"
@@ -92,7 +98,7 @@ jobs:
             echo "⏳ PostgREST schema cache not ready yet, retrying (${i}/30)..."
             sleep 1
           done
-          echo "::error::PostgREST did not pick up display_track_qr_configs within timeout"
+          echo "::error::PostgREST did not pick up qr_groups within timeout"
           exit 1
 
       # ── 4. .env.test 生成 ──────────────────────────────────────────

@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QRBoardDisplay } from "@/components/qr-board-display";
+import { QrBoardErrorBoundary } from "@/components/qr-board-error-boundary";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://direct-cheers.com";
 
@@ -59,7 +60,11 @@ async function DisplayContent({ params }: { params: Promise<{ eventId: string }>
     return <DisplayBlocked message="この画面を表示する権限がありません" />;
   }
 
-  return <QRBoardDisplay eventId={eventId} eventTitle={event.title} userEmail={user.email} />;
+  return (
+    <QrBoardErrorBoundary>
+      <QRBoardDisplay eventId={eventId} eventTitle={event.title} userEmail={user.email} />
+    </QrBoardErrorBoundary>
+  );
 }
 
 export default function DisplayPage({ params }: { params: Promise<{ eventId: string }> }) {

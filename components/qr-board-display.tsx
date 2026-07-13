@@ -1014,18 +1014,23 @@ export function QRBoardDisplay({
           <span className="text-[9px] font-mono text-slate-700 tracking-wider">{deviceName}</span>
         </div>
 
+        {/* グループ一覧に戻る（常に画面下部に固定。QR表示ブロックの高さに応じて
+            位置が動くと、画面が小さい/縦幅が狭い端末(dtab d-41A等)で画面外に
+            はみ出して押せなくなるため、中身の描画フローとは独立させて
+            画面端に直接ピン留めする） */}
+        {qrState && groupMode && (
+          <button
+            type="button"
+            onClick={returnToGroupList}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-auto flex items-center gap-1.5 bg-slate-800/90 border border-slate-700 text-slate-300 text-xs font-bold rounded-full px-4 py-2"
+          >
+            ← 一覧に戻る
+          </button>
+        )}
+
         {/* QR表示 */}
         {qrState ? (
           <div className="relative flex flex-col items-center gap-4 px-4 py-6 w-full pointer-events-none">
-            {groupMode && (
-              <button
-                type="button"
-                onClick={returnToGroupList}
-                className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-2 pointer-events-auto flex items-center gap-1.5 bg-slate-800/90 border border-slate-700 text-slate-300 text-xs font-bold rounded-full px-4 py-2"
-              >
-                ← 一覧に戻る
-              </button>
-            )}
             <p className="text-4xl font-black text-white uppercase tracking-tight text-center leading-tight">
               {qrState.label || qrState.product_name}
             </p>

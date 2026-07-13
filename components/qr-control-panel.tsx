@@ -1440,15 +1440,6 @@ export function QRControlPanel({
       {/* ── 全体表タブ ── */}
       {tab === "overview" && (
         <div className="space-y-4">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-            全トラックのタイムテーブルを一覧表示します
-          </p>
-          {loadingAll ? (
-            <p className="text-xs text-slate-600 animate-pulse">読み込み中...</p>
-          ) : (
-            <DisplayTimetableGrid tracks={tracks} schedules={allSchedules} />
-          )}
-
           {/* 子機のトラック割り当て状況 */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -1472,6 +1463,15 @@ export function QRControlPanel({
               </div>
             )}
           </div>
+
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+            全トラックのタイムテーブルを一覧表示します
+          </p>
+          {loadingAll ? (
+            <p className="text-xs text-slate-600 animate-pulse">読み込み中...</p>
+          ) : (
+            <DisplayTimetableGrid tracks={tracks} schedules={allSchedules} />
+          )}
         </div>
       )}
     </div>

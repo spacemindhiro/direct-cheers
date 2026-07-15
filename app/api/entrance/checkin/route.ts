@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       ticket_id, ticket_code, status, email, event_id, product_id, quantity,
       reservation_id, transaction_id,
       product:products(name, type, payment_type, min_amount),
-      event:events(title, organizer_profile_id, agent_id)
+      event:events(title, venue, organizer_profile_id, agent_id)
     `)
     .eq("ticket_code", ticket_code)
     .maybeSingle();
@@ -166,7 +166,11 @@ export async function POST(req: Request) {
           ticket_id: ticket.ticket_id,
           product_id: ticket.product_id,
           event_id: ticket.event_id,
+          event_venue: ev?.venue ?? "",
           payment_type: "C",
+          // 現地チェックイン時のスタッフ操作で確定する決済であることを明示
+          ticket_channel: "onsite_checkin_charge",
+          checked_in_by: user.id,
         },
       });
     } catch (err: any) {

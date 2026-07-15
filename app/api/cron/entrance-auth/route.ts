@@ -62,7 +62,7 @@ export async function GET(req: Request) {
       reservation_id, email, stripe_customer_id, stripe_payment_method_id,
       product_id, event_id, charge_amount,
       product:products(name),
-      event:events(title, start_at)
+      event:events(title, start_at, venue)
     `)
     .eq("status", "reserved")
     .not("stripe_payment_method_id", "is", null)
@@ -117,8 +117,10 @@ export async function GET(req: Request) {
           reservation_id: rsv.reservation_id,
           product_id: rsv.product_id,
           event_id: rsv.event_id,
+          event_venue: (rsv.event as any)?.venue ?? "",
           payment_type: "A",
           cron: "entrance-auth",
+          ticket_channel: "advance_reservation_onsite_checkin",
         },
       });
 

@@ -33,6 +33,7 @@ export function InviteCreateForm({ myRole, onAdd }: { myRole: string; onAdd?: (i
   const [targetRole, setTargetRole] = useState(options?.canInvite[0] ?? "");
   const [targetEmail, setTargetEmail] = useState("");
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -65,6 +66,7 @@ export function InviteCreateForm({ myRole, onAdd }: { myRole: string; onAdd?: (i
       }
       const url = `${window.location.origin}/invite/${data.token}`;
       setGeneratedLink(url);
+      setEmailSent(Boolean(data.is_sent));
       setTargetEmail("");
       onAdd?.(data as InvitationRow);
     });
@@ -132,7 +134,7 @@ export function InviteCreateForm({ myRole, onAdd }: { myRole: string; onAdd?: (i
             {isPending ? (
               <Loader2 size={20} className="animate-spin" />
             ) : (
-              <>招待リンクを発行 <ArrowRight size={18} /></>
+              <>招待を送信 <ArrowRight size={18} /></>
             )}
           </button>
         </div>
@@ -143,7 +145,7 @@ export function InviteCreateForm({ myRole, onAdd }: { myRole: string; onAdd?: (i
           <div className="flex items-center gap-2">
             <Link2 size={16} className="text-pink-500" />
             <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">
-              招待リンクが発行されました
+              {emailSent ? "招待メールを送信しました" : "招待リンクが発行されました"}
             </p>
           </div>
           <div className="bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
@@ -160,7 +162,9 @@ export function InviteCreateForm({ myRole, onAdd }: { myRole: string; onAdd?: (i
             </button>
           </div>
           <p className="text-[10px] text-slate-600">
-            このリンクを相手に送ってください。有効期限は30日間です。
+            {emailSent
+              ? "メールが届かない場合は、このリンクを直接相手に送ってください。有効期限は30日間です。"
+              : "メールを自動送信できませんでした。このリンクを相手に送ってください。有効期限は30日間です。"}
           </p>
         </div>
       )}

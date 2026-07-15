@@ -9,7 +9,7 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
 
   const { data: qr } = await admin
     .from("qr_configs")
-    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id, product_id")
+    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id, product_id, default_amount, touchpay_enabled")
     .eq("qr_config_id", qrConfigId)
     .is("deleted_at", null)
     .single();
@@ -28,13 +28,13 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
     .eq("profile_id", userId)
     .single();
 
+  // adminは担当agentかどうかに関わらず編集可（作成API・RLSポリシーと同じ扱い）
+  const isAdmin = profile?.role === "admin";
   const isOrganizer = event?.organizer_profile_id === userId;
-  const isAgent =
-    (profile?.role === "agent" || profile?.role === "admin") &&
-    event?.agent_id === userId;
+  const isAgent = profile?.role === "agent" && event?.agent_id === userId;
   const isRecipient = qr.recipient_profile_id === userId;
 
-  return { qr, supabase, admin, isOrganizer, isAgent, isRecipient, error: null };
+  return { qr, supabase, admin, isAdmin, isOrganizer, isAgent, isRecipient, error: null };
 }
 
 // ラベル・宛先・配分更新
@@ -47,10 +47,10 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { qr, supabase: sb, admin, isOrganizer, isAgent, isRecipient, error } = await getQRWithPermission(qrConfigId, user.id);
+  const { qr, supabase: sb, admin, isAdmin, isOrganizer, isAgent, isRecipient, error } = await getQRWithPermission(qrConfigId, user.id);
   if (!qr) return NextResponse.json({ error }, { status: error === "Not found" ? 404 : 500 });
 
-  const canEdit = isOrganizer || isAgent;
+  const canEdit = isAdmin || isOrganizer || isAgent;
 
   const {
     label,
@@ -65,6 +65,11 @@ export async function PATCH(
     amount_step,
     default_amount,
     touchpay_enabled,
+    product_name,
+    min_amount,
+    max_amount,
+    stock_limit,
+    track_inventory,
   } = await req.json() as {
     label?: string;
     image_url?: string | null;
@@ -78,28 +83,109 @@ export async function PATCH(
     amount_step?: 100 | 500 | 1000;
     default_amount?: number | null;
     touchpay_enabled?: boolean;
+    product_name?: string;
+    min_amount?: number;
+    max_amount?: number;
+    stock_limit?: number | null;
+    track_inventory?: boolean;
   };
 
-  // 宛先本人は image_url / strip_image_url のみ更新可。それ以外のフィールドは organizer/agent のみ。
+  const hasProductUpdates =
+    product_name !== undefined || min_amount !== undefined || max_amount !== undefined ||
+    stock_limit !== undefined || track_inventory !== undefined;
+
+  // 宛先本人は image_url / strip_image_url のみ更新可。それ以外のフィールドは organizer/agent/admin のみ。
   if (!canEdit && !isRecipient) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (!canEdit && isRecipient) {
-    if (label !== undefined || recipient_profile_id !== undefined || recipient_name_context !== undefined || targets !== undefined) {
+    if (label !== undefined || recipient_profile_id !== undefined || recipient_name_context !== undefined || targets !== undefined || hasProductUpdates) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
 
-  // デフォルト金額は商品のmin/max範囲内であることを確認
-  if (default_amount !== undefined && default_amount !== null) {
-    const { data: product } = await (admin ?? createAdminClient())
+  // 商品情報の取得（商品項目の更新・デフォルト金額・タッチ決済の検証で共用）
+  const adminC = admin ?? createAdminClient();
+  let product: {
+    type: string; payment_type: string | null;
+    min_amount: number; max_amount: number;
+    stock_limit: number | null; sold_count: number; track_inventory: boolean;
+  } | null = null;
+  const needProduct = hasProductUpdates || (default_amount !== undefined && default_amount !== null) || touchpay_enabled === true;
+  if (needProduct && qr.product_id) {
+    const { data } = await adminC
       .from("products")
-      .select("min_amount, max_amount")
+      .select("type, payment_type, min_amount, max_amount, stock_limit, sold_count, track_inventory")
       .eq("product_id", qr.product_id)
       .single();
-    if (product && (default_amount < product.min_amount || default_amount > product.max_amount)) {
+    product = data;
+  }
+
+  // 変更後の実効金額レンジ（金額未変更なら現行値）
+  const effMin = min_amount ?? product?.min_amount ?? 0;
+  const effMax = max_amount ?? product?.max_amount ?? 0;
+
+  // ── 商品項目のバリデーション（作成時と同じルールを適用）
+  if (hasProductUpdates) {
+    if (!product) {
+      return NextResponse.json({ error: "商品情報が見つかりません" }, { status: 400 });
+    }
+    if (product_name !== undefined && !product_name.trim()) {
+      return NextResponse.json({ error: "商品名を入力してください" }, { status: 400 });
+    }
+    if (min_amount !== undefined || max_amount !== undefined) {
+      if (!Number.isInteger(effMin) || !Number.isInteger(effMax) || effMin <= 0) {
+        return NextResponse.json({ error: "金額が不正です" }, { status: 400 });
+      }
+      if (effMin > effMax) {
+        return NextResponse.json({ error: "最低金額が最高金額を上回っています" }, { status: 400 });
+      }
+      // 商品タイプごとの許容レンジ（作成時と同じくproduct_type_configsを参照）
+      const { data: typeConfig } = await adminC
+        .from("product_type_configs")
+        .select("min_amount, max_amount, is_enabled")
+        .eq("type", product.type)
+        .maybeSingle();
+      const FALLBACK: Record<string, { min: number; max: number }> = {
+        standard: { min: 500, max: 3_000 }, message: { min: 1000, max: 5_000 },
+        entrance: { min: 300, max: 30_000 }, custom: { min: 500, max: 100_000 },
+      };
+      const range = typeConfig
+        ? { min: typeConfig.min_amount, max: typeConfig.max_amount }
+        : FALLBACK[product.type];
+      if (range && (effMin < range.min || effMax > range.max)) {
+        return NextResponse.json(
+          { error: `Amount must be between ${range.min} and ${range.max}` },
+          { status: 400 },
+        );
+      }
+      // タッチ決済が有効なバウチャーは金額固定が前提（レンジ化を拒否）
+      const touchpayActive = touchpay_enabled ?? (qr as any).touchpay_enabled ?? false;
+      if (product.type === "custom" && product.payment_type === "V" && touchpayActive && effMin !== effMax) {
+        return NextResponse.json(
+          { error: "対面タッチ決済が有効なバウチャーは金額を固定にしてください" },
+          { status: 400 },
+        );
+      }
+    }
+    if (stock_limit !== undefined && stock_limit !== null) {
+      if (!Number.isInteger(stock_limit) || stock_limit < 1) {
+        return NextResponse.json({ error: "在庫上限が不正です" }, { status: 400 });
+      }
+      if (stock_limit < product.sold_count) {
+        return NextResponse.json(
+          { error: `在庫上限は販売済み数（${product.sold_count}件）以上にしてください` },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
+  // デフォルト金額は変更後のmin/max範囲内であることを確認
+  if (default_amount !== undefined && default_amount !== null && product) {
+    if (default_amount < effMin || default_amount > effMax) {
       return NextResponse.json(
-        { error: `Default amount must be between ${product.min_amount} and ${product.max_amount}` },
+        { error: `Default amount must be between ${effMin} and ${effMax}` },
         { status: 400 },
       );
     }
@@ -108,14 +194,9 @@ export async function PATCH(
   // 対面タッチ決済（Case④）はentrance×Cタイプ、またはcustom×バウチャー(V)×金額固定のみ許可。
   // クライアントの申告を信用せず、サーバー側で対象条件を再検証する。
   if (touchpay_enabled === true) {
-    const { data: product } = await (admin ?? createAdminClient())
-      .from("products")
-      .select("type, payment_type, min_amount, max_amount")
-      .eq("product_id", qr.product_id)
-      .single();
     const eligible = !!product && (
       (product.type === "entrance" && product.payment_type === "C") ||
-      (product.type === "custom" && product.payment_type === "V" && product.min_amount === product.max_amount)
+      (product.type === "custom" && product.payment_type === "V" && effMin === effMax)
     );
     if (!eligible) {
       return NextResponse.json({ error: "この商品は対面タッチ決済に対応していません" }, { status: 400 });
@@ -135,6 +216,31 @@ export async function PATCH(
   if (amount_step !== undefined) configUpdates.amount_step = amount_step;
   if (default_amount !== undefined) configUpdates.default_amount = default_amount;
   if (touchpay_enabled !== undefined) configUpdates.touchpay_enabled = touchpay_enabled;
+
+  // 金額レンジが変わり、既存のデフォルト金額が範囲外になる場合はクランプする
+  if ((min_amount !== undefined || max_amount !== undefined) && default_amount === undefined) {
+    const currentDefault = (qr as any).default_amount as number | null;
+    if (currentDefault !== null && currentDefault !== undefined) {
+      const clamped = Math.min(Math.max(currentDefault, effMin), effMax);
+      if (clamped !== currentDefault) configUpdates.default_amount = clamped;
+    }
+  }
+
+  // products 更新（RLSにUPDATEポリシーが無いためadminクライアントで実行。権限はcanEditで検証済み）
+  if (hasProductUpdates) {
+    const productUpdates: Record<string, unknown> = {};
+    if (product_name !== undefined) productUpdates.name = product_name.trim();
+    if (min_amount !== undefined) productUpdates.min_amount = min_amount;
+    if (max_amount !== undefined) productUpdates.max_amount = max_amount;
+    if (stock_limit !== undefined) productUpdates.stock_limit = stock_limit;
+    if (track_inventory !== undefined) productUpdates.track_inventory = track_inventory;
+
+    const { error: productError } = await adminC
+      .from("products")
+      .update(productUpdates)
+      .eq("product_id", qr.product_id);
+    if (productError) return NextResponse.json({ error: productError.message }, { status: 500 });
+  }
 
   if (Object.keys(configUpdates).length > 0) {
     const { error: configError } = await sb
@@ -183,11 +289,12 @@ export async function PATCH(
     if (targetError) return NextResponse.json({ error: targetError.message }, { status: 500 });
   }
 
-  // 画像・配色・宛先が変わった場合、Walletパスを更新push（fire-and-forget）
-  const visualChanged = image_url !== undefined || strip_image_url !== undefined ||
+  // 画像・配色・宛先・商品名（券面に印字）が変わった場合、Walletパスを更新push（fire-and-forget）
+  const visualChanged = (image_url !== undefined || strip_image_url !== undefined ||
     bg_color !== undefined || fg_color !== undefined || label_color !== undefined ||
-    recipient_profile_id !== undefined || recipient_name_context !== undefined;
-  if (visualChanged && Object.keys(configUpdates).length > 0) {
+    recipient_profile_id !== undefined || recipient_name_context !== undefined) &&
+    Object.keys(configUpdates).length > 0;
+  if (visualChanged || product_name !== undefined) {
     (async () => {
       try {
         const a = createAdminClient();
@@ -218,10 +325,10 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { qr, supabase: sb, admin, isOrganizer, isAgent, error } = await getQRWithPermission(qrConfigId, user.id);
+  const { qr, supabase: sb, admin, isAdmin, isOrganizer, isAgent, error } = await getQRWithPermission(qrConfigId, user.id);
   if (!qr) return NextResponse.json({ error }, { status: error === "Forbidden" ? 403 : 404 });
 
-  if (!isOrganizer && !isAgent) {
+  if (!isAdmin && !isOrganizer && !isAgent) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

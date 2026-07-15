@@ -24,8 +24,8 @@ type CustomSubtype = keyof typeof CUSTOM_SUBTYPE_INFO;
 // フォールバック（DBから取得できなかった場合）
 const PRODUCT_TYPE_FALLBACK = [
   { type: "standard", label: "スタンダード", min_amount: 500,  max_amount: 3000,  is_enabled: true },
-  { type: "message",  label: "メッセージ",  min_amount: 1000, max_amount: 5000,  is_enabled: true },
-  { type: "entrance", label: "エントランス", min_amount: 300,  max_amount: 30000, is_enabled: true },
+  { type: "message",  label: "メッセージ",  min_amount: 500,  max_amount: 5000,  is_enabled: true },
+  { type: "entrance", label: "エントランス", min_amount: 500,  max_amount: 30000, is_enabled: true },
   { type: "custom",   label: "カスタム",    min_amount: 500,  max_amount: 100000, is_enabled: false },
 ];
 

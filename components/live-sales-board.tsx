@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   TrendingUp, Zap, RefreshCw, Wifi, WifiOff,
-  ArrowDownToLine, Loader2, MessageSquare, Coins
+  ArrowDownToLine, Loader2, MessageSquare, Coins, XCircle
 } from "lucide-react";
 
 type TxItem = {
@@ -13,8 +13,11 @@ type TxItem = {
   total_gross_amount: number | null;
   created_at: string | null;
   sender_name: string | null;
+  sender_email: string | null;
   sender_comment: string | null;
   product_type: string | null;
+  product_name: string | null;
+  payment_method: string | null;
   recipient_name: string | null;
   my_net_amount: number | null;
 };
@@ -46,6 +49,7 @@ type LiveStats = {
   total_card_fee: number;
   total_paypay_fee: number;
   recent_transactions: TxItem[];
+  can_cancel: boolean;
   current_page: number;
   total_pages: number;
 };
@@ -55,6 +59,13 @@ const ROLE_LABEL: Record<string, string> = {
   organizer: "オーガナイザー",
   agent: "エージェント",
   admin: "管理者",
+};
+
+const PRODUCT_TYPE_LABEL: Record<string, string> = {
+  standard: "チア",
+  message: "メッセージ",
+  entrance: "エントランス",
+  custom: "カスタム",
 };
 
 const POLL_INTERVAL_LIVE = 5000;
@@ -81,6 +92,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
   const [mounted, setMounted] = useState(false);
   const [logTab, setLogTab] = useState<"log" | "message">("log");
   const [logPage, setLogPage] = useState(1);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const logPageRef = useRef(1);
   const prevCountRef = useRef<number>(0);
   const prevTxIdsRef = useRef<Set<string>>(new Set());
@@ -122,6 +134,33 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
       if (!silent) setLoading(false);
     }
   }, [eventId]);
+
+  const handleCancelTx = useCallback(async (tx: TxItem) => {
+    const label = tx.product_name ?? PRODUCT_TYPE_LABEL[tx.product_type ?? ""] ?? "決済";
+    const feeNote = tx.payment_method === "paypay"
+      ? "PayPay決済のため返金となり、決済手数料はオーガナイザー負担になります。"
+      : "カード決済のためオーソリ取消となり、手数料の負担はありません。";
+    const who = tx.sender_name ?? tx.sender_email ?? "ゲスト";
+    if (!confirm(`この決済を取り消しますか？\n\n${label} / ${who} / ${formatJPY(tx.total_gross_amount ?? 0)}\n\n${feeNote}`)) return;
+
+    setCancellingId(tx.transaction_id);
+    try {
+      const res = await fetch(`/api/events/${eventId}/transactions/${tx.transaction_id}/cancel`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error ?? "取り消しに失敗しました");
+      } else {
+        alert(data.message ?? "決済を取り消しました");
+      }
+      await fetch_(true);
+    } catch {
+      alert("通信エラーが発生しました。再度お試しください。");
+    } finally {
+      setCancellingId(null);
+    }
+  }, [eventId, fetch_]);
 
   useEffect(() => {
     setMounted(true);
@@ -386,27 +425,53 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
                               <span className="text-slate-500 font-normal"> → {tx.recipient_name}</span>
                             )}
                           </p>
+                          <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                            <span className="text-slate-400 font-bold">
+                              {tx.product_name ?? PRODUCT_TYPE_LABEL[tx.product_type ?? ""] ?? "—"}
+                            </span>
+                            {tx.product_name && tx.product_type && PRODUCT_TYPE_LABEL[tx.product_type] && (
+                              <span> · {PRODUCT_TYPE_LABEL[tx.product_type]}</span>
+                            )}
+                            {tx.payment_method === "paypay" && <span> · PayPay</span>}
+                            {tx.sender_email && <span> · {tx.sender_email}</span>}
+                          </p>
                           {tx.sender_comment && (
                             <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{tx.sender_comment}</p>
                           )}
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        {tx.my_net_amount !== null ? (
-                          <>
-                            <p className="text-sm font-black text-emerald-400 tabular-nums">
-                              {formatJPY(tx.my_net_amount)}
+                      <div className="flex items-start gap-2 shrink-0">
+                        <div className="text-right">
+                          {tx.my_net_amount !== null ? (
+                            <>
+                              <p className="text-sm font-black text-emerald-400 tabular-nums">
+                                {formatJPY(tx.my_net_amount)}
+                              </p>
+                              <p className="text-[10px] text-slate-500 tabular-nums">
+                                投入 {formatJPY(tx.total_gross_amount ?? 0)}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-sm font-black text-white tabular-nums">
+                              {formatJPY(tx.total_gross_amount ?? 0)}
                             </p>
-                            <p className="text-[10px] text-slate-500 tabular-nums">
-                              投入 {formatJPY(tx.total_gross_amount ?? 0)}
-                            </p>
-                          </>
-                        ) : (
-                          <p className="text-sm font-black text-white tabular-nums">
-                            {formatJPY(tx.total_gross_amount ?? 0)}
-                          </p>
+                          )}
+                          <p className="text-[10px] text-slate-600 tabular-nums">{formatTime(tx.created_at)}</p>
+                        </div>
+                        {stats.can_cancel && (
+                          <button
+                            onClick={() => handleCancelTx(tx)}
+                            disabled={cancellingId !== null}
+                            title="この決済を取り消す"
+                            className="mt-0.5 w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/30 transition-all disabled:opacity-30"
+                          >
+                            {cancellingId === tx.transaction_id ? (
+                              <Loader2 size={13} className="animate-spin" />
+                            ) : (
+                              <XCircle size={13} />
+                            )}
+                          </button>
                         )}
-                        <p className="text-[10px] text-slate-600 tabular-nums">{formatTime(tx.created_at)}</p>
                       </div>
                     </div>
                   </div>

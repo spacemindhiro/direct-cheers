@@ -29,7 +29,7 @@ export async function GET(
 
   const { data: event } = await admin
     .from("events")
-    .select("event_id, title, organizer_profile_id, start_at, end_at, lifecycle_status")
+    .select("event_id, title, organizer_profile_id, agent_id, start_at, end_at, lifecycle_status")
     .eq("event_id", eventId)
     .single();
 
@@ -109,13 +109,14 @@ export async function GET(
       paypay_rate: PAYPAY_RATE,
       paypay_net_rate: PAYPAY_NET_RATE,
       recent_transactions: [],
+      can_cancel: false,
     });
   }
 
   // 明細取得（保存値をそのまま集計するためのソース）
   const { data: transactions } = await admin
     .from("transactions")
-    .select("transaction_id, total_gross_amount, stripe_fee, platform_fee, net_amount, created_at, qr_config_id, sender_name, sender_comment, payment_method, product:products!product_id(type)")
+    .select("transaction_id, total_gross_amount, stripe_fee, platform_fee, net_amount, created_at, qr_config_id, sender_name, sender_comment, sender_email, payment_method, product:products!product_id(type, name)")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed")
     .order("created_at", { ascending: false });
@@ -215,13 +216,21 @@ export async function GET(
   const totalPages = Math.max(1, Math.ceil(filteredTxList.length / PAGE_SIZE));
   const pagedTxList = filteredTxList.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  // 購入者メアドは個人情報のため運営側（admin/organizer/agent）にのみ開示する
+  const canReadEmail = isAdmin || isOrganizer || isAgent;
+  // 現場取消はイベント当事者（admin / 主催organizer / 担当agent）のみ
+  const canCancel = isAdmin || isOrganizer || (isAgent && event.agent_id === user.id);
+
   const recentTransactions = pagedTxList.map((tx) => ({
     transaction_id: tx.transaction_id,
     total_gross_amount: tx.total_gross_amount ?? 0,
     created_at: tx.created_at,
     sender_name: tx.sender_name ?? null,
+    sender_email: canReadEmail ? (tx.sender_email ?? null) : null,
     sender_comment: qrCanReadMessageSet.has(tx.qr_config_id) ? (tx.sender_comment ?? null) : null,
     product_type: (tx.product as any)?.type ?? null,
+    product_name: (tx.product as any)?.name ?? null,
+    payment_method: tx.payment_method ?? "card",
     recipient_name: qrRecipientMap.get(tx.qr_config_id) ?? null,
     my_net_amount: myDistByTx.get(tx.transaction_id) ?? null,
   }));
@@ -263,6 +272,7 @@ export async function GET(
     paypay_rate: PAYPAY_RATE,
     paypay_net_rate: PAYPAY_NET_RATE,
     recent_transactions: recentTransactions,
+    can_cancel: canCancel && event.lifecycle_status !== "settled",
     current_page: page,
     total_pages: totalPages,
   });

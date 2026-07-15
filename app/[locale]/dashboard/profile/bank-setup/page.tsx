@@ -341,13 +341,13 @@ export default function BankSetupPage() {
                 }`}
               >
                 <Building2 size={22} />
-                {type === 'individual' ? '個人' : '法人 / 屋号'}
+                {type === 'individual' ? '個人 / 個人事業主' : '法人格'}
               </button>
             ))}
           </div>
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            DJや音楽アーティストとして活動している場合は「個人」を選択してください。
-            事務所・レーベル名義での登録は「法人 / 屋号」を選択してください。
+            屋号（活動名・レーベル名など）がある場合でも、株式会社・合同会社などの法人格を登記していなければ「個人 / 個人事業主」を選択してください。
+            法人格として登記されている場合のみ「法人格」を選択してください。
           </p>
         </div>
       )}

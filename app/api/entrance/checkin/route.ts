@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   const { data: ticket } = await admin
     .from("tickets")
     .select(`
-      ticket_id, ticket_code, status, email, event_id, product_id,
+      ticket_id, ticket_code, status, email, event_id, product_id, quantity,
       reservation_id, transaction_id,
       product:products(name, type, payment_type, min_amount),
       event:events(title, organizer_profile_id, agent_id)
@@ -106,6 +106,7 @@ export async function POST(req: Request) {
       event_title: ev?.title ?? "",
       product_name: prod?.name ?? "",
       email: ticket.email,
+      quantity: ticket.quantity,
     });
   }
   if (ticket.status === "cancelled") {
@@ -223,5 +224,6 @@ export async function POST(req: Request) {
     event_title: ev?.title ?? "",
     product_name: prod?.name ?? "",
     email: ticket.email,
+    quantity: ticket.quantity,
   });
 }

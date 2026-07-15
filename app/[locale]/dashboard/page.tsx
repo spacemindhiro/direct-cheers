@@ -262,7 +262,7 @@ async function DashboardContent() {
       ? admin.from('event_artists').select(`
           event_artist_id, event_id, status, invite_message,
           event:events!event_id(
-            title, venue, start_at, end_at, organizer_profile_id,
+            title, venue, start_at, end_at, organizer_profile_id, deleted_at, lifecycle_status,
             organizer:profiles!organizer_profile_id(display_name)
           )
         `).eq('artist_profile_id', user!.id).is('deleted_at', null).order('created_at', { ascending: false })
@@ -377,6 +377,11 @@ async function DashboardContent() {
     event: { title: string; venue: string; start_at: string; organizer_profile_id: string; organizer_name: string } | null;
   }[] = isPerformerRole
     ? ((lineupResult.data as any[]) ?? [])
+        // event_artists.deleted_at は招待自体の削除フラグであり、紐づくイベントが
+        // 削除(events.deleted_at)・中止(lifecycle_status='cancelled')されたかは別軸。
+        // イベント削除・中止処理はevent_artists側を連動更新しないため、ここで
+        // JOIN先イベントの状態を見て除外しないと「出演予定」に残り続けてしまう
+        .filter((r) => !(r.event?.deleted_at || r.event?.lifecycle_status === 'cancelled'))
         .filter((r) => r.status === 'pending' || (r.status === 'confirmed' && (!r.event?.end_at || r.event.end_at > now)))
         .map((r) => ({
           event_artist_id: r.event_artist_id,

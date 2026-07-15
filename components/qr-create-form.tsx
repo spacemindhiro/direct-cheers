@@ -150,6 +150,14 @@ export function QRCreateForm({
     if (productType === "entrance" || isVoucher) setPriceMode("fixed");
   }, [productType, isVoucher]);
 
+  // 対面タッチ決済（Case④）: エントランスCタイプ、またはバウチャー×金額固定のみ対象。
+  // レンジ指定は現場で金額を選ぶ画面を挟めないため対象外。
+  const touchpayEligible = (productType === "entrance" && paymentType === "C") || (isVoucher && priceMode === "fixed");
+  const [touchpayEnabled, setTouchpayEnabled] = useState(false);
+  useEffect(() => {
+    if (!touchpayEligible) setTouchpayEnabled(false);
+  }, [touchpayEligible]);
+
   // 配分リストが変わったとき、宛先が配分に含まれなくなったら先頭に戻す
   useEffect(() => {
     if (targets.length > 0 && !targets.some((t) => t.profile_id === recipientId)) {
@@ -208,6 +216,7 @@ export function QRCreateForm({
           max_amount: priceMode === "fixed" ? fixedAmount : maxAmount,
           default_amount: priceMode === "fixed" ? fixedAmount : defaultAmount,
           amount_step: priceMode === "range" ? amountStep : 100,
+          touchpay_enabled: touchpayEligible ? touchpayEnabled : false,
           recipient_profile_id: recipientId,
           recipient_name_context: recipientRole,
           targets: targets.map((t) => ({
@@ -671,6 +680,25 @@ export function QRCreateForm({
             </div>
           )}
         </div>
+
+        {/* 対面タッチ決済（Case④）許可スイッチ */}
+        {touchpayEligible && (
+          <div className="flex items-center justify-between bg-indigo-500/5 border border-indigo-500/20 rounded-2xl px-4 py-3">
+            <div>
+              <p className="text-xs font-black text-indigo-400">対面タッチ決済を許可する</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">親機のカードリーダーでこの商品を選択できるようになります</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={touchpayEnabled}
+              onClick={() => setTouchpayEnabled((v) => !v)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${touchpayEnabled ? "bg-indigo-500" : "bg-slate-700"}`}
+            >
+              <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${touchpayEnabled ? "translate-x-5" : "translate-x-1"}`} />
+            </button>
+          </div>
+        )}
 
         {/* 配分設定 */}
         <div className="space-y-3">

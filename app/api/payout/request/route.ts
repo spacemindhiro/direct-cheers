@@ -106,6 +106,9 @@ export async function POST(req: Request) {
     return true;
   });
 
+  // 照合待ちの件数は「出金可能額に含めない理由」の案内にのみ使う。
+  // 特定のイベントが照合待ちのまま長期間停滞していても、他の照合済み売上の
+  // 出金自体をブロックしない（eligibleDistsの算出時点で既に個別に除外済み）
   const unreconciledCount = (availableDists ?? []).filter((d) => {
     const tx = d.transaction as any;
     if ((d as any).hold_released) return false;
@@ -113,20 +116,17 @@ export async function POST(req: Request) {
     return tx?.created_at && tx.created_at < cutoff && !tx.reconciled_at;
   }).length;
 
-  if (unreconciledCount > 0) {
+  const availableTotal = eligibleDists.reduce((s, d) => s + (d.actual_amount ?? 0), 0);
+
+  if (requested_amount > availableTotal) {
+    const pendingNote = unreconciledCount > 0
+      ? `（うち ${unreconciledCount} 件は照合待ちのため対象外です。イベントの開催承認状況をご確認ください）`
+      : "";
     return NextResponse.json(
-      { error: `照合が完了していないトランザクションが ${unreconciledCount} 件あります。翌日以降に再度お試しください。` },
+      { error: `出金可能額（¥${availableTotal.toLocaleString()}）を超えています${pendingNote}` },
       { status: 400 }
     );
   }
-
-  const availableTotal = eligibleDists.reduce((s, d) => s + (d.actual_amount ?? 0), 0);
-
-  if (requested_amount > availableTotal)
-    return NextResponse.json(
-      { error: `出金可能額（¥${availableTotal.toLocaleString()}）を超えています` },
-      { status: 400 }
-    );
 
   const netPayout = requested_amount - TRANSFER_FEE;
 

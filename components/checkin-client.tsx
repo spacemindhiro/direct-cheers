@@ -3,7 +3,7 @@
 import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { CheckCircle, XCircle, AlertCircle, QrCode, Loader2, ArrowLeft, Users } from "lucide-react";
+import { CheckCircle, XCircle, AlertCircle, QrCode, Loader2, ArrowLeft, Users, CreditCard } from "lucide-react";
 import Link from "next/link";
 
 type CheckinResult = {
@@ -13,6 +13,7 @@ type CheckinResult = {
   product_name?: string;
   email?: string;
   is_voucher?: boolean;
+  quantity?: number;
   ticket?: { checked_in_at?: string | null };
 };
 
@@ -140,6 +141,21 @@ export function CheckinClient() {
           <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">入場スキャナ</h1>
         </div>
 
+        {/* 対面タッチ決済への導線 */}
+        <Link
+          href={`/dashboard/events/${params.eventId}/checkin/touch-pay`}
+          className="flex items-center justify-between bg-indigo-500/10 border border-indigo-500/30 rounded-2xl px-4 py-3 hover:bg-indigo-500/20 transition-all"
+        >
+          <div className="flex items-center gap-2.5">
+            <CreditCard size={16} className="text-indigo-400" />
+            <div>
+              <p className="text-xs font-black text-indigo-400">対面タッチ決済</p>
+              <p className="text-[10px] text-slate-500">その場でカード決済して入場させる</p>
+            </div>
+          </div>
+          <ArrowLeft size={14} className="text-indigo-400 rotate-180" />
+        </Link>
+
         {/* スキャン結果サマリー（スキャン停止中に最新結果を表示） */}
         {!scanning && latestEntry && (
           <div className={`rounded-2xl p-4 border ${
@@ -167,6 +183,9 @@ export function CheckinClient() {
                 {latestEntry.result.ok && (
                   <div className="text-xs text-slate-300 mt-1 space-y-0.5">
                     {latestEntry.result.product_name && <p>{latestEntry.result.product_name}</p>}
+                    {!!latestEntry.result.quantity && latestEntry.result.quantity > 1 && (
+                      <p className="text-indigo-400 font-black">{latestEntry.result.quantity}名分</p>
+                    )}
                     {latestEntry.result.email && <p className="text-slate-500">{latestEntry.result.email}</p>}
                   </div>
                 )}
@@ -218,6 +237,9 @@ export function CheckinClient() {
                             : `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
                           : errorMessage(overlay.result.error)}
                     </p>
+                    {!!overlay.result.quantity && overlay.result.quantity > 1 && (
+                      <p className="text-white font-black text-xs">{overlay.result.quantity}名分</p>
+                    )}
                     {overlay.result.email && overlay.status !== "warn" && (
                       <p className="text-white/80 text-xs truncate">{overlay.result.email}</p>
                     )}
@@ -281,6 +303,9 @@ export function CheckinClient() {
                   }`}>
                     {entry.status === "success" ? "OK" : entry.status === "warn" ? "入場済" : errorMessage(entry.result.error)}
                   </span>
+                  {!!entry.result.quantity && entry.result.quantity > 1 && (
+                    <span className="text-indigo-400 font-black shrink-0">{entry.result.quantity}名</span>
+                  )}
                   {entry.status === "warn" && entry.result.ticket?.checked_in_at && (
                     <span className="text-amber-500/70 shrink-0">
                       {new Date(entry.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}入場

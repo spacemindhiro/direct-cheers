@@ -63,14 +63,53 @@ jobs:
 
       # ── 3. Supabase ローカル DB 起動 ───────────────────────────────
       # supabase start はマイグレーションを自動適用してコンテナを起動する
+      #
+      # version は latest ではなく固定バージョンを指定する。理由は2つ:
+      #   1. latest はGitHub APIで毎回最新リリースを解決するため、
+      #      連続pushが続くとAPIレート制限に引っかかりCLIのセットアップ自体が失敗する
+      #      (2026-07-13: "Failed to resolve latest Supabase CLI release: rate limit exceeded")
+      #   2. あるバージョン以降、ローカル開発スタックの認証キー体系が
+      #      legacy anon/service_role key から新方式 publishable/secret key に変わり、
+      #      GitHub Secretsに設定済みの旧形式キー(NEXT_PUBLIC_SUPABASE_ANON_KEY等)が
+      #      PostgRESTに拒否されるようになった(ヘルスチェックが30回リトライすべて失敗する形で発覚)。
+      #      2.84.2は旧キー体系のまま動作することを手元で確認済み。
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v2
         with:
-          version: latest
+          version: 2.84.2
 
       - name: Start local Supabase (with migrations)
         run: supabase start
         timeout-minutes: 10
+
+      # ── 3.5. PostgREST スキーマキャッシュの反映待ち ───────────────────
+      # supabase start はマイグレーション適用完了を待って返るが、PostgREST側の
+      # スキーマキャッシュ再読み込み(NOTIFY pgrst経由)は非同期で走るため、
+      # 起動直後は最新マイグレーションで追加したテーブルをまだ認識していないことがある。
+      # 反映前にテストが走ると該当テーブル操作が500/400で失敗するため、
+      # REST APIがそのテーブルを認識するまで明示的にポーリングする。
+      #
+      # 注意: ここでチェックするテーブル名は「直近のマイグレーションで新規追加した
+      # テーブル」を指す必要がある。テーブルをリネーム・削除するマイグレーションを
+      # 追加した際は、このcurlの対象テーブル名も一緒に更新すること
+      # (2026-07-13: display_track_qr_configs→qr_groupsへの置き換えで
+      #  このチェックが存在しないテーブルを永遠にポーリングして失敗した実例あり)
+      - name: Wait for PostgREST schema cache
+        env:
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf "http://127.0.0.1:54321/rest/v1/qr_groups?limit=0" \
+                 -H "apikey: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
+                 -H "Authorization: Bearer ${NEXT_PUBLIC_SUPABASE_ANON_KEY}" >/dev/null 2>&1; then
+              echo "✅ PostgREST schema cache is ready (${i}回目で確認)"
+              exit 0
+            fi
+            echo "⏳ PostgREST schema cache not ready yet, retrying (${i}/30)..."
+            sleep 1
+          done
+          echo "::error::PostgREST did not pick up qr_groups within timeout"
+          exit 1
 
       # ── 4. .env.test 生成 ──────────────────────────────────────────
       # 全シークレットは GitHub Secrets から注入

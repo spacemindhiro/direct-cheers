@@ -26,6 +26,7 @@ import { GET as tracksGET, POST as tracksPOST, PATCH as tracksPATCH, DELETE as t
 import { GET as devicesGET, POST as devicesPOST } from "@/app/api/events/[eventId]/display-devices/route";
 import { PATCH as devicePATCH } from "@/app/api/events/[eventId]/display-devices/[deviceId]/route";
 import { GET as schedulesGET, POST as schedulesPOST, PATCH as schedulesPATCH } from "@/app/api/events/[eventId]/display-schedules/route";
+import { GET as groupsGET, POST as groupsPOST, PATCH as groupsPATCH, DELETE as groupsDELETE } from "@/app/api/events/[eventId]/qr-groups/route";
 
 let adminProfileId: string;
 let organizerProfileId: string;
@@ -35,6 +36,7 @@ let eventId: string;
 let event2Id: string;
 let qrConfigA: string;
 let qrConfigB: string;
+let qrConfigC: string;
 
 const cleanup = {
   profileIds: [] as string[],
@@ -69,7 +71,8 @@ beforeAll(async () => {
 
   qrConfigA = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId });
   qrConfigB = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId });
-  cleanup.qrConfigIds.push(qrConfigA, qrConfigB);
+  qrConfigC = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId });
+  cleanup.qrConfigIds.push(qrConfigA, qrConfigB, qrConfigC);
 }, 30_000);
 
 afterAll(async () => {
@@ -99,7 +102,7 @@ describe("TC-DISPLAY-A: display-tracks — トラックCRUD・権限", () => {
     mainTrackId = data.track_id;
   });
 
-  it("TC-DISPLAY-A-02: GET一覧に作成したトラック・default_qr_configがjoinされる", async () => {
+  it("TC-DISPLAY-A-02: GET一覧に作成したトラック・デフォルト単体QRがjoinされる", async () => {
     mockAs(organizerProfileId, "organizer");
     const req = new Request("http://localhost", { method: "GET" });
     const res = await tracksGET(req, { params: Promise.resolve({ eventId }) });
@@ -109,6 +112,67 @@ describe("TC-DISPLAY-A: display-tracks — トラックCRUD・権限", () => {
     expect(track).toBeTruthy();
     expect(track.name).toBe("メインステージ");
     expect(track.default_qr_config?.qr_config_id).toBe(qrConfigA);
+    expect(track.default_qr_group).toBeNull();
+  });
+
+  it("TC-DISPLAY-A-01b: 単体QRとグループを同時指定 → 400", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const req = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "不正トラック", default_qr_config_id: qrConfigA, default_qr_group_id: crypto.randomUUID() }),
+    });
+    const res = await tracksPOST(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(400);
+  });
+
+  it("TC-DISPLAY-A-02b: PATCHでdefault_qr_group_idへ切替 → GETに反映され、default_qr_config_idはクリアされる", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const groupReq = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "A-02bテスト用グループ", qr_config_ids: [qrConfigB, qrConfigC] }),
+    });
+    const groupRes = await groupsPOST(groupReq, { params: Promise.resolve({ eventId }) });
+    const { qr_group_id: groupId } = await groupRes.json();
+
+    const patchReq = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track_id: mainTrackId, default_qr_group_id: groupId }),
+    });
+    const patchRes = await tracksPATCH(patchReq, { params: Promise.resolve({ eventId }) });
+    expect(patchRes.status).toBe(200);
+
+    const getReq = new Request("http://localhost", { method: "GET" });
+    const getRes = await tracksGET(getReq, { params: Promise.resolve({ eventId }) });
+    const data = await getRes.json();
+    const track = data.find((t: any) => t.track_id === mainTrackId);
+    expect(track.default_qr_config_id).toBeNull();
+    expect(track.default_qr_group?.qr_group_id).toBe(groupId);
+    expect(track.default_qr_group.members).toHaveLength(2);
+    expect(track.default_qr_group.members[0].qr_config_id).toBe(qrConfigB);
+    expect(track.default_qr_group.members[1].qr_config_id).toBe(qrConfigC);
+
+    await groupsDELETE(new Request(`http://localhost?qr_group_id=${groupId}`, { method: "DELETE" }), { params: Promise.resolve({ eventId }) });
+  });
+
+  it("TC-DISPLAY-A-02c: PATCHでdefault_qr_config_idへ戻す → default_qr_group_idがクリアされる", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const patchReq = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track_id: mainTrackId, default_qr_config_id: qrConfigA }),
+    });
+    const patchRes = await tracksPATCH(patchReq, { params: Promise.resolve({ eventId }) });
+    expect(patchRes.status).toBe(200);
+
+    const getReq = new Request("http://localhost", { method: "GET" });
+    const getRes = await tracksGET(getReq, { params: Promise.resolve({ eventId }) });
+    const data = await getRes.json();
+    const track = data.find((t: any) => t.track_id === mainTrackId);
+    expect(track.default_qr_config?.qr_config_id).toBe(qrConfigA);
+    expect(track.default_qr_group).toBeNull();
   });
 
   it("TC-DISPLAY-A-03: 別オーガナイザーによるトラック作成 → 403", async () => {
@@ -221,7 +285,7 @@ describe("TC-DISPLAY-B: display-devices — 子機自己登録（upsert）", () 
   const deviceId = crypto.randomUUID();
   let trackId: string;
 
-  it("TC-DISPLAY-B-01: 新規デバイスをPOST → track_id=null・default_qr_config=null", async () => {
+  it("TC-DISPLAY-B-01: 新規デバイスをPOST → track_id=null・default_target=null", async () => {
     mockAs(organizerProfileId, "organizer");
     const req = new Request("http://localhost", {
       method: "POST",
@@ -232,15 +296,15 @@ describe("TC-DISPLAY-B: display-devices — 子機自己登録（upsert）", () 
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.track_id).toBeNull();
-    expect(data.default_qr_config).toBeNull();
+    expect(data.default_target).toBeNull();
 
     const { data: dev } = await testAdmin.from("display_devices").select("device_name, track_id").eq("event_id", eventId).eq("device_id", deviceId).single();
     expect(dev?.device_name).toBe("iPad-AAAA");
     expect(dev?.track_id).toBeNull();
   });
 
-  it("TC-DISPLAY-B-02: トラック割当済みデバイスを再POST → track_id保持・device_name更新・default_qr_config返却", async () => {
-    // トラックを作成しデフォルトQRを設定
+  it("TC-DISPLAY-B-02: トラック割当済みデバイスを再POST → track_id保持・device_name更新・単体QRのdefault_targetを返却", async () => {
+    // トラックを作成し単体QRをデフォルト設定
     mockAs(organizerProfileId, "organizer");
     const trackReq = new Request("http://localhost", {
       method: "POST",
@@ -263,11 +327,45 @@ describe("TC-DISPLAY-B: display-devices — 子機自己登録（upsert）", () 
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.track_id).toBe(trackId);
-    expect(data.default_qr_config?.qr_config_id).toBe(qrConfigB);
+    expect(data.default_target?.type).toBe("single");
+    expect(data.default_target?.qr_config?.qr_config_id).toBe(qrConfigB);
 
     const { data: dev } = await testAdmin.from("display_devices").select("device_name, track_id").eq("event_id", eventId).eq("device_id", deviceId).single();
     expect(dev?.device_name).toBe("iPad-AAAA-renamed");
     expect(dev?.track_id).toBe(trackId);
+  });
+
+  it("TC-DISPLAY-B-04: トラックのデフォルトをグループへ切替 → default_targetがグループ(members込み)で返却される", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const groupReq = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "B-04テスト用グループ", qr_config_ids: [qrConfigA, qrConfigB] }),
+    });
+    const groupRes = await groupsPOST(groupReq, { params: Promise.resolve({ eventId }) });
+    const { qr_group_id: groupId } = await groupRes.json();
+
+    const patchReq = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track_id: trackId, default_qr_group_id: groupId }),
+    });
+    await tracksPATCH(patchReq, { params: Promise.resolve({ eventId }) });
+
+    const req = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: deviceId, device_name: "iPad-AAAA-renamed" }),
+    });
+    const res = await devicesPOST(req, { params: Promise.resolve({ eventId }) });
+    const data = await res.json();
+    expect(data.default_target?.type).toBe("group");
+    expect(data.default_target?.qr_group?.qr_group_id).toBe(groupId);
+    expect(data.default_target?.qr_group?.members).toHaveLength(2);
+    expect(data.default_target.qr_group.members[0].qr_config_id).toBe(qrConfigA);
+    expect(data.default_target.qr_group.members[1].qr_config_id).toBe(qrConfigB);
+
+    await groupsDELETE(new Request(`http://localhost?qr_group_id=${groupId}`, { method: "DELETE" }), { params: Promise.resolve({ eventId }) });
   });
 
   it("TC-DISPLAY-B-03: GET一覧に登録したデバイスが含まれる", async () => {
@@ -580,5 +678,198 @@ describe("TC-DISPLAY-E: 後方互換 — トラック未作成イベントでの
     const sched = data.find((s: any) => s.schedule_id === scheduleId);
     expect(sched).toBeTruthy();
     expect(sched.track_id).toBeNull();
+  });
+});
+
+// ── TC-DISPLAY-G: qr-groups CRUD ─────────────────────────────────────────
+describe("TC-DISPLAY-G: qr-groups — 名前付きQRグループのCRUD", () => {
+  let groupId: string;
+
+  it("TC-DISPLAY-G-01: 1件だけの指定 → 400（グループには2件以上必要）", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const req = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "1件グループ", qr_config_ids: [qrConfigA] }),
+    });
+    const res = await groupsPOST(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(400);
+  });
+
+  it("TC-DISPLAY-G-02: 2件以上で作成 → 201", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const req = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "物販ブース", qr_config_ids: [qrConfigB, qrConfigC, qrConfigA] }),
+    });
+    const res = await groupsPOST(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    expect(data.qr_group_id).toBeTruthy();
+    groupId = data.qr_group_id;
+  });
+
+  it("TC-DISPLAY-G-03: GET一覧に作成したグループ・メンバーが順序通りjoinされる", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const req = new Request("http://localhost", { method: "GET" });
+    const res = await groupsGET(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    const g = data.find((x: any) => x.qr_group_id === groupId);
+    expect(g).toBeTruthy();
+    expect(g.name).toBe("物販ブース");
+    expect(g.members).toHaveLength(3);
+    expect(g.members[0].qr_config_id).toBe(qrConfigB);
+    expect(g.members[1].qr_config_id).toBe(qrConfigC);
+    expect(g.members[2].qr_config_id).toBe(qrConfigA);
+  });
+
+  it("TC-DISPLAY-G-04: PATCHで名前変更・メンバーを2件に絞って入れ替え", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const req = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qr_group_id: groupId, name: "物販ブース（改）", qr_config_ids: [qrConfigA, qrConfigB] }),
+    });
+    const res = await groupsPATCH(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(200);
+
+    const getRes = await groupsGET(new Request("http://localhost", { method: "GET" }), { params: Promise.resolve({ eventId }) });
+    const data = await getRes.json();
+    const g = data.find((x: any) => x.qr_group_id === groupId);
+    expect(g.name).toBe("物販ブース（改）");
+    expect(g.members).toHaveLength(2);
+    expect(g.members[0].qr_config_id).toBe(qrConfigA);
+    expect(g.members[1].qr_config_id).toBe(qrConfigB);
+  });
+
+  it("TC-DISPLAY-G-05: PATCHでメンバーを1件だけに → 400", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const req = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qr_group_id: groupId, qr_config_ids: [qrConfigA] }),
+    });
+    const res = await groupsPATCH(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(400);
+  });
+
+  it("TC-DISPLAY-G-06: 別オーガナイザーによる作成 → 403", async () => {
+    mockAs(otherOrganizerProfileId, "organizer");
+    const req = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "不正グループ", qr_config_ids: [qrConfigA, qrConfigB] }),
+    });
+    const res = await groupsPOST(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(403);
+  });
+
+  it("TC-DISPLAY-G-07: 削除 → GET一覧から消える。参照中のトラックはdefault_qr_group_idがnullに戻る", async () => {
+    mockAs(organizerProfileId, "organizer");
+
+    const trackReq = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "G-07テスト用トラック", default_qr_group_id: groupId }),
+    });
+    const trackRes = await tracksPOST(trackReq, { params: Promise.resolve({ eventId }) });
+    const { track_id: tempTrackId } = await trackRes.json();
+
+    const delRes = await groupsDELETE(new Request(`http://localhost?qr_group_id=${groupId}`, { method: "DELETE" }), { params: Promise.resolve({ eventId }) });
+    expect(delRes.status).toBe(200);
+
+    const getRes = await groupsGET(new Request("http://localhost", { method: "GET" }), { params: Promise.resolve({ eventId }) });
+    const data = await getRes.json();
+    expect(data.find((x: any) => x.qr_group_id === groupId)).toBeUndefined();
+
+    const { data: track } = await testAdmin.from("display_tracks").select("default_qr_group_id").eq("track_id", tempTrackId).single();
+    expect(track?.default_qr_group_id).toBeNull();
+
+    await tracksDELETE(new Request(`http://localhost?track_id=${tempTrackId}`, { method: "DELETE" }), { params: Promise.resolve({ eventId }) });
+  });
+});
+
+// ── TC-DISPLAY-H: display-schedules — スロットへのグループ割当 ────────────
+describe("TC-DISPLAY-H: display-schedules — スロットにグループを割り当てる", () => {
+  let groupId: string;
+  let scheduleId: string;
+
+  beforeAll(async () => {
+    mockAs(organizerProfileId, "organizer");
+    const groupRes = await groupsPOST(
+      new Request("http://localhost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Hテスト用グループ", qr_config_ids: [qrConfigA, qrConfigC] }),
+      }),
+      { params: Promise.resolve({ eventId }) },
+    );
+    groupId = (await groupRes.json()).qr_group_id;
+  });
+
+  afterAll(async () => {
+    await groupsDELETE(new Request(`http://localhost?qr_group_id=${groupId}`, { method: "DELETE" }), { params: Promise.resolve({ eventId }) });
+  });
+
+  it("TC-DISPLAY-H-01: qr_config_idとqr_group_idを同時指定 → 400", async () => {
+    const now = Date.now();
+    const req = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        qr_config_id: qrConfigA,
+        qr_group_id: groupId,
+        start_at: new Date(now + 60 * 3600_000).toISOString(),
+        end_at: new Date(now + 61 * 3600_000).toISOString(),
+      }),
+    });
+    const res = await schedulesPOST(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(400);
+  });
+
+  it("TC-DISPLAY-H-02: qr_group_idでスロット作成 → 201・GETにグループ(members込み)がjoinされる", async () => {
+    const now = Date.now();
+    const req = new Request("http://localhost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        qr_group_id: groupId,
+        start_at: new Date(now + 62 * 3600_000).toISOString(),
+        end_at: new Date(now + 63 * 3600_000).toISOString(),
+        label: "グループスロット",
+      }),
+    });
+    const res = await schedulesPOST(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(201);
+    scheduleId = (await res.json()).schedule_id;
+
+    const getRes = await schedulesGET(new Request("http://localhost", { method: "GET" }), { params: Promise.resolve({ eventId }) });
+    const data = await getRes.json();
+    const sched = data.find((s: any) => s.schedule_id === scheduleId);
+    expect(sched).toBeTruthy();
+    expect(sched.qr_config_id).toBeNull();
+    expect(sched.qr_group_id).toBe(groupId);
+    expect(sched.qr_group?.members).toHaveLength(2);
+    expect(sched.qr_group.members[0].qr_config_id).toBe(qrConfigA);
+    expect(sched.qr_group.members[1].qr_config_id).toBe(qrConfigC);
+  });
+
+  it("TC-DISPLAY-H-03: PATCHでqr_config_id/qr_group_id同時指定 → 400", async () => {
+    const now = Date.now();
+    const req = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        schedule_id: scheduleId,
+        qr_config_id: qrConfigA,
+        qr_group_id: groupId,
+        start_at: new Date(now + 62 * 3600_000).toISOString(),
+        end_at: new Date(now + 63 * 3600_000).toISOString(),
+      }),
+    });
+    const res = await schedulesPATCH(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(400);
   });
 });

@@ -30,10 +30,22 @@ export async function GET(
   const { data, error } = await admin
     .from("display_tracks")
     .select(`
-      track_id, name, default_qr_config_id, sort_order,
+      track_id, name, sort_order, default_qr_config_id, default_qr_group_id,
       default_qr_config:qr_configs!default_qr_config_id(
-        qr_config_id, label, image_url,
-        product:products!product_id(name, type, artist:profiles!artist_id(display_name))
+        qr_config_id, label, image_url, recipient_profile_id, recipient_name_context,
+        product:products!product_id(name, type, artist:profiles!artist_id(display_name, artist_name, avatar_url)),
+        recipient:profiles!recipient_profile_id(display_name, avatar_url, artist_name, organizer_name, artist_avatar_url, organizer_avatar_url)
+      ),
+      default_qr_group:qr_groups!default_qr_group_id(
+        qr_group_id, name,
+        members:qr_group_members(
+          qr_config_id, sort_order,
+          qr_config:qr_configs!qr_config_id(
+            qr_config_id, label, image_url, recipient_profile_id, recipient_name_context,
+            product:products!product_id(name, type, artist:profiles!artist_id(display_name, artist_name, avatar_url)),
+            recipient:profiles!recipient_profile_id(display_name, avatar_url, artist_name, organizer_name, artist_avatar_url, organizer_avatar_url)
+          )
+        )
       )
     `)
     .eq("event_id", eventId)
@@ -41,7 +53,23 @@ export async function GET(
     .order("sort_order", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+
+  // qr_group_members はネストしたsort_orderで並べ替え(PostgRESTの埋め込みは順序保証がないため)。
+  // ネストしたto-many埋め込みがあると型推論がouterをも配列とみなすため、ここではanyで受ける
+  const normalized = (data ?? []).map((t: any) => ({
+    ...t,
+    default_qr_group: t.default_qr_group
+      ? {
+          qr_group_id: t.default_qr_group.qr_group_id,
+          name: t.default_qr_group.name,
+          members: [...(t.default_qr_group.members ?? [])]
+            .sort((a: any, b: any) => a.sort_order - b.sort_order)
+            .map((row: any) => row.qr_config),
+        }
+      : null,
+  }));
+
+  return NextResponse.json(normalized);
 }
 
 // トラック作成
@@ -58,13 +86,25 @@ export async function POST(
   if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { name, default_qr_config_id } = body;
+  const { name, default_qr_config_id, default_qr_group_id } = body as {
+    name?: string;
+    default_qr_config_id?: string | null;
+    default_qr_group_id?: string | null;
+  };
 
   if (!name) return NextResponse.json({ error: "name は必須です" }, { status: 400 });
+  if (default_qr_config_id && default_qr_group_id) {
+    return NextResponse.json({ error: "単一QRとグループは同時に指定できません" }, { status: 400 });
+  }
 
   const { data, error } = await admin
     .from("display_tracks")
-    .insert({ event_id: eventId, name, default_qr_config_id: default_qr_config_id ?? null })
+    .insert({
+      event_id: eventId,
+      name,
+      default_qr_config_id: default_qr_config_id ?? null,
+      default_qr_group_id: default_qr_group_id ?? null,
+    })
     .select("track_id")
     .single();
 
@@ -86,12 +126,27 @@ export async function PATCH(
   if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { track_id, name, default_qr_config_id } = body;
+  const { track_id, name, default_qr_config_id, default_qr_group_id } = body as {
+    track_id?: string;
+    name?: string;
+    default_qr_config_id?: string | null;
+    default_qr_group_id?: string | null;
+  };
   if (!track_id) return NextResponse.json({ error: "track_id required" }, { status: 400 });
+  if (default_qr_config_id && default_qr_group_id) {
+    return NextResponse.json({ error: "単一QRとグループは同時に指定できません" }, { status: 400 });
+  }
 
   const update: Record<string, unknown> = {};
   if (name !== undefined) update.name = name;
-  if (default_qr_config_id !== undefined) update.default_qr_config_id = default_qr_config_id;
+  if (default_qr_config_id !== undefined) {
+    update.default_qr_config_id = default_qr_config_id;
+    if (default_qr_config_id) update.default_qr_group_id = null;
+  }
+  if (default_qr_group_id !== undefined) {
+    update.default_qr_group_id = default_qr_group_id;
+    if (default_qr_group_id) update.default_qr_config_id = null;
+  }
 
   const { error } = await admin
     .from("display_tracks")

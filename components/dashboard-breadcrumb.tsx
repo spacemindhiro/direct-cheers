@@ -13,6 +13,7 @@ const LABELS: Record<string, string> = {
   control: "コントロール",
   display: "ライブ表示",
   checkin: "チェックイン",
+  "touch-pay": "対面タッチ決済",
   qr: "QR管理",
   invitations: "招待管理",
   profile: "プロフィール",
@@ -60,7 +61,8 @@ export function DashboardBreadcrumb() {
     const prev = segments[i - 1] ?? "";
     path += "/" + seg;
 
-    // qr は中間セグメントのみスキップ（最終セグメントなら表示）
+    // qr は中間セグメントのみスキップ（実ページが無いルーティング上のグルーピングに
+    // 過ぎないため。最終セグメントなら表示）
     if (seg === "qr" && i < segments.length - 1) continue;
 
     const label = isDynamic(seg) ? dynamicLabel(prev) : (LABELS[seg] ?? seg);

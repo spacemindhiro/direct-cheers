@@ -98,7 +98,7 @@ export function SettlementReportClient({
               <h2 className="text-sm font-black text-red-300 uppercase tracking-widest print:text-red-700">チャージバック発生 — ホールド中</h2>
               <span className="text-xs font-black text-red-500 bg-red-950/80 border border-red-500/30 px-2 py-0.5 rounded-full print:text-red-600">{activeClaims.length}件</span>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
                 { label: "凍結額（決済単位）", value: yen(frozenDistTotal), desc: "CB係争中の決済の配分分" },
                 { label: "CB手数料（実費）",  value: yen(cbFeeTotal),     desc: "Stripe係争手数料" },
@@ -106,7 +106,7 @@ export function SettlementReportClient({
               ].map(item => (
                 <div key={item.label} className="bg-red-950/40 rounded-xl p-3 print:bg-red-100">
                   <p className="text-xs text-red-500 font-black print:text-red-600">{item.label}</p>
-                  <p className="text-xl font-black text-red-300 mt-1 print:text-red-700">{item.value}</p>
+                  <p className="text-xl font-black text-red-300 mt-1 print:text-red-700 break-words">{item.value}</p>
                   <p className="text-xs text-red-600 mt-0.5 print:text-red-500">{item.desc}</p>
                 </div>
               ))}
@@ -119,20 +119,20 @@ export function SettlementReportClient({
         )}
 
         {/* サマリーカード 4枚 */}
-        <div className="grid grid-cols-4 gap-3 mb-8 print:mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8 print:mb-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 print:bg-slate-50 print:border-slate-300">
-            <div className="flex items-center gap-1.5 mb-2"><TrendingUp size={12} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">総流通額</p></div>
-            <p className="text-2xl font-black text-white print:text-black">{yen(totalGross)}</p>
+            <div className="flex items-center gap-1.5 mb-2"><TrendingUp size={12} className="text-slate-600 shrink-0" /><p className="text-xs font-black text-slate-600 print:text-slate-500">総流通額</p></div>
+            <p className="text-xl sm:text-2xl font-black text-white print:text-black break-words">{yen(totalGross)}</p>
             <p className="text-xs text-slate-600 mt-1 print:text-slate-500">売上合計</p>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 print:bg-slate-50 print:border-slate-300">
-            <div className="flex items-center gap-1.5 mb-2"><Shield size={12} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">Stripe決済手数料</p></div>
-            <p className="text-2xl font-black text-slate-400 print:text-black">{yen(totalStripeFee)}</p>
+            <div className="flex items-center gap-1.5 mb-2"><Shield size={12} className="text-slate-600 shrink-0" /><p className="text-xs font-black text-slate-600 print:text-slate-500">Stripe決済手数料</p></div>
+            <p className="text-xl sm:text-2xl font-black text-slate-400 print:text-black break-words">{yen(totalStripeFee)}</p>
             <p className="text-xs text-slate-600 mt-1 print:text-slate-500">{pct(totalStripeFee, totalGross)}</p>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 print:bg-slate-50 print:border-slate-300">
-            <div className="flex items-center gap-1.5 mb-2"><Shield size={12} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">プラットフォーム手数料</p></div>
-            <p className="text-2xl font-black text-slate-400 print:text-black">{yen(totalPlatformFee)}</p>
+            <div className="flex items-center gap-1.5 mb-2"><Shield size={12} className="text-slate-600 shrink-0" /><p className="text-xs font-black text-slate-600 print:text-slate-500">プラットフォーム手数料</p></div>
+            <p className="text-xl sm:text-2xl font-black text-slate-400 print:text-black break-words">{yen(totalPlatformFee)}</p>
             {isInsider ? (
               <div className="mt-1 space-y-0.5">
                 <p className="text-xs text-slate-600 print:text-slate-500">DC取り分 {yen(totalPlatformFee - agentTotal)} / エージェント {yen(agentTotal)}</p>
@@ -142,8 +142,8 @@ export function SettlementReportClient({
             )}
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 print:bg-slate-50 print:border-slate-300">
-            <div className="flex items-center gap-1.5 mb-2"><CheckCircle2 size={12} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">主催者受取総額</p></div>
-            <p className={`text-2xl font-black ${hasCb ? "text-amber-300" : "text-emerald-400"} print:text-black`}>{yen(totalNet)}</p>
+            <div className="flex items-center gap-1.5 mb-2"><CheckCircle2 size={12} className="text-slate-600 shrink-0" /><p className="text-xs font-black text-slate-600 print:text-slate-500">主催者受取総額</p></div>
+            <p className={`text-xl sm:text-2xl font-black break-words ${hasCb ? "text-amber-300" : "text-emerald-400"} print:text-black`}>{yen(totalNet)}</p>
             {hasCb && <p className="text-xs text-red-500 mt-0.5 print:text-red-600">うちCB凍結 {yen(totalHold)}</p>}
             {totalTaxAmount > 0 && <p className="text-xs text-slate-600 mt-1 print:text-slate-500">うち消費税 {yen(totalTaxAmount)}</p>}
           </div>
@@ -275,8 +275,8 @@ export function SettlementReportClient({
                       </div>
                       <span className={`font-black ${isActive ? "text-red-300 print:text-red-700" : "text-slate-400 print:text-slate-600"}`}>{yen(cb.claim_amount)}</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-3 text-xs">
-                      <div><p className="text-slate-600 print:text-slate-500">対象取引</p><p className="text-slate-400 font-mono text-xs print:text-slate-600">{cb.original_transaction_id.slice(0, 16)}…</p></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div><p className="text-slate-600 print:text-slate-500">対象取引</p><p className="text-slate-400 font-mono text-xs print:text-slate-600 break-all">{cb.original_transaction_id.slice(0, 16)}…</p></div>
                       <div><p className="text-slate-600 print:text-slate-500">Stripe係争手数料</p><p className="text-red-400 font-bold print:text-red-600">{yen(cb.stripe_dispute_fee ?? 1500)}</p></div>
                       <div><p className="text-slate-600 print:text-slate-500">決済手数料不足分</p><p className="text-amber-400 font-bold print:text-amber-600">{yen(cb.stripe_processing_fee ?? 0)}</p></div>
                     </div>

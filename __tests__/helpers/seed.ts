@@ -229,10 +229,12 @@ export async function insertTicket(params: {
   eventId: string;
   productId: string;
   status?: "valid" | "used" | "cancelled";
-  email?: string;
+  email?: string | null;
   holderProfileId?: string | null;
   reservationId?: string | null;
   transactionId?: string | null;
+  cardFingerprint?: string | null;
+  quantity?: number;
 }): Promise<{ ticketId: string; ticketCode: string }> {
   const ticketId = newId();
   const ticketCode = `tkt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -242,10 +244,12 @@ export async function insertTicket(params: {
     status: params.status ?? "valid",
     event_id: params.eventId,
     product_id: params.productId,
-    email: params.email ?? "test@test.local",
+    email: params.email === undefined ? "test@test.local" : params.email,
     holder_profile_id: params.holderProfileId ?? null,
     reservation_id: params.reservationId ?? null,
     transaction_id: params.transactionId ?? null,
+    card_fingerprint: params.cardFingerprint ?? null,
+    quantity: params.quantity ?? 1,
   });
   if (error) throw new Error(`ticket 挿入失敗: ${error.message}`);
   return { ticketId, ticketCode };

@@ -78,7 +78,7 @@ export function ArtistSettlementClient({
               <span className="text-xs font-black text-red-500 bg-red-950/80 border border-red-500/30 px-2 py-0.5 rounded-full print:text-red-600">{myClaims.length}件</span>
             </div>
             <p className="text-xs text-red-600 mb-3 print:text-red-500">あなたのConnect口座が宛先の決済でCBが発生しています。</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { label: "凍結額（決済単位）", value: frozenDistTotal, desc: "CB係争中の決済の配分分" },
                 { label: "CB手数料（実費）",  value: myCbFeeTotal,    desc: "Stripe係争手数料" },
@@ -86,7 +86,7 @@ export function ArtistSettlementClient({
               ].map(item => (
                 <div key={item.label} className="bg-red-950/40 rounded-xl p-3 print:bg-red-100">
                   <p className="text-xs text-red-500 font-black print:text-red-600">{item.label}</p>
-                  <p className="text-lg font-black text-red-300 mt-1 print:text-red-700">{yen(item.value)}</p>
+                  <p className="text-lg font-black text-red-300 mt-1 print:text-red-700 break-words">{yen(item.value)}</p>
                   <p className="text-xs text-red-600 mt-0.5 print:text-red-500">{item.desc}</p>
                 </div>
               ))}
@@ -95,16 +95,16 @@ export function ArtistSettlementClient({
         )}
 
         {/* 個人サマリー 4枚 */}
-        <div className="grid grid-cols-2 gap-4 mb-8 print:mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 print:mb-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 print:bg-slate-50 print:border-slate-300">
-            <div className="flex items-center gap-1.5 mb-2"><Shield size={13} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">分配予定総額</p></div>
-            <p className="text-3xl font-black text-white print:text-black">{yen(totalDistAmount)}</p>
+            <div className="flex items-center gap-1.5 mb-2"><Shield size={13} className="text-slate-600 shrink-0" /><p className="text-xs font-black text-slate-600 print:text-slate-500">分配予定総額</p></div>
+            <p className="text-2xl sm:text-3xl font-black text-white print:text-black break-words">{yen(totalDistAmount)}</p>
             <p className="text-xs text-slate-600 mt-1 print:text-slate-500">事前設定ルールによる自動算出</p>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 print:bg-slate-50 print:border-slate-300">
-            <div className="flex items-center gap-1.5 mb-2"><Lock size={13} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">CB拘束額（合計）</p></div>
-            <p className={`text-3xl font-black ${hasCb ? "text-red-400" : "text-slate-500"} print:text-black`}>{yen(cbHoldTotal)}</p>
+            <div className="flex items-center gap-1.5 mb-2"><Lock size={13} className="text-slate-600 shrink-0" /><p className="text-xs font-black text-slate-600 print:text-slate-500">CB拘束額（合計）</p></div>
+            <p className={`text-2xl sm:text-3xl font-black break-words ${hasCb ? "text-red-400" : "text-slate-500"} print:text-black`}>{yen(cbHoldTotal)}</p>
             {hasCb && (
               <p className="text-xs text-slate-600 mt-1 print:text-slate-500">
                 凍結 {yen(frozenDistTotal)} + 手数料 {yen(myCbFeeTotal + myProcFeeTotal)}
@@ -114,8 +114,8 @@ export function ArtistSettlementClient({
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 print:bg-slate-50 print:border-slate-300">
-            <div className="flex items-center gap-1.5 mb-2"><CheckCircle2 size={13} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">差引 確定受取額</p></div>
-            <p className={`text-3xl font-black ${hasCb ? "text-amber-300" : "text-emerald-400"} print:text-black`}>
+            <div className="flex items-center gap-1.5 mb-2"><CheckCircle2 size={13} className="text-slate-600 shrink-0" /><p className="text-xs font-black text-slate-600 print:text-slate-500">差引 確定受取額</p></div>
+            <p className={`text-2xl sm:text-3xl font-black break-words ${hasCb ? "text-amber-300" : "text-emerald-400"} print:text-black`}>
               {yen(totalDistAmount - cbHoldTotal)}
             </p>
             <p className="text-xs text-slate-600 mt-1 print:text-slate-500">
@@ -125,8 +125,8 @@ export function ArtistSettlementClient({
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 print:bg-slate-50 print:border-slate-300">
-            <div className="flex items-center gap-1.5 mb-2"><Clock size={13} className="text-slate-600" /><p className="text-xs font-black text-slate-600 print:text-slate-500">振込実績</p></div>
-            <p className={`text-3xl font-black ${settledAmount > 0 ? "text-emerald-400" : "text-slate-500"} print:text-black`}>
+            <div className="flex items-center gap-1.5 mb-2"><Clock size={13} className="text-slate-600 shrink-0" /><p className="text-xs font-black text-slate-600 print:text-slate-500">振込実績</p></div>
+            <p className={`text-2xl sm:text-3xl font-black break-words ${settledAmount > 0 ? "text-emerald-400" : "text-slate-500"} print:text-black`}>
               {settledAmount > 0 ? yen(settledAmount) : "未振込"}
             </p>
             <p className="text-xs text-slate-600 mt-1 print:text-slate-500">{settledAmount > 0 ? "Stripe Transfer 完了" : "出金可能になり次第振込"}</p>
@@ -157,18 +157,18 @@ export function ArtistSettlementClient({
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-xs text-slate-400 mb-1 print:text-slate-600">あなたの取得率</p>
-                        <p className={`text-2xl font-black ${hasMyFreeze ? "text-orange-300" : "text-white"} print:text-black`}>{pctStr(qr.myRatio)}</p>
-                        <p className={`text-sm font-bold mt-0.5 ${hasMyFreeze ? "text-orange-300" : "text-emerald-400"} print:text-black`}>{yen(qr.myAmount)}</p>
+                        <p className={`text-xl sm:text-2xl font-black break-words ${hasMyFreeze ? "text-orange-300" : "text-white"} print:text-black`}>{pctStr(qr.myRatio)}</p>
+                        <p className={`text-sm font-bold mt-0.5 break-words ${hasMyFreeze ? "text-orange-300" : "text-emerald-400"} print:text-black`}>{yen(qr.myAmount)}</p>
                         {hasMyFreeze && (
                           <p className="text-xs text-red-400 mt-0.5 flex items-center gap-1 print:text-red-600">
-                            <Lock size={10} /> うちCB凍結 {yen(qr.myFrozenAmount)}
+                            <Lock size={10} className="shrink-0" /> うちCB凍結 {yen(qr.myFrozenAmount)}
                           </p>
                         )}
                       </div>
                       <div>
                         <p className="text-xs text-slate-600 mb-1 print:text-slate-500">その他（複数名）</p>
-                        <p className="text-2xl font-black text-slate-500 print:text-slate-600">{pctStr(qr.othersRatio)}</p>
-                        <p className="text-sm text-slate-600 mt-0.5 print:text-slate-500">{yen(qr.qrNet - qr.myAmount)}</p>
+                        <p className="text-xl sm:text-2xl font-black text-slate-500 print:text-slate-600 break-words">{pctStr(qr.othersRatio)}</p>
+                        <p className="text-sm text-slate-600 mt-0.5 print:text-slate-500 break-words">{yen(qr.qrNet - qr.myAmount)}</p>
                       </div>
                     </div>
                   </div>
@@ -195,8 +195,8 @@ export function ArtistSettlementClient({
                       </div>
                       <span className="text-red-400 font-black print:text-red-700">{yen(cb.claim_amount)}</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-3 text-xs">
-                      <div><p className="text-slate-600 print:text-slate-500">対象取引</p><p className="text-slate-400 font-mono text-xs print:text-slate-600">{cb.original_transaction_id.slice(0, 16)}…</p></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div><p className="text-slate-600 print:text-slate-500">対象取引</p><p className="text-slate-400 font-mono text-xs print:text-slate-600 break-all">{cb.original_transaction_id.slice(0, 16)}…</p></div>
                       <div><p className="text-slate-600 print:text-slate-500">Stripe係争手数料</p><p className="text-red-400 font-bold print:text-red-600">{yen(cb.stripe_dispute_fee ?? 1500)}</p><p className="text-xs text-slate-600">あなたの取り分から控除</p></div>
                       <div><p className="text-slate-600 print:text-slate-500">決済手数料不足分</p><p className="text-amber-400 font-bold print:text-amber-600">{yen(cb.stripe_processing_fee ?? 0)}</p></div>
                     </div>

@@ -101,7 +101,6 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
         eventVenue={(event as any).venue ?? null}
         targets={targets}
         feeConfig={feeConfig}
-        paypayEnabled={(event as any).paypay_enabled ?? false}
         organizerBalance={organizerBalance}
         productTypeConfigs={productTypeConfigs ?? []}
         userRole={role}

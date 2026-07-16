@@ -15,6 +15,7 @@ import {
   resolveCheerCardIdentity,
   buildStatementDescriptorSuffix,
   buildStatementDescriptorSuffixes,
+  buildAccountStatementDescriptors,
   combineDescriptorPreview,
   PLATFORM_PREFIX,
   STATEMENT_DESCRIPTOR_TOTAL_MAX,
@@ -511,5 +512,69 @@ describe("TC-SD-07: resolveCheerCardIdentity（仕様マトリクス・厳格一
     });
     expect(name).toBe(recipientDisplayName);
     expect(name).not.toBe("DJ SHOULD NOT BE USED");
+  });
+});
+
+// ── TC-SD-ACCT: buildAccountStatementDescriptors（アカウント静的表記） ──────
+describe("TC-SD-ACCT: buildAccountStatementDescriptors — 静的statement_descriptorの組み立て", () => {
+  it("個人: 本名からASCII/漢字/カナの3種を組み立てる", () => {
+    const r = buildAccountStatementDescriptors({
+      isCompany: false,
+      firstName: "Taro", lastName: "Yamada",
+      firstNameKanji: "太郎", lastNameKanji: "山田",
+      firstNameKana: "たろう", lastNameKana: "やまだ",
+    });
+    expect(r.descriptor).toBe("TARO YAMADA");
+    expect(r.descriptorKanji).toBe("山田太郎");
+    expect(r.descriptorKana).toBe("ヤマダタロウ");
+  });
+
+  it("法人: 会社名から組み立てる（漢字はcompany_name_kanji優先）", () => {
+    const r = buildAccountStatementDescriptors({
+      isCompany: true,
+      businessName: "SPACEMIND",
+      companyNameKanji: "スペースマインド合同会社",
+      companyNameKana: "スペースマインドゴウドウガイシャ",
+    });
+    expect(r.descriptor).toBe("SPACEMIND");
+    expect(r.descriptorKanji).toBe("スペースマインド合同会社");
+    expect(r.descriptorKana).toBe("スペースマインドゴウドウガイシャ");
+  });
+
+  it("氏名が片方でも欠けるとASCII表記はnull（部分的な名前では組み立てない）", () => {
+    const r = buildAccountStatementDescriptors({
+      isCompany: false,
+      firstName: "Taro", lastName: null,
+      firstNameKanji: "太郎", lastNameKanji: null,
+    });
+    expect(r.descriptor).toBeNull();
+    expect(r.descriptorKanji).toBeNull();
+  });
+
+  it("サニタイズ後5文字未満のASCII表記はnull（Stripeの最低文字数要件）", () => {
+    const r = buildAccountStatementDescriptors({
+      isCompany: false,
+      firstName: "Li", lastName: "O",
+    });
+    expect(r.descriptor).toBeNull();
+  });
+
+  it("日本語のみの氏名: ASCII表記はnullだが漢字表記は組み立てられる", () => {
+    const r = buildAccountStatementDescriptors({
+      isCompany: false,
+      firstName: "孝史", lastName: "及川",
+      firstNameKanji: "孝史", lastNameKanji: "及川",
+    });
+    expect(r.descriptor).toBeNull();
+    expect(r.descriptorKanji).toBe("及川孝史");
+  });
+
+  it("22文字を超えるASCII名は22文字に切り詰められる", () => {
+    const r = buildAccountStatementDescriptors({
+      isCompany: false,
+      firstName: "CHRISTOPHER", lastName: "MONTGOMERY",
+    });
+    expect(r.descriptor!.length).toBeLessThanOrEqual(22);
+    expect(r.descriptor).toBe("CHRISTOPHER MONTGOMERY".slice(0, 22).trim());
   });
 });

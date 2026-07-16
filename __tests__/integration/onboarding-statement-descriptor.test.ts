@@ -1,10 +1,13 @@
 /**
- * TC-ONB-SD: /api/stripe/connect/onboarding の statement_descriptor 固定を検証する
+ * TC-ONB-SD: /api/stripe/connect/onboarding の statement_descriptor 送信仕様を検証する
  *
- * 背景: account-levelのベース表記（statement_descriptor系）はユーザーによる
- * カスタマイズを一切許可せず、常に固定文字列 "DC"（PLATFORM_PREFIX）を送る。
- * 屋号を明細に出したい場合は organizer_name/artist_name（suffix側）に
- * 自分で入力すればよく、ベース側に名前のカスタマイズ機構は持たない。
+ * 仕様（2026-07-16 JCB加盟店審査指摘を受けて変更）:
+ * - prefix（動的suffixと結合されるベース表記）: 常に固定 PLATFORM_PREFIX。
+ *   ユーザーによるカスタマイズは一切許可しない（従来どおり）。
+ * - 静的statement_descriptor: JCB審査要件（明細書表記に企業名を反映）のため
+ *   本人確認対象の事業者名（個人: 本名 / 法人: 会社名）を登録する。
+ *   名前から組み立てられない場合は作成時はPLATFORM_PREFIXにフォールバックし、
+ *   更新時はフィールド自体を送らない（手動修正した既存値を上書きしないため）。
  *
  * Stripe呼び出し（accounts.create / accounts.update / accountLinks.create）は
  * モックして送信パラメータを直接検証する（実際のExpressアカウント作成は
@@ -87,8 +90,8 @@ afterEach(() => {
   captured.accountUpdateId = undefined;
 });
 
-// ── TC-ONB-SD-01: 新規アカウント作成時、常に固定 "DC" が送られる ──────────
-describe("TC-ONB-SD-01: 新規Connectアカウント作成時、statement_descriptor系は常に固定文字列'DC'になる", () => {
+// ── TC-ONB-SD-01: 新規アカウント作成時の静的表記とprefix ──────────────────
+describe("TC-ONB-SD-01: 新規Connectアカウント作成時の statement_descriptor 送信内容", () => {
   async function freshProfile(label: string): Promise<string> {
     const id = await insertProfile({
       role: "organizer", displayName: `テスト主催者${label}`, email: `org-onb-${label}-${Date.now()}@test.local`,
@@ -97,31 +100,66 @@ describe("TC-ONB-SD-01: 新規Connectアカウント作成時、statement_descri
     return id;
   }
 
-  it("statement_descriptor系は常に固定文字列'DC'になる（ユーザー入力欄自体が存在しない）", async () => {
-    const profileId = await freshProfile("fixed");
+  it("個人: 静的表記は本名（ASCII/漢字/カナ）、prefixは固定PLATFORM_PREFIX", async () => {
+    const profileId = await freshProfile("indiv");
     mockAuth(profileId);
-    const res = await onboardingPOST(makeReq({ business_type: "individual", business_name: "何を入力しても無視される事業者名" }));
+    const res = await onboardingPOST(makeReq({
+      business_type: "individual",
+      first_name: "Taro", last_name: "Yamada",
+      first_name_kanji: "太郎", last_name_kanji: "山田",
+      first_name_kana: "タロウ", last_name_kana: "ヤマダ",
+    }));
     expect(res.status).toBe(200);
 
     const payments = captured.accountCreateParams?.settings?.payments;
     expect(payments).toBeDefined();
-    expect(payments.statement_descriptor).toBe(PLATFORM_PREFIX);
+    expect(payments.statement_descriptor).toBe("TARO YAMADA");
+    expect(payments.statement_descriptor_kanji).toBe("山田太郎");
+    expect(payments.statement_descriptor_kana).toBe("ヤマダタロウ");
     expect(payments.statement_descriptor_prefix).toBe(PLATFORM_PREFIX);
-    expect(payments.statement_descriptor_kanji).toBe(PLATFORM_PREFIX);
     expect(payments.statement_descriptor_prefix_kanji).toBe(PLATFORM_PREFIX);
   }, 15_000);
 
-  it("入力フォームが空でも、固定文字列'DC'が送られる", async () => {
+  it("法人: 静的表記は会社名（ASCII/漢字/カナ）、prefixは固定PLATFORM_PREFIX", async () => {
+    const profileId = await freshProfile("comp");
+    mockAuth(profileId);
+    const res = await onboardingPOST(makeReq({
+      business_type: "company",
+      business_name: "SPACEMIND",
+      company_name_kanji: "スペースマインド合同会社",
+      company_name_kana: "スペースマインドゴウドウガイシャ",
+    }));
+    expect(res.status).toBe(200);
+
+    const payments = captured.accountCreateParams?.settings?.payments;
+    expect(payments.statement_descriptor).toBe("SPACEMIND");
+    expect(payments.statement_descriptor_kanji).toBe("スペースマインド合同会社");
+    expect(payments.statement_descriptor_prefix).toBe(PLATFORM_PREFIX);
+  }, 15_000);
+
+  it("店舗名（business_profile.name）にdisplay_nameが設定される", async () => {
+    const profileId = await freshProfile("bpname");
+    mockAuth(profileId);
+    await onboardingPOST(makeReq({
+      business_type: "individual",
+      first_name: "Taro", last_name: "Yamada",
+    }));
+    expect(captured.accountCreateParams?.business_profile?.name).toContain("テスト主催者bpname");
+  }, 15_000);
+
+  it("氏名が無く事業者名を組み立てられない場合はPLATFORM_PREFIXにフォールバック", async () => {
     const profileId = await freshProfile("empty");
     mockAuth(profileId);
     await onboardingPOST(makeReq({ business_type: "individual" }));
     const payments = captured.accountCreateParams?.settings?.payments;
     expect(payments.statement_descriptor).toBe(PLATFORM_PREFIX);
+    expect(payments.statement_descriptor_kanji).toBe(PLATFORM_PREFIX);
+    expect(payments.statement_descriptor_prefix).toBe(PLATFORM_PREFIX);
   }, 15_000);
 });
 
-// ── TC-ONB-SD-02: 既存アカウントの再編集時もStripeへ反映される ──────────────
-describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時、stripe.accounts.updateで固定'DC'が再送される", () => {
+// ── TC-ONB-SD-02: 既存アカウントの再編集時 ──────────────────────────────
+describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時の stripe.accounts.update 送信内容", () => {
   let profileId: string;
   const existingConnectId = "acct_test_onb_existing_001";
 
@@ -134,14 +172,33 @@ describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時、stripe.acc
     cleanup.profileIds.push(profileId);
   }, 30_000);
 
-  it("既存アカウントでも stripe.accounts.update が呼ばれ、固定'DC'が再送される", async () => {
+  it("氏名付き再送信: 静的表記は本名で更新され、prefixは固定が再送される", async () => {
     mockAuth(profileId);
-    const res = await onboardingPOST(makeReq({ business_name: "何を入力しても無視される事業者名" }));
+    const res = await onboardingPOST(makeReq({
+      business_type: "individual",
+      first_name: "Taro", last_name: "Yamada",
+      first_name_kanji: "太郎", last_name_kanji: "山田",
+    }));
     expect(res.status).toBe(200);
 
     expect(captured.accountUpdateId).toBe(existingConnectId);
     const payments = captured.accountUpdateParams?.settings?.payments;
     expect(payments).toBeDefined();
+    expect(payments.statement_descriptor).toBe("TARO YAMADA");
+    expect(payments.statement_descriptor_kanji).toBe("山田太郎");
+    expect(payments.statement_descriptor_prefix).toBe(PLATFORM_PREFIX);
+    expect(payments.statement_descriptor_prefix_kanji).toBe(PLATFORM_PREFIX);
+  });
+
+  it("氏名を組み立てられない再送信: 静的表記フィールドは送らず既存値を維持（PLATFORM_PREFIXでの上書き禁止）", async () => {
+    mockAuth(profileId);
+    const res = await onboardingPOST(makeReq({ business_name: "屋号だけでbusiness_typeなし" }));
+    expect(res.status).toBe(200);
+
+    const payments = captured.accountUpdateParams?.settings?.payments;
+    expect(payments).toBeDefined();
+    expect(payments.statement_descriptor).toBeUndefined();
+    expect(payments.statement_descriptor_kanji).toBeUndefined();
     expect(payments.statement_descriptor_prefix).toBe(PLATFORM_PREFIX);
     expect(payments.statement_descriptor_prefix_kanji).toBe(PLATFORM_PREFIX);
   });

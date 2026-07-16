@@ -97,11 +97,8 @@ export function InviteCreateForm({ myRole, onAdd }: { myRole: string; onAdd?: (i
     setSelectedUser(u);
     setQuery("");
     setSearchResults([]);
-    // 選択したロールが無効になる場合、招待可能な先頭ロールに切り替える
-    if (roleRank(targetRole) <= roleRank(u.role)) {
-      const firstValid = options.canInvite.find((r) => roleRank(r) > roleRank(u.role));
-      if (firstValid) setTargetRole(firstValid);
-    }
+    // 招待ロールは自動で切り替えない。無効なロールのままなら送信不可となり、
+    // 人が明示的に選び直す（勝手な昇格ロールへの変更は誤発行のもと）
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -260,7 +257,9 @@ export function InviteCreateForm({ myRole, onAdd }: { myRole: string; onAdd?: (i
             </div>
             {selectedUser && !canSubmit && (
               <p className="text-[10px] text-yellow-500 leading-relaxed font-bold">
-                {selectedUser.display_name}さんは既に同等以上のロールを持っているため、この招待は発行できません
+                {options.canInvite.some((r) => isRoleInvitable(r))
+                  ? `${selectedUser.display_name}さんは既に${ROLE_LABELS[selectedUser.role] ?? selectedUser.role}です。招待するロールを明示的に選んでください`
+                  : `${selectedUser.display_name}さんは既に同等以上のロールを持っているため、招待できるロールがありません`}
               </p>
             )}
           </div>

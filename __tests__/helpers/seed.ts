@@ -7,7 +7,7 @@ function newId(): string {
 // auth.users + profiles をセットで作成して profile_id を返す
 // profiles.profile_id は auth.users への FK があるため auth user 先作成が必須
 export async function insertProfile(params: {
-  role: "admin" | "organizer" | "artist" | "agent";
+  role: "admin" | "organizer" | "artist" | "agent" | "user";
   displayName: string;
   email: string;
   stripeConnectId?: string | null;

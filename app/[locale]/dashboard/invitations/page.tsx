@@ -40,7 +40,8 @@ async function InvitationsContent() {
       viewed_at,
       expires_at,
       created_at,
-      accepted_by:profiles!accepted_by_profile_id(display_name)
+      accepted_by:profiles!accepted_by_profile_id(display_name),
+      target_profile:profiles!target_profile_id(display_name)
     `)
     .eq("invited_by_profile_id", user.id)
     .is("deleted_at", null)
@@ -62,6 +63,7 @@ async function InvitationsContent() {
       is_sent: false,
       viewed_at: null,
       accepted_by: null,
+      target_profile: null,
     }));
   } else {
     rows = (invitations ?? []) as unknown as InvitationRow[];

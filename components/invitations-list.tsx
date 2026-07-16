@@ -30,6 +30,7 @@ export type InvitationRow = {
   expires_at: string;
   created_at: string;
   accepted_by: { display_name: string | null } | null;
+  target_profile?: { display_name: string | null } | null;
 };
 
 function resolveStatus(inv: InvitationRow) {
@@ -103,7 +104,7 @@ function InvitationItem({
             {inv.accepted_by?.display_name && (
               <span className="text-slate-400 font-bold mr-1">{ROLE_LABELS[inv.target_role] ?? inv.target_role} ·</span>
             )}
-            {inv.target_email ?? "メールなし"} ·{" "}
+            {inv.target_profile?.display_name ?? inv.target_email ?? "宛先なし"} ·{" "}
             {new Date(inv.created_at).toLocaleDateString("ja-JP", { timeZone: DISPLAY_TZ })}
           </p>
         </div>

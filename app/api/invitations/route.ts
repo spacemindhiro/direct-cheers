@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { roleRank } from "@/lib/role-rank";
 import { Resend } from "resend";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -8,7 +9,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").r
 // 招待権限マトリクス
 const PERMISSION_MATRIX: Record<string, string[]> = {
   admin: ["agent"],
-  agent: ["organizer", "artist"],
+  agent: ["artist", "organizer"],
   organizer: ["artist"],
 };
 
@@ -39,13 +40,13 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { target_role, target_email } = body as {
+  const { target_role, target_profile_id } = body as {
     target_role: string;
-    target_email?: string;
+    target_profile_id?: string;
   };
 
-  if (!target_email) {
-    return NextResponse.json({ error: "メールアドレスは必須です" }, { status: 400 });
+  if (!target_profile_id) {
+    return NextResponse.json({ error: "宛先ユーザーを選択してください" }, { status: 400 });
   }
 
   // 権限チェック
@@ -54,17 +55,45 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Permission denied" }, { status: 403 });
   }
 
+  if (target_profile_id === user.id) {
+    return NextResponse.json({ error: "自分自身は招待できません" }, { status: 400 });
+  }
+
   const admin = createAdminClient();
 
-  // 同一 invited_by + target_email の pending 招待を期限切れに（再送対応）
-  if (target_email) {
-    await admin
-      .from("invitations")
-      .update({ status: "expired" })
-      .eq("invited_by_profile_id", user.id)
-      .eq("target_email", target_email)
-      .eq("status", "pending");
+  // 宛先ユーザーの実在・現ロール確認
+  const { data: target } = await admin
+    .from("profiles")
+    .select("profile_id, display_name, role, deleted_at")
+    .eq("profile_id", target_profile_id)
+    .maybeSingle();
+
+  if (!target || target.deleted_at) {
+    return NextResponse.json({ error: "宛先ユーザーが見つかりません" }, { status: 404 });
   }
+
+  // 昇格にならない招待は無意味なため弾く（UI非活性の迂回対策）
+  if (roleRank(target_role) <= roleRank(target.role)) {
+    return NextResponse.json(
+      { error: "このユーザーは既に同等以上のロールを持っています" },
+      { status: 400 },
+    );
+  }
+
+  // 宛先メールアドレスはサーバー側で解決する（クライアントから受け取らない）
+  const { data: authUser, error: authError } = await admin.auth.admin.getUserById(target_profile_id);
+  const targetEmail = authUser?.user?.email ?? null;
+  if (authError || !targetEmail) {
+    return NextResponse.json({ error: "宛先ユーザーのメールアドレスを取得できませんでした" }, { status: 500 });
+  }
+
+  // 同一 invited_by + 宛先ユーザーの pending 招待を期限切れに（再送対応）
+  await admin
+    .from("invitations")
+    .update({ status: "expired" })
+    .eq("invited_by_profile_id", user.id)
+    .eq("target_profile_id", target_profile_id)
+    .eq("status", "pending");
 
   // 新しい招待を発行
   const { data: invitation, error } = await admin
@@ -72,9 +101,10 @@ export async function POST(req: Request) {
     .insert({
       invited_by_profile_id: user.id,
       target_role,
-      target_email: target_email ?? null,
+      target_profile_id,
+      target_email: targetEmail,
     })
-    .select("invitation_id, token, target_role, target_email, status, is_sent, viewed_at, expires_at, created_at")
+    .select("invitation_id, token, target_role, target_email, target_profile_id, status, is_sent, viewed_at, expires_at, created_at")
     .single();
 
   if (error) {
@@ -93,16 +123,19 @@ export async function POST(req: Request) {
       const resend = new Resend(resendApiKey);
       const { error: sendError } = await resend.emails.send({
         from: "Direct Cheers <noreply@direct-cheers.com>",
-        to: target_email,
+        to: targetEmail,
         subject: `${inviterName}さんからDirect Cheersへの招待が届いています`,
         html: `
           <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
             <h2 style="color:#ec4899;margin-bottom:8px">Direct Cheersへの招待</h2>
             <p style="color:#64748b;font-size:14px">
+              ${target.display_name}さん
+            </p>
+            <p style="color:#64748b;font-size:14px">
               <strong>${inviterName}</strong>さんから、<strong>${roleLabel}</strong>としてDirect Cheersに参加する招待が届いています。
             </p>
             <p style="color:#64748b;font-size:14px">
-              以下のボタンをタップして登録を進めてください。<br>
+              以下のボタンをタップして招待を受けてください。<br>
               有効期限は<strong>30日間</strong>です。
             </p>
             <a href="${inviteUrl}"
@@ -127,5 +160,10 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ ...invitation, is_sent: isSent, accepted_by: null });
+  return NextResponse.json({
+    ...invitation,
+    is_sent: isSent,
+    accepted_by: null,
+    target_profile: { display_name: target.display_name },
+  });
 }

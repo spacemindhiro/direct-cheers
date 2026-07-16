@@ -75,7 +75,8 @@ async function InviteContent({
 
   const inviterName = (invitation.invited_by as any)?.display_name ?? "Unknown";
   const targetName =
-    (invitation.target_profile as { display_name: string | null } | null)?.display_name ?? null;
+    (invitation.target_profile as unknown as { display_name: string | null } | null)
+      ?.display_name ?? null;
   const roleLabel = ROLE_LABELS[invitation.target_role] ?? invitation.target_role;
   const expiresAt = fmtDate(invitation.expires_at);
 

@@ -26,5 +26,17 @@ export async function GET(
     );
   }
 
-  return NextResponse.redirect(data.action_link);
+  // QRログインはstep-up相当として扱い、dc_stepupを同時発行する。
+  // 根拠: このQRを生成できるのはstep-up認証済みスタッフのみ（/dashboard/scanner-qr は
+  // step-up壁の内側）で、トークンは1時間期限かつaction_linkはSupabase側でワンタイム消費される。
+  // これにより親機・子機などWebAuthnが使えない端末（CapacitorのWebView等）でも
+  // チェックイン/タッチ決済画面へ到達できる。
+  const res = NextResponse.redirect(data.action_link);
+  res.cookies.set("dc_stepup", String(Date.now()), {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 480 * 60,
+    path: "/",
+  });
+  return res;
 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- デバッグビルド専用の追加設定。リリースビルドには含まれない。
+     ローカル開発サーバー(LAN)のQRログインURLをディープリンクとして受け付ける。 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <activity android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" android:host="192.168.1.10" android:port="3000" android:pathPrefix="/auth/qr/" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

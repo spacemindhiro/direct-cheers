@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.directcheers.touchpay",
+      "sha256_cert_fingerprints": [
+        "CC:01:39:40:82:F9:29:BF:5F:85:02:06:B2:CB:52:2F:AD:B0:1D:C3:6D:6B:93:C3:16:85:39:A1:C9:10:8A:78"
+      ]
+    }
+  }
+]

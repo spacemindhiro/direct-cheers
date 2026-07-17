@@ -15,9 +15,10 @@ import {
   resolveCheerCardIdentity,
   buildStatementDescriptorSuffix,
   buildStatementDescriptorSuffixes,
-  buildAccountStatementDescriptors,
   combineDescriptorPreview,
   PLATFORM_PREFIX,
+  PLATFORM_STATIC_DESCRIPTOR,
+  PLATFORM_STATIC_DESCRIPTOR_KANA,
   STATEMENT_DESCRIPTOR_TOTAL_MAX,
 } from "@/lib/statement-descriptor";
 
@@ -515,66 +516,33 @@ describe("TC-SD-07: resolveCheerCardIdentity（仕様マトリクス・厳格一
   });
 });
 
-// ── TC-SD-ACCT: buildAccountStatementDescriptors（アカウント静的表記） ──────
-describe("TC-SD-ACCT: buildAccountStatementDescriptors — 静的statement_descriptorの組み立て", () => {
-  it("個人: 本名からASCII/漢字/カナの3種を組み立てる", () => {
-    const r = buildAccountStatementDescriptors({
-      isCompany: false,
-      firstName: "Taro", lastName: "Yamada",
-      firstNameKanji: "太郎", lastNameKanji: "山田",
-      firstNameKana: "たろう", lastNameKana: "やまだ",
-    });
-    expect(r.descriptor).toBe("TARO YAMADA");
-    expect(r.descriptorKanji).toBe("山田太郎");
-    expect(r.descriptorKana).toBe("ヤマダタロウ");
+// ── TC-SD-ACCT: 静的statement_descriptor（ウェブサイト名固定） ──────────────
+// JCB加盟店審査は静的表記と登録ウェブサイト名称の文字一致を見るため、
+// 全アカウント固定でウェブサイト名を登録する（2026-07-17指摘対応）。
+describe("TC-SD-ACCT: PLATFORM_STATIC_DESCRIPTOR — 静的表記はウェブサイト名と文字一致", () => {
+  it("ASCII/漢字用の静的表記はウェブサイト名と完全一致する", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR).toBe("Direct Cheers");
   });
 
-  it("法人: 会社名から組み立てる（漢字はcompany_name_kanji優先）", () => {
-    const r = buildAccountStatementDescriptors({
-      isCompany: true,
-      businessName: "SPACEMIND",
-      companyNameKanji: "スペースマインド合同会社",
-      companyNameKana: "スペースマインドゴウドウガイシャ",
-    });
-    expect(r.descriptor).toBe("SPACEMIND");
-    expect(r.descriptorKanji).toBe("スペースマインド合同会社");
-    expect(r.descriptorKana).toBe("スペースマインドゴウドウガイシャ");
+  it("カナ用の静的表記はウェブサイト名の音写カタカナである", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR_KANA).toBe("ダイレクトチアーズ");
+    expect(PLATFORM_STATIC_DESCRIPTOR_KANA).toMatch(/^[ァ-ー]+$/);
   });
 
-  it("氏名が片方でも欠けるとASCII表記はnull（部分的な名前では組み立てない）", () => {
-    const r = buildAccountStatementDescriptors({
-      isCompany: false,
-      firstName: "Taro", lastName: null,
-      firstNameKanji: "太郎", lastNameKanji: null,
-    });
-    expect(r.descriptor).toBeNull();
-    expect(r.descriptorKanji).toBeNull();
+  it("ASCII表記はStripeの文字数制約（5〜22文字）を満たす", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR.length).toBeGreaterThanOrEqual(5);
+    expect(PLATFORM_STATIC_DESCRIPTOR.length).toBeLessThanOrEqual(STATEMENT_DESCRIPTOR_TOTAL_MAX.ascii);
   });
 
-  it("サニタイズ後5文字未満のASCII表記はnull（Stripeの最低文字数要件）", () => {
-    const r = buildAccountStatementDescriptors({
-      isCompany: false,
-      firstName: "Li", lastName: "O",
-    });
-    expect(r.descriptor).toBeNull();
+  it("漢字フィールド流用時も17文字制限を満たす", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR.length).toBeLessThanOrEqual(STATEMENT_DESCRIPTOR_TOTAL_MAX.kanji);
   });
 
-  it("日本語のみの氏名: ASCII表記はnullだが漢字表記は組み立てられる", () => {
-    const r = buildAccountStatementDescriptors({
-      isCompany: false,
-      firstName: "孝史", lastName: "及川",
-      firstNameKanji: "孝史", lastNameKanji: "及川",
-    });
-    expect(r.descriptor).toBeNull();
-    expect(r.descriptorKanji).toBe("及川孝史");
+  it("カナ表記は22文字制限を満たす", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR_KANA.length).toBeLessThanOrEqual(STATEMENT_DESCRIPTOR_TOTAL_MAX.kana);
   });
 
-  it("22文字を超えるASCII名は22文字に切り詰められる", () => {
-    const r = buildAccountStatementDescriptors({
-      isCompany: false,
-      firstName: "CHRISTOPHER", lastName: "MONTGOMERY",
-    });
-    expect(r.descriptor!.length).toBeLessThanOrEqual(22);
-    expect(r.descriptor).toBe("CHRISTOPHER MONTGOMERY".slice(0, 22).trim());
+  it("禁止文字（< > \\ ' \" *）を含まない", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR).not.toMatch(/[<>\\'"*]/);
   });
 });

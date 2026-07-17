@@ -258,8 +258,8 @@ export function buildStatementDescriptorSuffixes(
 // ベースを組み立てる仕組みは廃止した（自由文字列を許すと動的suffixと結合した際に
 // 意味不明な明細になりチャージバックの原因になる上、「ベース＋suffix」以外の
 // 第三の可変要素を増やすこと自体が混乱の元になるため）。
-// ※静的statement_descriptorは別物で、JCB加盟店審査の要件により本人確認済みの
-//   事業者名を登録する（buildAccountStatementDescriptors参照）。
+// ※静的statement_descriptorは別物で、JCB加盟店審査の要件により
+//   ウェブサイト名を固定登録する（PLATFORM_STATIC_DESCRIPTOR参照）。
 //
 // Stripeの合計文字数制限（prefix + 区切り + suffix の合計）:
 //   ASCII: 22文字 / カナ: 22文字 / 漢字: 17文字
@@ -275,68 +275,28 @@ const ASCII_TOTAL_MAX = 22;
 const KANA_TOTAL_MAX = 22;
 const KANJI_TOTAL_MAX = 17;
 
-// Stripeのstatement_descriptor（静的）は単体で5文字以上が必要
-const STATIC_DESCRIPTOR_MIN = 5;
-
-export type AccountStatementDescriptors = {
-  descriptor: string | null;
-  descriptorKanji: string | null;
-  descriptorKana: string | null;
-};
-
-/**
- * Connectアカウントに登録する静的statement_descriptor（ASCII/漢字/カナ）を
- * 本人確認対象の事業者名（個人: 本名 / 法人: 会社名）から組み立てる。
- *
- * 背景（2026-07-16 JCB加盟店審査指摘）: 静的表記を固定"DC for"にしていたところ、
- * JCBから「明細書表記は企業名が反映されるものにしてください」と指摘され
- * 子アカウントのJCB/Diners/Discover決済が一時停止された。カードネットワークの
- * 加盟店審査はアカウントに静的登録された表記と事業者名を照合するため、
- * 静的表記には本人確認済みの事業者名を使う。
- *
- * 注意: これは過去に廃止した「自由文字列によるベースのカスタマイズ」の復活ではない。
- * 動的suffixと結合されるprefixは引き続き固定PLATFORM_PREFIXであり、実際の
- * カード明細は従来どおり「DC FOR* 宛先名義」と表示される。静的表記が明細に
- * 出るのはsuffixを生成できない例外ケースのみ。
- *
- * 組み立てられないフィールド（名前が無い・サニタイズ後に短すぎる等）はnullを
- * 返し、呼び出し側でフィールド自体を省略する（既存値を上書きしない）。
- */
-export function buildAccountStatementDescriptors(params: {
-  isCompany: boolean;
-  firstName?: string | null;
-  lastName?: string | null;
-  firstNameKanji?: string | null;
-  lastNameKanji?: string | null;
-  firstNameKana?: string | null;
-  lastNameKana?: string | null;
-  businessName?: string | null;
-  companyNameKanji?: string | null;
-  companyNameKana?: string | null;
-}): AccountStatementDescriptors {
-  const asciiSource = params.isCompany
-    ? params.businessName
-    : params.firstName && params.lastName
-      ? `${params.firstName} ${params.lastName}`
-      : null;
-  const kanjiSource = params.isCompany
-    ? (params.companyNameKanji ?? params.businessName)
-    : params.lastNameKanji && params.firstNameKanji
-      ? `${params.lastNameKanji}${params.firstNameKanji}`
-      : null;
-  const kanaSource = params.isCompany
-    ? params.companyNameKana
-    : params.lastNameKana && params.firstNameKana
-      ? `${params.lastNameKana}${params.firstNameKana}`
-      : null;
-
-  const descriptor = sanitizeStatementDescriptorSuffix(asciiSource, ASCII_TOTAL_MAX);
-  return {
-    descriptor: descriptor && descriptor.length >= STATIC_DESCRIPTOR_MIN ? descriptor : null,
-    descriptorKanji: sanitizeStatementDescriptorSuffixKanji(kanjiSource, KANJI_TOTAL_MAX),
-    descriptorKana: sanitizeStatementDescriptorSuffixKana(kanaSource, KANA_TOTAL_MAX),
-  };
-}
+// ============================================================================
+// 静的statement_descriptor（アカウント登録の固定表記）
+//
+// 背景（2026-07-17 JCB加盟店審査指摘・2度目）: JCBの審査はアカウントの静的
+// statement_descriptorと「登録ウェブサイトの名称」の文字一致を見ている。
+// 1度目の指摘（2026-07-16「明細書表記は企業名が反映されるものに」）を受けて
+// 本人確認済みの事業者名（本名/会社名）を登録したが、2度目の指摘で
+// 「ウェブサイトの名称（Direct Cheers）と一致していない」と弾かれた。
+// 全アカウントのウェブサイトはDirect Cheersなので、静的表記は全アカウント
+// 固定でウェブサイト名と同一文字列にする。
+//
+// - ASCII/漢字フィールド: ウェブサイト名と完全一致の "Direct Cheers"
+//   （漢字フィールドは半角英数字も受け付ける。既存実装でも"DC for"を
+//   フォールバック登録していた実績あり）
+// - カナフィールド: カタカナしか受け付けないため音写の「ダイレクトチアーズ」
+//
+// 注意: 動的suffixと結合されるprefixは別物で、引き続き固定PLATFORM_PREFIX。
+// 実際のカード明細は従来どおり「DC FOR* 宛先名義」と表示される。静的表記が
+// 明細に出るのはsuffixを生成できない例外ケースのみ。
+// ============================================================================
+export const PLATFORM_STATIC_DESCRIPTOR = "Direct Cheers";
+export const PLATFORM_STATIC_DESCRIPTOR_KANA = "ダイレクトチアーズ";
 
 /**
  * prefix + suffix を結合した最終的な明細表記をシミュレーションする（プレビュー表示用）。

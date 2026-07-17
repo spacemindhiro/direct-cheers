@@ -164,24 +164,12 @@ function generateUUID(): string {
   });
 }
 
-// 文字列からUUID形式の決定論的なIDを生成する。
-// 端末名（?device_name=で固定されることが多い）が分かっている場合はこれを使い、
-// localStorageが端末再起動で消える環境でも同じ端末名なら同じdevice_idになるようにする。
-function hashToUuid(input: string): string {
-  let h1 = 0x811c9dc5, h2 = 0x1000193, h3 = 0x9e3779b9, h4 = 0x85ebca6b;
-  for (let i = 0; i < input.length; i++) {
-    const c = input.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 0x01000193);
-    h2 = Math.imul(h2 ^ c, 0x85ebca6b);
-    h3 = Math.imul(h3 ^ c, 0xc2b2ae35);
-    h4 = Math.imul(h4 ^ c, 0x27d4eb2f);
-  }
-  const hex32 = [h1, h2, h3, h4].map(n => (n >>> 0).toString(16).padStart(8, "0")).join("");
-  return `${hex32.slice(0, 8)}-${hex32.slice(8, 12)}-${hex32.slice(12, 16)}-${hex32.slice(16, 20)}-${hex32.slice(20, 32)}`;
-}
-
-function getOrCreateDeviceId(deviceName?: string) {
-  if (deviceName) return hashToUuid(deviceName);
+// 端末IDは機材マスタ（equipment_devices）のサーバー発行IDを正とする。
+// ここで生成するのはハンドシェイク前・オフライン時の仮IDのみで、
+// ハンドシェイク成功時にマスタのIDで上書き保存される。
+// ※かつては端末名のハッシュをIDにしていたが、名前変更のたびに別端末として
+//   二重登録される根本原因だったため廃止した。
+function getOrCreateDeviceId() {
   let id = localStorage.getItem(DEVICE_ID_KEY);
   if (!id) { id = generateUUID(); localStorage.setItem(DEVICE_ID_KEY, id); }
   return id;
@@ -266,6 +254,13 @@ export function QRBoardDisplay({
       return name;
     } catch { return "端末-????"; }
   });
+  // 機材マスタのdevice_id。ハンドシェイク成功でマスタの正準IDに確定する。
+  // それまではlocalStorageの保存値（またはオフライン用の仮ID）で動く。
+  const [masterDeviceId, setMasterDeviceId] = useState<string | null>(() => {
+    try {
+      return searchParams.get("device_id") || localStorage.getItem(DEVICE_ID_KEY);
+    } catch { return null; }
+  });
 
   // ロック解除モーダル
   const [showUnlock, setShowUnlock] = useState(false);
@@ -275,6 +270,44 @@ export function QRBoardDisplay({
   // 端末名（識別名）設定
   const [nameInput, setNameInput] = useState(deviceName);
   const [nameSaved, setNameSaved] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  // 起動時ハンドシェイク: 機材マスタと同期し、正準のID・表示名を取得する。
+  // localStorageが消えた端末も、URLの?device_id=や名前一致で同じ機材として復元される。
+  useEffect(() => {
+    let cancelled = false;
+    let storedId: string | null = null;
+    let urlId: string | null = null;
+    try {
+      urlId = searchParams.get("device_id");
+      storedId = localStorage.getItem(DEVICE_ID_KEY);
+    } catch {}
+    fetch("/api/equipment-devices/handshake", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_id: urlId || storedId || null, fallback_name: deviceName }),
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { device_id: string; display_name: string } | null) => {
+        if (!d?.device_id || cancelled) return;
+        try {
+          localStorage.setItem(DEVICE_ID_KEY, d.device_id);
+          localStorage.setItem(DEVICE_NAME_KEY, d.display_name);
+        } catch {}
+        setMasterDeviceId(d.device_id);
+        setDeviceName(d.display_name);
+        setNameInput(d.display_name);
+      })
+      .catch(() => {
+        // オフライン等でもローカルの仮IDで動作継続（次回起動時に再同期）
+        if (!cancelled && !masterDeviceId) {
+          try { setMasterDeviceId(getOrCreateDeviceId()); } catch {}
+        }
+      });
+    return () => { cancelled = true; };
+    // 起動時に一度だけ実行する（deviceName等の後続変化で再ハンドシェイクしない）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // チア演出
   const [cheerCount, setCheerCount] = useState(0);
@@ -488,16 +521,18 @@ export function QRBoardDisplay({
     setQrState(null);
   }, [clearGroupReturnTimer]);
 
-  // NFCタグのリダイレクト先（booth_devices.current_qr_config_id）を実際の表示に同期。
-  // グループモードで一覧表示中(qrState=null)はnullを送りホームへのフォールバックに任せる。
+  // NFCタグのリダイレクト先（この機材が載っているホルダーのcurrent_qr_config_id）を
+  // 実際の表示に同期。グループモードで一覧表示中(qrState=null)はnullを送り
+  // ホームへのフォールバックに任せる。
   const syncBoothDevice = useCallback(() => {
+    if (!masterDeviceId) return;
     const qrConfigId = qrStateRef.current?.qr_config_id ?? null;
     fetch("/api/booth-devices/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_code: deviceName, event_id: eventId, qr_config_id: qrConfigId }),
+      body: JSON.stringify({ device_id: masterDeviceId, event_id: eventId, qr_config_id: qrConfigId }),
     }).catch(() => {});
-  }, [eventId, deviceName]);
+  }, [eventId, masterDeviceId]);
 
   // 割り当てられたトラックのタイムテーブルを取得
   const fetchSchedules = useCallback((trackId: string | null) => {
@@ -521,10 +556,11 @@ export function QRBoardDisplay({
       | { type: "group"; qr_group: { qr_group_id: string; name: string; members: QrConfigInfo[] } }
       | null;
 
+    if (!masterDeviceId) return Promise.resolve(trackIdRef.current);
     return fetch(`/api/events/${eventId}/display-devices`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_id: getOrCreateDeviceId(deviceName), device_name: deviceName }),
+      body: JSON.stringify({ device_id: masterDeviceId, device_name: deviceName }),
     })
       .then(r => r.ok ? r.json() : { track_id: null, default_target: null })
       .then((data: { track_id: string | null; default_target: DefaultTargetPayload }) => {
@@ -545,22 +581,39 @@ export function QRBoardDisplay({
         return data.track_id;
       })
       .catch(() => trackIdRef.current);
-  }, [eventId, deviceName]);
+  }, [eventId, deviceName, masterDeviceId]);
 
-  // 端末名（識別名）を変更し、localStorageとサーバーに反映
-  const updateDeviceName = useCallback((name: string) => {
+  // 機材名を変更する。機材マスタの表示名を更新するだけで、IDは不変
+  // （かつては名前からIDを再生成していたため、変更のたびに別端末として二重登録されていた）
+  const updateDeviceName = useCallback(async (name: string) => {
     const trimmed = name.trim();
-    if (!trimmed || trimmed === deviceName) return;
-    try { localStorage.setItem(DEVICE_NAME_KEY, trimmed); } catch {}
-    setDeviceName(trimmed);
-    setNameSaved(true);
-    setTimeout(() => setNameSaved(false), 2000);
-    fetch(`/api/events/${eventId}/display-devices`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device_id: getOrCreateDeviceId(trimmed), device_name: trimmed }),
-    }).catch(() => {});
-  }, [eventId, deviceName]);
+    if (!trimmed || trimmed === deviceName || !masterDeviceId) return;
+    setNameError(null);
+    try {
+      const res = await fetch(`/api/equipment-devices/${masterDeviceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_name: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setNameError(data.error ?? "名前を変更できませんでした");
+        return;
+      }
+      try { localStorage.setItem(DEVICE_NAME_KEY, data.display_name); } catch {}
+      setDeviceName(data.display_name);
+      setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 2000);
+      // イベント側のキャッシュ名も更新（親機一覧の即時反映用）
+      fetch(`/api/events/${eventId}/display-devices`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_id: masterDeviceId, device_name: data.display_name }),
+      }).catch(() => {});
+    } catch {
+      setNameError("名前を変更できませんでした");
+    }
+  }, [eventId, deviceName, masterDeviceId]);
 
   // 子機は終日QRを表示し続ける用途のため、OSの画面タイムアウト設定に依存せず
   // Wake Lock APIで画面消灯を防ぐ。タブが非表示→復帰した際は権限が失われるため再取得する。
@@ -720,8 +773,11 @@ export function QRBoardDisplay({
 
   // Supabase Realtime
   useEffect(() => {
+    // 機材IDが確定するまで購読しない（presenceキーが仮IDのまま登録されて
+    // 親機に幽霊デバイスとして見えるのを防ぐ）
+    if (!masterDeviceId) return;
     const supabase = createClient();
-    const deviceId = getOrCreateDeviceId(deviceName);
+    const deviceId = masterDeviceId;
 
     const channel = supabase.channel(`event-display:${eventId}`, {
       config: { presence: { key: deviceId } },
@@ -831,7 +887,7 @@ export function QRBoardDisplay({
       }
       supabase.removeChannel(channel);
     };
-  }, [eventId, deviceName, onCheerNew, registerDevice, fetchSchedules, applySchedule, applyGroup, clearGroupReturnTimer]);
+  }, [eventId, deviceName, masterDeviceId, onCheerNew, registerDevice, fetchSchedules, applySchedule, applyGroup, clearGroupReturnTimer]);
 
   // 長押し検出（3秒でロック解除モーダル表示）
   const HOLD_DURATION = 3000;
@@ -1160,6 +1216,7 @@ export function QRBoardDisplay({
                   </button>
                 </div>
                 {nameSaved && <p className="text-xs text-emerald-400 font-bold">保存しました</p>}
+                {nameError && <p className="text-xs text-red-400 font-bold">{nameError}</p>}
               </div>
 
               <PasskeySetup

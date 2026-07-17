@@ -85,12 +85,35 @@ type DisplayDeviceRecord = {
   last_seen_at: string;
 };
 
+// 機材マスタ（イベント横断）。device_idは不変で、名前変更は表示名の更新のみ
+type EquipmentDevice = {
+  device_id: string;
+  display_name: string;
+  last_seen_at: string | null;
+  owner: { display_name: string } | null;
+};
+
+// タブレットホルダー（NFCタグはホルダーに貼る）。current_device_idで機材と紐づく。
+// 機材なしのホルダーはNFC単体設置として使い、current_qr_config_idを手動指定する
+type BoothHolder = {
+  holder_id: string;
+  name: string;
+  nfc_routing_id: string | null;
+  current_device_id: string | null;
+  current_qr_config_id: string | null;
+  device: { device_id: string; display_name: string } | null;
+  event: { title: string } | null;
+  qr_config: { label: string | null } | null;
+};
+
 type MergedDevice = {
   device_id: string;
   device_name: string;
   battery_level: number | null;
   online: boolean;
   track_id: string | null;
+  /** 機材マスタ登録済みか（falseは旧・名前ハッシュID時代の残骸エントリ） */
+  in_master: boolean;
 };
 
 // スロット・トラックデフォルトの選択UIは「単体QR」と「グループ」を同格の1つの<select>で
@@ -148,10 +171,18 @@ export function QRControlPanel({
   const [savingTrack, setSavingTrack] = useState(false);
   const [trackError, setTrackError] = useState<string | null>(null);
 
-  // ── NFCタグ⇔子機 ペアリング ────────────────────────
-  const [nfcRoutingMap, setNfcRoutingMap] = useState<Record<string, string | null>>({});
-  const [nfcInputs, setNfcInputs] = useState<Record<string, string>>({});
-  const [nfcSaving, setNfcSaving] = useState<Record<string, boolean>>({});
+  // ── 機材マスタ・ホルダー ────────────────────────
+  const [equipment, setEquipment] = useState<EquipmentDevice[]>([]);
+  const [holders, setHolders] = useState<BoothHolder[]>([]);
+  const [renamingDeviceId, setRenamingDeviceId] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [newHolderName, setNewHolderName] = useState("");
+  const [newHolderNfc, setNewHolderNfc] = useState("");
+  const [holderSaving, setHolderSaving] = useState(false);
+  const [holderError, setHolderError] = useState<string | null>(null);
+  const [holderNfcInputs, setHolderNfcInputs] = useState<Record<string, string>>({});
 
   // ── Timetable tab ─────────────────────────────────
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
@@ -273,25 +304,29 @@ export function QRControlPanel({
     } catch {}
   }, [eventId]);
 
-  // NFCタグ⇔子機 ペアリング一覧取得
-  const fetchBoothDevices = useCallback(async () => {
+  // 機材マスタ一覧取得（イベント横断）
+  const fetchEquipment = useCallback(async () => {
     try {
-      const res = await fetch("/api/booth-devices");
-      if (res.ok) {
-        const data: { device_code: string; nfc_routing_id: string | null }[] = await res.json();
-        const map: Record<string, string | null> = {};
-        for (const d of data) map[d.device_code] = d.nfc_routing_id;
-        setNfcRoutingMap(map);
-      }
+      const res = await fetch("/api/equipment-devices");
+      if (res.ok) setEquipment(await res.json());
+    } catch {}
+  }, []);
+
+  // ホルダー一覧取得（NFCタグ⇔機材の紐付け）
+  const fetchHolders = useCallback(async () => {
+    try {
+      const res = await fetch("/api/booth-holders");
+      if (res.ok) setHolders(await res.json());
     } catch {}
   }, []);
 
   useEffect(() => {
     fetchTracks();
     fetchDbDevices();
-    fetchBoothDevices();
+    fetchEquipment();
+    fetchHolders();
     fetchQrGroups();
-  }, [fetchTracks, fetchDbDevices, fetchBoothDevices, fetchQrGroups]);
+  }, [fetchTracks, fetchDbDevices, fetchEquipment, fetchHolders, fetchQrGroups]);
 
   // 全体表（overview）用：全トラックのスケジュールを一括取得
   const fetchAllSchedules = useCallback(async () => {
@@ -311,30 +346,41 @@ export function QRControlPanel({
     }
   }, [tab, fetchTracks, fetchAllSchedules]);
 
-  // presence（オンライン）と DB登録済みデバイスをマージ
+  // 機材マスタ・イベント登録（DB）・presence（オンライン）をマージ。
+  // 表示名は機材マスタを正とする（名前変更してもIDが不変なので二重表示は起きない）。
+  // マスタに無いdevice_idの行は旧・名前ハッシュID時代の残骸（削除可能として表示）。
   const mergedDevices = useMemo<MergedDevice[]>(() => {
+    const masterById = new Map(equipment.map(e => [e.device_id, e]));
     const map = new Map<string, MergedDevice>();
     for (const d of dbDevices) {
+      const master = masterById.get(d.device_id);
       map.set(d.device_id, {
         device_id: d.device_id,
-        device_name: d.device_name || d.device_id.slice(0, 8),
+        device_name: master?.display_name || d.device_name || d.device_id.slice(0, 8),
         battery_level: null,
         online: false,
         track_id: d.track_id,
+        in_master: !!master,
       });
     }
     for (const d of devices) {
       const existing = map.get(d.device_id);
+      const master = masterById.get(d.device_id);
       map.set(d.device_id, {
         device_id: d.device_id,
-        device_name: d.device_name || existing?.device_name || d.device_id.slice(0, 8),
+        device_name: master?.display_name || d.device_name || existing?.device_name || d.device_id.slice(0, 8),
         battery_level: d.battery_level,
         online: true,
         track_id: existing?.track_id ?? null,
+        in_master: !!master,
       });
     }
-    return Array.from(map.values());
-  }, [dbDevices, devices]);
+    // マスタ優先 → 残骸は後ろ、同グループ内は名前順
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.in_master !== b.in_master) return a.in_master ? -1 : 1;
+      return a.device_name.localeCompare(b.device_name, "ja");
+    });
+  }, [dbDevices, devices, equipment]);
 
   // QRをプッシュ（強制モード・単一QR）
   const pushQR = useCallback(async (config: QRConfig) => {
@@ -539,23 +585,84 @@ export function QRControlPanel({
     }
   }, [eventId]);
 
-  // NFCタグの紐付け保存（device_code = device_name）
-  const saveNfc = useCallback(async (deviceCode: string) => {
-    const value = (nfcInputs[deviceCode] ?? nfcRoutingMap[deviceCode] ?? "").trim();
-    setNfcSaving(prev => ({ ...prev, [deviceCode]: true }));
+  // 機材名の変更（マスタの表示名を更新。IDは不変なので子機・全イベントに波及する）
+  const renameEquipment = useCallback(async (deviceId: string) => {
+    const trimmed = renameInput.trim();
+    if (!trimmed) return;
+    setRenameSaving(true);
+    setRenameError(null);
     try {
-      const res = await fetch("/api/booth-devices", {
+      const res = await fetch(`/api/equipment-devices/${deviceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_name: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setRenameError(data.error ?? "名前を変更できませんでした");
+        return;
+      }
+      setEquipment(prev => prev.map(e => e.device_id === deviceId ? { ...e, display_name: data.display_name } : e));
+      setHolders(prev => prev.map(h => h.current_device_id === deviceId && h.device
+        ? { ...h, device: { ...h.device, display_name: data.display_name } }
+        : h));
+      setRenamingDeviceId(null);
+    } catch (e) {
+      setRenameError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRenameSaving(false);
+    }
+  }, [renameInput]);
+
+  // ホルダー新規作成
+  const addHolder = useCallback(async () => {
+    const name = newHolderName.trim();
+    if (!name) return;
+    setHolderSaving(true);
+    setHolderError(null);
+    try {
+      const res = await fetch("/api/booth-holders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ device_code: deviceCode, nfc_routing_id: value || null }),
+        body: JSON.stringify({ name, nfc_routing_id: newHolderNfc.trim() || null }),
       });
-      if (res.ok) {
-        setNfcRoutingMap(prev => ({ ...prev, [deviceCode]: value || null }));
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "ホルダーを作成できませんでした");
+      setNewHolderName("");
+      setNewHolderNfc("");
+      await fetchHolders();
+    } catch (e) {
+      setHolderError(e instanceof Error ? e.message : String(e));
     } finally {
-      setNfcSaving(prev => ({ ...prev, [deviceCode]: false }));
+      setHolderSaving(false);
     }
-  }, [nfcInputs, nfcRoutingMap]);
+  }, [newHolderName, newHolderNfc, fetchHolders]);
+
+  // ホルダーの更新（載せる機材の付け替え・NFCタグ変更・NFC単体設置時の表示先手動指定）
+  const patchHolder = useCallback(async (holderId: string, patch: { current_device_id?: string | null; nfc_routing_id?: string | null; current_qr_config_id?: string | null }) => {
+    setHolderError(null);
+    try {
+      const res = await fetch(`/api/booth-holders/${holderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "ホルダーを更新できませんでした");
+      await fetchHolders();
+    } catch (e) {
+      setHolderError(e instanceof Error ? e.message : String(e));
+    }
+  }, [fetchHolders]);
+
+  // ホルダー削除
+  const deleteHolder = useCallback(async (holderId: string) => {
+    if (!confirm("このホルダーを削除しますか？（NFCタグの紐付けも解除されます）")) return;
+    try {
+      await fetch(`/api/booth-holders/${holderId}`, { method: "DELETE" });
+      setHolders(prev => prev.filter(h => h.holder_id !== holderId));
+    } catch {}
+  }, []);
 
   // トラック追加
   const addTrack = async () => {
@@ -768,15 +875,55 @@ export function QRControlPanel({
               <p className="text-xs text-slate-600 italic font-bold">子機が接続されていません</p>
             ) : (
               <div className="space-y-2">
-                {mergedDevices.map((d) => {
-                  const nfcValue = nfcInputs[d.device_name] ?? nfcRoutingMap[d.device_name] ?? "";
-                  const nfcDirty = nfcValue !== (nfcRoutingMap[d.device_name] ?? "");
-                  return (
+                {mergedDevices.map((d) => (
                   <div key={d.device_id} className="bg-slate-800/50 rounded-xl px-4 py-3 space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <div className={`w-2 h-2 rounded-full shrink-0 ${d.online ? "bg-green-400 animate-pulse" : "bg-slate-600"}`} />
-                        <span className="text-sm font-bold text-slate-200 truncate">{d.device_name}</span>
+                        {renamingDeviceId === d.device_id ? (
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            <input
+                              type="text"
+                              value={renameInput}
+                              onChange={e => setRenameInput(e.target.value)}
+                              className="flex-1 min-w-0 bg-slate-900 border border-indigo-500/50 rounded-lg px-2 py-1 text-sm font-bold text-slate-200 focus:outline-none focus:border-indigo-400"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => renameEquipment(d.device_id)}
+                              disabled={renameSaving || !renameInput.trim()}
+                              className="p-1.5 text-indigo-300 hover:text-indigo-200 disabled:opacity-40 shrink-0"
+                              title="名前を保存"
+                            >
+                              {renameSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setRenamingDeviceId(null); setRenameError(null); }}
+                              className="p-1.5 text-slate-500 hover:text-slate-300 shrink-0"
+                              title="キャンセル"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-sm font-bold text-slate-200 truncate">{d.device_name}</span>
+                            {d.in_master ? (
+                              <button
+                                type="button"
+                                onClick={() => { setRenamingDeviceId(d.device_id); setRenameInput(d.device_name); setRenameError(null); }}
+                                className="p-1 text-slate-500 hover:text-indigo-300 transition-colors shrink-0"
+                                title="機材名を変更"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                            ) : (
+                              <span className="text-[9px] font-black text-amber-500/80 uppercase tracking-widest shrink-0">旧ID</span>
+                            )}
+                          </>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {d.online && (
@@ -809,30 +956,131 @@ export function QRControlPanel({
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
-                      <Nfc size={13} className="text-slate-500 shrink-0" />
-                      <input
-                        type="text"
-                        value={nfcValue}
-                        onChange={e => setNfcInputs(prev => ({ ...prev, [d.device_name]: e.target.value }))}
-                        placeholder="NFCタグID（例: nfc_001）"
-                        className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => saveNfc(d.device_name)}
-                        disabled={nfcSaving[d.device_name] || !nfcDirty}
-                        className="flex items-center gap-1 px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-xs font-bold text-indigo-300 hover:bg-indigo-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-                      >
-                        {nfcSaving[d.device_name] ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                        保存
-                      </button>
-                    </div>
+                    {renamingDeviceId === d.device_id && renameError && (
+                      <p className="text-xs text-red-400 font-bold">{renameError}</p>
+                    )}
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ホルダー管理（NFCタグ⇔機材の紐付け） */}
+          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Nfc size={12} className="text-slate-500" />
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                タブレットホルダー ({holders.length})
+              </p>
+            </div>
+            <p className="text-[10px] text-slate-600 leading-relaxed">
+              NFCタグはホルダーに貼り、ホルダーに「今載せている機材」を割り当てます。タブレットを載せ替えたらここで機材を切り替えてください。
+              機材なしのホルダーはNFCタグ単体の設置として使え、表示先QRを直接指定できます。
+            </p>
+            {holders.length > 0 && (
+              <div className="space-y-2">
+                {holders.map((h) => {
+                  const nfcValue = holderNfcInputs[h.holder_id] ?? h.nfc_routing_id ?? "";
+                  const nfcDirty = nfcValue.trim() !== (h.nfc_routing_id ?? "");
+                  return (
+                    <div key={h.holder_id} className="bg-slate-800/50 rounded-xl px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-slate-200 truncate">{h.name}</p>
+                          {h.qr_config?.label && (
+                            <p className="text-[10px] text-slate-500 truncate">表示中: {h.qr_config.label}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <select
+                            value={h.current_device_id ?? ""}
+                            onChange={e => patchHolder(h.holder_id, { current_device_id: e.target.value || null })}
+                            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 max-w-[10rem]"
+                          >
+                            <option value="">機材なし</option>
+                            {equipment.map(eq => (
+                              <option key={eq.device_id} value={eq.device_id}>{eq.display_name}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => deleteHolder(h.holder_id)}
+                            className="text-slate-600 hover:text-red-400 transition-colors shrink-0 p-1"
+                            title="このホルダーを削除"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
+                        <Nfc size={13} className="text-slate-500 shrink-0" />
+                        <input
+                          type="text"
+                          value={nfcValue}
+                          onChange={e => setHolderNfcInputs(prev => ({ ...prev, [h.holder_id]: e.target.value }))}
+                          placeholder="NFCタグID（例: nfc_001）"
+                          className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => patchHolder(h.holder_id, { nfc_routing_id: nfcValue.trim() || null })}
+                          disabled={!nfcDirty}
+                          className="flex items-center gap-1 px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-xs font-bold text-indigo-300 hover:bg-indigo-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                        >
+                          <Save size={12} />
+                          保存
+                        </button>
+                      </div>
+                      {/* NFC単体設置（機材なし）: 表示先QRを手動指定。機材が載っている間は子機の表示に自動追従 */}
+                      {!h.current_device_id && (
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
+                          <Send size={13} className="text-slate-500 shrink-0" />
+                          <select
+                            value={h.current_qr_config_id ?? ""}
+                            onChange={e => patchHolder(h.holder_id, { current_qr_config_id: e.target.value || null })}
+                            className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                          >
+                            <option value="">表示先QRを指定（NFC単体設置用）</option>
+                            {qrConfigs.map(qc => (
+                              <option key={qc.qr_config_id} value={qc.qr_config_id}>
+                                {qc.label || qc.product?.name || qc.qr_config_id.slice(0, 8)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
             )}
+            {/* ホルダー追加 */}
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="text"
+                value={newHolderName}
+                onChange={e => setNewHolderName(e.target.value)}
+                placeholder="ホルダー名（例: ホルダーA）"
+                className="flex-1 min-w-0 bg-slate-950/50 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              />
+              <input
+                type="text"
+                value={newHolderNfc}
+                onChange={e => setNewHolderNfc(e.target.value)}
+                placeholder="NFCタグID（任意）"
+                className="flex-1 min-w-0 bg-slate-950/50 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                type="button"
+                onClick={addHolder}
+                disabled={holderSaving || !newHolderName.trim()}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-xs font-bold text-indigo-300 hover:bg-indigo-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              >
+                {holderSaving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                追加
+              </button>
+            </div>
+            {holderError && <p className="text-xs text-red-400 font-bold">{holderError}</p>}
           </div>
 
           {/* 手動配信 */}

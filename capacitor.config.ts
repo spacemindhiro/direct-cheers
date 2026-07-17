@@ -6,14 +6,18 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // @capgo/capacitor-stripe-terminal 経由で追加する。
 // このconfigに対応する `android/` ネイティブプロジェクトの生成（`npx cap add android`）・
 // ビルド・署名・実機インストールは対象外（別途Android Studio環境で行う）。
+// 実機テスト時はローカル開発サーバーへ向けられる:
+//   NEXT_PUBLIC_SITE_URL=http://<MacのLAN IP>:3000 npx cap sync android
+const serverUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com";
+
 const config: CapacitorConfig = {
   appId: "com.directcheers.touchpay",
   appName: "Direct Cheers タッチ決済",
   webDir: "public",
   server: {
     // 本番のNext.jsアプリをそのままWebViewで開く（静的バンドルは持たない）
-    url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com",
-    cleartext: false,
+    url: serverUrl,
+    cleartext: serverUrl.startsWith("http://"),
   },
 };
 

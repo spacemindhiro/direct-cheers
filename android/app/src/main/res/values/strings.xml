@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Direct Cheers タッチ決済</string>
+    <string name="title_activity_main">Direct Cheers タッチ決済</string>
+    <string name="package_name">com.directcheers.touchpay</string>
+    <string name="custom_url_scheme">com.directcheers.touchpay</string>
+</resources>

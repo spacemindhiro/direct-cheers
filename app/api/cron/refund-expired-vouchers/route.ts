@@ -27,40 +27,25 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   const now = new Date();
 
-  // バウチャー商品ID一覧を取得
-  const { data: voucherProducts } = await admin
-    .from("products")
-    .select("product_id")
-    .eq("type", "custom")
-    .eq("payment_type", "V");
-
-  const voucherProductIds = (voucherProducts ?? []).map((p: any) => p.product_id as string);
-
-  if (voucherProductIds.length === 0) {
-    console.log("[refund-expired-vouchers] バウチャー商品なし");
-    return NextResponse.json({ success: true, processed: 0, refunded: 0, failed: 0 });
-  }
-
-  // 終了済みイベントID一覧を取得
-  const { data: endedEvents } = await admin
-    .from("events")
-    .select("event_id")
-    .lt("end_at", now.toISOString());
-
-  const endedEventIds = (endedEvents ?? []).map((e: any) => e.event_id as string);
-
-  if (endedEventIds.length === 0) {
-    console.log("[refund-expired-vouchers] 終了済みイベントなし");
-    return NextResponse.json({ success: true, processed: 0, refunded: 0, failed: 0 });
-  }
-
-  // 未消込バウチャーチケットを取得
+  // 未消込バウチャーチケットを取得。
+  // かつては「全バウチャー商品ID」「全終了済みイベントID」を先に取得して .in() で
+  // 渡していたが、IDリストがURLクエリに展開されるため、イベント・商品の蓄積に伴い
+  // 「URI too long」で恒常的に500になる時限爆弾だった（cron/reconcileの
+  // PostgREST 1000件上限バグと同族）。!inner JOINの1クエリに書き換え、
+  // URLサイズをデータ量から独立させる。
+  // ※PostgRESTのデフォルト上限により1回の実行で処理するのは最大1000件。
+  //   毎時実行のため、超過分は次回以降のcronで順次処理される。
   const { data: expiredVouchers, error: fetchErr } = await admin
     .from("tickets")
-    .select("ticket_id, transaction_id, event_id, product_id")
+    .select(`
+      ticket_id, transaction_id, event_id, product_id,
+      product:products!product_id!inner(type, payment_type),
+      event:events!event_id!inner(end_at)
+    `)
     .eq("status", "valid")
-    .in("product_id", voucherProductIds)
-    .in("event_id", endedEventIds);
+    .eq("product.type", "custom")
+    .eq("product.payment_type", "V")
+    .lt("event.end_at", now.toISOString());
 
   if (fetchErr) {
     console.error("[refund-expired-vouchers] fetch error:", fetchErr.message);

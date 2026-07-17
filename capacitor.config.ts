@@ -19,6 +19,15 @@ const config: CapacitorConfig = {
     url: serverUrl,
     cleartext: serverUrl.startsWith("http://"),
   },
+  plugins: {
+    SystemBars: {
+      // インセット処理はMainActivity側で行う（サイトがviewport-fit=cover宣言のみで
+      // safe-area CSS対応を持たないため、標準のパススルーだとヘッダがステータスバーと重なる）
+      insetsHandling: "disable",
+      // サイトはダーク基調のためシステムバーのアイコンを白にする
+      style: "DARK",
+    },
+  },
 };
 
 export default config;

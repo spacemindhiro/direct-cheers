@@ -50,16 +50,16 @@ async function QRDetailContent({
 
   if (!event) notFound();
 
+  // adminは担当agentかどうかに関わらず編集可（作成API・RLSポリシーと同じ扱い）
+  const isAdmin = profile?.role === "admin";
   const isOrganizer = event.organizer_profile_id === user.id;
-  const isAgent =
-    (profile?.role === "agent" || profile?.role === "admin") &&
-    event.agent_id === user.id;
+  const isAgent = profile?.role === "agent" && event.agent_id === user.id;
   // ロールではなく「このイベントの出演者として招待されているか」で判定
   const isLineupArtist = (event.event_artists ?? []).some(
     (ea: any) => ea.artist_profile_id === user.id && ea.deleted_at === null && ea.status !== "rejected"
   );
   const isRecipient = qr.recipient_profile_id === user.id;
-  const canEdit = isOrganizer || isAgent;
+  const canEdit = isAdmin || isOrganizer || isAgent;
 
   // 配分対象候補: オーガナイザー + 出演依頼済みアーティスト（rejected/deleted以外）
   // 表示名・画像は名義（organizer_name/artist_name、organizer_avatar_url/artist_avatar_url）
@@ -109,17 +109,19 @@ async function QRDetailContent({
   let isVoucher = false; // custom かつ payment_type='V' のとき true
   let productInfo: {
     typeLabel: string;
+    name: string;
     isRange: boolean;
     minAmount: number;
     maxAmount: number;
     paymentType: "A" | "B" | "C" | "V" | null;
     stockLimit: number | null;
     trackInventory: boolean;
+    soldCount: number;
   } | null = null;
   if (productId && event) {
     const { data: product } = await adminClient
       .from("products")
-      .select("type, payment_type, sales_start_at, sales_end_at, name, min_amount, max_amount, stock_limit, track_inventory")
+      .select("type, payment_type, sales_start_at, sales_end_at, name, min_amount, max_amount, stock_limit, track_inventory, sold_count")
       .eq("product_id", productId)
       .single();
     if (product) {
@@ -135,12 +137,14 @@ async function QRDetailContent({
       }
       productInfo = {
         typeLabel: ({ standard: "スタンダード", message: "メッセージ", entrance: "エントランス", custom: "カスタム（バウチャー）" } as Record<string, string>)[product.type as string] ?? (product.type as string),
+        name: product.name ?? "",
         isRange: (product.min_amount ?? 0) !== (product.max_amount ?? 0),
         minAmount: product.min_amount ?? 0,
         maxAmount: product.max_amount ?? 0,
         paymentType: (isEntrance || isVoucher) ? (product.payment_type as "A" | "B" | "C" | "V" | null) : null,
         stockLimit: product.stock_limit ?? null,
         trackInventory: product.track_inventory ?? true,
+        soldCount: product.sold_count ?? 0,
       };
     }
   }
@@ -275,12 +279,14 @@ async function QRDetailContent({
           currentDefaultAmount={(qr as any).default_amount ?? productInfo?.minAmount ?? 0}
           currentTouchpayEnabled={(qr as any).touchpay_enabled ?? false}
           productTypeLabel={productInfo?.typeLabel ?? ""}
+          productName={productInfo?.name ?? ""}
           isRange={productInfo?.isRange ?? false}
           minAmount={productInfo?.minAmount ?? 0}
           maxAmount={productInfo?.maxAmount ?? 0}
           paymentType={productInfo?.paymentType ?? null}
           stockLimit={productInfo?.stockLimit ?? null}
           trackInventory={productInfo?.trackInventory ?? true}
+          soldCount={productInfo?.soldCount ?? 0}
           serialScopeLabel={serialScopeLabel}
           serialScopeInherited={serialScopeInherited}
         />

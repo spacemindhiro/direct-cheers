@@ -17,15 +17,20 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // target_email が設定されている場合、ログイン中ユーザーのメールと一致するか確認
+  // 宛先が指定されている場合、ログイン中ユーザーが本人か確認
   const admin = createAdminClient();
   const { data: invitation } = await admin
     .from("invitations")
-    .select("target_email")
+    .select("target_email, target_profile_id")
     .eq("token", token)
     .single();
 
-  if (invitation?.target_email && invitation.target_email !== user.email) {
+  if (invitation?.target_profile_id) {
+    // 指名招待は本人のみ受諾可（メール変更後も profile_id 一致で受諾できる）
+    if (invitation.target_profile_id !== user.id) {
+      return NextResponse.json({ error: "wrong_recipient" }, { status: 403 });
+    }
+  } else if (invitation?.target_email && invitation.target_email !== user.email) {
     return NextResponse.json({ error: "email_mismatch" }, { status: 403 });
   }
 
@@ -43,6 +48,7 @@ export async function POST(
     const statusMap: Record<string, number> = {
       invalid_token: 404,
       self_accept: 400,
+      wrong_recipient: 403,
     };
     return NextResponse.json(
       { error: data.error },

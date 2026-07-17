@@ -38,9 +38,11 @@ async function InviteContent({
       invitation_id,
       target_role,
       target_email,
+      target_profile_id,
       status,
       expires_at,
-      invited_by:profiles!invited_by_profile_id ( display_name )
+      invited_by:profiles!invited_by_profile_id ( display_name ),
+      target_profile:profiles!target_profile_id ( display_name )
     `,
     )
     .eq("token", token)
@@ -72,6 +74,9 @@ async function InviteContent({
   }
 
   const inviterName = (invitation.invited_by as any)?.display_name ?? "Unknown";
+  const targetName =
+    (invitation.target_profile as unknown as { display_name: string | null } | null)
+      ?.display_name ?? null;
   const roleLabel = ROLE_LABELS[invitation.target_role] ?? invitation.target_role;
   const expiresAt = fmtDate(invitation.expires_at);
 
@@ -126,7 +131,19 @@ async function InviteContent({
               </div>
             </div>
 
-            {invitation.target_email && (
+            {targetName ? (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                  <Mail size={20} className="text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    宛先
+                  </p>
+                  <p className="text-white font-bold">{targetName}さん</p>
+                </div>
+              </div>
+            ) : invitation.target_email ? (
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                   <Mail size={20} className="text-emerald-400" />
@@ -138,7 +155,7 @@ async function InviteContent({
                   <p className="text-white font-bold">{invitation.target_email}</p>
                 </div>
               </div>
-            )}
+            ) : null}
 
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center">
@@ -158,7 +175,11 @@ async function InviteContent({
               <div className="h-16 bg-slate-900 border border-slate-800 rounded-2xl animate-pulse" />
             }
           >
-            <InviteAcceptSection token={token} targetEmail={invitation.target_email ?? undefined} />
+            <InviteAcceptSection
+              token={token}
+              targetEmail={invitation.target_email ?? undefined}
+              targetProfileId={invitation.target_profile_id ?? undefined}
+            />
           </Suspense>
         </div>
       </div>

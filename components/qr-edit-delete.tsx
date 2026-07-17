@@ -42,12 +42,14 @@ export function QREditDelete({
   currentDefaultAmount,
   currentTouchpayEnabled = false,
   productTypeLabel = "",
+  productName = "",
   isRange = false,
   minAmount = 0,
   maxAmount = 0,
   paymentType = null,
   stockLimit = null,
   trackInventory = true,
+  soldCount = 0,
   serialScopeLabel = "イベント通し",
   serialScopeInherited = false,
 }: {
@@ -73,12 +75,14 @@ export function QREditDelete({
   currentDefaultAmount?: number;
   currentTouchpayEnabled?: boolean;
   productTypeLabel?: string;
+  productName?: string;
   isRange?: boolean;
   minAmount?: number;
   maxAmount?: number;
   paymentType?: "A" | "B" | "C" | "V" | null;
   stockLimit?: number | null;
   trackInventory?: boolean;
+  soldCount?: number;
   serialScopeLabel?: string;
   serialScopeInherited?: boolean;
 }) {
@@ -100,6 +104,14 @@ export function QREditDelete({
   const [amountStep, setAmountStep] = useState<100 | 500 | 1000>(currentAmountStep);
   const [defaultAmount, setDefaultAmount] = useState(currentDefaultAmount ?? minAmount);
   const [touchpayEnabled, setTouchpayEnabled] = useState(currentTouchpayEnabled);
+
+  // 商品項目（商品情報があるQRのみ編集可）
+  const [prodName, setProdName] = useState(productName);
+  const [editMin, setEditMin] = useState(String(minAmount));
+  const [editMax, setEditMax] = useState(String(maxAmount));
+  const [editFixed, setEditFixed] = useState(String(minAmount));
+  const [editStock, setEditStock] = useState(stockLimit != null ? String(stockLimit) : "");
+  const [editTrackInv, setEditTrackInv] = useState(trackInventory);
 
   // 対面タッチ決済（Case④）: エントランスCタイプ、またはバウチャー×金額固定のみ対象
   const touchpayEligible = (isEntrance && paymentType === "C") || (isVoucher && !isRange);
@@ -145,6 +157,40 @@ export function QREditDelete({
       setError("配分比率の合計を100%にしてください");
       return;
     }
+    // 商品項目のバリデーション
+    let newMin = minAmount;
+    let newMax = maxAmount;
+    if (productTypeLabel) {
+      if (!prodName.trim()) {
+        setError("商品名を入力してください");
+        return;
+      }
+      if (isRange) {
+        newMin = parseInt(editMin, 10);
+        newMax = parseInt(editMax, 10);
+      } else {
+        newMin = newMax = parseInt(editFixed, 10);
+      }
+      if (!Number.isInteger(newMin) || !Number.isInteger(newMax) || newMin <= 0) {
+        setError("金額を正しく入力してください");
+        return;
+      }
+      if (newMin > newMax) {
+        setError("最低金額が最高金額を上回っています");
+        return;
+      }
+      if ((isEntrance || isVoucher) && editStock.trim() !== "") {
+        const stock = parseInt(editStock, 10);
+        if (!Number.isInteger(stock) || stock < 1) {
+          setError("在庫上限を正しく入力してください");
+          return;
+        }
+        if (stock < soldCount) {
+          setError(`在庫上限は販売済み数（${soldCount}件）以上にしてください`);
+          return;
+        }
+      }
+    }
     setError(null);
     startTransition(async () => {
       const body: Record<string, unknown> = {
@@ -166,9 +212,19 @@ export function QREditDelete({
       } else {
         body.image_url = imageUrl;
         body.amount_step = amountStep;
-        if (isRange) body.default_amount = defaultAmount;
+        // レンジが変わった場合はデフォルト金額を新しい範囲内にクランプして送る
+        if (isRange) body.default_amount = Math.min(Math.max(defaultAmount, newMin), newMax);
       }
       if (touchpayEligible) body.touchpay_enabled = touchpayEnabled;
+      if (productTypeLabel) {
+        body.product_name = prodName.trim();
+        body.min_amount = newMin;
+        body.max_amount = newMax;
+        if (isEntrance || isVoucher) {
+          body.stock_limit = editStock.trim() === "" ? null : parseInt(editStock, 10);
+        }
+        if (isEntrance) body.track_inventory = editTrackInv;
+      }
 
       const res = await fetch(`/api/qr/${qrConfigId}`, {
         method: "PATCH",
@@ -197,6 +253,12 @@ export function QREditDelete({
     setRecipientRole(currentRecipientRole);
     setDefaultAmount(currentDefaultAmount ?? minAmount);
     setTouchpayEnabled(currentTouchpayEnabled);
+    setProdName(productName);
+    setEditMin(String(minAmount));
+    setEditMax(String(maxAmount));
+    setEditFixed(String(minAmount));
+    setEditStock(stockLimit != null ? String(stockLimit) : "");
+    setEditTrackInv(trackInventory);
     setTargets(
       currentTargets.map((t) => ({
         profile_id: t.profile_id,
@@ -256,6 +318,102 @@ export function QREditDelete({
               className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
+
+          {/* 商品名 */}
+          {productTypeLabel && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                商品名 <span className="text-pink-500">*</span>
+              </label>
+              <Input
+                value={prodName}
+                onChange={(e) => setProdName(e.target.value)}
+                placeholder="例: 前売りチケット / 会場ドリンク"
+                className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+              <p className="text-[10px] text-slate-600">購入ページやWalletチケットに表示される名前です</p>
+            </div>
+          )}
+
+          {/* 金額設定 */}
+          {productTypeLabel && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">金額設定</label>
+              {isRange ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "最低金額", value: editMin, onChange: setEditMin },
+                    { label: "最高金額", value: editMax, onChange: setEditMax },
+                  ].map(({ label: amtLabel, value, onChange }) => (
+                    <div key={amtLabel} className="space-y-1.5">
+                      <p className="text-[10px] text-slate-500">{amtLabel}</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-500 text-sm font-bold">¥</span>
+                        <Input
+                          type="number"
+                          value={value}
+                          onChange={(e) => onChange(e.target.value)}
+                          min={1}
+                          className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 text-sm font-bold">¥</span>
+                  <Input
+                    type="number"
+                    value={editFixed}
+                    onChange={(e) => setEditFixed(e.target.value)}
+                    min={1}
+                    className="h-12 w-40 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                  <span className="text-xs text-slate-500 font-bold">固定</span>
+                </div>
+              )}
+              <p className="text-[10px] text-slate-600">変更は今後の決済にのみ適用されます。過去の決済金額は変わりません。</p>
+            </div>
+          )}
+
+          {/* 在庫設定（エントランス・バウチャーのみ） */}
+          {productTypeLabel && (isEntrance || isVoucher) && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">在庫上限</label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  value={editStock}
+                  onChange={(e) => setEditStock(e.target.value)}
+                  min={Math.max(soldCount, 1)}
+                  placeholder="無制限"
+                  className="h-12 w-40 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+                <span className="text-xs text-slate-500 font-bold">件（空欄で無制限）</span>
+              </div>
+              {soldCount > 0 && (
+                <p className="text-[10px] text-slate-600">販売済み {soldCount}件。それ未満には設定できません。</p>
+              )}
+              {isEntrance && (
+                <div className="flex items-center justify-between bg-slate-800/50 rounded-2xl px-4 py-3 mt-2">
+                  <div>
+                    <p className="text-xs font-black text-slate-300">在庫管理</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">OFFにすると在庫上限に関係なく販売を続けます</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={editTrackInv}
+                    onClick={() => setEditTrackInv((v) => !v)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${editTrackInv ? "bg-emerald-500" : "bg-slate-700"}`}
+                  >
+                    <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${editTrackInv ? "translate-x-5" : "translate-x-1"}`} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {(isEntrance || isVoucher) ? (
             <>
@@ -370,8 +528,8 @@ export function QREditDelete({
               </div>
               <input
                 type="range"
-                min={minAmount}
-                max={maxAmount}
+                min={parseInt(editMin, 10) || minAmount}
+                max={parseInt(editMax, 10) || maxAmount}
                 step={amountStep}
                 value={defaultAmount}
                 onChange={(e) => setDefaultAmount(Number(e.target.value))}
@@ -536,6 +694,12 @@ export function QREditDelete({
           {productTypeLabel && (
             <div className="px-4 py-3 bg-slate-800/50 rounded-xl space-y-1.5">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">商品情報</p>
+              {productName && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">商品名</span>
+                  <span className="font-bold text-slate-200">{productName}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-400">タイプ</span>
                 <span className="font-bold text-slate-200">{productTypeLabel}</span>

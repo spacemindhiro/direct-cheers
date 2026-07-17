@@ -17,6 +17,8 @@ import {
   buildStatementDescriptorSuffixes,
   combineDescriptorPreview,
   PLATFORM_PREFIX,
+  PLATFORM_STATIC_DESCRIPTOR,
+  PLATFORM_STATIC_DESCRIPTOR_KANA,
   STATEMENT_DESCRIPTOR_TOTAL_MAX,
 } from "@/lib/statement-descriptor";
 
@@ -511,5 +513,36 @@ describe("TC-SD-07: resolveCheerCardIdentity（仕様マトリクス・厳格一
     });
     expect(name).toBe(recipientDisplayName);
     expect(name).not.toBe("DJ SHOULD NOT BE USED");
+  });
+});
+
+// ── TC-SD-ACCT: 静的statement_descriptor（ウェブサイト名固定） ──────────────
+// JCB加盟店審査は静的表記と登録ウェブサイト名称の文字一致を見るため、
+// 全アカウント固定でウェブサイト名を登録する（2026-07-17指摘対応）。
+describe("TC-SD-ACCT: PLATFORM_STATIC_DESCRIPTOR — 静的表記はウェブサイト名と文字一致", () => {
+  it("ASCII/漢字用の静的表記はウェブサイト名と完全一致する", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR).toBe("Direct Cheers");
+  });
+
+  it("カナ用の静的表記はウェブサイト名の音写カタカナである", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR_KANA).toBe("ダイレクトチアーズ");
+    expect(PLATFORM_STATIC_DESCRIPTOR_KANA).toMatch(/^[ァ-ー]+$/);
+  });
+
+  it("ASCII表記はStripeの文字数制約（5〜22文字）を満たす", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR.length).toBeGreaterThanOrEqual(5);
+    expect(PLATFORM_STATIC_DESCRIPTOR.length).toBeLessThanOrEqual(STATEMENT_DESCRIPTOR_TOTAL_MAX.ascii);
+  });
+
+  it("漢字フィールド流用時も17文字制限を満たす", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR.length).toBeLessThanOrEqual(STATEMENT_DESCRIPTOR_TOTAL_MAX.kanji);
+  });
+
+  it("カナ表記は22文字制限を満たす", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR_KANA.length).toBeLessThanOrEqual(STATEMENT_DESCRIPTOR_TOTAL_MAX.kana);
+  });
+
+  it("禁止文字（< > \\ ' \" *）を含まない", () => {
+    expect(PLATFORM_STATIC_DESCRIPTOR).not.toMatch(/[<>\\'"*]/);
   });
 });

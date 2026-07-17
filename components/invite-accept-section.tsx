@@ -14,15 +14,22 @@ async function checkIsMember(email: string): Promise<boolean> {
 export async function InviteAcceptSection({
   token,
   targetEmail,
+  targetProfileId,
 }: {
   token: string;
   targetEmail?: string;
+  targetProfileId?: string;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    const isMember = targetEmail ? await checkIsMember(targetEmail) : false;
+    // 指名招待の宛先は既存ユーザー確定なのでメンバー判定を省略
+    const isMember = targetProfileId
+      ? true
+      : targetEmail
+        ? await checkIsMember(targetEmail)
+        : false;
     return <InviteLoginPrompt token={token} targetEmail={targetEmail} isMember={isMember} />;
   }
 

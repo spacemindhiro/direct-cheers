@@ -60,7 +60,7 @@ export async function POST(req: Request) {
 
   const { data: qrc } = await admin
     .from("qr_configs")
-    .select("qr_config_id, touchpay_enabled, event:events!event_id(organizer_profile_id, agent_id)")
+    .select("qr_config_id, touchpay_enabled, event:events!event_id(organizer_profile_id, agent_id, venue)")
     .eq("product_id", product_id)
     .is("deleted_at", null)
     .maybeSingle();
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "この商品は対面タッチ決済が許可されていません" }, { status: 400 });
   }
 
-  const eventRow = qrc?.event as unknown as { organizer_profile_id: string | null; agent_id: string | null } | null;
+  const eventRow = qrc?.event as unknown as { organizer_profile_id: string | null; agent_id: string | null; venue: string | null } | null;
 
   let organizerConnectId: string | null = null;
   if (eventRow?.organizer_profile_id) {
@@ -103,6 +103,7 @@ export async function POST(req: Request) {
       product_id,
       qr_config_id: qrc?.qr_config_id ?? "",
       event_id: product.event_id,
+      event_venue: eventRow?.venue ?? "",
       quantity: String(quantity),
       device_name: device_name ?? "",
       staff_profile_id: user.id,

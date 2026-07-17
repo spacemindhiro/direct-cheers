@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   // イベント情報取得
   const { data: event } = await admin
     .from("events")
-    .select("title, start_at")
+    .select("title, start_at, venue")
     .eq("event_id", eventId)
     .single();
 
@@ -115,6 +115,8 @@ export async function POST(req: Request) {
           currency: "jpy",
           product_data: {
             name: `【入場チケット】${(product as any).name} — ${event?.title ?? ""}`,
+            // 実会場への入場券であることをStripe側に明示する
+            ...((event as any)?.venue ? { description: `イベント会場: ${(event as any).venue} への入場チケット` } : {}),
           },
           unit_amount: amount,
         },
@@ -125,9 +127,11 @@ export async function POST(req: Request) {
       metadata: {
         product_id,
         event_id: eventId,
+        event_venue: (event as any)?.venue ?? "",
         payment_type: "B",
         holder_name: holder_name ?? "",
         qr_config_id: effectiveQrConfigId,
+        ticket_channel: "advance_purchase_onsite_admission",
       },
     });
     return NextResponse.json({ type: "B", url: session.url });
@@ -201,9 +205,11 @@ export async function POST(req: Request) {
       metadata: {
         product_id,
         event_id: eventId,
+        event_venue: (event as any)?.venue ?? "",
         payment_type: "A",
         holder_name: holder_name ?? "",
         charge_amount: String(amount),
+        ticket_channel: "advance_reservation_onsite_checkin",
       },
     });
 
@@ -246,9 +252,11 @@ export async function POST(req: Request) {
     metadata: {
       product_id,
       event_id: eventId,
+      event_venue: (event as any)?.venue ?? "",
       payment_type: paymentType,
       holder_name: holder_name ?? "",
       charge_amount: String(amount),
+      ticket_channel: "advance_reservation_onsite_checkin",
     },
   });
 

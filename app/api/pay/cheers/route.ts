@@ -62,7 +62,7 @@ export async function POST(req: Request) {
         product_id,
         event_id,
         recipient_name_context,
-        event:events!event_id(organizer_profile_id),
+        event:events!event_id(organizer_profile_id, title, venue),
         recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii),
         product:products!product_id(min_amount, max_amount, deleted_at)
       `)
@@ -180,6 +180,8 @@ export async function POST(req: Request) {
             name: metadata?.artist_name
               ? `${metadata.artist_name} への応援 / ${metadata.event_title ?? ""}`
               : "Direct Cheers",
+            // 実会場のあるイベント興行での決済であることをStripe側に明示する
+            ...(eventRow?.venue ? { description: `イベント会場: ${eventRow.venue}` } : {}),
           },
           unit_amount: amount,
         },
@@ -195,6 +197,9 @@ export async function POST(req: Request) {
       quantity: String(quantity),
       artist_name: metadata?.artist_name ?? "",
       event_title: metadata?.event_title ?? "",
+      // 会場情報はクライアント申告ではなくDB（events）から取得した値を使う
+      event_id: qrc.event_id ?? "",
+      event_venue: eventRow?.venue ?? "",
       device_name: metadata?.device_name ?? "",
       ...(loggedInEmail ? { sender_email: loggedInEmail } : {}),
     },

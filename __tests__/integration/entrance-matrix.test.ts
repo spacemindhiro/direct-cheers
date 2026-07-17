@@ -84,7 +84,9 @@ let baseEventId: string;
 // 時間境界値テスト用データ（beforeAll で生成）
 const TIME_CASES = [
   { label: "6日1秒前", offsetMs: 6 * 86400_000 + 1_000, expectedIsAuth: false },
-  { label: "5日1秒前", offsetMs: 5 * 86400_000 + 1_000, expectedIsAuth: false },
+  // 5日境界の直上ケース: マージン1秒だとbeforeAllからテスト実行までの経過時間で
+  // 境界を跨ぎis_authが反転する（負荷の高い全体実行で実際に発生した）。5分の余裕を持たせる。
+  { label: "5日5分前", offsetMs: 5 * 86400_000 + 300_000, expectedIsAuth: false },
   // daysUntilEvent <= 5 の境界: ちょうど5日はテスト実行時間の経過で <5日 になるため is_auth=true
   { label: "5日ちょうど", offsetMs: 5 * 86400_000, expectedIsAuth: true },
   { label: "5日-1秒", offsetMs: 5 * 86400_000 - 1_000, expectedIsAuth: true },

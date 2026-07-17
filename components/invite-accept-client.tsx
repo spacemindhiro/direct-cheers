@@ -52,6 +52,7 @@ export function InviteAutoAccept({ token }: { token: string }) {
             invalid_token: "招待リンクが無効または期限切れです。",
             self_accept: "自分が発行した招待リンクは使用できません。",
             email_mismatch: "この招待は別のメールアドレス宛てです。",
+            wrong_recipient: "この招待は別のユーザー宛てです。",
           };
           setError(messages[data.error] ?? "エラーが発生しました。");
         } else {
@@ -96,6 +97,7 @@ export function InviteAcceptButton({ token }: { token: string }) {
           invalid_token: "招待リンクが無効または期限切れです。",
           self_accept: "自分が発行した招待リンクは使用できません。",
           email_mismatch: "この招待は別のメールアドレス宛てです。",
+          wrong_recipient: "この招待は別のユーザー宛てです。",
         };
         setError(messages[data.error] ?? "エラーが発生しました。");
         return;

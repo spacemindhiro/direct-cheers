@@ -28,6 +28,13 @@ const config: CapacitorConfig = {
     // Chromeに奪われてエラーになる不具合の原因だった)ため、許可リストに追加する。
     allowNavigation: ["*.supabase.co"],
   },
+  // WebView内ではパスキー(WebAuthn)が使えない(window.PublicKeyCredentialが
+  // 露出しないプラットフォーム制約。実機のChrome DevToolsで確認済み)。
+  // サーバー側でこのアプリからのリクエストと判定してstep-up/パスキー登録画面を
+  // スキップできるよう、User-Agentに識別子を付与する。
+  android: {
+    appendUserAgent: "DirectCheersTouchpayApp",
+  },
   plugins: {
     SystemBars: {
       // インセット処理はMainActivity側で行う（サイトがviewport-fit=cover宣言のみで

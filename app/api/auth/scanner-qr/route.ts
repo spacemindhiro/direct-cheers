@@ -22,16 +22,24 @@ export async function POST() {
     },
   });
 
-  if (error || !data?.properties?.action_link) {
+  if (error || !data?.properties?.hashed_token) {
     return NextResponse.json({ error: "リンクの生成に失敗しました" }, { status: 500 });
   }
 
   const token = randomBytes(5).toString("base64url"); // 7文字の URL-safe トークン
+  // action_linkにはgenerateLinkが返すSupabase自体のドメイン(/auth/v1/verify)を
+  // 使わず、hashed_tokenから自サイトのtoken_hashフローURLを組み立てる。
+  // action_linkをそのまま使うと、Supabase側のverifyエンドポイントが検証後に
+  // access_token等をURLフラグメント(#access_token=...)で返す実装のため、
+  // フラグメントを読めないサーバー側の/auth/callbackでは処理できずログインが
+  // 常に失敗していた（token_hashフローは既存のメールログインと同じ形式で、
+  // /auth/callbackが元々対応しているクエリパラメータのみで完結する）。
+  const actionLink = `${siteUrl}/auth/callback?token_hash=${data.properties.hashed_token}&type=magiclink&redirect=${encodeURIComponent("/auth/passkey-setup")}`;
   const { error: insertError } = await admin
     .from("scanner_qr_tokens")
     .insert({
       token,
-      action_link: data.properties.action_link,
+      action_link: actionLink,
       created_by: user.id,
     });
 

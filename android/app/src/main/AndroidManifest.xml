@@ -34,12 +34,15 @@
             <!-- スタッフスマホが生成するQRログインURL（App Links）。
                  カメラでスキャンするとブラウザではなくこのアプリで開き、
                  WebView内にログインセッションを確立する。
-                 検証には https://direct-cheers.com/.well-known/assetlinks.json が必要 -->
+                 本番・STG両ドメインを登録する（EnvironmentPickerActivityで
+                 どちらの環境も選べるため）。検証には各ドメインの
+                 /.well-known/assetlinks.json が必要（同一の静的ファイルを配信） -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="direct-cheers.com" android:pathPrefix="/auth/qr/" />
+                <data android:scheme="https" android:host="stg.direct-cheers.com" android:pathPrefix="/auth/qr/" />
             </intent-filter>
 
         </activity>

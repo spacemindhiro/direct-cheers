@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TouchPayClient } from "@/components/touch-pay-client";
+import { resolveTerminalLocationId } from "@/lib/stripe-terminal-location";
 import { Loader2 } from "lucide-react";
 
 async function TouchPayContent({ params }: { params: Promise<{ eventId: string }> }) {
@@ -24,11 +25,17 @@ async function TouchPayContent({ params }: { params: Promise<{ eventId: string }
   const admin = createAdminClient();
   const { data: event } = await admin
     .from("events")
-    .select("event_id, title")
+    .select("event_id, title, venue_id")
     .eq("event_id", eventId)
     .single();
 
   if (!event) notFound();
+
+  // venue_idがあれば会場マスタからLocationを解決（未作成なら遅延作成）、
+  // 無い（venue_id未設定の既存イベント）場合は従来の環境変数にフォールバックする
+  const terminalLocationId = event.venue_id
+    ? await resolveTerminalLocationId(event.venue_id)
+    : process.env.STRIPE_TERMINAL_LOCATION_ID ?? null;
 
   // 対面タッチ決済（Case④）はtouchpay_enabled=trueのQRに紐づく商品のみが対象。
   // 対象になりうるのは entrance×Cタイプ、または custom×バウチャー(V)×金額固定のみ。
@@ -53,7 +60,7 @@ async function TouchPayContent({ params }: { params: Promise<{ eventId: string }
       eventId={event.event_id}
       eventTitle={event.title}
       products={products}
-      terminalLocationId={process.env.STRIPE_TERMINAL_LOCATION_ID ?? null}
+      terminalLocationId={terminalLocationId}
     />
   );
 }

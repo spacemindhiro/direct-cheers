@@ -464,21 +464,21 @@ export function TouchPayClient({
               <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-6 text-center space-y-4">
                 <Bluetooth size={28} className="text-indigo-400 mx-auto" />
                 <p className="text-sm font-black text-white">カードリーダーに接続</p>
-                {readerStatus === "discovering" || readerStatus === "connecting" ? (
-                  updateProgress !== null ? (
-                    <div className="space-y-3">
-                      <p className="text-sm font-black text-white">リーダーを更新しています…{Math.round(updateProgress * 100)}%</p>
-                      <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 transition-all"
-                          style={{ width: `${Math.round(updateProgress * 100)}%` }}
-                        />
-                      </div>
-                      <p className="text-[10px] text-amber-400 font-bold">更新中はリーダーの電源を切らないでください（数分かかります）</p>
+                {/* ファームウェア更新は画面リロード等でreaderStatusがリセットされても
+                    ネイティブ側で継続するため、接続状態に関係なく進捗を最優先で表示する */}
+                {updateProgress !== null ? (
+                  <div className="space-y-3">
+                    <p className="text-sm font-black text-white">リーダーを更新しています…{Math.round(updateProgress * 100)}%</p>
+                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 transition-all"
+                        style={{ width: `${Math.round(updateProgress * 100)}%` }}
+                      />
                     </div>
-                  ) : (
-                    <Loader2 size={24} className="text-indigo-400 animate-spin mx-auto" />
-                  )
+                    <p className="text-[10px] text-amber-400 font-bold">更新中はリーダーの電源を切らないでください（数分かかります）</p>
+                  </div>
+                ) : readerStatus === "discovering" || readerStatus === "connecting" ? (
+                  <Loader2 size={24} className="text-indigo-400 animate-spin mx-auto" />
                 ) : readers.length > 0 ? (
                   <div className="space-y-2">
                     {readers.map((r) => (

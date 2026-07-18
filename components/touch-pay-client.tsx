@@ -74,7 +74,6 @@ export function TouchPayClient({
   const [productId, setProductId] = useState(products[0]?.product_id ?? "");
   const [quantity, setQuantity] = useState(1);
 
-  const listenersRegistered = useRef(false);
   const lastFailureRef = useRef<{ message: string; code?: string; declineCode?: string } | null>(null);
   const abortReasonRef = useRef<"cancel" | "timeout" | null>(null);
   const collectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -95,10 +94,12 @@ export function TouchPayClient({
     setIsNative(native);
     if (!native) return; // ブラウザではStripe Terminal SDKのセットアップ自体を行わない
 
-    if (listenersRegistered.current) return;
-    listenersRegistered.current = true;
+    // リスナーはアンマウント時に必ず解除する。解除しないと画面を出入りするたびに
+    // 二重登録され、RequestedConnectionTokenの2回目のsetConnectionTokenが
+    // 「do not pending fetchConnectionToken」エラーになる等の実害が出る。
+    const subs: Promise<{ remove: () => Promise<void> }>[] = [];
 
-    StripeTerminal.addListener(TerminalEventsEnum.RequestedConnectionToken, async () => {
+    subs.push(StripeTerminal.addListener(TerminalEventsEnum.RequestedConnectionToken, async () => {
       try {
         const res = await fetch("/api/entrance/terminal/connection-token", { method: "POST" });
         const data = await res.json();
@@ -106,30 +107,30 @@ export function TouchPayClient({
       } catch {
         setReaderError("接続トークンの取得に失敗しました");
       }
-    });
+    }));
 
     // collectPaymentMethod()/confirmPaymentIntent()の失敗時に詳細（declineCode等）を
     // 運んでくるイベント。Promiseのreject自体には詳細が乗らないため、ここで拾っておく。
-    StripeTerminal.addListener(TerminalEventsEnum.Failed, (info) => {
+    subs.push(StripeTerminal.addListener(TerminalEventsEnum.Failed, (info) => {
       lastFailureRef.current = info;
-    });
+    }));
+
+    // 接続時のファームウェア更新。放置するとスタッフには「接続中」が延々続くように
+    // 見えるため、進捗を明示する（更新中の電源断はリーダー故障の原因になる）。
+    subs.push(StripeTerminal.addListener(TerminalEventsEnum.StartInstallingUpdate, () => {
+      setUpdateProgress(0);
+    }));
+    subs.push(StripeTerminal.addListener(TerminalEventsEnum.ReaderSoftwareUpdateProgress, ({ progress }) => {
+      setUpdateProgress(typeof progress === "number" ? progress : null);
+    }));
+    subs.push(StripeTerminal.addListener(TerminalEventsEnum.FinishInstallingUpdate, () => {
+      setUpdateProgress(null);
+    }));
 
     // リーダー検索の結果はこのイベントで受ける。このプラグインのAndroid実装では
     // discoverReaders()がRETURN_CALLBACK型のため、TS型定義に反してPromiseとして
     // 待っても結果が返ってこない（実装確認済みのプラグイン側の型乖離）。
-    // 接続時のファームウェア更新。放置するとスタッフには「接続中」が延々続くように
-    // 見えるため、進捗を明示する（更新中の電源断はリーダー故障の原因になる）。
-    StripeTerminal.addListener(TerminalEventsEnum.StartInstallingUpdate, () => {
-      setUpdateProgress(0);
-    });
-    StripeTerminal.addListener(TerminalEventsEnum.ReaderSoftwareUpdateProgress, ({ progress }) => {
-      setUpdateProgress(typeof progress === "number" ? progress : null);
-    });
-    StripeTerminal.addListener(TerminalEventsEnum.FinishInstallingUpdate, () => {
-      setUpdateProgress(null);
-    });
-
-    StripeTerminal.addListener(TerminalEventsEnum.DiscoveredReaders, ({ readers: found }) => {
+    subs.push(StripeTerminal.addListener(TerminalEventsEnum.DiscoveredReaders, ({ readers: found }) => {
       const list = found ?? [];
       if (list.length === 0) return;
       if (discoverTimerRef.current) {
@@ -138,34 +139,34 @@ export function TouchPayClient({
       }
       setReaders(list);
       setReaderStatus((s) => (s === "discovering" ? "disconnected" : s));
-    });
+    }));
 
     // リーダーの切断を検知し、UIの「接続済み」表示が実際の状態とズレないようにする。
     // autoReconnectOnUnexpectedDisconnect:true で接続しているため、予期せぬ切断は
     // まず自動再接続が試みられる（Reconnect系イベント）。
-    StripeTerminal.addListener(TerminalEventsEnum.DisconnectedReader, ({ reason }) => {
+    subs.push(StripeTerminal.addListener(TerminalEventsEnum.DisconnectedReader, ({ reason }) => {
       if (!reason) return; // reasonなし = 自前のdisconnectReader()呼び出しへの応答（未使用のため無視）
       setReconnecting(false);
       setConnectedReader(null);
       setReaderStatus("disconnected");
       setReaderError(`リーダーが切断されました（${reason}）`);
-    });
-    StripeTerminal.addListener(TerminalEventsEnum.UnexpectedReaderDisconnect, () => {
+    }));
+    subs.push(StripeTerminal.addListener(TerminalEventsEnum.UnexpectedReaderDisconnect, () => {
       setReconnecting(true);
       setReaderError("リーダーとの接続が切れました。再接続しています…");
-    });
-    StripeTerminal.addListener(TerminalEventsEnum.ReaderReconnectSucceeded, ({ reader }) => {
+    }));
+    subs.push(StripeTerminal.addListener(TerminalEventsEnum.ReaderReconnectSucceeded, ({ reader }) => {
       setReconnecting(false);
       setConnectedReader(reader);
       setReaderStatus("connected");
       setReaderError("");
-    });
-    StripeTerminal.addListener(TerminalEventsEnum.ReaderReconnectFailed, () => {
+    }));
+    subs.push(StripeTerminal.addListener(TerminalEventsEnum.ReaderReconnectFailed, () => {
       setReconnecting(false);
       setConnectedReader(null);
       setReaderStatus("disconnected");
       setReaderError("リーダーとの再接続に失敗しました。もう一度接続してください");
-    });
+    }));
 
     // このisTestは「テストモード」ではなく「シミュレータリーダーを使うか」のフラグ
     // （プラグイン内部でStripe SDKのisSimulatedにそのまま渡される。実装確認済み）。
@@ -174,6 +175,12 @@ export function TouchPayClient({
     StripeTerminal.initialize({ isTest: false })
       .then(() => setTerminalReady(true))
       .catch(() => setReaderError("Stripe Terminalの初期化に失敗しました"));
+
+    return () => {
+      subs.forEach((p) => {
+        p.then((h) => h.remove()).catch(() => {});
+      });
+    };
   }, []);
 
   const discoverAndConnect = useCallback(async () => {

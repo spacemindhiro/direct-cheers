@@ -9,6 +9,20 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- アプリの実際のランチャー。server.urlをビルド時に1つに固定できないため、
+             起動時に接続先環境(STG/本番/ローカル開発)を選ばせる。 -->
+        <activity
+            android:name=".EnvironmentPickerActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
@@ -16,11 +30,6 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">
-
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
 
             <!-- スタッフスマホが生成するQRログインURL（App Links）。
                  カメラでスキャンするとブラウザではなくこのアプリで開き、

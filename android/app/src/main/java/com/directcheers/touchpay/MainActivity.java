@@ -2,6 +2,7 @@ package com.directcheers.touchpay;
 
 import android.os.Bundle;
 import android.view.View;
+import android.webkit.CookieManager;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -33,5 +34,14 @@ public class MainActivity extends BridgeActivity {
             );
             return WindowInsetsCompat.CONSUMED;
         });
+    }
+
+    // WebViewのCookieはディスク書き込みが遅延されるため、バックグラウンド移行後に
+    // プロセスがOSに終了されるとログインセッションが消える。アプリが背面に回る
+    // タイミングで強制フラッシュし、セッションを確実に永続化する。
+    @Override
+    public void onPause() {
+        super.onPause();
+        CookieManager.getInstance().flush();
     }
 }

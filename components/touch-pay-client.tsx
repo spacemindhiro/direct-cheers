@@ -173,7 +173,19 @@ export function TouchPayClient({
     // 決済がtest/liveどちらになるかはconnection token（サーバーのsecret key）で決まるため、
     // 実機のWisePad 3を使う本アプリでは常にfalseにする。
     StripeTerminal.initialize({ isTest: false })
-      .then(() => setTerminalReady(true))
+      .then(async () => {
+        setTerminalReady(true);
+        // ページの再読み込み等でUI状態が飛んでも、ネイティブ側の接続は生きている。
+        // 既存の接続があれば引き継ぎ、二重接続やぐるぐる待ちを防ぐ。
+        try {
+          const { reader } = await StripeTerminal.getConnectedReader();
+          if (reader) {
+            setConnectedReader(reader);
+            setReaderStatus("connected");
+            setReaderError("");
+          }
+        } catch { /* 未接続なら何もしない */ }
+      })
       .catch(() => setReaderError("Stripe Terminalの初期化に失敗しました"));
 
     return () => {

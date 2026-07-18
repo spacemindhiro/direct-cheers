@@ -138,9 +138,11 @@ export function TouchPayClient({
       setReaderError("リーダーとの再接続に失敗しました。もう一度接続してください");
     });
 
-    const isTest = !process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.startsWith("pk_live");
-
-    StripeTerminal.initialize({ isTest })
+    // このisTestは「テストモード」ではなく「シミュレータリーダーを使うか」のフラグ
+    // （プラグイン内部でStripe SDKのisSimulatedにそのまま渡される。実装確認済み）。
+    // 決済がtest/liveどちらになるかはconnection token（サーバーのsecret key）で決まるため、
+    // 実機のWisePad 3を使う本アプリでは常にfalseにする。
+    StripeTerminal.initialize({ isTest: false })
       .then(() => setTerminalReady(true))
       .catch(() => setReaderError("Stripe Terminalの初期化に失敗しました"));
   }, []);

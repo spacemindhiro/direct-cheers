@@ -63,6 +63,8 @@ export function TouchPayClient({
   const [readers, setReaders] = useState<ReaderInterface[]>([]);
   const [connectedReader, setConnectedReader] = useState<ReaderInterface | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
+  // 初回接続時などにStripeが必須ファームウェア更新を自動配信する。進捗0〜1
+  const [updateProgress, setUpdateProgress] = useState<number | null>(null);
 
   // 決済状態
   const [chargeStatus, setChargeStatus] = useState<ChargeStatus>("idle");
@@ -115,6 +117,18 @@ export function TouchPayClient({
     // リーダー検索の結果はこのイベントで受ける。このプラグインのAndroid実装では
     // discoverReaders()がRETURN_CALLBACK型のため、TS型定義に反してPromiseとして
     // 待っても結果が返ってこない（実装確認済みのプラグイン側の型乖離）。
+    // 接続時のファームウェア更新。放置するとスタッフには「接続中」が延々続くように
+    // 見えるため、進捗を明示する（更新中の電源断はリーダー故障の原因になる）。
+    StripeTerminal.addListener(TerminalEventsEnum.StartInstallingUpdate, () => {
+      setUpdateProgress(0);
+    });
+    StripeTerminal.addListener(TerminalEventsEnum.ReaderSoftwareUpdateProgress, ({ progress }) => {
+      setUpdateProgress(typeof progress === "number" ? progress : null);
+    });
+    StripeTerminal.addListener(TerminalEventsEnum.FinishInstallingUpdate, () => {
+      setUpdateProgress(null);
+    });
+
     StripeTerminal.addListener(TerminalEventsEnum.DiscoveredReaders, ({ readers: found }) => {
       const list = found ?? [];
       if (list.length === 0) return;
@@ -444,7 +458,20 @@ export function TouchPayClient({
                 <Bluetooth size={28} className="text-indigo-400 mx-auto" />
                 <p className="text-sm font-black text-white">カードリーダーに接続</p>
                 {readerStatus === "discovering" || readerStatus === "connecting" ? (
-                  <Loader2 size={24} className="text-indigo-400 animate-spin mx-auto" />
+                  updateProgress !== null ? (
+                    <div className="space-y-3">
+                      <p className="text-sm font-black text-white">リーダーを更新しています…{Math.round(updateProgress * 100)}%</p>
+                      <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 transition-all"
+                          style={{ width: `${Math.round(updateProgress * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-amber-400 font-bold">更新中はリーダーの電源を切らないでください（数分かかります）</p>
+                    </div>
+                  ) : (
+                    <Loader2 size={24} className="text-indigo-400 animate-spin mx-auto" />
+                  )
                 ) : readers.length > 0 ? (
                   <div className="space-y-2">
                     {readers.map((r) => (

@@ -168,25 +168,34 @@ export function TouchPayClient({
       setReaderError("リーダーとの再接続に失敗しました。もう一度接続してください");
     }));
 
-    // このisTestは「テストモード」ではなく「シミュレータリーダーを使うか」のフラグ
-    // （プラグイン内部でStripe SDKのisSimulatedにそのまま渡される。実装確認済み）。
-    // 決済がtest/liveどちらになるかはconnection token（サーバーのsecret key）で決まるため、
-    // 実機のWisePad 3を使う本アプリでは常にfalseにする。
-    StripeTerminal.initialize({ isTest: false })
-      .then(async () => {
+    // 【重要】initialize()はネイティブプロセスごとに一度だけ呼ぶ。
+    // プラグインは呼ばれるたびにTokenProviderを作り直すが、Stripe SDKへの登録は
+    // 初回のみのため、2回目以降はSDK側（旧インスタンス）とJS受け口（新インスタンス）が
+    // 分裂し、接続トークンが永遠に届かず「リーダーが見つからない」状態になる
+    // （プラグイン実装で確認済みの罠）。初期化済みかどうかはgetConnectedReader()が
+    // 成功するか（未初期化ならreject）で判定する。
+    (async () => {
+      try {
+        const { reader } = await StripeTerminal.getConnectedReader();
+        // 成功 = 初期化済み。initialize()は呼ばずに再利用する。
         setTerminalReady(true);
         // ページの再読み込み等でUI状態が飛んでも、ネイティブ側の接続は生きている。
         // 既存の接続があれば引き継ぎ、二重接続やぐるぐる待ちを防ぐ。
-        try {
-          const { reader } = await StripeTerminal.getConnectedReader();
-          if (reader) {
-            setConnectedReader(reader);
-            setReaderStatus("connected");
-            setReaderError("");
-          }
-        } catch { /* 未接続なら何もしない */ }
-      })
-      .catch(() => setReaderError("Stripe Terminalの初期化に失敗しました"));
+        if (reader) {
+          setConnectedReader(reader);
+          setReaderStatus("connected");
+          setReaderError("");
+        }
+      } catch {
+        // 未初期化 → 初回のみinitialize。
+        // isTestは「テストモード」ではなく「シミュレータリーダーを使うか」のフラグ
+        // （Stripe SDKのisSimulatedに直結。実装確認済み）。test/liveの区別は
+        // connection token（サーバーのsecret key）で決まるため、実機では常にfalse。
+        StripeTerminal.initialize({ isTest: false })
+          .then(() => setTerminalReady(true))
+          .catch(() => setReaderError("Stripe Terminalの初期化に失敗しました"));
+      }
+    })();
 
     return () => {
       subs.forEach((p) => {

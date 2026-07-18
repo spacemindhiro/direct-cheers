@@ -15,8 +15,11 @@ const config: CapacitorConfig = {
   appName: "Direct Cheers タッチ決済",
   webDir: "public",
   server: {
-    // 本番のNext.jsアプリをそのままWebViewで開く（静的バンドルは持たない）
-    url: serverUrl,
+    // 本番のNext.jsアプリをそのままWebViewで開く（静的バンドルは持たない）。
+    // 起動ページはdashboard: スタッフ端末にトップページ（マーケ画面）は不要で、
+    // WebView復帰時に起動URLへ戻った際「未ログインに見える」誤解も防ぐ
+    // （未ログインなら/auth/loginへリダイレクトされるだけで安全）。
+    url: `${serverUrl}/dashboard`,
     cleartext: serverUrl.startsWith("http://"),
   },
   plugins: {

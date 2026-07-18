@@ -214,7 +214,7 @@ export function TouchPayClient({
       discoverTimerRef.current = null;
       try { await StripeTerminal.cancelDiscoverReaders(); } catch { /* ベストエフォート */ }
       setReaderStatus("disconnected");
-      setReaderError("リーダーが見つかりませんでした。WisePad 3の電源と距離を確認して、もう一度お試しください。※スマホのBluetooth設定でペア設定されていると見つかりません（ペア設定は削除してください）");
+      setReaderError("リーダーが見つかりませんでした。WisePad 3の電源と距離を確認して、もう一度お試しください");
     }, DISCOVER_TIMEOUT_MS);
 
     try {

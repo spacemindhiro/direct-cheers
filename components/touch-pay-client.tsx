@@ -38,6 +38,7 @@ type ChargeStatus =
 type ChargeResult = { ticket_id: string | null; quantity: number; is_repeat: boolean; customer_name: string | null };
 
 const COLLECT_TIMEOUT_MS = 45_000;
+const DISCOVER_TIMEOUT_MS = 30_000;
 
 // 対面タッチ決済（Case④）。商品・人数の選択はブラウザからでも常に行える。
 // Bluetoothカードリーダーとの接続・実際のカード読み取りだけは、Capacitorで
@@ -151,17 +152,35 @@ export function TouchPayClient({
     }
     setReaderStatus("discovering");
     setReaderError("");
+
+    // プラグインのAndroid実装はリーダーが1台も見つからないとPromiseを永遠に
+    // resolveしない（失敗もログのみ）。現場でスタッフが固まらないよう、
+    // 一定時間で検索を打ち切って再試行を促す。
+    let timedOut = false;
+    const discoverTimer = setTimeout(async () => {
+      timedOut = true;
+      try { await StripeTerminal.cancelDiscoverReaders(); } catch { /* ベストエフォート */ }
+      setReaderStatus("disconnected");
+      setReaderError("リーダーが見つかりませんでした。WisePad 3の電源と距離を確認して、もう一度お試しください");
+    }, DISCOVER_TIMEOUT_MS);
+
     try {
-      const { readers: found } = await StripeTerminal.discoverReaders({
+      const result = await StripeTerminal.discoverReaders({
         type: TerminalConnectTypes.Bluetooth,
         locationId: terminalLocationId,
       });
+      clearTimeout(discoverTimer);
+      if (timedOut) return; // タイムアウト処理が既にUIを更新済み
+      // 権限リクエストを挟んだ経路ではreadersを持たない形でresolveされることがあるため防御
+      const found = result?.readers ?? [];
       setReaders(found);
       setReaderStatus("disconnected");
       if (found.length === 0) {
         setReaderError("リーダーが見つかりませんでした。電源・ペアリングを確認してください");
       }
     } catch (err) {
+      clearTimeout(discoverTimer);
+      if (timedOut) return;
       setReaderError(err instanceof Error ? err.message : "リーダー検索に失敗しました");
       setReaderStatus("disconnected");
     }

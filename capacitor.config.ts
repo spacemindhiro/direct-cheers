@@ -21,6 +21,12 @@ const config: CapacitorConfig = {
     // （未ログインなら/auth/loginへリダイレクトされるだけで安全）。
     url: "https://stg.direct-cheers.com/dashboard",
     cleartext: true,
+    // /auth/qr/[token]はSupabaseのgenerateLink()が返すaction_link
+    // （*.supabase.co、自ドメインとは別オリジン）へ307リダイレクトする。
+    // Capacitorは自ドメイン以外への遷移を検知すると外部ブラウザ(Chrome)に
+    // 丸投げしてしまう(Bridge.launchIntent実装で確認済み・実機でQRログインが
+    // Chromeに奪われてエラーになる不具合の原因だった)ため、許可リストに追加する。
+    allowNavigation: ["*.supabase.co"],
   },
   plugins: {
     SystemBars: {

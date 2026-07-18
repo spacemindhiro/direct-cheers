@@ -1,0 +1,971 @@
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/results.bin b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/results.bin
+new file mode 100644
+index 0000000..7ed749e
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/results.bin
+@@ -0,0 +1 @@
++o/bundleLibRuntimeToDirDebug
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelCollectPaymentMethod$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelCollectPaymentMethod$1.dex
+new file mode 100644
+index 0000000..566d9d8
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelCollectPaymentMethod$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelDiscoverReaders$2.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelDiscoverReaders$2.dex
+new file mode 100644
+index 0000000..8817cb3
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelDiscoverReaders$2.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelInstallUpdate$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelInstallUpdate$1.dex
+new file mode 100644
+index 0000000..60ec530
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelInstallUpdate$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelReaderReconnection$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelReaderReconnection$1.dex
+new file mode 100644
+index 0000000..e6ee6d5
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$cancelReaderReconnection$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$clearReaderDisplay$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$clearReaderDisplay$1.dex
+new file mode 100644
+index 0000000..ce477ec
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$clearReaderDisplay$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$collectPaymentMethodCallback$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$collectPaymentMethodCallback$1.dex
+new file mode 100644
+index 0000000..2e8d033
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$collectPaymentMethodCallback$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$confirmPaymentMethodCallback$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$confirmPaymentMethodCallback$1.dex
+new file mode 100644
+index 0000000..20b4a18
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$confirmPaymentMethodCallback$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$createPaymentIntentCallback$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$createPaymentIntentCallback$1.dex
+new file mode 100644
+index 0000000..b0e3600
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$createPaymentIntentCallback$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$disconnectReader$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$disconnectReader$1.dex
+new file mode 100644
+index 0000000..263b921
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$disconnectReader$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$handoffReaderListener$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$handoffReaderListener$1.dex
+new file mode 100644
+index 0000000..3b30a4b
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$handoffReaderListener$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$initialize$listener$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$initialize$listener$1.dex
+new file mode 100644
+index 0000000..618aee8
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$initialize$listener$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$internetReaderListener$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$internetReaderListener$1.dex
+new file mode 100644
+index 0000000..95af3b3
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$internetReaderListener$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$1.dex
+new file mode 100644
+index 0000000..4f86e5e
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$2.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$2.dex
+new file mode 100644
+index 0000000..2a6cbca
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$2.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$readerCallback$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$readerCallback$1.dex
+new file mode 100644
+index 0000000..c1c5e6b
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$readerCallback$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$readerListener$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$readerListener$1.dex
+new file mode 100644
+index 0000000..90284cd
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$readerListener$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$rebootReader$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$rebootReader$1.dex
+new file mode 100644
+index 0000000..ec5a32e
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$rebootReader$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$setReaderDisplay$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$setReaderDisplay$1.dex
+new file mode 100644
+index 0000000..0ccdf61
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$setReaderDisplay$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$tapToPayReaderListener$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$tapToPayReaderListener$1.dex
+new file mode 100644
+index 0000000..80adf8d
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal$tapToPayReaderListener$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal.dex
+new file mode 100644
+index 0000000..b73d0ac
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminal.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminalPlugin.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminalPlugin.dex
+new file mode 100644
+index 0000000..6a11a85
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/StripeTerminalPlugin.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TerminalConnectTypes.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TerminalConnectTypes.dex
+new file mode 100644
+index 0000000..08bc0fd
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TerminalConnectTypes.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TerminalEnumEvent.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TerminalEnumEvent.dex
+new file mode 100644
+index 0000000..52686e9
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TerminalEnumEvent.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TokenProvider$fetchConnectionToken$postRequest$1.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TokenProvider$fetchConnectionToken$postRequest$1.dex
+new file mode 100644
+index 0000000..9c10c19
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TokenProvider$fetchConnectionToken$postRequest$1.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TokenProvider.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TokenProvider.dex
+new file mode 100644
+index 0000000..e35771e
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/TokenProvider.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/helper/MetaData.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/helper/MetaData.dex
+new file mode 100644
+index 0000000..9e5778c
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/helper/MetaData.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/helper/TerminalMappers$WhenMappings.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/helper/TerminalMappers$WhenMappings.dex
+new file mode 100644
+index 0000000..c91ca64
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/helper/TerminalMappers$WhenMappings.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/helper/TerminalMappers.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/helper/TerminalMappers.dex
+new file mode 100644
+index 0000000..a628ce1
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/helper/TerminalMappers.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/models/Executor.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/models/Executor.dex
+new file mode 100644
+index 0000000..a089bea
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/bundleLibRuntimeToDirDebug_dex/app/capgo/stripe/terminal/models/Executor.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/desugar_graph.bin b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/desugar_graph.bin
+new file mode 100644
+index 0000000..601f245
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/01673e1802f2b76257f2ec32bbd0cb9c/transformed/bundleLibRuntimeToDirDebug/desugar_graph.bin differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/aef4c38d0c3b11e7040f883145b68f76/results.bin b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/aef4c38d0c3b11e7040f883145b68f76/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/aef4c38d0c3b11e7040f883145b68f76/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/aef4c38d0c3b11e7040f883145b68f76/transformed/classes/classes_dex/classes.dex b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/aef4c38d0c3b11e7040f883145b68f76/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..1bcd7f1
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/.transforms/aef4c38d0c3b11e7040f883145b68f76/transformed/classes/classes_dex/classes.dex differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml
+new file mode 100644
+index 0000000..5d1f7ae
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/AndroidManifest.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="app.capgo.stripe.terminal" >
++
++    <uses-sdk android:minSdkVersion="26" />
++
++    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
++    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
++
++</manifest>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json
+new file mode 100644
+index 0000000..6896d40
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aapt_friendly_merged_manifests/debug/processDebugManifest/aapt/output-metadata.json
+@@ -0,0 +1,18 @@
++{
++  "version": 3,
++  "artifactType": {
++    "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
++    "kind": "Directory"
++  },
++  "applicationId": "app.capgo.stripe.terminal",
++  "variantName": "debug",
++  "elements": [
++    {
++      "type": "SINGLE",
++      "filters": [],
++      "attributes": [],
++      "outputFile": "AndroidManifest.xml"
++    }
++  ],
++  "elementType": "File"
++}
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aar_main_jar/debug/syncDebugLibJars/classes.jar b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aar_main_jar/debug/syncDebugLibJars/classes.jar
+new file mode 100644
+index 0000000..84ec4a9
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aar_main_jar/debug/syncDebugLibJars/classes.jar differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties
+new file mode 100644
+index 0000000..1211b1e
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/aar_metadata/debug/writeDebugAarMetadata/aar-metadata.properties
+@@ -0,0 +1,6 @@
++aarFormatVersion=1.0
++aarMetadataVersion=1.0
++minCompileSdk=1
++minCompileSdkExtension=0
++minAndroidGradlePluginVersion=1.0.0
++coreLibraryDesugaringEnabled=false
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json
+new file mode 100644
+index 0000000..9e26dfe
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/annotation_processor_list/debug/javaPreCompileDebug/annotationProcessors.json
+@@ -0,0 +1 @@
++{}
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/annotations_typedef_file/debug/extractDebugAnnotations/typedefs.txt b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/annotations_typedef_file/debug/extractDebugAnnotations/typedefs.txt
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar
+new file mode 100644
+index 0000000..facfcb1
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/compile_library_classes_jar/debug/bundleLibCompileToJarDebug/classes.jar differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar
+new file mode 100644
+index 0000000..c297b86
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/compile_r_class_jar/debug/generateDebugRFile/R.jar differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/compile_symbol_list/debug/generateDebugRFile/R.txt b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/compile_symbol_list/debug/generateDebugRFile/R.txt
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/debug-mergeJavaRes/merge-state b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/debug-mergeJavaRes/merge-state
+new file mode 100644
+index 0000000..1db0aae
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/debug-mergeJavaRes/merge-state differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
+new file mode 100644
+index 0000000..6cf74d5
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
+@@ -0,0 +1 @@
++#Sat Jul 18 05:51:52 JST 2026
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml
+new file mode 100644
+index 0000000..ced913b
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/debug/packageDebugResources/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main" generated-set="main$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/debug/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="debug" generated-set="debug$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/debug/res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/build/generated/res/resValues/debug"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated" generated-set="generated$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!&lt;dir>navigation"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/build/generated/res/resValues/debug"/></dataSet><mergedItems/></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/mergeDebugAssets/merger.xml b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/mergeDebugAssets/merger.xml
+new file mode 100644
+index 0000000..b48f4d6
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/mergeDebugAssets/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/assets"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/debug/assets"/></dataSet><dataSet config="generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/shader_assets/debug/compileDebugShaders/out"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml
+new file mode 100644
+index 0000000..5addd36
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/mergeDebugJniLibFolders/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/jniLibs"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/debug/jniLibs"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/mergeDebugShaders/merger.xml b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/mergeDebugShaders/merger.xml
+new file mode 100644
+index 0000000..dc644d7
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/incremental/mergeDebugShaders/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/shaders"/></dataSet><dataSet config="debug" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/debug/shaders"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/java_res/debug/processDebugJavaRes/out/META-INF/capgo-capacitor-stripe-terminal_debug.kotlin_module b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/java_res/debug/processDebugJavaRes/out/META-INF/capgo-capacitor-stripe-terminal_debug.kotlin_module
+new file mode 100644
+index 0000000..ef915de
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/java_res/debug/processDebugJavaRes/out/META-INF/capgo-capacitor-stripe-terminal_debug.kotlin_module differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt
+new file mode 100644
+index 0000000..78ac5b8
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/local_only_symbol_list/debug/parseDebugLocalResources/R-def.txt
+@@ -0,0 +1,2 @@
++R_DEF: Internal format may change without notice
++local
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt
+new file mode 100644
+index 0000000..ffdfd1b
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/manifest_merge_blame_file/debug/processDebugManifest/manifest-merger-blame-debug-report.txt
+@@ -0,0 +1,14 @@
++1<?xml version="1.0" encoding="utf-8"?>
++2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++3    package="app.capgo.stripe.terminal" >
++4
++5    <uses-sdk android:minSdkVersion="26" />
++6
++7    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
++7-->/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:3:5-79
++7-->/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:3:22-76
++8    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
++8-->/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:4:5-76
++8-->/Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:4:22-73
++9
++10</manifest>
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/merged_java_res/debug/mergeDebugJavaResource/feature-capgo-capacitor-stripe-terminal.jar b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/merged_java_res/debug/mergeDebugJavaResource/feature-capgo-capacitor-stripe-terminal.jar
+new file mode 100644
+index 0000000..065131c
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/merged_java_res/debug/mergeDebugJavaResource/feature-capgo-capacitor-stripe-terminal.jar differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml
+new file mode 100644
+index 0000000..5d1f7ae
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="app.capgo.stripe.terminal" >
++
++    <uses-sdk android:minSdkVersion="26" />
++
++    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
++    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
++
++</manifest>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json
+new file mode 100644
+index 0000000..0637a08
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/navigation_json/debug/extractDeepLinksDebug/navigation.json
+@@ -0,0 +1 @@
++[]
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt
+new file mode 100644
+index 0000000..08f4ebe
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/nested_resources_validation_report/debug/generateDebugResources/nestedResourcesValidationReport.txt
+@@ -0,0 +1 @@
++0 Warning/Error
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/META-INF/capgo-capacitor-stripe-terminal_debug.kotlin_module b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/META-INF/capgo-capacitor-stripe-terminal_debug.kotlin_module
+new file mode 100644
+index 0000000..ef915de
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/META-INF/capgo-capacitor-stripe-terminal_debug.kotlin_module differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelCollectPaymentMethod$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelCollectPaymentMethod$1.class
+new file mode 100644
+index 0000000..7877508
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelCollectPaymentMethod$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelDiscoverReaders$2.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelDiscoverReaders$2.class
+new file mode 100644
+index 0000000..5ca33c9
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelDiscoverReaders$2.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelInstallUpdate$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelInstallUpdate$1.class
+new file mode 100644
+index 0000000..62eaa56
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelInstallUpdate$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelReaderReconnection$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelReaderReconnection$1.class
+new file mode 100644
+index 0000000..0ba27e5
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$cancelReaderReconnection$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$clearReaderDisplay$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$clearReaderDisplay$1.class
+new file mode 100644
+index 0000000..1d4ee6a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$clearReaderDisplay$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$collectPaymentMethodCallback$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$collectPaymentMethodCallback$1.class
+new file mode 100644
+index 0000000..3b0936c
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$collectPaymentMethodCallback$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$confirmPaymentMethodCallback$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$confirmPaymentMethodCallback$1.class
+new file mode 100644
+index 0000000..166cb12
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$confirmPaymentMethodCallback$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$createPaymentIntentCallback$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$createPaymentIntentCallback$1.class
+new file mode 100644
+index 0000000..b4e0b43
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$createPaymentIntentCallback$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$disconnectReader$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$disconnectReader$1.class
+new file mode 100644
+index 0000000..c1a9af4
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$disconnectReader$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$handoffReaderListener$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$handoffReaderListener$1.class
+new file mode 100644
+index 0000000..a21e020
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$handoffReaderListener$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$initialize$listener$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$initialize$listener$1.class
+new file mode 100644
+index 0000000..1b56bb7
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$initialize$listener$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$internetReaderListener$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$internetReaderListener$1.class
+new file mode 100644
+index 0000000..8e3cf53
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$internetReaderListener$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$1.class
+new file mode 100644
+index 0000000..08606ee
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$2.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$2.class
+new file mode 100644
+index 0000000..797f645
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$2.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$readerCallback$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$readerCallback$1.class
+new file mode 100644
+index 0000000..2f3727c
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$readerCallback$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$readerListener$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$readerListener$1.class
+new file mode 100644
+index 0000000..9a5c61a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$readerListener$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$rebootReader$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$rebootReader$1.class
+new file mode 100644
+index 0000000..af72526
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$rebootReader$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$setReaderDisplay$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$setReaderDisplay$1.class
+new file mode 100644
+index 0000000..c835ebb
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$setReaderDisplay$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$tapToPayReaderListener$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$tapToPayReaderListener$1.class
+new file mode 100644
+index 0000000..bfb3fdb
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal$tapToPayReaderListener$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal.class
+new file mode 100644
+index 0000000..6c2c1d3
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminal.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminalPlugin.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminalPlugin.class
+new file mode 100644
+index 0000000..d7316dc
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/StripeTerminalPlugin.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TerminalConnectTypes.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TerminalConnectTypes.class
+new file mode 100644
+index 0000000..41325ac
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TerminalConnectTypes.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TerminalEnumEvent.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TerminalEnumEvent.class
+new file mode 100644
+index 0000000..a9d192a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TerminalEnumEvent.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TokenProvider$fetchConnectionToken$postRequest$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TokenProvider$fetchConnectionToken$postRequest$1.class
+new file mode 100644
+index 0000000..afc1b58
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TokenProvider$fetchConnectionToken$postRequest$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TokenProvider.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TokenProvider.class
+new file mode 100644
+index 0000000..90a53d2
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/TokenProvider.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/helper/MetaData.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/helper/MetaData.class
+new file mode 100644
+index 0000000..4250203
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/helper/MetaData.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/helper/TerminalMappers$WhenMappings.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/helper/TerminalMappers$WhenMappings.class
+new file mode 100644
+index 0000000..64b4504
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/helper/TerminalMappers$WhenMappings.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/helper/TerminalMappers.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/helper/TerminalMappers.class
+new file mode 100644
+index 0000000..fd26dd5
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/helper/TerminalMappers.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/models/Executor.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/models/Executor.class
+new file mode 100644
+index 0000000..9c4d46d
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_dir/debug/bundleLibRuntimeToDirDebug/app/capgo/stripe/terminal/models/Executor.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar
+new file mode 100644
+index 0000000..38d513f
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt
+new file mode 100644
+index 0000000..d397bac
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/intermediates/symbol_list_with_package_name/debug/generateDebugRFile/package-aware-r.txt
+@@ -0,0 +1 @@
++app.capgo.stripe.terminal
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab
+new file mode 100644
+index 0000000..79f48a4
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream
+new file mode 100644
+index 0000000..0605123
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream.len
+new file mode 100644
+index 0000000..fabe277
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.len
+new file mode 100644
+index 0000000..fa606b6
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.values.at
+new file mode 100644
+index 0000000..a395875
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i
+new file mode 100644
+index 0000000..3406287
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/inputs/source-to-output.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab
+new file mode 100644
+index 0000000..9696c8a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream
+new file mode 100644
+index 0000000..fe1749a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream.len
+new file mode 100644
+index 0000000..3e5b6a5
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.len
+new file mode 100644
+index 0000000..fa606b6
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.values.at
+new file mode 100644
+index 0000000..de0b0a4
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i
+new file mode 100644
+index 0000000..588abf8
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-attributes.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab
+new file mode 100644
+index 0000000..d95512f
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream
+new file mode 100644
+index 0000000..fe1749a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream.len
+new file mode 100644
+index 0000000..3e5b6a5
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.len
+new file mode 100644
+index 0000000..fa606b6
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.values.at
+new file mode 100644
+index 0000000..14f60ac
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i
+new file mode 100644
+index 0000000..588abf8
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/class-fq-name-to-source.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab
+new file mode 100644
+index 0000000..97adebc
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream
+new file mode 100644
+index 0000000..396340b
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream.len
+new file mode 100644
+index 0000000..c4f1f84
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.len
+new file mode 100644
+index 0000000..fa43224
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.values.at
+new file mode 100644
+index 0000000..7da685a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i
+new file mode 100644
+index 0000000..b24809d
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/internal-name-to-source.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab
+new file mode 100644
+index 0000000..1aee4c0
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream
+new file mode 100644
+index 0000000..199481c
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream.len
+new file mode 100644
+index 0000000..0cfcfa1
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.len
+new file mode 100644
+index 0000000..eb0b8a0
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.values.at
+new file mode 100644
+index 0000000..4b7c22e
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i
+new file mode 100644
+index 0000000..6270c56
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/proto.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab
+new file mode 100644
+index 0000000..177e4c4
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream
+new file mode 100644
+index 0000000..0605123
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream.len
+new file mode 100644
+index 0000000..fabe277
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.len
+new file mode 100644
+index 0000000..fa606b6
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.values.at
+new file mode 100644
+index 0000000..ac79984
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i
+new file mode 100644
+index 0000000..3406287
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/source-to-classes.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab
+new file mode 100644
+index 0000000..9456b7d
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream
+new file mode 100644
+index 0000000..e9111b1
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream.len
+new file mode 100644
+index 0000000..1161cbc
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.len
+new file mode 100644
+index 0000000..93a595b
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.values.at
+new file mode 100644
+index 0000000..209d6e9
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i
+new file mode 100644
+index 0000000..9045fa8
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/subtypes.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab
+new file mode 100644
+index 0000000..91ba23c
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream
+new file mode 100644
+index 0000000..46b4813
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream.len
+new file mode 100644
+index 0000000..8a8cdf9
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.len
+new file mode 100644
+index 0000000..ec8f944
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.values.at
+new file mode 100644
+index 0000000..d132a28
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i
+new file mode 100644
+index 0000000..13d9319
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/jvm/kotlin/supertypes.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/counters.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/counters.tab
+new file mode 100644
+index 0000000..f2c67d0
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/counters.tab
+@@ -0,0 +1,2 @@
++8
++0
+\ No newline at end of file
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab
+new file mode 100644
+index 0000000..efa0b21
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream
+new file mode 100644
+index 0000000..0605123
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream.len
+new file mode 100644
+index 0000000..fabe277
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.len
+new file mode 100644
+index 0000000..fa606b6
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.values.at
+new file mode 100644
+index 0000000..6a3671f
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i
+new file mode 100644
+index 0000000..3406287
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/file-to-id.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab
+new file mode 100644
+index 0000000..269421c
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream
+new file mode 100644
+index 0000000..ce37c13
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream.len
+new file mode 100644
+index 0000000..d9e6aa6
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.len
+new file mode 100644
+index 0000000..fa606b6
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.values.at
+new file mode 100644
+index 0000000..fcc3024
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i
+new file mode 100644
+index 0000000..37f0862
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/id-to-file.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab
+new file mode 100644
+index 0000000..9572a5c
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream
+new file mode 100644
+index 0000000..9e759ae
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream.len
+new file mode 100644
+index 0000000..b1deb5a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.keystream.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.len
+new file mode 100644
+index 0000000..ee2a5cf
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.values.at b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.values.at
+new file mode 100644
+index 0000000..5d5275d
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab.values.at differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i
+new file mode 100644
+index 0000000..496f664
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i.len b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i.len
+new file mode 100644
+index 0000000..131e265
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/caches-jvm/lookups/lookups.tab_i.len differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/last-build.bin b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/last-build.bin
+new file mode 100644
+index 0000000..6236c41
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/cacheable/last-build.bin differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin
+new file mode 100644
+index 0000000..31a5688
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/outputs/aar/capgo-capacitor-stripe-terminal-debug.aar b/node_modules/@capgo/capacitor-stripe-terminal/android/build/outputs/aar/capgo-capacitor-stripe-terminal-debug.aar
+new file mode 100644
+index 0000000..f221cbb
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/outputs/aar/capgo-capacitor-stripe-terminal-debug.aar differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/outputs/logs/manifest-merger-debug-report.txt b/node_modules/@capgo/capacitor-stripe-terminal/android/build/outputs/logs/manifest-merger-debug-report.txt
+new file mode 100644
+index 0000000..70ca737
+--- /dev/null
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/build/outputs/logs/manifest-merger-debug-report.txt
+@@ -0,0 +1,24 @@
++-- Merging decision tree log ---
++manifest
++ADDED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:1:1-5:12
++INJECTED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:1:1-5:12
++	package
++		INJECTED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml
++	xmlns:android
++		ADDED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:1:11-69
++uses-permission#android.permission.ACCESS_FINE_LOCATION
++ADDED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:3:5-79
++	android:name
++		ADDED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:3:22-76
++uses-permission#android.permission.BLUETOOTH_CONNECT
++ADDED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:4:5-76
++	android:name
++		ADDED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml:4:22-73
++uses-sdk
++INJECTED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
++INJECTED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml
++INJECTED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml
++	android:targetSdkVersion
++		INJECTED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml
++	android:minSdkVersion
++		INJECTED from /Users/Hiro/Documents/Dev/direct-cheers/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/AndroidManifest.xml
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/META-INF/capgo-capacitor-stripe-terminal_debug.kotlin_module b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/META-INF/capgo-capacitor-stripe-terminal_debug.kotlin_module
+new file mode 100644
+index 0000000..ef915de
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/META-INF/capgo-capacitor-stripe-terminal_debug.kotlin_module differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelCollectPaymentMethod$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelCollectPaymentMethod$1.class
+new file mode 100644
+index 0000000..7877508
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelCollectPaymentMethod$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelDiscoverReaders$2.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelDiscoverReaders$2.class
+new file mode 100644
+index 0000000..5ca33c9
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelDiscoverReaders$2.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelInstallUpdate$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelInstallUpdate$1.class
+new file mode 100644
+index 0000000..62eaa56
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelInstallUpdate$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelReaderReconnection$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelReaderReconnection$1.class
+new file mode 100644
+index 0000000..0ba27e5
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$cancelReaderReconnection$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$clearReaderDisplay$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$clearReaderDisplay$1.class
+new file mode 100644
+index 0000000..1d4ee6a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$clearReaderDisplay$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$collectPaymentMethodCallback$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$collectPaymentMethodCallback$1.class
+new file mode 100644
+index 0000000..3b0936c
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$collectPaymentMethodCallback$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$confirmPaymentMethodCallback$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$confirmPaymentMethodCallback$1.class
+new file mode 100644
+index 0000000..166cb12
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$confirmPaymentMethodCallback$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$createPaymentIntentCallback$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$createPaymentIntentCallback$1.class
+new file mode 100644
+index 0000000..b4e0b43
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$createPaymentIntentCallback$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$disconnectReader$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$disconnectReader$1.class
+new file mode 100644
+index 0000000..c1a9af4
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$disconnectReader$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$handoffReaderListener$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$handoffReaderListener$1.class
+new file mode 100644
+index 0000000..a21e020
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$handoffReaderListener$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$initialize$listener$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$initialize$listener$1.class
+new file mode 100644
+index 0000000..1b56bb7
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$initialize$listener$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$internetReaderListener$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$internetReaderListener$1.class
+new file mode 100644
+index 0000000..8e3cf53
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$internetReaderListener$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$1.class
+new file mode 100644
+index 0000000..08606ee
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$2.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$2.class
+new file mode 100644
+index 0000000..797f645
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$onDiscoverReaders$2.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$readerCallback$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$readerCallback$1.class
+new file mode 100644
+index 0000000..2f3727c
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$readerCallback$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$readerListener$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$readerListener$1.class
+new file mode 100644
+index 0000000..9a5c61a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$readerListener$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$rebootReader$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$rebootReader$1.class
+new file mode 100644
+index 0000000..af72526
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$rebootReader$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$setReaderDisplay$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$setReaderDisplay$1.class
+new file mode 100644
+index 0000000..c835ebb
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$setReaderDisplay$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$tapToPayReaderListener$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$tapToPayReaderListener$1.class
+new file mode 100644
+index 0000000..bfb3fdb
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal$tapToPayReaderListener$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal.class
+new file mode 100644
+index 0000000..6c2c1d3
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminal.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminalPlugin.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminalPlugin.class
+new file mode 100644
+index 0000000..d7316dc
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/StripeTerminalPlugin.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TerminalConnectTypes.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TerminalConnectTypes.class
+new file mode 100644
+index 0000000..41325ac
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TerminalConnectTypes.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TerminalEnumEvent.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TerminalEnumEvent.class
+new file mode 100644
+index 0000000..a9d192a
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TerminalEnumEvent.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TokenProvider$fetchConnectionToken$postRequest$1.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TokenProvider$fetchConnectionToken$postRequest$1.class
+new file mode 100644
+index 0000000..afc1b58
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TokenProvider$fetchConnectionToken$postRequest$1.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TokenProvider.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TokenProvider.class
+new file mode 100644
+index 0000000..90a53d2
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/TokenProvider.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/helper/MetaData.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/helper/MetaData.class
+new file mode 100644
+index 0000000..4250203
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/helper/MetaData.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/helper/TerminalMappers$WhenMappings.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/helper/TerminalMappers$WhenMappings.class
+new file mode 100644
+index 0000000..64b4504
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/helper/TerminalMappers$WhenMappings.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/helper/TerminalMappers.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/helper/TerminalMappers.class
+new file mode 100644
+index 0000000..fd26dd5
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/helper/TerminalMappers.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/models/Executor.class b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/models/Executor.class
+new file mode 100644
+index 0000000..9c4d46d
+Binary files /dev/null and b/node_modules/@capgo/capacitor-stripe-terminal/android/build/tmp/kotlin-classes/debug/app/capgo/stripe/terminal/models/Executor.class differ
+diff --git a/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/java/app/capgo/stripe/terminal/StripeTerminal.kt b/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/java/app/capgo/stripe/terminal/StripeTerminal.kt
+index 2e3dfad..27aadc5 100644
+--- a/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/java/app/capgo/stripe/terminal/StripeTerminal.kt
++++ b/node_modules/@capgo/capacitor-stripe-terminal/android/src/main/java/app/capgo/stripe/terminal/StripeTerminal.kt
+@@ -124,11 +124,17 @@ class StripeTerminal(
+             }
+         }
+         val logLevel = LogLevel.VERBOSE
+-        this.tokenProvider = TokenProvider(
+-            this.contextSupplier,
+-            call.getString("tokenProviderEndpoint", "")!!,
+-            this.notifyListenersFunction
+-        )
++        // パッチ: TokenProviderはSDKに登録した初回インスタンスを維持する。
++        // 元実装はinitializeのたびに新規生成していたため、2回目以降の呼び出しで
++        // SDK登録済みの旧インスタンス（pending保持側）とsetConnectionTokenの
++        // 受け口（新インスタンス）が分裂し、接続トークンが永遠に届かなくなる。
++        if (this.tokenProvider == null) {
++            this.tokenProvider = TokenProvider(
++                this.contextSupplier,
++                call.getString("tokenProviderEndpoint", "")!!,
++                this.notifyListenersFunction
++            )
++        }
+         if (!isInitialized()) {
+             init(
+                 contextSupplier.get().applicationContext,

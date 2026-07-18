@@ -76,6 +76,7 @@ export function TouchPayClient({
   const lastFailureRef = useRef<{ message: string; code?: string; declineCode?: string } | null>(null);
   const abortReasonRef = useRef<"cancel" | "timeout" | null>(null);
   const collectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const discoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedProduct = products.find((p) => p.product_id === productId);
   const isBusy = chargeStatus === "collecting" || chargeStatus === "processing";
@@ -109,6 +110,20 @@ export function TouchPayClient({
     // 運んでくるイベント。Promiseのreject自体には詳細が乗らないため、ここで拾っておく。
     StripeTerminal.addListener(TerminalEventsEnum.Failed, (info) => {
       lastFailureRef.current = info;
+    });
+
+    // リーダー検索の結果はこのイベントで受ける。このプラグインのAndroid実装では
+    // discoverReaders()がRETURN_CALLBACK型のため、TS型定義に反してPromiseとして
+    // 待っても結果が返ってこない（実装確認済みのプラグイン側の型乖離）。
+    StripeTerminal.addListener(TerminalEventsEnum.DiscoveredReaders, ({ readers: found }) => {
+      const list = found ?? [];
+      if (list.length === 0) return;
+      if (discoverTimerRef.current) {
+        clearTimeout(discoverTimerRef.current);
+        discoverTimerRef.current = null;
+      }
+      setReaders(list);
+      setReaderStatus((s) => (s === "discovering" ? "disconnected" : s));
     });
 
     // リーダーの切断を検知し、UIの「接続済み」表示が実際の状態とズレないようにする。
@@ -154,35 +169,30 @@ export function TouchPayClient({
     }
     setReaderStatus("discovering");
     setReaderError("");
+    setReaders([]);
 
-    // プラグインのAndroid実装はリーダーが1台も見つからないとPromiseを永遠に
-    // resolveしない（失敗もログのみ）。現場でスタッフが固まらないよう、
-    // 一定時間で検索を打ち切って再試行を促す。
-    let timedOut = false;
-    const discoverTimer = setTimeout(async () => {
-      timedOut = true;
+    // リーダーが1台も見つからない場合は何も起きないため、一定時間で検索を
+    // 打ち切って再試行を促す（現場でスタッフが固まらないように）。
+    if (discoverTimerRef.current) clearTimeout(discoverTimerRef.current);
+    discoverTimerRef.current = setTimeout(async () => {
+      discoverTimerRef.current = null;
       try { await StripeTerminal.cancelDiscoverReaders(); } catch { /* ベストエフォート */ }
       setReaderStatus("disconnected");
       setReaderError("リーダーが見つかりませんでした。WisePad 3の電源と距離を確認して、もう一度お試しください");
     }, DISCOVER_TIMEOUT_MS);
 
     try {
-      const result = await StripeTerminal.discoverReaders({
+      // 結果はPromiseではなくDiscoveredReadersイベントで返る（リスナー登録済み）。
+      // awaitしても永遠に解決しないため、呼び出しは投げっぱなしにする。
+      void StripeTerminal.discoverReaders({
         type: TerminalConnectTypes.Bluetooth,
         locationId: terminalLocationId,
       });
-      clearTimeout(discoverTimer);
-      if (timedOut) return; // タイムアウト処理が既にUIを更新済み
-      // 権限リクエストを挟んだ経路ではreadersを持たない形でresolveされることがあるため防御
-      const found = result?.readers ?? [];
-      setReaders(found);
-      setReaderStatus("disconnected");
-      if (found.length === 0) {
-        setReaderError("リーダーが見つかりませんでした。電源・ペアリングを確認してください");
-      }
     } catch (err) {
-      clearTimeout(discoverTimer);
-      if (timedOut) return;
+      if (discoverTimerRef.current) {
+        clearTimeout(discoverTimerRef.current);
+        discoverTimerRef.current = null;
+      }
       setReaderError(err instanceof Error ? err.message : "リーダー検索に失敗しました");
       setReaderStatus("disconnected");
     }

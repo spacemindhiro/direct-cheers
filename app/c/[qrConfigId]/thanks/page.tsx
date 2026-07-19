@@ -7,30 +7,35 @@ import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setu
 import { FollowButton } from "@/components/follow-button";
 import { Loader2, ArrowLeft, PlusCircle, MessageSquare, Send, LayoutDashboard } from "lucide-react";
 
-function VoucherQR({ ticketId, productName, amount }: { ticketId: string; productName: string; amount: number }) {
+// エントランス入場QR・バウチャー引換QR共通。スキャナ（components/checkin-client.tsx）は
+// 読み取った値をそのまま ticket_code として /api/entrance/checkin へ送るため、
+// QRに載せる値は必ず ticket_code（ticket_idではない）でなければならない。
+function TicketCheckinQR({
+  ticketCode, title, productName, amount, hint,
+}: { ticketCode: string; title: string; productName: string; amount: number; hint: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     import("qrcode").then((QRCode) => {
       if (canvasRef.current) {
-        QRCode.toCanvas(canvasRef.current, ticketId, {
+        QRCode.toCanvas(canvasRef.current, ticketCode, {
           width: 240,
           margin: 2,
           color: { dark: "#0f172a", light: "#ffffff" },
         });
       }
     });
-  }, [ticketId]);
+  }, [ticketCode]);
 
   return (
     <div className="bg-white rounded-3xl p-6 text-center space-y-4">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">引換券</p>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{title}</p>
       <p className="text-xl font-black text-slate-900 leading-tight">{productName}</p>
       <p className="text-sm font-bold text-slate-500">¥{amount.toLocaleString()}</p>
       <div className="flex justify-center">
         <canvas ref={canvasRef} className="rounded-xl" />
       </div>
-      <p className="text-[10px] text-slate-400 font-medium">スタッフにこの画面を見せてください</p>
+      <p className="text-[10px] text-slate-400 font-medium">{hint}</p>
     </div>
   );
 }
@@ -43,6 +48,7 @@ const CUSTOMER_EMAIL_COOKIE = "dc_ce";
 type PaymentResult = {
   transaction_id: string;
   ticket_id: string | null;
+  ticket_code: string | null;
   email: string | null;
   amount: number;
   artist_name: string | null;
@@ -277,8 +283,26 @@ function ThanksContent() {
         )}
 
         {/* バウチャー引換QR（custom/V の場合） */}
-        {result.product_type === "custom" && result.payment_type === "V" && result.ticket_id && (
-          <VoucherQR ticketId={result.ticket_id} productName={result.product_name ?? ""} amount={result.amount} />
+        {isVoucher && result.ticket_code && (
+          <TicketCheckinQR
+            ticketCode={result.ticket_code}
+            title="引換券"
+            productName={result.product_name ?? ""}
+            amount={result.amount}
+            hint="スタッフにこの画面を見せてください"
+          />
+        )}
+
+        {/* 入場QR（entrance の場合。B/Cタイプはこの場で即発券されるため、
+            その場でスタッフにスキャンしてもらう必要がある） */}
+        {result.product_type === "entrance" && result.ticket_code && (
+          <TicketCheckinQR
+            ticketCode={result.ticket_code}
+            title="入場QR"
+            productName={result.product_name ?? ""}
+            amount={result.amount}
+            hint="入場時にスタッフへこの画面を見せてください"
+          />
         )}
 
         {/* Cheers カード（バウチャー以外） */}

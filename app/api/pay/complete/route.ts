@@ -68,16 +68,18 @@ export async function POST(req: Request) {
       checkHasPasskey(admin, senderProfileId),
     ]);
     let existingTicketId: string | null = null;
+    let existingTicketCode: string | null = null;
     if (product.product_type === "entrance" ||
         (product.product_type === "custom" && product.payment_type === "V")) {
       const { data: t } = await admin
         .from("tickets")
-        .select("ticket_id")
+        .select("ticket_id, ticket_code")
         .eq("transaction_id", existing.transaction_id)
         .maybeSingle();
       existingTicketId = t?.ticket_id ?? null;
+      existingTicketCode = t?.ticket_code ?? null;
     }
-    return buildResponse(email, existing, product, qrcInfo, !!senderProfileId, hasPasskey, existingTicketId);
+    return buildResponse(email, existing, product, qrcInfo, !!senderProfileId, hasPasskey, existingTicketId, existingTicketCode);
   }
 
   const productId = meta.product_id || null;
@@ -240,6 +242,7 @@ export async function POST(req: Request) {
 
   // エントランスタイプならチケット発行 — profile_id は冒頭で解決済み
   let ticketId: string | null = null;
+  let ticketCode: string | null = null;
   const needsTicket =
     (product.product_type === "entrance" ||
      (product.product_type === "custom" && product.payment_type === "V")) &&
@@ -259,9 +262,10 @@ export async function POST(req: Request) {
         status: "valid",
         quantity,
       })
-      .select("ticket_id")
+      .select("ticket_id, ticket_code")
       .single();
     ticketId = t?.ticket_id ?? null;
+    ticketCode = t?.ticket_code ?? null;
   }
 
   // QR子機画面へブロードキャスト（fire-and-forget）
@@ -283,6 +287,7 @@ export async function POST(req: Request) {
     !!senderProfileId,
     hasPasskey,
     ticketId,
+    ticketCode,
   );
 
   if (email) {
@@ -395,10 +400,12 @@ function buildResponse(
   isMember: boolean,
   hasPasskey: boolean = false,
   ticketId: string | null = null,
+  ticketCode: string | null = null,
 ): NextResponse {
   return NextResponse.json({
     transaction_id: tx.transaction_id,
     ticket_id: ticketId,
+    ticket_code: ticketCode,
     email,
     amount: tx.total_gross_amount,
     serial_number: tx.sequence_number_in_event,

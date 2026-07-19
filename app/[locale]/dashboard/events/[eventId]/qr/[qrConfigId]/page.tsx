@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QRDisplay } from "@/components/qr-display";
+import { CheersCard } from "@/components/cheers-card";
 import { QREditDelete } from "@/components/qr-edit-delete";
 import { QRThanksEditor } from "@/components/qr-thanks-editor";
 import { QRRecipientImageEdit } from "@/components/qr-recipient-image-edit";
@@ -164,6 +165,13 @@ async function QRDetailContent({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com";
   const qrUrl = `${siteUrl}/c/${qrConfigId}`;
 
+  const recipientCandidate = candidates.find(
+    (c) => c.profile_id === qr.recipient_profile_id && c.role === ((qr as any).recipient_name_context ?? "artist")
+  );
+  const cardAmount = productInfo
+    ? (productInfo.isRange ? ((qr as any).default_amount ?? productInfo.minAmount) : productInfo.minAmount)
+    : 0;
+
   return (
     <div className="space-y-8">
       <div className="space-y-1">
@@ -175,6 +183,26 @@ async function QRDetailContent({
       </div>
 
       <QRDisplay qrConfigId={qrConfigId} qrUrl={qrUrl} label={qr.label ?? "QRコード"} />
+
+      {!isEntrance && !isVoucher && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-2">
+            <span className="text-pink-500">✦</span> 現在のCheersカード
+          </p>
+          <div className="max-w-xs mx-auto opacity-90 pointer-events-none">
+            <CheersCard
+              artistName={recipientCandidate?.display_name ?? "Artist"}
+              eventTitle={event.title}
+              artistAvatar={recipientCandidate?.avatar_url ?? null}
+              imageUrl={(qr as any).image_url ?? null}
+              amount={cardAmount}
+              transactionId="PREVIEW"
+              serialNumber={1}
+            />
+          </div>
+          <p className="text-[9px] text-slate-600 text-center">※ 現在保存されている内容のプレビューです。実際の金額・シリアル番号は決済ごとに異なります</p>
+        </div>
+      )}
 
       {/* 有効期間 */}
       {validityInfo && (

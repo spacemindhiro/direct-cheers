@@ -8,7 +8,7 @@ import { QRThanksEditor } from "@/components/qr-thanks-editor";
 import { QRRecipientImageEdit } from "@/components/qr-recipient-image-edit";
 import { QRInviteIssuer } from "@/components/qr-invite-issuer";
 import { WelcomeCheerEligibleEditor } from "@/components/welcome-cheer-eligible-editor";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 async function QRDetailContent({
@@ -305,6 +305,16 @@ async function QRDetailContent({
           <QRThanksEditor qrConfigId={qrConfigId} />
         </div>
       )}
+
+      {/* フッター：イベント詳細に戻る */}
+      <div className="pt-4 border-t border-slate-800">
+        <Link
+          href={`/dashboard/events/${eventId}`}
+          className="flex items-center justify-center gap-2 w-full h-12 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-2xl text-xs font-black text-slate-500 hover:text-slate-300 transition-all"
+        >
+          <ArrowLeft size={14} /> イベント詳細に戻る
+        </Link>
+      </div>
     </div>
   );
 }

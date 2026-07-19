@@ -21,7 +21,7 @@ type Product = {
 };
 
 function saveEmailCookie(email: string) {
-  document.cookie = `${CUSTOMER_EMAIL_COOKIE}=${encodeURIComponent(email)};max-age=${60 * 60 * 24 * 30};path=/;SameSite=Lax`;
+  document.cookie = `${CUSTOMER_EMAIL_COOKIE}=${encodeURIComponent(email)};max-age=${60 * 60 * 24 * 365};path=/;SameSite=Lax`;
 }
 
 // タイプA: SetupIntent（または5日以内はPaymentIntentオーソリ）でカード入力

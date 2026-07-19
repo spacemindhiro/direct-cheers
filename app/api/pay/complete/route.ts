@@ -287,7 +287,7 @@ export async function POST(req: Request) {
 
   if (email) {
     (response as NextResponse).cookies.set("dc_ce", email, {
-      maxAge: 60 * 60 * 24 * 30,
+      maxAge: 60 * 60 * 24 * 365,
       path: "/",
       sameSite: "lax",
       httpOnly: false,

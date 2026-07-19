@@ -55,7 +55,20 @@ export async function proxy(request: NextRequest) {
   // /r/ はNFCタップ（未ログイン前提）からのアクセスのため認証チェックも不可
   // /auth/qr/ はスキャナ端末のQRログイン（未ログイン前提のルートハンドラ）
   if (path.startsWith("/c/") || path.startsWith("/entrance/") || path.startsWith("/r/") || path.startsWith("/auth/qr/")) {
-    return NextResponse.next({ request });
+    const response = NextResponse.next({ request });
+    // 簡易ログイン（dc_ce Cookie）は、認識が行われるたびに有効期限を
+    // スライドさせる。決済しなくても定期的にQRを読むだけで途切れずに
+    // 済むようにするため（長期のテストでも都度メール再入力を防ぐ）。
+    const dcCe = request.cookies.get("dc_ce")?.value;
+    if (dcCe) {
+      response.cookies.set("dc_ce", dcCe, {
+        maxAge: 60 * 60 * 24 * 365,
+        path: "/",
+        sameSite: "lax",
+        httpOnly: false,
+      });
+    }
+    return response;
   }
 
   if (isPublicPath) {

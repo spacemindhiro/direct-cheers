@@ -126,6 +126,7 @@ export function CheersPaymentForm({
   paypayEnabled = false,
   deviceName,
   lockedEmail,
+  recognizedName,
 }: {
   qrConfigId: string;
   products: Product[];
@@ -134,6 +135,7 @@ export function CheersPaymentForm({
   paypayEnabled?: boolean;
   deviceName?: string;
   lockedEmail?: string;
+  recognizedName?: string;
 }) {
   const selectedProduct = products[0];
   const isTypeA = selectedProduct?.type === "entrance" && selectedProduct?.payment_type === "A";
@@ -326,6 +328,16 @@ export function CheersPaymentForm({
 
   return (
     <div className="space-y-6">
+
+      {/* 簡易ログイン認識バナー（Cookie/セッションから本人特定できた場合のみ） */}
+      {recognizedName && (
+        <div className="flex items-center gap-2 bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-2.5">
+          <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+          <p className="text-xs text-slate-300">
+            <span className="font-bold text-white">{recognizedName}</span> さん、おかえりなさい
+          </p>
+        </div>
+      )}
 
       {/* 金額 */}
       <div className="space-y-3">

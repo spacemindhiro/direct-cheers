@@ -1,5 +1,6 @@
 import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
@@ -32,7 +33,40 @@ async function CheersContent({
   const { device: deviceName } = await searchParams;
   const admin = createAdminClient();
   const user = await getUser();
-  const lockedEmail = user?.email ?? null;
+
+  // 決済時は「簡易ログイン」の方針: passkey等のセッションが無くても、
+  // 過去の購入で発行された dc_ce Cookie（メールアドレス）だけで本人を
+  // 認識し、名前表示・メール事前入力を行う（フルログインは要求しない）。
+  let lockedEmail: string | null = user?.email ?? null;
+  let recognizedName: string | null = null;
+
+  if (user) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("display_name")
+      .eq("profile_id", user.id)
+      .maybeSingle();
+    recognizedName = profile?.display_name ?? null;
+  } else {
+    const cookieStore = await cookies();
+    const cookieEmail = cookieStore.get("dc_ce")?.value ?? null;
+    if (cookieEmail) {
+      lockedEmail = cookieEmail;
+      const { data: provisional } = await admin
+        .from("provisional_users")
+        .select("profile_id")
+        .eq("email", cookieEmail)
+        .maybeSingle();
+      if (provisional?.profile_id) {
+        const { data: profile } = await admin
+          .from("profiles")
+          .select("display_name")
+          .eq("profile_id", provisional.profile_id)
+          .maybeSingle();
+        recognizedName = profile?.display_name ?? null;
+      }
+    }
+  }
 
   const { data: qr } = await admin
     .from("qr_configs")
@@ -236,6 +270,7 @@ async function CheersContent({
           paypayEnabled={event.paypay_enabled ?? false}
           deviceName={deviceName}
           lockedEmail={lockedEmail ?? undefined}
+          recognizedName={recognizedName ?? undefined}
         />
 
         <div className="flex items-center justify-center gap-2 text-[10px] text-slate-700 font-bold uppercase tracking-widest">

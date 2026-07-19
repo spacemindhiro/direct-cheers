@@ -76,9 +76,14 @@ export async function GET(
   // デフォルト受取先（主催者宛の内部バケツ）は常時暗黙に候補集合へ含まれる、
   // 編集不可の存在。このエディタでは主催者が明示的に足した演者候補だけを
   // 見せる・触らせるため、一覧からは除外する。
+  // また、他QRの削除等で商品が対象条件を満たさなくなった不整合行（過去の
+  // 移行期に紛れ込んだゴミ等）も、候補一覧に無い＝チェックボックスで
+  // 外しようがなくなるため、ここで見せない（PATCH側でも自動整理される）。
+  const candidateIdSet = new Set((candidateProducts ?? []).map((p: any) => p.product_id));
   const eligibleIds = (eligibleRows ?? [])
     .map((r) => r.cheer_product_id)
-    .filter((id) => id !== product.welcome_cheer_default_product_id);
+    .filter((id) => id !== product.welcome_cheer_default_product_id)
+    .filter((id) => candidateIdSet.has(id));
 
   return NextResponse.json({
     welcome_cheer_amount: product.welcome_cheer_amount,
@@ -108,36 +113,41 @@ export async function PATCH(
 
   const { product_ids } = await req.json() as { product_ids?: string[] };
   const requestedIds = Array.isArray(product_ids) ? [...new Set(product_ids)] : [];
+  const requestedSet = new Set(requestedIds);
 
-  if (requestedIds.length > 0) {
-    const { data: validated } = await admin
+  const [{ data: currentRows }, { data: validCandidates }] = await Promise.all([
+    admin
+      .from("welcome_cheer_eligible_products")
+      .select("cheer_product_id")
+      .eq("entrance_product_id", product.product_id),
+    admin
       .from("products")
       .select("product_id")
-      .in("product_id", requestedIds)
       .eq("event_id", qr.event_id)
       .eq("type", "standard")
       .eq("min_amount", product.welcome_cheer_amount)
       .eq("max_amount", product.welcome_cheer_amount)
       .is("deleted_at", null)
-      .eq("is_welcome_cheer_default", false);
-
-    if ((validated?.length ?? 0) !== requestedIds.length) {
-      return NextResponse.json({ error: "選択された商品の一部が対象条件を満たしていません" }, { status: 400 });
-    }
-  }
-
-  const { data: currentRows } = await admin
-    .from("welcome_cheer_eligible_products")
-    .select("cheer_product_id")
-    .eq("entrance_product_id", product.product_id);
+      .eq("is_welcome_cheer_default", false),
+  ]);
   const currentIds = new Set((currentRows ?? []).map((r) => r.cheer_product_id));
-  const requestedSet = new Set(requestedIds);
+  const validCandidateIds = new Set((validCandidates ?? []).map((p) => p.product_id));
+
+  // 新規追加分（既存行に無いもの）のみ対象条件を検証する。
+  // 既存行はここでは再検証しない代わりに、下のtoRemove計算で
+  // 「もはや対象条件を満たさなくなったもの（他QR削除等で商品が消えた等）」を
+  // 自動的に取り除く。こうしないと、一度紛れ込んだ不整合行がUI上では
+  // 選択チェックボックスとして表示されない（=外しようがない）まま残り続け、
+  // 以後の保存が毎回この行のせいで400になり続けてしまう。
+  const toAdd = requestedIds.filter((id) => !currentIds.has(id));
+  if (toAdd.length > 0 && !toAdd.every((id) => validCandidateIds.has(id))) {
+    return NextResponse.json({ error: "選択された商品の一部が対象条件を満たしていません" }, { status: 400 });
+  }
 
   // デフォルト受取先の候補行はこのエディタの管理対象外（常に残す）
   const toRemove = [...currentIds]
     .filter((id) => id !== product.welcome_cheer_default_product_id)
-    .filter((id) => !requestedSet.has(id));
-  const toAdd = requestedIds.filter((id) => !currentIds.has(id));
+    .filter((id) => !requestedSet.has(id) || !validCandidateIds.has(id));
 
   if (toRemove.length > 0) {
     const { error: removeError } = await admin
@@ -157,5 +167,6 @@ export async function PATCH(
     if (addError) return NextResponse.json({ error: addError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, eligible_product_ids: requestedIds });
+  const finalIds = requestedIds.filter((id) => validCandidateIds.has(id));
+  return NextResponse.json({ ok: true, eligible_product_ids: finalIds });
 }

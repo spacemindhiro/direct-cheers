@@ -26,7 +26,7 @@ export async function GET(
 
   const { data: floor1Tx } = await admin
     .from("transactions")
-    .select("stripe_payment_intent_id")
+    .select("stripe_payment_intent_id, product_id")
     .eq("transaction_id", ticket.transaction_id)
     .maybeSingle();
 
@@ -47,22 +47,23 @@ export async function GET(
 
   const currentProduct = floor2Tx.product as any;
 
-  // 候補: このイベントの、ワンプライスかつ金額が2階金額と完全一致するstandardチア商品
-  const { data: candidateProducts } = await admin
-    .from("products")
-    .select("product_id, name, artist_id, artist:profiles!artist_id(display_name, avatar_url)")
-    .eq("event_id", ticket.event_id)
-    .eq("type", "standard")
-    .eq("min_amount", floor2Tx.total_gross_amount)
-    .eq("max_amount", floor2Tx.total_gross_amount)
-    .is("deleted_at", null);
+  // 候補: エントランスQR作成時に主催者が明示的に選んだチア商品のみ
+  // （welcome_cheer_eligible_products）。金額一致だけでイベント内の誰でも
+  // 候補に出てしまわないよう、主催者が事前に登録したものに限定する。
+  const { data: eligibleRows } = await admin
+    .from("welcome_cheer_eligible_products")
+    .select("cheer_product_id, product:products!cheer_product_id(product_id, name, artist_id, artist:profiles!artist_id(display_name, avatar_url))")
+    .eq("entrance_product_id", floor1Tx.product_id);
 
-  const candidates = (candidateProducts ?? []).map((p: any) => ({
-    product_id: p.product_id,
-    name: p.name,
-    artist_name: p.artist?.display_name ?? null,
-    artist_avatar: p.artist?.avatar_url ?? null,
-  }));
+  const candidates = (eligibleRows ?? [])
+    .map((r: any) => r.product)
+    .filter((p: any) => !!p)
+    .map((p: any) => ({
+      product_id: p.product_id,
+      name: p.name,
+      artist_name: p.artist?.display_name ?? null,
+      artist_avatar: p.artist?.avatar_url ?? null,
+    }));
 
   return NextResponse.json({
     has_welcome_cheer: true,

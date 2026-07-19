@@ -99,6 +99,11 @@ export function QRCreateForm({
   // ウェルカムチア（entrance×Cタイプ限定）: 合計金額の一部を2階（チア）として切り出す
   const [welcomeCheerEnabled, setWelcomeCheerEnabled] = useState(false);
   const [welcomeCheerAmount, setWelcomeCheerAmount] = useState<string>("");
+  const [welcomeCheerCandidates, setWelcomeCheerCandidates] = useState<
+    { product_id: string; name: string; artist_name: string | null; artist_avatar: string | null }[]
+  >([]);
+  const [welcomeCheerSelectedIds, setWelcomeCheerSelectedIds] = useState<string[]>([]);
+  const [welcomeCheerCandidatesLoading, setWelcomeCheerCandidatesLoading] = useState(false);
   const [serialScope, setSerialScope] = useState<"event" | "qr" | "artist">("artist");
   const [showAdvanced, setShowAdvanced] = useState(false);
   // 前売り販売期間（A/B タイプ必須）
@@ -163,6 +168,28 @@ export function QRCreateForm({
   useEffect(() => {
     if (productType === "entrance" || isVoucher) setPriceMode("fixed");
   }, [productType, isVoucher]);
+
+  // ウェルカムチア: 金額が変わるたびに、同金額の既存ワンプライスチアQRを候補として取得する
+  useEffect(() => {
+    if (!(productType === "entrance" && paymentType === "C" && welcomeCheerEnabled)) return;
+    const amount = parseAmt(welcomeCheerAmount);
+    if (amount <= 0) { setWelcomeCheerCandidates([]); return; }
+    const timer = setTimeout(() => {
+      setWelcomeCheerCandidatesLoading(true);
+      fetch(`/api/events/${eventId}/cheer-products?amount=${amount}`)
+        .then((r) => r.json())
+        .then((data) => setWelcomeCheerCandidates(data.candidates ?? []))
+        .catch(() => setWelcomeCheerCandidates([]))
+        .finally(() => setWelcomeCheerCandidatesLoading(false));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [productType, paymentType, welcomeCheerEnabled, welcomeCheerAmount, eventId]);
+
+  const toggleWelcomeCheerCandidate = (productId: string) => {
+    setWelcomeCheerSelectedIds((prev) =>
+      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+  };
 
   // 対面タッチ決済（Case④）: エントランスCタイプ、またはバウチャー×金額固定のみ対象。
   // レンジ指定は現場で金額を選ぶ画面を挟めないため対象外。
@@ -272,6 +299,7 @@ export function QRCreateForm({
             label_color: labelColor,
             ...(paymentType === "C" && welcomeCheerEnabled && {
               welcome_cheer_amount: parseAmt(welcomeCheerAmount),
+              welcome_cheer_eligible_product_ids: welcomeCheerSelectedIds,
             }),
           }),
           ...(isVoucher && {
@@ -856,8 +884,45 @@ export function QRCreateForm({
                           className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
                         />
                         <p className="text-[10px] text-slate-500">
-                          エントランス料金（¥{fixedAmount.toLocaleString()}）より低い金額にしてください。演者選択時は、この金額とワンプライスが完全一致するチア商品のみ選択可能になります。
+                          エントランス料金（¥{fixedAmount.toLocaleString()}）より低い金額にしてください。
                         </p>
+                      </div>
+                    )}
+                    {welcomeCheerEnabled && parseAmt(welcomeCheerAmount) > 0 && (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                          2階に含める演者（同金額の既存チアQRから選択）
+                        </label>
+                        {welcomeCheerCandidatesLoading ? (
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 py-2">
+                            <Loader2 size={12} className="animate-spin" /> 検索中...
+                          </div>
+                        ) : welcomeCheerCandidates.length === 0 ? (
+                          <p className="text-[10px] text-amber-400">
+                            ¥{parseAmt(welcomeCheerAmount).toLocaleString()} のワンプライスチアQRがまだありません。演者に先に作成してもらうか、後からこのQRを編集してください。
+                          </p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {welcomeCheerCandidates.map((c) => (
+                              <label
+                                key={c.product_id}
+                                className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                                  welcomeCheerSelectedIds.includes(c.product_id)
+                                    ? "bg-pink-500/20 border-pink-500/50"
+                                    : "bg-slate-900 border-slate-800 hover:border-slate-700"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={welcomeCheerSelectedIds.includes(c.product_id)}
+                                  onChange={() => toggleWelcomeCheerCandidate(c.product_id)}
+                                  className="w-4 h-4 rounded accent-pink-500"
+                                />
+                                <span className="text-xs font-bold text-white">{c.artist_name ?? c.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

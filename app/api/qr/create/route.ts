@@ -60,6 +60,7 @@ export async function POST(req: Request) {
     default_amount = null,
     touchpay_enabled = false,
     welcome_cheer_amount = null,
+    welcome_cheer_eligible_product_ids = [],
   } = body as {
     event_id: string;
     label?: string;
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
     default_amount?: number | null;
     touchpay_enabled?: boolean;
     welcome_cheer_amount?: number | null;
+    welcome_cheer_eligible_product_ids?: string[];
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -167,6 +169,31 @@ export async function POST(req: Request) {
     }
     if (welcome_cheer_amount >= min_amount) {
       return NextResponse.json({ error: "ウェルカムチアの金額はエントランス料金より低くしてください" }, { status: 400 });
+    }
+  }
+
+  // ウェルカムチアの候補として選択された既存チアQRを検証する。
+  // このイベントの、ワンプライスかつ2階金額と完全一致するstandard商品のみ許可。
+  const adminForValidation = createAdminClient();
+  let validatedEligibleProductIds: string[] = [];
+  if (welcome_cheer_amount != null && welcome_cheer_eligible_product_ids.length > 0) {
+    const { data: eligibleCandidates } = await adminForValidation
+      .from("products")
+      .select("product_id, event_id, type, min_amount, max_amount")
+      .in("product_id", welcome_cheer_eligible_product_ids)
+      .is("deleted_at", null);
+
+    validatedEligibleProductIds = (eligibleCandidates ?? [])
+      .filter((p) =>
+        p.event_id === event_id &&
+        p.type === "standard" &&
+        p.min_amount === welcome_cheer_amount &&
+        p.max_amount === welcome_cheer_amount
+      )
+      .map((p) => p.product_id);
+
+    if (validatedEligibleProductIds.length !== welcome_cheer_eligible_product_ids.length) {
+      return NextResponse.json({ error: "選択されたチアQRの一部が対象条件を満たしていません" }, { status: 400 });
     }
   }
 
@@ -259,6 +286,20 @@ export async function POST(req: Request) {
 
     if (linkError) {
       return NextResponse.json({ error: `ウェルカムチアの紐付けに失敗しました: ${linkError.message}` }, { status: 500 });
+    }
+
+    // 候補テーブルに登録: デフォルト先（主催者）は常に含め、主催者が選んだ
+    // 既存チアQRも合わせて登録する。
+    const eligibleRows = [welcomeCheerProductId, ...validatedEligibleProductIds].map((cheerProductId) => ({
+      entrance_product_id: row.out_product_id,
+      cheer_product_id: cheerProductId,
+    }));
+    const { error: eligibleError } = await adminClient
+      .from("welcome_cheer_eligible_products")
+      .insert(eligibleRows);
+
+    if (eligibleError) {
+      return NextResponse.json({ error: `ウェルカムチア候補の登録に失敗しました: ${eligibleError.message}` }, { status: 500 });
     }
   }
 

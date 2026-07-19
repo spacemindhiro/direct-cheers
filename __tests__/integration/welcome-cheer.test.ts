@@ -203,6 +203,90 @@ describe("TC-WC-A: /api/qr/create — ウェルカムチアのデフォルト受
     expect(wcTargets).toHaveLength(1);
     expect(wcTargets![0].profile_id).toBe(organizerProfileId);
     expect(Number(wcTargets![0].distribution_ratio)).toBe(1);
+
+    // デフォルト受取先は候補テーブルにも自動登録される
+    const { data: eligibleRows } = await testAdmin
+      .from("welcome_cheer_eligible_products")
+      .select("cheer_product_id")
+      .eq("entrance_product_id", data.product_id);
+    expect(eligibleRows).toHaveLength(1);
+    expect(eligibleRows![0].cheer_product_id).toBe(data.welcome_cheer_product_id);
+  });
+
+  it("TC-WC-A-04: welcome_cheer_eligible_product_idsで既存チアQRを候補指定できる", async () => {
+    mockOrganizerAuth();
+    const existingCheerProductId = await insertProduct({
+      eventId, type: "standard", name: "既存の演者チア", minAmount: 700, maxAmount: 700, artistId: artistProfileId,
+    });
+    cleanup.productIds.push(existingCheerProductId);
+    const existingCheerQrConfigId = await insertQrConfig({
+      eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId, productId: existingCheerProductId,
+    });
+    await insertQrConfigTargets(existingCheerQrConfigId, [{ profileId: artistProfileId, ratio: 1 }]);
+    cleanup.qrConfigIds.push(existingCheerQrConfigId);
+
+    const req = new Request("http://localhost/api/qr/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_id: eventId,
+        label: "WC候補指定テストQR",
+        product_type: "entrance",
+        payment_type: "C",
+        min_amount: 3000,
+        max_amount: 3000,
+        recipient_profile_id: organizerProfileId,
+        recipient_name_context: "organizer",
+        targets: [{ profile_id: organizerProfileId, distribution_ratio: 1 }],
+        welcome_cheer_amount: 700,
+        welcome_cheer_eligible_product_ids: [existingCheerProductId],
+      }),
+    });
+    const res = await qrCreatePOST(req);
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    cleanup.productIds.push(data.product_id, data.welcome_cheer_product_id);
+    cleanup.qrConfigIds.push(data.qr_config_id);
+    const { data: defaultWcQrConfig } = await testAdmin
+      .from("qr_configs").select("qr_config_id").eq("product_id", data.welcome_cheer_product_id).single();
+    cleanup.qrConfigIds.push(defaultWcQrConfig!.qr_config_id);
+
+    const { data: eligibleRows } = await testAdmin
+      .from("welcome_cheer_eligible_products")
+      .select("cheer_product_id")
+      .eq("entrance_product_id", data.product_id);
+    const eligibleIds = (eligibleRows ?? []).map((r) => r.cheer_product_id);
+    expect(eligibleIds).toContain(data.welcome_cheer_product_id); // デフォルト先
+    expect(eligibleIds).toContain(existingCheerProductId); // 明示的に選んだ既存チア
+    expect(eligibleIds).toHaveLength(2);
+  });
+
+  it("TC-WC-A-05: 金額が一致しないチアQRをwelcome_cheer_eligible_product_idsに指定 → 400", async () => {
+    mockOrganizerAuth();
+    const wrongAmountProductId = await insertProduct({
+      eventId, type: "standard", name: "金額違い", minAmount: 999, maxAmount: 999, artistId: artistProfileId,
+    });
+    cleanup.productIds.push(wrongAmountProductId);
+
+    const req = new Request("http://localhost/api/qr/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_id: eventId,
+        label: "WC候補金額不一致テストQR",
+        product_type: "entrance",
+        payment_type: "C",
+        min_amount: 3000,
+        max_amount: 3000,
+        recipient_profile_id: organizerProfileId,
+        recipient_name_context: "organizer",
+        targets: [{ profile_id: organizerProfileId, distribution_ratio: 1 }],
+        welcome_cheer_amount: 500,
+        welcome_cheer_eligible_product_ids: [wrongAmountProductId],
+      }),
+    });
+    const res = await qrCreatePOST(req);
+    expect(res.status).toBe(400);
   });
 
   it("TC-WC-A-02: welcome_cheer_amount >= min_amount → 400", async () => {
@@ -375,6 +459,16 @@ describe("TC-WC-C: 確定API — 演者選択の正常系・異常系", () => {
       welcomeCheerAmount: 500, welcomeCheerDefaultProductId: wcDefaultProductId,
     });
     cleanup.productIds.push(entranceProductId);
+
+    // 候補テーブルに登録: デフォルト(主催者)・演者本人のチアのみ許可。
+    // wrongPriceProductIdはあえて登録しない（400テストのため）。
+    const { error: eligibleInsertError } = await testAdmin
+      .from("welcome_cheer_eligible_products")
+      .insert([
+        { entrance_product_id: entranceProductId, cheer_product_id: wcDefaultProductId },
+        { entrance_product_id: entranceProductId, cheer_product_id: artistProductId },
+      ]);
+    if (eligibleInsertError) throw new Error(`候補登録失敗: ${eligibleInsertError.message}`);
 
     mockOrganizerAuth();
     mockStripe.piStatus = "requires_capture";

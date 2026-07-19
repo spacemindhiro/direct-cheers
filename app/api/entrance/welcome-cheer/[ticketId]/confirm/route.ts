@@ -29,7 +29,7 @@ export async function POST(
 
   const { data: floor1Tx } = await admin
     .from("transactions")
-    .select("stripe_payment_intent_id")
+    .select("stripe_payment_intent_id, product_id")
     .eq("transaction_id", ticket.transaction_id)
     .maybeSingle();
   if (!floor1Tx?.stripe_payment_intent_id) {
@@ -46,21 +46,16 @@ export async function POST(
     return NextResponse.json({ error: "WELCOME_CHEER_NOT_FOUND" }, { status: 404 });
   }
 
-  // 選択商品の検証: このイベントの、ワンプライスかつ2階金額と完全一致するstandard商品であること
-  const { data: targetProduct } = await admin
-    .from("products")
-    .select("product_id, event_id, type, min_amount, max_amount")
-    .eq("product_id", product_id)
-    .is("deleted_at", null)
+  // 選択商品の検証: エントランスQR作成時に主催者が明示的に候補登録した
+  // チア商品であること（welcome_cheer_eligible_products）。
+  const { data: eligible } = await admin
+    .from("welcome_cheer_eligible_products")
+    .select("cheer_product_id")
+    .eq("entrance_product_id", floor1Tx.product_id)
+    .eq("cheer_product_id", product_id)
     .maybeSingle();
 
-  if (
-    !targetProduct ||
-    targetProduct.event_id !== ticket.event_id ||
-    targetProduct.type !== "standard" ||
-    targetProduct.min_amount !== targetProduct.max_amount ||
-    targetProduct.min_amount !== floor2Tx.total_gross_amount
-  ) {
+  if (!eligible) {
     return NextResponse.json({ error: "この商品はウェルカムチアの宛先として選択できません" }, { status: 400 });
   }
 

@@ -4,6 +4,7 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QRDisplay } from "@/components/qr-display";
 import { WalletCheerPreview } from "@/components/wallet-cheer-preview";
+import { WalletTicketPreview } from "@/components/wallet-ticket-preview";
 import { QREditDelete } from "@/components/qr-edit-delete";
 import { QRThanksEditor } from "@/components/qr-thanks-editor";
 import { QRRecipientImageEdit } from "@/components/qr-recipient-image-edit";
@@ -191,6 +192,21 @@ async function QRDetailContent({
             recipientName={recipientCandidate?.display_name ?? "Artist"}
             imageUrl={(qr as any).image_url ?? null}
             amount={cardAmount}
+          />
+        </div>
+      )}
+
+      {(isEntrance || isVoucher) && (
+        <div className="pointer-events-none">
+          <WalletTicketPreview
+            eventTitle={event.title}
+            productName={productInfo?.name || qr.label || "入場チケット"}
+            startAt={(event as any).start_at ?? null}
+            venue={(event as any).venue ?? null}
+            stripImageUrl={(qr as any).strip_image_url ?? null}
+            bgColor={(qr as any).bg_color ?? undefined}
+            fgColor={(qr as any).fg_color ?? undefined}
+            labelColor={(qr as any).label_color ?? undefined}
           />
         </div>
       )}

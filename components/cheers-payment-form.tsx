@@ -126,6 +126,7 @@ export function CheersPaymentForm({
   paypayEnabled = false,
   deviceName,
   lockedEmail,
+  isAuthLocked = false,
   recognizedName,
 }: {
   qrConfigId: string;
@@ -135,6 +136,7 @@ export function CheersPaymentForm({
   paypayEnabled?: boolean;
   deviceName?: string;
   lockedEmail?: string;
+  isAuthLocked?: boolean;
   recognizedName?: string;
 }) {
   const selectedProduct = products[0];
@@ -147,7 +149,10 @@ export function CheersPaymentForm({
   const [quantity, setQuantity] = useState(1);
   const totalAmount = isEntrance && !isTypeA ? amount * quantity : amount;
   const [email, setEmail] = useState(lockedEmail ?? "");
-  const [isEmailLocked, setIsEmailLocked] = useState(!!lockedEmail);
+  // 本当のログインセッション（Supabase Auth）だけメール変更不可にロックする。
+  // dc_ce Cookieによる簡易ログインは推測にすぎないため、共有端末での
+  // 別人購入やテストでのユーザー切り替えができるよう「変更」を残す。
+  const [isEmailLocked] = useState(isAuthLocked);
   const [pendingMethod, setPendingMethod] = useState<"card" | "paypay" | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -160,11 +165,10 @@ export function CheersPaymentForm({
   const [entranceDone, setEntranceDone] = useState(false);
 
   useEffect(() => {
-    if (lockedEmail) return; // サーバーからロック済み（ログイン済み）
+    if (lockedEmail) return; // サーバーから既に値が来ている（ログイン済みまたはCookie認識済み）
     const match = document.cookie.match(new RegExp(`${CUSTOMER_EMAIL_COOKIE}=([^;]+)`));
     if (match) {
-      setEmail(decodeURIComponent(match[1]));
-      setIsEmailLocked(true); // クッキーがあれば事前登録済み客 → ロック
+      setEmail(decodeURIComponent(match[1])); // 入力の手間を省く事前入力。ロックはしない
     }
   }, [lockedEmail]);
 

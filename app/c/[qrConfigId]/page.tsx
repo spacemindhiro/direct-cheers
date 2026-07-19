@@ -270,6 +270,7 @@ async function CheersContent({
           paypayEnabled={event.paypay_enabled ?? false}
           deviceName={deviceName}
           lockedEmail={lockedEmail ?? undefined}
+          isAuthLocked={!!user}
           recognizedName={recognizedName ?? undefined}
         />
 

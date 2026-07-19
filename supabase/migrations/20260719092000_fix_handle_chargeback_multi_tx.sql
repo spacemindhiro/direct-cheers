@@ -7,6 +7,13 @@
 -- 行う必要があるが、旧実装は「同一dispute_idの debt_claims が1件でもあれば
 -- 即return」という判定だったため、2回目（2階分）の呼び出しが無条件で
 -- スキップされ、2階側の凍結・請求計上が漏れる欠陥があった。
+--
+-- 本番/STGには20260504000001由来の旧5引数シグネチャが、CREATE OR REPLACEでは
+-- 置き換わらず別オーバーロードとして残っている（新シグネチャ追加時に明示的な
+-- DROPが漏れていたため）。REVOKE ON FUNCTION handle_chargeback が引数リストなし
+-- だと複数オーバーロード存在時に曖昧エラーになるため、旧シグネチャを先にDROPする。
+
+DROP FUNCTION IF EXISTS handle_chargeback(UUID, BIGINT, INTEGER, TEXT, UUID);
 
 CREATE OR REPLACE FUNCTION handle_chargeback(
   p_transaction_id        UUID,
@@ -75,5 +82,7 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION handle_chargeback FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION handle_chargeback TO service_role;
+-- 曖昧エラー回避のため、REVOKE/GRANTは新シグネチャをフルで指定する
+-- （引数リストなしだとオーバーロードが複数存在する場合にエラーになる）
+REVOKE EXECUTE ON FUNCTION handle_chargeback(UUID, BIGINT, INTEGER, TEXT, UUID, BIGINT, BIGINT) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION handle_chargeback(UUID, BIGINT, INTEGER, TEXT, UUID, BIGINT, BIGINT) TO service_role;

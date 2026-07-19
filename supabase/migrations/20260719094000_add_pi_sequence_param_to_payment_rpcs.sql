@@ -153,8 +153,14 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION complete_touchpay_payment FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION complete_touchpay_payment TO service_role;
+-- 曖昧エラー回避のため、REVOKE/GRANTは新シグネチャをフルで指定する
+-- （引数リストなしだとオーバーロードが複数存在する場合にエラーになる）
+REVOKE EXECUTE ON FUNCTION complete_touchpay_payment(
+  TEXT, UUID, UUID, BIGINT, BIGINT, BIGINT, BIGINT, UUID, UUID, BIGINT, TEXT, TEXT, UUID, INTEGER
+) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION complete_touchpay_payment(
+  TEXT, UUID, UUID, BIGINT, BIGINT, BIGINT, BIGINT, UUID, UUID, BIGINT, TEXT, TEXT, UUID, INTEGER
+) TO service_role;
 
 CREATE OR REPLACE FUNCTION complete_cheers_payment(
   p_stripe_payment_intent_id TEXT,
@@ -314,5 +320,9 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION complete_cheers_payment FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION complete_cheers_payment TO service_role;
+REVOKE EXECUTE ON FUNCTION complete_cheers_payment(
+  TEXT, UUID, UUID, TEXT, TEXT, BIGINT, BIGINT, BIGINT, BIGINT, TEXT, TEXT, TEXT, UUID, UUID, BIGINT, TEXT, TEXT, INTEGER
+) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION complete_cheers_payment(
+  TEXT, UUID, UUID, TEXT, TEXT, BIGINT, BIGINT, BIGINT, BIGINT, TEXT, TEXT, TEXT, UUID, UUID, BIGINT, TEXT, TEXT, INTEGER
+) TO service_role;

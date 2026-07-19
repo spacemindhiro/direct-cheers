@@ -288,11 +288,13 @@ export async function POST(
     return raw;
   }
 
-  // pi_id → transaction_id マップ（destination_transfer_id 更新用）
-  const txByPiId = new Map<string, string>();
+  // pi_id → transaction_id[] マップ（destination_transfer_id 更新用）
+  // ウェルカムチアにより同一PIに複数transactions行（1階・2階）が紐づくことがあるため、
+  // 1PI=1txを前提にせず配列で持つ。
+  const txByPiId = new Map<string, string[]>();
   for (const tx of transactions) {
     const piId = parsePiId((tx as any).stripe_payment_intent_id);
-    if (piId) txByPiId.set(piId, tx.transaction_id);
+    if (piId) txByPiId.set(piId, [...(txByPiId.get(piId) ?? []), tx.transaction_id]);
   }
 
   const allPaymentIntentIds = new Set(
@@ -318,7 +320,8 @@ export async function POST(
       const piId = parsePiId((tx as any).stripe_payment_intent_id);
       if (piId) {
         allPaymentIntentIds.add(piId);
-        txByPiId.set(piId, (tx as any).transaction_id);
+        const txId = (tx as any).transaction_id as string;
+        txByPiId.set(piId, [...(txByPiId.get(piId) ?? []), txId]);
       }
     }
   }
@@ -361,8 +364,10 @@ export async function POST(
         const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
         const charge = pi.latest_charge as Stripe.Charge | null;
         if (!charge?.id) return;
-        const txId = txByPiId.get(piId);
-        if (txId) chargeIdByTxId.set(txId, charge.id);
+        // 同一PIに複数transaction（1階・2階）が紐づく場合、全行に同じchargeIdを反映する
+        for (const txId of txByPiId.get(piId) ?? []) {
+          chargeIdByTxId.set(txId, charge.id);
+        }
       } catch (err: any) {
         console.error(`[settle] charge 取得失敗 pi=${piId}:`, err.message);
       }

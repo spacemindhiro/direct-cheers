@@ -52,10 +52,13 @@ export async function POST(req: Request) {
   const senderProfileId = await resolveProfileIdByEmail(admin, email ?? null);
 
   // 既存 transaction チェック（冪等性）
+  // stripe_pi_sequence=0 は1階（アンカー行）。ウェルカムチアの2階行が同一PIに
+  // 追加されても複数行ヒットしないよう、アンカー行だけを見る。
   const { data: existing } = await admin
     .from("transactions")
     .select("transaction_id, product_id, total_gross_amount, sequence_number_in_event, qr_config_id")
     .eq("stripe_payment_intent_id", pi?.id ?? "")
+    .eq("stripe_pi_sequence", 0)
     .maybeSingle();
 
   if (existing) {
@@ -85,14 +88,11 @@ export async function POST(req: Request) {
   const latestCharge = pi?.latest_charge as Stripe.Charge | null;
   const walletType = (latestCharge?.payment_method_details?.card?.wallet as any)?.type ?? null;
   const feeConfig = await getFeeConfig();
-  const stripeFee = Math.ceil(gross * (paymentMethod === "paypay" ? feeConfig.paypay_rate : feeConfig.stripe_rate));
-  const platformFee = Math.floor(gross * feeConfig.platform_rate);
 
   // qrcInfo とエージェント情報を RPC 呼び出し前に取得（agent_fee 計算に必要）
   const qrcInfo = await getQrConfigInfo(admin, qrConfigId);
 
   let agentId: string | null = null;
-  let agentFee = 0;
   if (qrcInfo.eventId) {
     const { data: eventRow } = await admin
       .from("events")
@@ -100,10 +100,27 @@ export async function POST(req: Request) {
       .eq("event_id", qrcInfo.eventId)
       .single();
     agentId = eventRow?.agent_id ?? null;
-    if (agentId) {
-      agentFee = Math.floor(platformFee * (feeConfig.agent_fee_rate / feeConfig.platform_rate));
-    }
   }
+
+  // ウェルカムチア: 合計金額(gross、当日現地QR決済で複数人分まとめ買いならquantity倍済み)のうち、
+  // welcome_cheer_amount×quantity分を2階（チア）として切り出す。1階は残りの取り分として
+  // 既存のqr_config配分ロジックそのまま。
+  const { data: welcomeCheerProduct } = productId
+    ? await admin
+        .from("products")
+        .select("welcome_cheer_amount, welcome_cheer_default_product_id")
+        .eq("product_id", productId)
+        .maybeSingle()
+    : { data: null };
+  const parsedQtyForWc = parseInt(meta.quantity ?? "", 10);
+  const quantityForWc = Number.isInteger(parsedQtyForWc) && parsedQtyForWc >= 1 ? parsedQtyForWc : 1;
+  const welcomeCheerUnitAmount = welcomeCheerProduct?.welcome_cheer_amount ?? null;
+  const welcomeCheerTotal = welcomeCheerUnitAmount != null ? welcomeCheerUnitAmount * quantityForWc : 0;
+  const floor1Gross = gross - welcomeCheerTotal;
+
+  const stripeFee = Math.ceil(floor1Gross * (paymentMethod === "paypay" ? feeConfig.paypay_rate : feeConfig.stripe_rate));
+  const platformFee = Math.floor(floor1Gross * feeConfig.platform_rate);
+  const agentFee = agentId ? Math.floor(platformFee * (feeConfig.agent_fee_rate / feeConfig.platform_rate)) : 0;
 
   // provisional_users + transactions + distributions をアトミックに書き込む
   const { data: rpcRows, error: rpcError } = await admin.rpc("complete_cheers_payment", {
@@ -112,10 +129,10 @@ export async function POST(req: Request) {
     p_qr_config_id:             qrConfigId,
     p_email:                    email ?? null,
     p_stripe_customer_id:       stripeCustomerId,
-    p_gross:                    gross,
+    p_gross:                    floor1Gross,
     p_stripe_fee:               stripeFee,
     p_platform_fee:             platformFee,
-    p_net_amount:               gross - stripeFee - platformFee,
+    p_net_amount:               floor1Gross - stripeFee - platformFee,
     p_payment_method:           paymentMethod,
     p_sender_name:              meta.nickname || null,
     p_sender_comment:           meta.comment || null,
@@ -124,6 +141,7 @@ export async function POST(req: Request) {
     p_agent_fee:                agentFee,
     p_wallet_type:              walletType,
     p_device_name:              meta.device_name || null,
+    p_stripe_pi_sequence:       0,
   });
 
   if (rpcError) {
@@ -140,11 +158,55 @@ export async function POST(req: Request) {
       .from("transactions")
       .select("transaction_id")
       .eq("stripe_payment_intent_id", pi?.id ?? "")
+      .eq("stripe_pi_sequence", 0)
       .single();
     if (!tx) {
       return NextResponse.json({ error: "Transaction not found after RPC no-op" }, { status: 500 });
     }
     transactionId = tx.transaction_id;
+  }
+
+  // ウェルカムチア（2階）: welcome_cheer_amountが設定されている商品のみ、
+  // 同一PIで2階transactionも作成する。デフォルト受取先（主催者ワンプライスチア）に
+  // 一旦計上し、購入者が後で演者を選ぶまでは非表示のまま。
+  if (isNewTransaction && welcomeCheerUnitAmount != null && welcomeCheerProduct?.welcome_cheer_default_product_id) {
+    const { data: wcQrConfig } = await admin
+      .from("qr_configs")
+      .select("qr_config_id")
+      .eq("product_id", welcomeCheerProduct.welcome_cheer_default_product_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (wcQrConfig?.qr_config_id) {
+      const wcStripeFee = Math.ceil(welcomeCheerTotal * (paymentMethod === "paypay" ? feeConfig.paypay_rate : feeConfig.stripe_rate));
+      const wcPlatformFee = Math.floor(welcomeCheerTotal * feeConfig.platform_rate);
+      const wcAgentFee = agentId ? Math.floor(wcPlatformFee * (feeConfig.agent_fee_rate / feeConfig.platform_rate)) : 0;
+
+      const { error: wcRpcError } = await admin.rpc("complete_cheers_payment", {
+        p_stripe_payment_intent_id: pi?.id ?? "",
+        p_product_id:               welcomeCheerProduct.welcome_cheer_default_product_id,
+        p_qr_config_id:             wcQrConfig.qr_config_id,
+        p_email:                    email ?? null,
+        p_stripe_customer_id:       stripeCustomerId,
+        p_gross:                    welcomeCheerTotal,
+        p_stripe_fee:               wcStripeFee,
+        p_platform_fee:             wcPlatformFee,
+        p_net_amount:               welcomeCheerTotal - wcStripeFee - wcPlatformFee,
+        p_payment_method:           paymentMethod,
+        p_event_id:                 qrcInfo.eventId ?? null,
+        p_agent_id:                 agentId,
+        p_agent_fee:                wcAgentFee,
+        p_wallet_type:              walletType,
+        p_device_name:              meta.device_name || null,
+        p_stripe_pi_sequence:       1,
+      });
+
+      if (wcRpcError) {
+        console.error("[pay/complete] ウェルカムチア2階transaction作成失敗:", wcRpcError.message);
+      }
+    } else {
+      console.error(`[pay/complete] ウェルカムチアのデフォルト受取先qr_configが見つかりません product_id=${welcomeCheerProduct.welcome_cheer_default_product_id}`);
+    }
   }
 
   const hasPasskey = await checkHasPasskey(admin, senderProfileId);

@@ -50,42 +50,54 @@ export async function GET(req: Request) {
     if (!txs || txs.length === 0) continue; // 決済が無いイベントは対象外(静かに終わっただけ)
 
     let eventErrors = 0;
+
+    // ウェルカムチアにより同一PIに複数transaction行（1階・2階）が紐づくことがあるため、
+    // Stripe側の操作（cancel/refund）はPI単位で1回だけ行い、DBステータス更新・
+    // 集計は同じPIを持つ全transaction行に対して行う。
+    const txsByPi = new Map<string, typeof txs>();
+    const noPiTxs: typeof txs = [];
     for (const tx of txs) {
-      if (!tx.stripe_payment_intent_id) {
-        eventErrors++;
-        errors++;
-        failures.push({
-          eventName: event.title,
-          amount: tx.total_gross_amount ?? 0,
-          failureReason: "stripe_payment_intent_id が空のため自動キャンセル不可",
-        });
-        continue;
+      if (!tx.stripe_payment_intent_id) { noPiTxs.push(tx); continue; }
+      let piId = tx.stripe_payment_intent_id;
+      if (piId.startsWith("{")) {
+        try { const p = JSON.parse(piId); if (p?.id) piId = p.id; } catch {}
       }
+      txsByPi.set(piId, [...(txsByPi.get(piId) ?? []), tx]);
+    }
+
+    for (const tx of noPiTxs) {
+      eventErrors++;
+      errors++;
+      failures.push({
+        eventName: event.title,
+        amount: tx.total_gross_amount ?? 0,
+        failureReason: "stripe_payment_intent_id が空のため自動キャンセル不可",
+      });
+    }
+
+    for (const [piId, groupTxs] of txsByPi.entries()) {
       try {
-        let piId = tx.stripe_payment_intent_id;
-        if (piId.startsWith("{")) {
-          try { const p = JSON.parse(piId); if (p?.id) piId = p.id; } catch {}
-        }
         const pi = await stripe.paymentIntents.retrieve(piId);
+        const txIds = groupTxs.map((t) => t.transaction_id);
 
         if (pi.status === "requires_capture") {
           // オーソリ中(未キャプチャ) → cancelで資金移動ゼロのまま解放。想定される通常パターン
           await stripe.paymentIntents.cancel(piId);
-          await admin.from("transactions").update({ status: "cancelled" }).eq("transaction_id", tx.transaction_id);
+          await admin.from("transactions").update({ status: "cancelled" }).in("transaction_id", txIds);
         } else if (pi.status === "succeeded") {
           // 想定外(通常はrequires_captureのはず)。安全側に倒して返金する
           await stripe.refunds.create({ payment_intent: piId });
-          await admin.from("transactions").update({ status: "refunded" }).eq("transaction_id", tx.transaction_id);
+          await admin.from("transactions").update({ status: "refunded" }).in("transaction_id", txIds);
         }
         // canceled/refunded 等は既に終端状態のため何もしない
-        cancelledTx++;
+        cancelledTx += groupTxs.length;
       } catch (err: any) {
         eventErrors++;
         errors++;
-        console.error(`[auto-cancel-unsettled] tx=${tx.transaction_id} error:`, err.message);
+        console.error(`[auto-cancel-unsettled] pi=${piId} error:`, err.message);
         failures.push({
           eventName: event.title,
-          amount: tx.total_gross_amount ?? 0,
+          amount: groupTxs.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0),
           failureReason: `自動キャンセル失敗: ${(err.message ?? "").slice(0, 80)}`,
         });
       }

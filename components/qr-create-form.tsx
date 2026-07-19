@@ -13,7 +13,7 @@ import { WalletTicketPreview } from "@/components/wallet-ticket-preview";
 const PAYMENT_TYPE_INFO = {
   A: { label: "Aタイプ：5日前確定", desc: "予約→カード保存、5日前に自動決済" },
   B: { label: "Bタイプ：即時確定",  desc: "予約時に即時決済" },
-  C: { label: "Cタイプ：当日決済",  desc: "予約→カード保存、チェックイン時に決済" },
+  C: { label: "Cタイプ：当日決済",  desc: "事前予約なし。当日タッチ決済またはQR自己決済のみ" },
 };
 
 const CUSTOM_SUBTYPE_INFO = {
@@ -96,6 +96,9 @@ export function QRCreateForm({
   const [customSubtype, setCustomSubtype] = useState<CustomSubtype>("V");
   const [voucherStockLimit, setVoucherStockLimit] = useState<string>("");
   const [trackInventoryC, setTrackInventoryC] = useState(false);
+  // ウェルカムチア（entrance×Cタイプ限定）: 合計金額の一部を2階（チア）として切り出す
+  const [welcomeCheerEnabled, setWelcomeCheerEnabled] = useState(false);
+  const [welcomeCheerAmount, setWelcomeCheerAmount] = useState<string>("");
   const [serialScope, setSerialScope] = useState<"event" | "qr" | "artist">("artist");
   const [showAdvanced, setShowAdvanced] = useState(false);
   // 前売り販売期間（A/B タイプ必須）
@@ -228,6 +231,11 @@ export function QRCreateForm({
       setError(`タイプBを利用するには残高が ¥${typeBReserveRequired.toLocaleString()} 以上必要です（現在: ¥${organizerBalance.toLocaleString()}）`);
       return;
     }
+    if (productType === "entrance" && paymentType === "C" && welcomeCheerEnabled) {
+      const wcAmount = parseAmt(welcomeCheerAmount);
+      if (wcAmount <= 0) { setError("ウェルカムチアの金額を入力してください"); return; }
+      if (wcAmount >= fixedAmount) { setError("ウェルカムチアの金額はエントランス料金より低くしてください"); return; }
+    }
     setError(null);
     startTransition(async () => {
       const res = await fetch("/api/qr/create", {
@@ -262,6 +270,9 @@ export function QRCreateForm({
             bg_color: bgColor,
             fg_color: fgColor,
             label_color: labelColor,
+            ...(paymentType === "C" && welcomeCheerEnabled && {
+              welcome_cheer_amount: parseAmt(welcomeCheerAmount),
+            }),
           }),
           ...(isVoucher && {
             payment_type: customSubtype,
@@ -814,6 +825,42 @@ export function QRCreateForm({
                     />
                     <span className="text-xs text-slate-300 font-bold">Cタイプでも在庫管理する</span>
                   </label>
+                )}
+
+                {/* Cタイプのみ: ウェルカムチア（2階建て構造） */}
+                {paymentType === "C" && (
+                  <div className="space-y-3 bg-pink-500/5 border border-pink-500/20 rounded-xl p-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={welcomeCheerEnabled}
+                        onChange={(e) => setWelcomeCheerEnabled(e.target.checked)}
+                        className="w-4 h-4 rounded accent-pink-500"
+                      />
+                      <span className="text-xs text-slate-300 font-bold">ウェルカムチアを含める</span>
+                    </label>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      入場料の中から一部を、後で購入者が選んだ演者へのチアとして切り出します（1階＝残りのエントランス取り分／2階＝ウェルカムチア）。
+                    </p>
+                    {welcomeCheerEnabled && (
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                          2階（ウェルカムチア）の金額 <span className="text-pink-500">*</span>
+                        </label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={fmtAmt(parseAmt(welcomeCheerAmount))}
+                          onChange={(e) => setWelcomeCheerAmount(e.target.value)}
+                          placeholder="例: 500"
+                          className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        />
+                        <p className="text-[10px] text-slate-500">
+                          エントランス料金（¥{fixedAmount.toLocaleString()}）より低い金額にしてください。演者選択時は、この金額とワンプライスが完全一致するチア商品のみ選択可能になります。
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}

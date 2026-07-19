@@ -110,6 +110,7 @@ export async function insertTransaction(params: {
   status?: string;
   reconciled?: boolean;
   destinationTransferId?: string | null;
+  stripePiSequence?: number;
 }): Promise<string> {
   const id = params.transactionId ?? newId();
   const { error } = await testAdmin.from("transactions").insert({
@@ -127,6 +128,7 @@ export async function insertTransaction(params: {
     amount_mismatch: 0,
     reconciled_at: params.reconciled !== false ? new Date().toISOString() : null,
     destination_transfer_id: params.destinationTransferId ?? null,
+    stripe_pi_sequence: params.stripePiSequence ?? 0,
   });
   if (error) throw new Error(`トランザクション挿入失敗: ${error.message}`);
   return id;
@@ -205,6 +207,8 @@ export async function insertProduct(params: {
   soldCount?: number;
   trackInventory?: boolean;
   artistId?: string | null;
+  welcomeCheerAmount?: number | null;
+  welcomeCheerDefaultProductId?: string | null;
 }): Promise<string> {
   const id = newId();
   const { error } = await testAdmin.from("products").insert({
@@ -219,6 +223,8 @@ export async function insertProduct(params: {
     sold_count: params.soldCount ?? 0,
     track_inventory: params.trackInventory ?? true,
     artist_id: params.artistId ?? null,
+    welcome_cheer_amount: params.welcomeCheerAmount ?? null,
+    welcome_cheer_default_product_id: params.welcomeCheerDefaultProductId ?? null,
   });
   if (error) throw new Error(`product 挿入失敗: ${error.message}`);
   return id;

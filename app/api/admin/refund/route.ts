@@ -54,38 +54,40 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: `Stripe エラー: ${err.message}` }, { status: 404 });
   }
 
-  let tx: any = null;
+  // ウェルカムチア導入により同一PIに複数transactions行（1階・2階）が
+  // 紐づくことがあるため、全行を取得して合算する。
+  let txs: any[] = [];
   {
     const { data } = await admin
       .from("transactions")
       .select(
         "transaction_id, total_gross_amount, stripe_fee, net_amount, platform_fee, status, transaction_type, created_at, qr_config_id"
       )
-      .eq("stripe_payment_intent_id", piId)
-      .maybeSingle();
-    tx = data;
+      .eq("stripe_payment_intent_id", piId);
+    txs = data ?? [];
   }
-  if (!tx) {
+  if (txs.length === 0) {
     const { data } = await admin
       .from("transactions")
       .select(
         "transaction_id, total_gross_amount, stripe_fee, net_amount, platform_fee, status, transaction_type, created_at, qr_config_id"
       )
-      .ilike("stripe_payment_intent_id", `%${piId}%`)
-      .limit(1)
-      .maybeSingle();
-    tx = data;
+      .ilike("stripe_payment_intent_id", `%${piId}%`);
+    txs = data ?? [];
   }
 
   let event: any = null;
   let organizer: any = null;
   let settleTransfers: any[] = [];
 
-  if (tx?.qr_config_id) {
+  // event/organizerは同一決済内の全行で共通のはず（同一イベントの1階・2階）。
+  // qr_config_idを持つ最初の行から解決する。
+  const txWithQr = txs.find((t) => t.qr_config_id);
+  if (txWithQr) {
     const { data: qrConfig } = await admin
       .from("qr_configs")
       .select("event_id")
-      .eq("qr_config_id", tx.qr_config_id)
+      .eq("qr_config_id", txWithQr.qr_config_id)
       .single();
 
     if (qrConfig?.event_id) {
@@ -126,6 +128,11 @@ export async function GET(req: Request) {
       ? "キャンセル済み"
       : pi.status;
 
+  const sum = (key: "stripe_fee" | "net_amount" | "platform_fee") =>
+    txs.length > 0 ? txs.reduce((s, t) => s + (t[key] ?? 0), 0) : null;
+  const distinctStatuses = [...new Set(txs.map((t) => t.status))];
+  const distinctTypes = [...new Set(txs.map((t) => t.transaction_type))];
+
   return NextResponse.json({
     paymentIntentId: piId,
     stripeStatus: pi.status,
@@ -136,14 +143,16 @@ export async function GET(req: Request) {
     onBehalfOf: pi.on_behalf_of,
     organizerName: organizer?.display_name ?? null,
     organizerConnectId: organizer?.stripe_connect_id ?? null,
-    transactionId: tx?.transaction_id ?? null,
-    transactionStatus: tx?.status ?? null,
-    transactionType: tx?.transaction_type ?? null,
+    transactionId: txs[0]?.transaction_id ?? null,
+    transactionIds: txs.map((t) => t.transaction_id),
+    transactionCount: txs.length,
+    transactionStatus: distinctStatuses.length === 1 ? distinctStatuses[0] : distinctStatuses.join("/"),
+    transactionType: distinctTypes.length === 1 ? distinctTypes[0] : distinctTypes.join("/"),
     eventTitle: event?.title ?? null,
     isSettled: event?.lifecycle_status === "settled",
-    stripeFee: tx?.stripe_fee ?? null,
-    platformFee: tx?.platform_fee ?? null,
-    netAmount: tx?.net_amount ?? null,
+    stripeFee: sum("stripe_fee"),
+    platformFee: sum("platform_fee"),
+    netAmount: sum("net_amount"),
     settleTransferCount: settleTransfers.length,
     settleTransferTotal: settleTransfers.reduce((s, t) => s + t.amount, 0),
   });
@@ -193,38 +202,39 @@ export async function POST(req: Request) {
     );
   }
 
-  // DB からトランザクション取得
-  let tx: any = null;
+  // DB からトランザクション取得（ウェルカムチアにより同一PIに1階・2階の
+  // 複数transactions行が紐づくことがあるため、全行を取得する）
+  let txs: any[] = [];
   {
     const { data } = await admin
       .from("transactions")
       .select(
         "transaction_id, stripe_fee, net_amount, total_gross_amount, platform_fee, status, qr_config_id"
       )
-      .eq("stripe_payment_intent_id", paymentIntentId)
-      .maybeSingle();
-    tx = data;
+      .eq("stripe_payment_intent_id", paymentIntentId);
+    txs = data ?? [];
   }
-  if (!tx) {
+  if (txs.length === 0) {
     const { data } = await admin
       .from("transactions")
       .select(
         "transaction_id, stripe_fee, net_amount, total_gross_amount, platform_fee, status, qr_config_id"
       )
-      .ilike("stripe_payment_intent_id", `%${paymentIntentId}%`)
-      .limit(1)
-      .maybeSingle();
-    tx = data;
+      .ilike("stripe_payment_intent_id", `%${paymentIntentId}%`);
+    txs = data ?? [];
   }
+  const txIds = txs.map((t) => t.transaction_id as string);
 
-  // イベント・organizer 情報取得（debt_claims 用）
+  // イベント・organizer 情報取得（debt_claims 用）。全行同一イベントのはずなので
+  // qr_config_idを持つ最初の行から解決する。
   let eventId: string | null = null;
   let organizerProfileId: string | null = null;
-  if (tx?.qr_config_id) {
+  const txWithQr = txs.find((t) => t.qr_config_id);
+  if (txWithQr?.qr_config_id) {
     const { data: qrConfig } = await admin
       .from("qr_configs")
       .select("event_id")
-      .eq("qr_config_id", tx.qr_config_id)
+      .eq("qr_config_id", txWithQr.qr_config_id)
       .single();
     eventId = qrConfig?.event_id ?? null;
   }
@@ -237,20 +247,24 @@ export async function POST(req: Request) {
     organizerProfileId = ev?.organizer_profile_id ?? null;
   }
 
-  // 手数料計算（debt_claims 金額の基準）
+  // 手数料計算（debt_claims 金額の基準）。gross は PI 全体（1階+2階の合計に一致するはず）。
   const gross = pi.amount;
-  const stripeFee = tx?.stripe_fee ?? Math.floor(gross * 0.0396);
-  const platformFee = tx?.platform_fee ?? Math.floor(gross * 0.10);
+  const stripeFee = txs.length > 0
+    ? txs.reduce((s, t) => s + (t.stripe_fee ?? 0), 0)
+    : Math.floor(gross * 0.0396);
+  const platformFee = txs.length > 0
+    ? txs.reduce((s, t) => s + (t.platform_fee ?? 0), 0)
+    : Math.floor(gross * 0.10);
 
   // ── ケース1: オーソリ中 → PI cancel（資金移動ゼロ）
   if (pi.status === "requires_capture") {
     await stripe.paymentIntents.cancel(paymentIntentId);
 
-    if (tx?.transaction_id) {
+    if (txIds.length > 0) {
       await admin
         .from("transactions")
         .update({ status: "cancelled" })
-        .eq("transaction_id", tx.transaction_id);
+        .in("transaction_id", txIds);
     }
 
     return NextResponse.json({
@@ -286,8 +300,10 @@ export async function POST(req: Request) {
     );
   }
 
-  // debt 金額: FULL_PENALTY=platform_fee, COMPASSIONATE=stripe_fee
+  // debt 金額: FULL_PENALTY=platform_fee, COMPASSIONATE=stripe_fee（合算・表示用）
   const baseDebt = refundType === "FULL_PENALTY" ? platformFee : stripeFee;
+  // 行ごとのdebt（各transactionが自分のstripe_fee/platform_feeを負担する）
+  const rowDebt = (t: any) => (refundType === "FULL_PENALTY" ? (t.platform_fee ?? 0) : (t.stripe_fee ?? 0));
 
   // ── ケース2a/2b: キャプチャ後・settle前 → refund + debt_claims
   // settle_transfers なし = organizer はまだ何も受け取っていない。Transfer 逆転は不要。
@@ -298,24 +314,29 @@ export async function POST(req: Request) {
       metadata: { reason: reason.trim(), refundType, admin_user_id: user!.id },
     });
 
-    // debt_claims 作成（organizer への将来回収の記録）
-    if (organizerProfileId && tx?.transaction_id && baseDebt > 0) {
-      await admin.from("debt_claims").insert({
-        profile_id: organizerProfileId,
-        original_transaction_id: tx.transaction_id,
-        claim_amount: baseDebt,
-        description:
-          refundType === "FULL_PENALTY"
-            ? `返金（通常モード・settle前）: プラットフォーム手数料 PI:${paymentIntentId}`
-            : `返金（人情モード・settle前）: Stripe手数料 PI:${paymentIntentId}`,
-      });
+    // debt_claims 作成（organizer への将来回収の記録）。1階・2階それぞれの
+    // transaction行ごとに、自分のstripe_fee/platform_feeを基準に個別計上する。
+    if (organizerProfileId) {
+      for (const t of txs) {
+        const debt = rowDebt(t);
+        if (debt <= 0) continue;
+        await admin.from("debt_claims").insert({
+          profile_id: organizerProfileId,
+          original_transaction_id: t.transaction_id,
+          claim_amount: debt,
+          description:
+            refundType === "FULL_PENALTY"
+              ? `返金（通常モード・settle前）: プラットフォーム手数料 PI:${paymentIntentId}`
+              : `返金（人情モード・settle前）: Stripe手数料 PI:${paymentIntentId}`,
+        });
+      }
     }
 
-    if (tx?.transaction_id) {
+    if (txIds.length > 0) {
       await admin
         .from("transactions")
         .update({ status: "refunded" })
-        .eq("transaction_id", tx.transaction_id);
+        .in("transaction_id", txIds);
     }
 
     return NextResponse.json({
@@ -341,7 +362,9 @@ export async function POST(req: Request) {
   });
 
   const totalSettled = settleTransfers.reduce((s, t) => s + t.amount, 0);
-  const thisGross = tx?.total_gross_amount ?? pi.amount;
+  // thisGrossはPI全体の額（1階+2階の合計は常にpi.amountに一致する設計のため、
+  // 個々のtransaction行のtotal_gross_amountを足し合わせる必要はない）
+  const thisGross = pi.amount;
   // 複数PI存在するイベントの場合の按分（このPIに帰属する割合、最大1）
   const fraction = totalSettled > 0 ? Math.min(thisGross / totalSettled, 1) : 1;
 
@@ -362,25 +385,30 @@ export async function POST(req: Request) {
     }
   }
 
-  // organizer への追加請求記録（Transfer逆転分を超えるプラットフォームの損失補填）
+  // organizer への追加請求記録（Transfer逆転分を超えるプラットフォームの損失補填）。
+  // 1階・2階それぞれのtransaction行ごとに個別計上する。
   const debtAmountProrated = Math.floor(baseDebt * fraction);
-  if (organizerProfileId && tx?.transaction_id && debtAmountProrated > 0) {
-    await admin.from("debt_claims").insert({
-      profile_id: organizerProfileId,
-      original_transaction_id: tx.transaction_id,
-      claim_amount: debtAmountProrated,
-      description:
-        refundType === "FULL_PENALTY"
-          ? `返金（通常モード・settle後）: プラットフォーム手数料 PI:${paymentIntentId}`
-          : `返金（人情モード・settle後）: Stripe手数料 PI:${paymentIntentId}`,
-    });
+  if (organizerProfileId) {
+    for (const t of txs) {
+      const debt = Math.floor(rowDebt(t) * fraction);
+      if (debt <= 0) continue;
+      await admin.from("debt_claims").insert({
+        profile_id: organizerProfileId,
+        original_transaction_id: t.transaction_id,
+        claim_amount: debt,
+        description:
+          refundType === "FULL_PENALTY"
+            ? `返金（通常モード・settle後）: プラットフォーム手数料 PI:${paymentIntentId}`
+            : `返金（人情モード・settle後）: Stripe手数料 PI:${paymentIntentId}`,
+      });
+    }
   }
 
-  if (tx?.transaction_id) {
+  if (txIds.length > 0) {
     await admin
       .from("transactions")
       .update({ status: "refunded" })
-      .eq("transaction_id", tx.transaction_id);
+      .in("transaction_id", txIds);
   }
 
   const totalReversed = reversalResults.reduce((s, r) => s + r.reversed, 0);

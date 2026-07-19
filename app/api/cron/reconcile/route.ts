@@ -128,6 +128,8 @@ export async function GET(req: Request) {
     const mismatchDetails: Array<{ transaction_id: string; stripe_pi_id: string | null; event_name?: string; expected: number; actual: number; diff: number }> = [];
     const errorDetails: Array<{ transaction_id: string; stripe_pi_id: string | null; event_name?: string; error: string }> = [];
 
+    // stripe_payment_intent_id が空の行を先に弾く（PIグループ化の対象外）
+    const groupableTargets: any[] = [];
     for (const tx of targets) {
       // stripe_payment_intent_id が空文字列（NULLではない）の場合、クエリの
       // not(is, null) フィルタを通過してしまう。サイレントスキップすると
@@ -151,11 +153,22 @@ export async function GET(req: Request) {
         });
         continue;
       }
+      groupableTargets.push(tx);
+    }
+
+    // ウェルカムチア導入により同一PIに複数transaction行（1階・2階）が紐づくことが
+    // あるため、PI単位でグループ化し、Stripe取得・金額突合をグループ全体で1回だけ行う。
+    const piGroups = new Map<string, any[]>();
+    for (const tx of groupableTargets) {
+      let piId = tx.stripe_payment_intent_id as string;
+      if (piId?.startsWith("{")) {
+        try { const p = JSON.parse(piId); if (p?.id) piId = p.id; } catch {}
+      }
+      piGroups.set(piId, [...(piGroups.get(piId) ?? []), tx]);
+    }
+
+    for (const [piId, groupTxs] of piGroups.entries()) {
       try {
-        let piId = tx.stripe_payment_intent_id as string;
-        if (piId?.startsWith("{")) {
-          try { const p = JSON.parse(piId); if (p?.id) piId = p.id; } catch {}
-        }
         const pi = await stripe.paymentIntents.retrieve(piId, {
           expand: ["latest_charge.balance_transaction"],
         });
@@ -163,21 +176,23 @@ export async function GET(req: Request) {
         // requires_capture（未キャプチャ）は settled イベントに存在してはならない
         // → 資金が回収されないまま残っているリスク。明細に記録して管理者に知らせる
         if (pi.status === "requires_capture") {
-          const eventId = qrToEventId.get(tx.qr_config_id!);
-          const eventName = eventId ? (eventTitleMap.get(eventId) ?? eventId) : undefined;
-          console.warn(`[reconcile] UNCAPTURED PI tx=${tx.transaction_id} pi=${piId} event=${eventId}`);
-          reconcileFailures.push({
-            eventName,
-            amount:       tx.total_gross_amount ?? 0,
-            failureReason: "❌【未キャプチャ】イベント終了後に資金が未回収のままです",
-          });
-          errorDetails.push({
-            transaction_id: tx.transaction_id,
-            stripe_pi_id: tx.stripe_payment_intent_id,
-            event_name: eventName,
-            error: "未キャプチャ：イベント終了後に資金が未回収のままです",
-          });
-          errors++;
+          for (const tx of groupTxs) {
+            const eventId = qrToEventId.get(tx.qr_config_id!);
+            const eventName = eventId ? (eventTitleMap.get(eventId) ?? eventId) : undefined;
+            console.warn(`[reconcile] UNCAPTURED PI tx=${tx.transaction_id} pi=${piId} event=${eventId}`);
+            reconcileFailures.push({
+              eventName,
+              amount:       tx.total_gross_amount ?? 0,
+              failureReason: "❌【未キャプチャ】イベント終了後に資金が未回収のままです",
+            });
+            errorDetails.push({
+              transaction_id: tx.transaction_id,
+              stripe_pi_id: tx.stripe_payment_intent_id,
+              event_name: eventName,
+              error: "未キャプチャ：イベント終了後に資金が未回収のままです",
+            });
+            errors++;
+          }
           continue;
         }
 
@@ -188,104 +203,148 @@ export async function GET(req: Request) {
         const stripeFee = bt?.fee ?? null;
         const stripeNet = bt?.net ?? null;
 
-        const grossDiff = stripeGross - (tx.total_gross_amount ?? 0);
+        // 同一PIを持つ全completed行（reconcile対象外の兄弟行も含む）の合計と突合する。
+        // 兄弟行が別バッチで既に照合済みでも、正しい合計金額と照合するために必ず引き直す。
+        const { data: allGroupTxs } = await admin
+          .from("transactions")
+          .select("transaction_id, total_gross_amount")
+          .eq("stripe_payment_intent_id", piId)
+          .eq("status", "completed");
+        const groupDbGross = (allGroupTxs ?? []).reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+        const isFullGroupPresent = (allGroupTxs?.length ?? 0) === groupTxs.length;
+
+        const grossDiff = stripeGross - groupDbGross;
         const grossMatch = grossDiff === 0;
 
         if (!grossMatch) {
-          mismatched++;
-          console.error(`[reconcile] GROSS MISMATCH tx=${tx.transaction_id} expected=${tx.total_gross_amount} actual=${stripeGross} diff=${grossDiff}`);
+          console.error(`[reconcile] GROSS MISMATCH pi=${piId} expected=${groupDbGross} actual=${stripeGross} diff=${grossDiff}`);
+        }
+
+        // stripeFee/stripeNetを各行のgross比率で按分する。対象行がグループ全体を
+        // 網羅している場合は端数を最後の1行に寄せて過不足なく配分する。
+        const sortedGroupTxs = [...groupTxs].sort(
+          (a, b) => (b.total_gross_amount ?? 0) - (a.total_gross_amount ?? 0)
+        );
+        let allocatedFee = 0;
+        let allocatedNet = 0;
+
+        for (let i = 0; i < sortedGroupTxs.length; i++) {
+          const tx = sortedGroupTxs[i];
+          const isLast = i === sortedGroupTxs.length - 1;
+          const rowGross = tx.total_gross_amount ?? 0;
+
+          let rowStripeFee: number | null = null;
+          if (stripeFee !== null) {
+            rowStripeFee = isLast && isFullGroupPresent
+              ? stripeFee - allocatedFee
+              : (groupDbGross > 0 ? Math.floor((stripeFee * rowGross) / groupDbGross) : stripeFee);
+            allocatedFee += rowStripeFee;
+          }
+          let rowStripeNet: number | null = null;
+          if (stripeNet !== null) {
+            rowStripeNet = isLast && isFullGroupPresent
+              ? stripeNet - allocatedNet
+              : (groupDbGross > 0 ? Math.floor((stripeNet * rowGross) / groupDbGross) : stripeNet);
+            allocatedNet += rowStripeNet;
+          }
+
+          if (grossMatch) {
+            matched++;
+          } else {
+            mismatched++;
+            reconcileFailures.push({
+              amount:        Math.abs(grossDiff),
+              failureReason: `Stripe金額（¥${stripeGross.toLocaleString()}）とDB金額（¥${groupDbGross.toLocaleString()}）が不一致 差額¥${grossDiff}（同一決済内${sortedGroupTxs.length}行の合算照合）`,
+            });
+            mismatchDetails.push({
+              transaction_id: tx.transaction_id,
+              stripe_pi_id: tx.stripe_payment_intent_id,
+              event_name: qrToEventId.get(tx.qr_config_id!) ? (eventTitleMap.get(qrToEventId.get(tx.qr_config_id!)!) ?? undefined) : undefined,
+              expected: groupDbGross,
+              actual: stripeGross,
+              diff: grossDiff,
+            });
+          }
+
+          // ADJUST_DIST: artist/orgのみこの行に按分されたstripe_net - platform_feeに調整。agentは固定。
+          const allAccruedDists = ((tx.transaction_distributions ?? []) as any[]).filter(
+            (d: any) => d.distribution_status === "accrued"
+          );
+          const artistOrgDists = allAccruedDists.filter((d: any) => d.distribution_role !== "agent");
+          const platformFee = (tx as any).platform_fee ?? 0;
+          const artistOrgTarget = rowStripeNet !== null ? rowStripeNet - platformFee : null;
+          const artistOrgEstimated = artistOrgDists.reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);
+
+          if (artistOrgTarget !== null && artistOrgEstimated > 0 && artistOrgTarget !== artistOrgEstimated) {
+            const agentTotal = allAccruedDists
+              .filter((d: any) => d.distribution_role === "agent")
+              .reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);
+            const adjustDiff = artistOrgTarget - artistOrgEstimated;
+            const eventId = qrToEventId.get(tx.qr_config_id!);
+            // 分配調整発生を明細に記録
+            reconcileFailures.push({
+              eventName:    eventId ? (eventTitleMap.get(eventId) ?? eventId) : undefined,
+              amount:       Math.abs(adjustDiff),
+              failureReason: `⚠️【分配調整】事後の金額調整が発生しています（差額¥${adjustDiff.toLocaleString()}）`,
+            });
+            console.log(
+              `[reconcile] ADJUST_DIST tx=${tx.transaction_id}` +
+              ` artist_org_estimated=${artistOrgEstimated} target=${artistOrgTarget} diff=${adjustDiff}` +
+              ` agent(fixed)=${agentTotal} platform_fee=${platformFee} stripe_net(row)=${rowStripeNet}`
+            );
+            const sortedDists = [...artistOrgDists].sort((a: any, b: any) => b.actual_amount - a.actual_amount);
+            let allocated = 0;
+            for (let j = 0; j < sortedDists.length; j++) {
+              const d = sortedDists[j] as any;
+              const isLastDist = j === sortedDists.length - 1;
+              const adjustedAmount = isLastDist
+                ? artistOrgTarget - allocated
+                : Math.floor((d.actual_amount / artistOrgEstimated) * artistOrgTarget);
+              console.log(`[reconcile]   dist=${d.transaction_distribution_id} role=${d.distribution_role} profile=${d.profile_id} before=${d.actual_amount} after=${adjustedAmount}`);
+              await admin
+                .from("transaction_distributions")
+                .update({
+                  actual_amount: adjustedAmount,
+                  ...(d.amount_before_reconcile == null ? { amount_before_reconcile: d.actual_amount } : {}),
+                })
+                .eq("transaction_distribution_id", d.transaction_distribution_id);
+              allocated += adjustedAmount;
+            }
+          }
+
+          await admin
+            .from("transactions")
+            .update({
+              amount_verified: grossMatch,
+              amount_mismatch: grossDiff,
+              stripe_fee_actual: rowStripeFee,
+              stripe_net_actual: rowStripeNet,
+              reconciled_at: now.toISOString(),
+              reconcile_error: null,
+            })
+            .eq("transaction_id", tx.transaction_id);
+        }
+
+      } catch (err: any) {
+        console.error(`[reconcile] pi=${piId} error:`, err.message);
+        for (const tx of groupTxs) {
+          errors++;
           reconcileFailures.push({
-            amount:        Math.abs(grossDiff),
-            failureReason: `Stripe金額（¥${stripeGross.toLocaleString()}）とDB金額（¥${(tx.total_gross_amount ?? 0).toLocaleString()}）が不一致 差額¥${grossDiff}`,
+            amount:        tx.total_gross_amount ?? 0,
+            failureReason: `照合エラー: ${(err.message ?? "").slice(0, 80)}`,
           });
-          mismatchDetails.push({
+          errorDetails.push({
             transaction_id: tx.transaction_id,
             stripe_pi_id: tx.stripe_payment_intent_id,
             event_name: qrToEventId.get(tx.qr_config_id!) ? (eventTitleMap.get(qrToEventId.get(tx.qr_config_id!)!) ?? undefined) : undefined,
-            expected: tx.total_gross_amount ?? 0,
-            actual: stripeGross,
-            diff: grossDiff,
+            error: err.message,
           });
-        } else {
-          matched++;
+          // reconciled_at はセットしない → 翌日のCRONで再試行される
+          await admin
+            .from("transactions")
+            .update({ reconcile_error: err.message })
+            .eq("transaction_id", tx.transaction_id);
         }
-
-        // ADJUST_DIST: artist/orgのみstripe_net - platform_feeに調整。agentは固定。
-        const allAccruedDists = ((tx.transaction_distributions ?? []) as any[]).filter(
-          (d: any) => d.distribution_status === "accrued"
-        );
-        const artistOrgDists = allAccruedDists.filter((d: any) => d.distribution_role !== "agent");
-        const platformFee = (tx as any).platform_fee ?? 0;
-        const artistOrgTarget = stripeNet !== null ? stripeNet - platformFee : null;
-        const artistOrgEstimated = artistOrgDists.reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);
-
-        if (artistOrgTarget !== null && artistOrgEstimated > 0 && artistOrgTarget !== artistOrgEstimated) {
-          const agentTotal = allAccruedDists
-            .filter((d: any) => d.distribution_role === "agent")
-            .reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);
-          const adjustDiff = artistOrgTarget - artistOrgEstimated;
-          const eventId = qrToEventId.get(tx.qr_config_id!);
-          // 分配調整発生を明細に記録
-          reconcileFailures.push({
-            eventName:    eventId ? (eventTitleMap.get(eventId) ?? eventId) : undefined,
-            amount:       Math.abs(adjustDiff),
-            failureReason: `⚠️【分配調整】事後の金額調整が発生しています（差額¥${adjustDiff.toLocaleString()}）`,
-          });
-          console.log(
-            `[reconcile] ADJUST_DIST tx=${tx.transaction_id}` +
-            ` artist_org_estimated=${artistOrgEstimated} target=${artistOrgTarget} diff=${adjustDiff}` +
-            ` agent(fixed)=${agentTotal} platform_fee=${platformFee} stripe_net=${stripeNet}`
-          );
-          const sortedDists = [...artistOrgDists].sort((a: any, b: any) => b.actual_amount - a.actual_amount);
-          let allocated = 0;
-          for (let i = 0; i < sortedDists.length; i++) {
-            const d = sortedDists[i] as any;
-            const isLast = i === sortedDists.length - 1;
-            const adjustedAmount = isLast
-              ? artistOrgTarget - allocated
-              : Math.floor((d.actual_amount / artistOrgEstimated) * artistOrgTarget);
-            console.log(`[reconcile]   dist=${d.transaction_distribution_id} role=${d.distribution_role} profile=${d.profile_id} before=${d.actual_amount} after=${adjustedAmount}`);
-            await admin
-              .from("transaction_distributions")
-              .update({
-                actual_amount: adjustedAmount,
-                ...(d.amount_before_reconcile == null ? { amount_before_reconcile: d.actual_amount } : {}),
-              })
-              .eq("transaction_distribution_id", d.transaction_distribution_id);
-            allocated += adjustedAmount;
-          }
-        }
-
-        await admin
-          .from("transactions")
-          .update({
-            amount_verified: grossMatch,
-            amount_mismatch: grossDiff,
-            stripe_fee_actual: stripeFee,
-            stripe_net_actual: stripeNet,
-            reconciled_at: now.toISOString(),
-            reconcile_error: null,
-          })
-          .eq("transaction_id", tx.transaction_id);
-
-      } catch (err: any) {
-        errors++;
-        console.error(`[reconcile] tx=${tx.transaction_id} error:`, err.message);
-        reconcileFailures.push({
-          amount:        tx.total_gross_amount ?? 0,
-          failureReason: `照合エラー: ${(err.message ?? "").slice(0, 80)}`,
-        });
-        errorDetails.push({
-          transaction_id: tx.transaction_id,
-          stripe_pi_id: tx.stripe_payment_intent_id,
-          event_name: qrToEventId.get(tx.qr_config_id!) ? (eventTitleMap.get(qrToEventId.get(tx.qr_config_id!)!) ?? undefined) : undefined,
-          error: err.message,
-        });
-        // reconciled_at はセットしない → 翌日のCRONで再試行される
-        await admin
-          .from("transactions")
-          .update({ reconcile_error: err.message })
-          .eq("transaction_id", tx.transaction_id);
       }
     }
 

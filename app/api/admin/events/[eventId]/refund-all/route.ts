@@ -37,31 +37,40 @@ export async function POST(
     .in("qr_config_id", qrIds)
     .eq("status", "completed");
 
+  // ウェルカムチアにより同一PIに複数transaction行（1階・2階）が紐づくことがあるため、
+  // Stripe側の操作（cancel/refund）はPI単位で1回だけ行い、DBステータス更新は
+  // 同じPIを持つ全transaction行に反映する。
+  const txsByPi = new Map<string, string[]>();
+  for (const tx of txs ?? []) {
+    const piId = tx.stripe_payment_intent_id as string;
+    txsByPi.set(piId, [...(txsByPi.get(piId) ?? []), tx.transaction_id]);
+  }
+
   let refunded = 0;
   let errors = 0;
-  for (const tx of txs ?? []) {
+  for (const [piId, txIds] of txsByPi.entries()) {
     try {
       // capture_method:manual のためsettle前は大半がrequires_capture(未キャプチャ)。
       // 未キャプチャのPIはrefunds.createでは返金できない(Stripe側でエラーになる)ため、
       // まずcancelで資金移動ゼロのまま解放し、既にキャプチャ済みの場合のみrefundする。
-      const pi = await stripe.paymentIntents.retrieve(tx.stripe_payment_intent_id);
+      const pi = await stripe.paymentIntents.retrieve(piId);
       if (pi.status === "requires_capture") {
-        await stripe.paymentIntents.cancel(tx.stripe_payment_intent_id);
+        await stripe.paymentIntents.cancel(piId);
         await admin
           .from("transactions")
           .update({ status: "cancelled" })
-          .eq("transaction_id", tx.transaction_id);
+          .in("transaction_id", txIds);
       } else {
-        await stripe.refunds.create({ payment_intent: tx.stripe_payment_intent_id });
+        await stripe.refunds.create({ payment_intent: piId });
         await admin
           .from("transactions")
           .update({ status: "refunded" })
-          .eq("transaction_id", tx.transaction_id);
+          .in("transaction_id", txIds);
       }
       refunded++;
     } catch (err: any) {
       errors++;
-      console.error(`[refund-all] PI ${tx.stripe_payment_intent_id}:`, err.message);
+      console.error(`[refund-all] PI ${piId}:`, err.message);
     }
   }
 

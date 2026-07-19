@@ -446,6 +446,138 @@ describe("TC-ADMIN-OPS-D: cron/reconcile — 定期照合", () => {
     mockPiAmounts.delete(mockPiId);
     process.env.CRON_SECRET = orig;
   });
+
+  it("TC-ADMIN-OPS-D-04: 同一PIに2行（ウェルカムチア1階・2階）→ 合算照合が一致し、手数料が比率按分される", async () => {
+    const secret = process.env.CRON_SECRET ?? "test_cron_secret";
+    const orig = process.env.CRON_SECRET;
+    process.env.CRON_SECRET = secret;
+
+    const cronEventId = await insertEvent({ organizerProfileId, title: "TC-ADMIN-OPS-D 同一PI2行 test" });
+    cleanup.eventIds.push(cronEventId);
+    await testAdmin.from("events").update({ lifecycle_status: "settled" }).eq("event_id", cronEventId);
+
+    const qrConfigId = await insertQrConfig({
+      eventId: cronEventId,
+      creatorProfileId: organizerProfileId,
+      recipientProfileId: organizerProfileId,
+    });
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const mockPiId = `pi_cron_multirow_${Date.now()}`;
+    mockPiAmounts.set(mockPiId, 3000); // Stripe側の実決済額は合計3000
+
+    // 1階（エントランス本体）: stripe_pi_sequence=0
+    const tx1Id = await insertTransaction({
+      qrConfigId,
+      grossAmount: 2500,
+      netAmount: 2100,
+      stripeFee: 99, // 概算値。reconcileで実額に上書きされる
+      platformFee: 250,
+      stripePaymentIntentId: mockPiId,
+      reconciled: false,
+      stripePiSequence: 0,
+    });
+    cleanup.transactionIds.push(tx1Id);
+
+    // 2階（ウェルカムチア）: stripe_pi_sequence=1、同一PI
+    const tx2Id = await insertTransaction({
+      qrConfigId,
+      grossAmount: 500,
+      netAmount: 450,
+      stripeFee: 20,
+      platformFee: 50,
+      stripePaymentIntentId: mockPiId,
+      reconciled: false,
+      stripePiSequence: 1,
+    });
+    cleanup.transactionIds.push(tx2Id);
+
+    const req = new Request("http://localhost/api/cron/reconcile", {
+      method: "GET",
+      headers: { authorization: `Bearer ${secret}` },
+    });
+    const res = await cronReconcileGET(req);
+    const data = await res.json();
+    expect(res.status).toBe(200);
+
+    const { data: tx1 } = await testAdmin.from("transactions")
+      .select("amount_verified, amount_mismatch, stripe_fee_actual, stripe_net_actual, reconciled_at")
+      .eq("transaction_id", tx1Id).single();
+    const { data: tx2 } = await testAdmin.from("transactions")
+      .select("amount_verified, amount_mismatch, stripe_fee_actual, stripe_net_actual, reconciled_at")
+      .eq("transaction_id", tx2Id).single();
+
+    // 合算(2500+500=3000)がStripe実額(3000)と一致するため、両方とも一致判定になる
+    expect(tx1?.amount_verified).toBe(true);
+    expect(tx1?.amount_mismatch).toBe(0);
+    expect(tx2?.amount_verified).toBe(true);
+    expect(tx2?.amount_mismatch).toBe(0);
+    expect(tx1?.reconciled_at).not.toBeNull();
+    expect(tx2?.reconciled_at).not.toBeNull();
+
+    // 実手数料(fee=Math.ceil(3000*0.0396)=119, net=2881)がgross比率で按分され、
+    // 端数は最後の行(gross小さい方=2階)に寄せられる
+    expect(tx1?.stripe_fee_actual).toBe(99);
+    expect(tx2?.stripe_fee_actual).toBe(20);
+    expect((tx1?.stripe_fee_actual ?? 0) + (tx2?.stripe_fee_actual ?? 0)).toBe(119);
+    expect(tx1?.stripe_net_actual).toBe(2400);
+    expect(tx2?.stripe_net_actual).toBe(481);
+    expect((tx1?.stripe_net_actual ?? 0) + (tx2?.stripe_net_actual ?? 0)).toBe(2881);
+
+    mockPiAmounts.delete(mockPiId);
+    process.env.CRON_SECRET = orig;
+  });
+
+  it("TC-ADMIN-OPS-D-05: 同一PIに2行、合算がStripe実額と不一致 → 両方ともmismatch判定になる", async () => {
+    const secret = process.env.CRON_SECRET ?? "test_cron_secret";
+    const orig = process.env.CRON_SECRET;
+    process.env.CRON_SECRET = secret;
+
+    const cronEventId = await insertEvent({ organizerProfileId, title: "TC-ADMIN-OPS-D 同一PI2行mismatch test" });
+    cleanup.eventIds.push(cronEventId);
+    await testAdmin.from("events").update({ lifecycle_status: "settled" }).eq("event_id", cronEventId);
+
+    const qrConfigId = await insertQrConfig({
+      eventId: cronEventId,
+      creatorProfileId: organizerProfileId,
+      recipientProfileId: organizerProfileId,
+    });
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const mockPiId = `pi_cron_multirow_mismatch_${Date.now()}`;
+    mockPiAmounts.set(mockPiId, 2900); // DB合計(3000)とわざとズラす
+
+    const tx1Id = await insertTransaction({
+      qrConfigId, grossAmount: 2500, netAmount: 2100, stripeFee: 99, platformFee: 250,
+      stripePaymentIntentId: mockPiId, reconciled: false, stripePiSequence: 0,
+    });
+    cleanup.transactionIds.push(tx1Id);
+    const tx2Id = await insertTransaction({
+      qrConfigId, grossAmount: 500, netAmount: 450, stripeFee: 20, platformFee: 50,
+      stripePaymentIntentId: mockPiId, reconciled: false, stripePiSequence: 1,
+    });
+    cleanup.transactionIds.push(tx2Id);
+
+    const req = new Request("http://localhost/api/cron/reconcile", {
+      method: "GET",
+      headers: { authorization: `Bearer ${secret}` },
+    });
+    const res = await cronReconcileGET(req);
+    expect(res.status).toBe(200);
+
+    const { data: tx1 } = await testAdmin.from("transactions")
+      .select("amount_verified, amount_mismatch").eq("transaction_id", tx1Id).single();
+    const { data: tx2 } = await testAdmin.from("transactions")
+      .select("amount_verified, amount_mismatch").eq("transaction_id", tx2Id).single();
+
+    expect(tx1?.amount_verified).toBe(false);
+    expect(tx1?.amount_mismatch).toBe(-100); // 2900 - 3000
+    expect(tx2?.amount_verified).toBe(false);
+    expect(tx2?.amount_mismatch).toBe(-100);
+
+    mockPiAmounts.delete(mockPiId);
+    process.env.CRON_SECRET = orig;
+  });
 });
 
 // ── TC-ADMIN-OPS-E: refund-all ───────────────────────────────────────────────

@@ -33,10 +33,13 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
 
   // 冪等性チェック（同じPIで既にticketが作られていないか）
+  // stripe_pi_sequence=0 は1階（アンカー行）。ウェルカムチアの2階行が同一PIに
+  // 追加されても複数行ヒットしないよう、アンカー行だけを見る。
   const { data: existingTx } = await admin
     .from("transactions")
     .select("transaction_id")
     .eq("stripe_payment_intent_id", payment_intent_id)
+    .eq("stripe_pi_sequence", 0)
     .maybeSingle();
   if (existingTx) {
     const { data: existingTicket } = await admin
@@ -84,20 +87,30 @@ export async function POST(req: Request) {
 
   const gross = pi.amount;
   const feeConfig = await getFeeConfig();
-  const stripeFee = Math.ceil(gross * feeConfig.stripe_rate);
-  const platformFee = Math.floor(gross * feeConfig.platform_rate);
 
   let agentId: string | null = null;
-  let agentFee = 0;
   const { data: eventRow } = await admin
     .from("events")
     .select("agent_id")
     .eq("event_id", eventId)
     .single();
   agentId = eventRow?.agent_id ?? null;
-  if (agentId) {
-    agentFee = Math.floor(platformFee * (feeConfig.agent_fee_rate / feeConfig.platform_rate));
-  }
+
+  // ウェルカムチア: 合計金額(1人あたり単価×quantity)のうち、welcome_cheer_amount×quantity分を
+  // 2階（チア）として切り出す。1階は残りの取り分として既存のqr_config配分ロジックそのまま。
+  const { data: product } = await admin
+    .from("products")
+    .select("welcome_cheer_amount, welcome_cheer_default_product_id")
+    .eq("product_id", productId)
+    .single();
+
+  const welcomeCheerUnitAmount = product?.welcome_cheer_amount ?? null;
+  const welcomeCheerTotal = welcomeCheerUnitAmount != null ? welcomeCheerUnitAmount * quantity : 0;
+  const floor1Gross = gross - welcomeCheerTotal;
+
+  const stripeFee = Math.ceil(floor1Gross * feeConfig.stripe_rate);
+  const platformFee = Math.floor(floor1Gross * feeConfig.platform_rate);
+  const agentFee = agentId ? Math.floor(platformFee * (feeConfig.agent_fee_rate / feeConfig.platform_rate)) : 0;
 
   // リピーター判定: 同じcard_fingerprintが既に実在アカウントへ紐付いたticketに
   // 使われていれば、その客だと分かっている（過去のサインアップで名寄せ済み）。
@@ -127,16 +140,17 @@ export async function POST(req: Request) {
     p_stripe_payment_intent_id: payment_intent_id,
     p_product_id:               productId,
     p_qr_config_id:             qrConfigId,
-    p_gross:                    gross,
+    p_gross:                    floor1Gross,
     p_stripe_fee:               stripeFee,
     p_platform_fee:             platformFee,
-    p_net_amount:               gross - stripeFee - platformFee,
+    p_net_amount:               floor1Gross - stripeFee - platformFee,
     p_event_id:                 eventId,
     p_agent_id:                 agentId,
     p_agent_fee:                agentFee,
     p_device_name:              meta.device_name || null,
     p_card_fingerprint:         cardFingerprint,
     p_known_profile_id:         knownProfileId,
+    p_stripe_pi_sequence:       0,
   });
 
   if (rpcError) {
@@ -152,11 +166,53 @@ export async function POST(req: Request) {
       .from("transactions")
       .select("transaction_id")
       .eq("stripe_payment_intent_id", payment_intent_id)
+      .eq("stripe_pi_sequence", 0)
       .single();
     if (!tx) {
       return NextResponse.json({ error: "Transaction not found after RPC no-op" }, { status: 500 });
     }
     transactionId = tx.transaction_id;
+  }
+
+  // ウェルカムチア（2階）: welcome_cheer_amountが設定されている商品のみ、
+  // 同一PIで2階transactionも作成する。デフォルト受取先（主催者ワンプライスチア）に
+  // 一旦計上し、購入者が後で演者を選ぶまでは非表示のまま。
+  if (isNewTransaction && welcomeCheerUnitAmount != null && product?.welcome_cheer_default_product_id) {
+    const { data: wcQrConfig } = await admin
+      .from("qr_configs")
+      .select("qr_config_id")
+      .eq("product_id", product.welcome_cheer_default_product_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (wcQrConfig?.qr_config_id) {
+      const wcStripeFee = Math.ceil(welcomeCheerTotal * feeConfig.stripe_rate);
+      const wcPlatformFee = Math.floor(welcomeCheerTotal * feeConfig.platform_rate);
+      const wcAgentFee = agentId ? Math.floor(wcPlatformFee * (feeConfig.agent_fee_rate / feeConfig.platform_rate)) : 0;
+
+      const { error: wcRpcError } = await admin.rpc("complete_touchpay_payment", {
+        p_stripe_payment_intent_id: payment_intent_id,
+        p_product_id:               product.welcome_cheer_default_product_id,
+        p_qr_config_id:             wcQrConfig.qr_config_id,
+        p_gross:                    welcomeCheerTotal,
+        p_stripe_fee:               wcStripeFee,
+        p_platform_fee:             wcPlatformFee,
+        p_net_amount:               welcomeCheerTotal - wcStripeFee - wcPlatformFee,
+        p_event_id:                 eventId,
+        p_agent_id:                 agentId,
+        p_agent_fee:                wcAgentFee,
+        p_device_name:              meta.device_name || null,
+        p_card_fingerprint:         cardFingerprint,
+        p_known_profile_id:         knownProfileId,
+        p_stripe_pi_sequence:       1,
+      });
+
+      if (wcRpcError) {
+        console.error("[terminal/complete] ウェルカムチア2階transaction作成失敗:", wcRpcError.message);
+      }
+    } else {
+      console.error(`[terminal/complete] ウェルカムチアのデフォルト受取先qr_configが見つかりません product_id=${product.welcome_cheer_default_product_id}`);
+    }
   }
 
   // タッチ決済＝その場で入場確定のため、ticketは最初からstatus='used'で発行する

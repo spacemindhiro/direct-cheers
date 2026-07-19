@@ -35,6 +35,7 @@ function VoucherQR({ ticketId, productName, amount }: { ticketId: string; produc
   );
 }
 import Link from "next/link";
+import { WelcomeCheerPicker } from "@/components/welcome-cheer-picker";
 
 const DEVICE_TOKEN_KEY = "dc_dt";
 const CUSTOMER_EMAIL_COOKIE = "dc_ce";
@@ -294,6 +295,11 @@ function ThanksContent() {
             nickname={msgSent ? (msgNickname || null) : null}
             comment={msgSent ? (msgComment || null) : null}
           />
+        )}
+
+        {/* ウェルカムチア（entrance × ticket_idありのみ） */}
+        {result.product_type === "entrance" && result.ticket_id && (
+          <WelcomeCheerPicker ticketId={result.ticket_id} />
         )}
 
         {/* メッセージ送信（message タイプのみ） */}

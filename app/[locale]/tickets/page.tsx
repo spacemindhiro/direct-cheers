@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, Ticket, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { DigitalTicket } from "@/components/digital-ticket";
+import { WelcomeCheerPicker } from "@/components/welcome-cheer-picker";
 
 async function TicketsContent() {
   const supabase = await createClient();
@@ -72,27 +73,29 @@ async function TicketsContent() {
       ) : (
         <div className="space-y-6">
           {list.map((t: any) => (
-            <DigitalTicket
-              key={t.ticket_id}
-              ticketId={t.ticket_id}
-              ticketCode={t.ticket_code}
-              eventTitle={t.event?.title ?? ""}
-              productName={t.product?.name ?? ""}
-              eventVenue={t.event?.venue ?? null}
-              startAt={t.event?.start_at ?? null}
-              holderEmail={t.email}
-              status={t.status}
-              checkedInAt={t.checked_in_at ?? null}
-              paymentType={t.product?.payment_type ?? null}
-              productType={t.product?.type ?? undefined}
-              amount={t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0}
-              stripImageUrl={t.transaction?.qr_config?.strip_image_url ?? null}
-              bgColor={t.transaction?.qr_config?.bg_color ?? undefined}
-              fgColor={t.transaction?.qr_config?.fg_color ?? undefined}
-              labelColor={t.transaction?.qr_config?.label_color ?? undefined}
-              reservationId={t.reservation_id ?? null}
-              reservationStatus={Array.isArray(t.reservation) ? (t.reservation[0] as any)?.status ?? null : (t.reservation as any)?.status ?? null}
-            />
+            <div key={t.ticket_id} className="space-y-3">
+              <DigitalTicket
+                ticketId={t.ticket_id}
+                ticketCode={t.ticket_code}
+                eventTitle={t.event?.title ?? ""}
+                productName={t.product?.name ?? ""}
+                eventVenue={t.event?.venue ?? null}
+                startAt={t.event?.start_at ?? null}
+                holderEmail={t.email}
+                status={t.status}
+                checkedInAt={t.checked_in_at ?? null}
+                paymentType={t.product?.payment_type ?? null}
+                productType={t.product?.type ?? undefined}
+                amount={t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0}
+                stripImageUrl={t.transaction?.qr_config?.strip_image_url ?? null}
+                bgColor={t.transaction?.qr_config?.bg_color ?? undefined}
+                fgColor={t.transaction?.qr_config?.fg_color ?? undefined}
+                labelColor={t.transaction?.qr_config?.label_color ?? undefined}
+                reservationId={t.reservation_id ?? null}
+                reservationStatus={Array.isArray(t.reservation) ? (t.reservation[0] as any)?.status ?? null : (t.reservation as any)?.status ?? null}
+              />
+              {t.product?.type === "entrance" && <WelcomeCheerPicker ticketId={t.ticket_id} />}
+            </div>
           ))}
         </div>
       )}

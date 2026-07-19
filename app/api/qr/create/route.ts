@@ -59,6 +59,7 @@ export async function POST(req: Request) {
     amount_step = 100,
     default_amount = null,
     touchpay_enabled = false,
+    welcome_cheer_amount = null,
   } = body as {
     event_id: string;
     label?: string;
@@ -84,6 +85,7 @@ export async function POST(req: Request) {
     amount_step?: 100 | 500 | 1000;
     default_amount?: number | null;
     touchpay_enabled?: boolean;
+    welcome_cheer_amount?: number | null;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -153,6 +155,21 @@ export async function POST(req: Request) {
     (product_type === "custom" && payment_type === "V" && min_amount === max_amount);
   const effectiveTouchpayEnabled = touchpay_enabled && touchpayAllowedType;
 
+  // ウェルカムチア（2階建て構造）はentrance×Cタイプのみ許可。
+  // 合計金額（1階）から一部（2階）を切り出すため、必ず合計金額未満でなければならない。
+  const welcomeCheerAllowedType = product_type === "entrance" && payment_type === "C";
+  if (welcome_cheer_amount != null) {
+    if (!welcomeCheerAllowedType) {
+      return NextResponse.json({ error: "ウェルカムチアはエントランス×Cタイプのみ設定できます" }, { status: 400 });
+    }
+    if (!Number.isInteger(welcome_cheer_amount) || welcome_cheer_amount <= 0) {
+      return NextResponse.json({ error: "ウェルカムチアの金額が不正です" }, { status: 400 });
+    }
+    if (welcome_cheer_amount >= min_amount) {
+      return NextResponse.json({ error: "ウェルカムチアの金額はエントランス料金より低くしてください" }, { status: 400 });
+    }
+  }
+
   // products + qr_configs + qr_config_targets をアトミックに作成
   const adminClient = createAdminClient();
   const { data: rpcRows, error: rpcError } = await adminClient.rpc("create_qr_bundle", {
@@ -190,8 +207,64 @@ export async function POST(req: Request) {
   }
 
   const row = (rpcRows as any[])[0];
+
+  // ウェルカムチア: デフォルト受取先（主催者宛のワンプライスチア）を同じ仕組み
+  // （create_qr_bundle）でもう1本作成し、エントランス商品にリンクする。
+  // 購入者が後から演者を選ぶまでは、このデフォルト先がウェルカムチアの宛先になる。
+  let welcomeCheerProductId: string | null = null;
+  if (welcome_cheer_amount != null) {
+    const { data: wcRows, error: wcError } = await adminClient.rpc("create_qr_bundle", {
+      p_event_id:             event_id,
+      p_creator_profile_id:   user.id,
+      p_recipient_profile_id: event.organizer_profile_id,
+      p_recipient_name_context: "organizer",
+      p_label:                `ウェルカムチア（${productName}）`,
+      p_is_personal:          false,
+      p_image_url:            null,
+      p_product_type:         "standard",
+      p_min_amount:           welcome_cheer_amount,
+      p_max_amount:           welcome_cheer_amount,
+      p_artist_id:            event.organizer_profile_id,
+      p_product_name:         `ウェルカムチア（${productName}）`,
+      p_payment_type:         null,
+      p_stock_limit:          null,
+      p_track_inventory:      false,
+      p_serial_scope:         "event",
+      p_bypass_validity:      true,
+      p_strip_image_url:      null,
+      p_bg_color:             "#0f172a",
+      p_fg_color:             "#ffffff",
+      p_label_color:          "#94a3b8",
+      p_sales_start_at:       null,
+      p_sales_end_at:         null,
+      p_targets:              [{ profile_id: event.organizer_profile_id, distribution_ratio: 1 }],
+      p_amount_step:          100,
+      p_default_amount:       welcome_cheer_amount,
+      p_touchpay_enabled:     false,
+    });
+
+    if (wcError) {
+      return NextResponse.json({ error: `ウェルカムチアのデフォルト先作成に失敗しました: ${wcError.message}` }, { status: 500 });
+    }
+
+    welcomeCheerProductId = (wcRows as any[])[0].out_product_id;
+
+    const { error: linkError } = await adminClient
+      .from("products")
+      .update({
+        welcome_cheer_amount,
+        welcome_cheer_default_product_id: welcomeCheerProductId,
+      })
+      .eq("product_id", row.out_product_id);
+
+    if (linkError) {
+      return NextResponse.json({ error: `ウェルカムチアの紐付けに失敗しました: ${linkError.message}` }, { status: 500 });
+    }
+  }
+
   return NextResponse.json({
     qr_config_id: row.out_qr_config_id,
     product_id:   row.out_product_id,
+    welcome_cheer_product_id: welcomeCheerProductId,
   });
 }

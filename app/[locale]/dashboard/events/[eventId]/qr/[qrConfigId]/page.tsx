@@ -7,6 +7,7 @@ import { QREditDelete } from "@/components/qr-edit-delete";
 import { QRThanksEditor } from "@/components/qr-thanks-editor";
 import { QRRecipientImageEdit } from "@/components/qr-recipient-image-edit";
 import { QRInviteIssuer } from "@/components/qr-invite-issuer";
+import { WelcomeCheerEligibleEditor } from "@/components/welcome-cheer-eligible-editor";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
@@ -253,6 +254,10 @@ async function QRDetailContent({
 
       {canEdit && isEntrance && (
         <QRInviteIssuer eventId={eventId} qrConfigId={qrConfigId} />
+      )}
+
+      {canEdit && isEntrance && (
+        <WelcomeCheerEligibleEditor qrConfigId={qrConfigId} />
       )}
 
       {canEdit && (

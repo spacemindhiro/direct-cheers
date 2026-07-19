@@ -274,7 +274,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `ウェルカムチアのデフォルト先作成に失敗しました: ${wcError.message}` }, { status: 500 });
     }
 
-    welcomeCheerProductId = (wcRows as any[])[0].out_product_id;
+    const wcRow = (wcRows as any[])[0];
+    welcomeCheerProductId = wcRow.out_product_id;
+
+    // 内部的な受け皿であることを示すフラグを立て、通常のQR一覧・
+    // チアQR候補選択・削除操作から除外されるようにする。
+    const [{ error: flagProductError }, { error: flagQrError }] = await Promise.all([
+      adminClient.from("products").update({ is_welcome_cheer_default: true }).eq("product_id", welcomeCheerProductId),
+      adminClient.from("qr_configs").update({ is_welcome_cheer_default: true }).eq("qr_config_id", wcRow.out_qr_config_id),
+    ]);
+    if (flagProductError || flagQrError) {
+      return NextResponse.json(
+        { error: `ウェルカムチアのデフォルト先フラグ設定に失敗しました: ${(flagProductError ?? flagQrError)?.message}` },
+        { status: 500 },
+      );
+    }
 
     const { error: linkError } = await adminClient
       .from("products")

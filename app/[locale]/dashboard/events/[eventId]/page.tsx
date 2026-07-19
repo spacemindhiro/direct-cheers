@@ -69,6 +69,9 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     .select("qr_config_id, label, created_at")
     .eq("event_id", eventId)
     .is("deleted_at", null)
+    // ウェルカムチアのデフォルト受取先として内部的に自動生成されたQRは、
+    // 主催者が管理する対象ではないため一覧から除外する。
+    .eq("is_welcome_cheer_default", false)
     .order("created_at", { ascending: false });
 
   let qrConfigs = allQrConfigs ?? [];

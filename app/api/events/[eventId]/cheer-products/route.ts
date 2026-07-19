@@ -50,7 +50,9 @@ export async function GET(
     .eq("type", "standard")
     .eq("min_amount", amount)
     .eq("max_amount", amount)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    // 他のエントランスQRが内部的に自動生成したデフォルト受取先は候補から除外する
+    .eq("is_welcome_cheer_default", false);
 
   const candidates = (products ?? []).map((p: any) => ({
     product_id: p.product_id,

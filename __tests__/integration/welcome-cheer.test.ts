@@ -75,6 +75,8 @@ vi.mock("stripe", async (importOriginal) => {
 
 import { createClient } from "@/lib/supabase/server";
 import { POST as qrCreatePOST } from "@/app/api/qr/create/route";
+import { DELETE as qrDeleteDELETE } from "@/app/api/qr/[qrConfigId]/route";
+import { GET as cheerProductsGET } from "@/app/api/events/[eventId]/cheer-products/route";
 import { POST as terminalCompletePOST } from "@/app/api/entrance/terminal/complete/route";
 import { GET as welcomeCheerGET } from "@/app/api/entrance/welcome-cheer/[ticketId]/route";
 import { POST as welcomeCheerConfirmPOST } from "@/app/api/entrance/welcome-cheer/[ticketId]/confirm/route";
@@ -181,19 +183,21 @@ describe("TC-WC-A: /api/qr/create — ウェルカムチアのデフォルト受
 
     const { data: wcProduct } = await testAdmin
       .from("products")
-      .select("type, min_amount, max_amount, artist_id")
+      .select("type, min_amount, max_amount, artist_id, is_welcome_cheer_default")
       .eq("product_id", data.welcome_cheer_product_id)
       .single();
     expect(wcProduct?.type).toBe("standard");
     expect(wcProduct?.min_amount).toBe(500);
     expect(wcProduct?.max_amount).toBe(500);
     expect(wcProduct?.artist_id).toBe(organizerProfileId);
+    expect(wcProduct?.is_welcome_cheer_default).toBe(true);
 
     const { data: wcQrConfig } = await testAdmin
       .from("qr_configs")
-      .select("qr_config_id")
+      .select("qr_config_id, is_welcome_cheer_default")
       .eq("product_id", data.welcome_cheer_product_id)
       .single();
+    expect(wcQrConfig?.is_welcome_cheer_default).toBe(true);
     cleanup.qrConfigIds.push(wcQrConfig!.qr_config_id);
 
     const { data: wcTargets } = await testAdmin
@@ -330,6 +334,100 @@ describe("TC-WC-A: /api/qr/create — ウェルカムチアのデフォルト受
     });
     const res = await qrCreatePOST(req);
     expect(res.status).toBe(400);
+  });
+});
+
+describe("TC-WC-D: デフォルト受取先QRの露出防止（一覧除外・候補除外・誤削除防止）", () => {
+  let entranceProductId: string;
+  let wcProductId: string;
+  let wcQrConfigId: string;
+
+  beforeAll(async () => {
+    mockOrganizerAuth();
+    const req = new Request("http://localhost/api/qr/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_id: eventId,
+        label: "WC露出防止テストQR",
+        product_type: "entrance",
+        payment_type: "C",
+        min_amount: 3000,
+        max_amount: 3000,
+        recipient_profile_id: organizerProfileId,
+        recipient_name_context: "organizer",
+        targets: [{ profile_id: organizerProfileId, distribution_ratio: 1 }],
+        welcome_cheer_amount: 500,
+      }),
+    });
+    const res = await qrCreatePOST(req);
+    const data = await res.json();
+    entranceProductId = data.product_id;
+    wcProductId = data.welcome_cheer_product_id;
+    cleanup.productIds.push(entranceProductId, wcProductId);
+    cleanup.qrConfigIds.push(data.qr_config_id);
+    const { data: wcQr } = await testAdmin
+      .from("qr_configs").select("qr_config_id").eq("product_id", wcProductId).single();
+    wcQrConfigId = wcQr!.qr_config_id;
+    cleanup.qrConfigIds.push(wcQrConfigId);
+  }, 30_000);
+
+  it("TC-WC-D-01: デフォルト受取先QRはevent_id条件のQR一覧クエリで除外される", async () => {
+    const { data: visibleQrConfigs } = await testAdmin
+      .from("qr_configs")
+      .select("qr_config_id")
+      .eq("event_id", eventId)
+      .is("deleted_at", null)
+      .eq("is_welcome_cheer_default", false);
+    expect(visibleQrConfigs?.some((q) => q.qr_config_id === wcQrConfigId)).toBe(false);
+  });
+
+  it("TC-WC-D-02: cheer-products候補検索APIはデフォルト受取先を返さない", async () => {
+    const req = new Request(`http://localhost/api/events/${eventId}/cheer-products?amount=500`);
+    const res = await cheerProductsGET(req, { params: Promise.resolve({ eventId }) });
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.candidates.some((c: any) => c.product_id === wcProductId)).toBe(false);
+  });
+
+  it("TC-WC-D-03: デフォルト受取先QRの削除は409で拒否される", async () => {
+    const res = await qrDeleteDELETE(
+      new Request(`http://localhost/api/qr/${wcQrConfigId}`, { method: "DELETE" }),
+      { params: Promise.resolve({ qrConfigId: wcQrConfigId }) },
+    );
+    expect(res.status).toBe(409);
+
+    const { data: stillExists } = await testAdmin
+      .from("qr_configs").select("deleted_at").eq("qr_config_id", wcQrConfigId).single();
+    expect(stillExists?.deleted_at).toBeNull();
+  });
+
+  it("TC-WC-D-04: 親（エントランス）QRを削除すると、デフォルト受取先QR・商品も連鎖削除され、エントランス側の商品も削除される", async () => {
+    // entranceProductIdに紐づくqr_config_idを取得（qrCreatePOSTのレスポンスから直接は取れていないため引き直す）
+    const { data: entranceQr } = await testAdmin
+      .from("qr_configs").select("qr_config_id").eq("product_id", entranceProductId).single();
+
+    const res = await qrDeleteDELETE(
+      new Request(`http://localhost/api/qr/${entranceQr!.qr_config_id}`, { method: "DELETE" }),
+      { params: Promise.resolve({ qrConfigId: entranceQr!.qr_config_id }) },
+    );
+    expect(res.status).toBe(200);
+
+    const { data: entranceQrAfter } = await testAdmin
+      .from("qr_configs").select("deleted_at").eq("qr_config_id", entranceQr!.qr_config_id).single();
+    expect(entranceQrAfter?.deleted_at).not.toBeNull();
+
+    const { data: entranceProductAfter } = await testAdmin
+      .from("products").select("deleted_at").eq("product_id", entranceProductId).single();
+    expect(entranceProductAfter?.deleted_at).not.toBeNull();
+
+    const { data: wcQrAfter } = await testAdmin
+      .from("qr_configs").select("deleted_at").eq("qr_config_id", wcQrConfigId).single();
+    expect(wcQrAfter?.deleted_at).not.toBeNull();
+
+    const { data: wcProductAfter } = await testAdmin
+      .from("products").select("deleted_at").eq("product_id", wcProductId).single();
+    expect(wcProductAfter?.deleted_at).not.toBeNull();
   });
 });
 

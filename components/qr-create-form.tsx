@@ -891,8 +891,12 @@ export function QRCreateForm({
                     {welcomeCheerEnabled && parseAmt(welcomeCheerAmount) > 0 && (
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                          2階に含める演者（同金額の既存チアQRから選択）
+                          2階に含める演者
                         </label>
+                        <p className="text-[10px] text-slate-500 leading-relaxed flex items-start gap-1.5">
+                          <Info size={10} className="shrink-0 mt-0.5" />
+                          ワンプライスで¥{parseAmt(welcomeCheerAmount).toLocaleString()}と金額が完全一致する、演者本人の既存チアQRだけが候補に出ます。新しいQRはここでは作成されません。演者がまだ用意していない場合は候補に出ないので、先に演者へワンプライスのチアQR作成を依頼してください。
+                        </p>
                         {welcomeCheerCandidatesLoading ? (
                           <div className="flex items-center gap-2 text-[11px] text-slate-500 py-2">
                             <Loader2 size={12} className="animate-spin" /> 検索中...

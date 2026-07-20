@@ -23,10 +23,10 @@ type CustomSubtype = keyof typeof CUSTOM_SUBTYPE_INFO;
 
 // フォールバック（DBから取得できなかった場合）
 const PRODUCT_TYPE_FALLBACK = [
-  { type: "standard", label: "スタンダード", min_amount: 500,  max_amount: 3000,  is_enabled: true },
-  { type: "message",  label: "メッセージ",  min_amount: 500,  max_amount: 5000,  is_enabled: true },
-  { type: "entrance", label: "エントランス", min_amount: 500,  max_amount: 30000, is_enabled: true },
-  { type: "custom",   label: "カスタム",    min_amount: 500,  max_amount: 100000, is_enabled: false },
+  { type: "standard", label: "スタンダード", min_amount: 50,  max_amount: 3000,  is_enabled: true },
+  { type: "message",  label: "メッセージ",  min_amount: 50,  max_amount: 5000,  is_enabled: true },
+  { type: "entrance", label: "エントランス", min_amount: 50,  max_amount: 30000, is_enabled: true },
+  { type: "custom",   label: "カスタム",    min_amount: 50,  max_amount: 100000, is_enabled: false },
 ];
 
 type ProductTypeConfig = { type: string; label: string; min_amount: number; max_amount: number; is_enabled: boolean };
@@ -144,7 +144,7 @@ export function QRCreateForm({
 
   const handleStepChange = (s: 100 | 500 | 1000) => {
     setAmountStep(s);
-    const cfgMin = currentConfig?.min_amount ?? 500;
+    const cfgMin = currentConfig?.min_amount ?? 50;
     const cfgMax = currentConfig?.max_amount ?? 3000;
     const snappedMin = Math.max(cfgMin, Math.round(minAmount / s) * s);
     const snappedMax = Math.min(cfgMax, Math.round(maxAmount / s) * s);
@@ -556,7 +556,7 @@ export function QRCreateForm({
                     </div>
                     <input
                       type="range"
-                      min={currentConfig?.min_amount ?? 500}
+                      min={currentConfig?.min_amount ?? 50}
                       max={(currentConfig?.max_amount ?? 3000) - amountStep}
                       step={amountStep}
                       value={minAmount}

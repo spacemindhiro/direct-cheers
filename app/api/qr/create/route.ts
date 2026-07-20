@@ -4,10 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 // フォールバック（product_type_configs が取得できなかった場合）
 const PRODUCT_TYPE_FALLBACK: Record<string, { min: number; max: number; label: string }> = {
-  standard:  { min: 500,  max: 3_000,   label: "スタンダード" },
-  message:   { min: 1000, max: 5_000,   label: "メッセージ" },
-  entrance:  { min: 300,  max: 30_000,  label: "エントランス" },
-  custom:    { min: 500,  max: 100_000, label: "カスタム" },
+  standard:  { min: 50, max: 3_000,   label: "スタンダード" },
+  message:   { min: 50, max: 5_000,   label: "メッセージ" },
+  entrance:  { min: 50, max: 30_000,  label: "エントランス" },
+  custom:    { min: 50, max: 100_000, label: "カスタム" },
 };
 
 // DB から有効な商品タイプ定義を取得

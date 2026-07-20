@@ -147,8 +147,8 @@ export async function PATCH(
         .eq("type", product.type)
         .maybeSingle();
       const FALLBACK: Record<string, { min: number; max: number }> = {
-        standard: { min: 500, max: 3_000 }, message: { min: 1000, max: 5_000 },
-        entrance: { min: 300, max: 30_000 }, custom: { min: 500, max: 100_000 },
+        standard: { min: 50, max: 3_000 }, message: { min: 50, max: 5_000 },
+        entrance: { min: 50, max: 30_000 }, custom: { min: 50, max: 100_000 },
       };
       const range = typeConfig
         ? { min: typeConfig.min_amount, max: typeConfig.max_amount }

@@ -16,12 +16,17 @@ import { EventPayPayToggle } from "@/components/event-paypay-toggle";
 import { EventDetailTabs } from "@/components/event-detail-tabs";
 
 // QR一覧の商品タイプ表示ラベル（type + entrance/customのpayment_type）
+const CUSTOM_SUBTYPE_LABELS: Record<string, string> = {
+  V: "バウチャー",
+  D: "ドリンクチケット",
+};
+
 function qrProductTypeLabel(type: string | undefined, paymentType: string | null | undefined): string {
   if (!type) return "";
   if (type === "standard") return "スタンダード";
   if (type === "message") return "メッセージ";
   if (type === "entrance") return `エントランス（${paymentType ?? "?"}）`;
-  if (type === "custom") return `カスタム（${paymentType ?? "V"}）`;
+  if (type === "custom") return `カスタム（${CUSTOM_SUBTYPE_LABELS[paymentType ?? "V"] ?? paymentType ?? "V"}）`;
   return type;
 }
 

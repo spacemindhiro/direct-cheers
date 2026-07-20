@@ -39,6 +39,33 @@ function TicketCheckinQR({
     </div>
   );
 }
+
+// ドリンクチケット: QR・チケットコードを一切表示しない代わりに、
+// この画面自体を受け渡しの証跡にする。「決済から◯秒経過」のライブカウンターは
+// 静止画スクリーンショットでは絶対に再現できないため、スタッフはこれを見て
+// 本物の決済完了画面であることを確認できる。
+function DrinkTicketReceipt({ quantity, productName }: { quantity: number; productName: string }) {
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setElapsedSec((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="bg-gradient-to-br from-cyan-500/10 to-slate-900 border border-cyan-500/30 rounded-3xl p-8 text-center space-y-4">
+      <p className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em]">{productName || "ドリンクチケット"}</p>
+      <p className="text-8xl font-black text-white italic tracking-tighter tabular-nums leading-none">
+        {quantity}
+        <span className="text-2xl not-italic ml-2">杯</span>
+      </p>
+      <div className="flex items-center justify-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <p className="text-xs font-mono text-emerald-400 tabular-nums">決済から {elapsedSec} 秒経過</p>
+      </div>
+      <p className="text-[10px] text-slate-500">スタッフはこの画面をご確認のうえドリンクをお渡しください</p>
+    </div>
+  );
+}
 import Link from "next/link";
 import { WelcomeCheerPicker } from "@/components/welcome-cheer-picker";
 
@@ -49,6 +76,7 @@ type PaymentResult = {
   transaction_id: string;
   ticket_id: string | null;
   ticket_code: string | null;
+  ticket_quantity: number | null;
   email: string | null;
   amount: number;
   artist_name: string | null;
@@ -211,7 +239,8 @@ function ThanksContent() {
 
   const email = result.email ?? emailFromCookie();
   const isVoucher = result.product_type === "custom" && result.payment_type === "V";
-  const isPurchase = result.product_type === "entrance" || isVoucher;
+  const isDrinkTicket = result.product_type === "custom" && result.payment_type === "D";
+  const isPurchase = result.product_type === "entrance" || isVoucher || isDrinkTicket;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-20">
@@ -257,8 +286,8 @@ function ThanksContent() {
           </div>
         )}
 
-        {/* Apple Wallet ボタン（iOS/macOS のみ） */}
-        {isAppleDevice() && (isPurchase ? !!result.ticket_id : true) && (
+        {/* Apple Wallet ボタン（iOS/macOS のみ。ドリンクチケットはスキャン運用が無いため対象外） */}
+        {isAppleDevice() && !isDrinkTicket && (isPurchase ? !!result.ticket_id : true) && (
           <a
             href={
               isPurchase
@@ -305,8 +334,13 @@ function ThanksContent() {
           />
         )}
 
-        {/* Cheers カード（バウチャー以外） */}
-        {!(result.product_type === "custom" && result.payment_type === "V") && (
+        {/* ドリンクチケット: QRの代わりに、大きな杯数表示＋経過秒数カウンターで受け渡し証跡とする */}
+        {isDrinkTicket && result.ticket_quantity != null && (
+          <DrinkTicketReceipt quantity={result.ticket_quantity} productName={result.product_name ?? ""} />
+        )}
+
+        {/* Cheers カード（バウチャー・ドリンクチケット以外） */}
+        {!(result.product_type === "custom" && (result.payment_type === "V" || result.payment_type === "D")) && (
           <CheersCard
             artistName={result.recipient_name ?? result.artist_name ?? "Artist"}
             eventTitle={result.event_title ?? ""}

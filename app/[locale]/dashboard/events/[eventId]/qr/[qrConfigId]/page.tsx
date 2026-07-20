@@ -110,26 +110,30 @@ async function QRDetailContent({
   let validityInfo: { label: string; from: string; to: string } | null = null;
   let isEntrance = false;
   let isVoucher = false; // custom かつ payment_type='V' のとき true
+  let isDrinkTicket = false; // custom かつ payment_type='D' のとき true
   let productInfo: {
     typeLabel: string;
     name: string;
     isRange: boolean;
     minAmount: number;
     maxAmount: number;
-    paymentType: "A" | "B" | "C" | "V" | null;
+    paymentType: "A" | "B" | "C" | "V" | "D" | null;
     stockLimit: number | null;
     trackInventory: boolean;
     soldCount: number;
+    quantitySelectable: boolean;
+    bulkPricing: { min_quantity: number; unit_price: number }[] | null;
   } | null = null;
   if (productId && event) {
     const { data: product } = await adminClient
       .from("products")
-      .select("type, payment_type, sales_start_at, sales_end_at, name, min_amount, max_amount, stock_limit, track_inventory, sold_count")
+      .select("type, payment_type, sales_start_at, sales_end_at, name, min_amount, max_amount, stock_limit, track_inventory, sold_count, quantity_selectable, bulk_pricing")
       .eq("product_id", productId)
       .single();
     if (product) {
       isEntrance = product.type === "entrance";
       isVoucher = product.type === "custom" && product.payment_type === "V";
+      isDrinkTicket = product.type === "custom" && product.payment_type === "D";
       const isEntranceAB = isEntrance && (product.payment_type === "A" || product.payment_type === "B");
       const fmt = (d: string) => new Date(d).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
       if (isEntranceAB && product.sales_start_at && product.sales_end_at) {
@@ -138,16 +142,19 @@ async function QRDetailContent({
         const endPlus3h = new Date(new Date((event as any).end_at).getTime() + 3 * 60 * 60 * 1000).toISOString();
         validityInfo = { label: "決済有効期間", from: fmt((event as any).start_at), to: fmt(endPlus3h) };
       }
+      const customLabel = isDrinkTicket ? "カスタム（ドリンクチケット）" : "カスタム（バウチャー）";
       productInfo = {
-        typeLabel: ({ standard: "スタンダード", message: "メッセージ", entrance: "エントランス", custom: "カスタム（バウチャー）" } as Record<string, string>)[product.type as string] ?? (product.type as string),
+        typeLabel: ({ standard: "スタンダード", message: "メッセージ", entrance: "エントランス", custom: customLabel } as Record<string, string>)[product.type as string] ?? (product.type as string),
         name: product.name ?? "",
         isRange: (product.min_amount ?? 0) !== (product.max_amount ?? 0),
         minAmount: product.min_amount ?? 0,
         maxAmount: product.max_amount ?? 0,
-        paymentType: (isEntrance || isVoucher) ? (product.payment_type as "A" | "B" | "C" | "V" | null) : null,
+        paymentType: (isEntrance || isVoucher || isDrinkTicket) ? (product.payment_type as "A" | "B" | "C" | "V" | "D" | null) : null,
         stockLimit: product.stock_limit ?? null,
         trackInventory: product.track_inventory ?? true,
         soldCount: product.sold_count ?? 0,
+        quantitySelectable: (product as any).quantity_selectable ?? true,
+        bulkPricing: (product as any).bulk_pricing ?? null,
       };
     }
   }
@@ -185,7 +192,7 @@ async function QRDetailContent({
 
       <QRDisplay qrConfigId={qrConfigId} qrUrl={qrUrl} label={qr.label ?? "QRコード"} />
 
-      {!isEntrance && !isVoucher && (
+      {!isEntrance && !isVoucher && !isDrinkTicket && (
         <div className="pointer-events-none">
           <WalletCheerPreview
             eventTitle={event.title}
@@ -304,6 +311,9 @@ async function QRDetailContent({
           eventVenue={(event as any).venue ?? null}
           isEntrance={isEntrance}
           isVoucher={isVoucher}
+          isDrinkTicket={isDrinkTicket}
+          currentQuantitySelectable={productInfo?.quantitySelectable ?? true}
+          currentBulkPricing={productInfo?.bulkPricing ?? null}
           currentLabel={qr.label ?? ""}
           currentImageUrl={(qr as any).image_url ?? null}
           currentStripImageUrl={(qr as any).strip_image_url ?? null}

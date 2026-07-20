@@ -18,8 +18,10 @@ const PAYMENT_TYPE_INFO = {
 
 const CUSTOM_SUBTYPE_INFO = {
   V: { label: "バウチャー（引換券）", desc: "1回のみ使用可能なデジタル引換コード。未使用分はイベント終了後に自動返金。" },
+  D: { label: "ドリンクチケット", desc: "QR・チケットコードを使わない即時受け渡し用。決済完了画面自体が受け渡しの証跡になります。" },
 } as const;
 type CustomSubtype = keyof typeof CUSTOM_SUBTYPE_INFO;
+type BulkTierInput = { min_quantity: string; unit_price: string };
 
 // フォールバック（DBから取得できなかった場合）
 const PRODUCT_TYPE_FALLBACK = [
@@ -96,6 +98,9 @@ export function QRCreateForm({
   const [customSubtype, setCustomSubtype] = useState<CustomSubtype>("V");
   const [voucherStockLimit, setVoucherStockLimit] = useState<string>("");
   const [trackInventoryC, setTrackInventoryC] = useState(false);
+  // ドリンクチケット用（custom かつ payment_type='D'）
+  const [drinkQuantitySelectable, setDrinkQuantitySelectable] = useState(true);
+  const [drinkTiers, setDrinkTiers] = useState<BulkTierInput[]>([]);
   // ウェルカムチア（entrance×Cタイプ限定）: 合計金額の一部を2階（チア）として切り出す
   const [welcomeCheerEnabled, setWelcomeCheerEnabled] = useState(false);
   const [welcomeCheerAmount, setWelcomeCheerAmount] = useState<string>("");
@@ -163,11 +168,23 @@ export function QRCreateForm({
 
   // custom かつ payment_type='V' のとき true
   const isVoucher = productType === "custom" && customSubtype === "V";
+  // custom かつ payment_type='D' のとき true
+  const isDrinkTicket = productType === "custom" && customSubtype === "D";
 
-  // エントランス・バウチャーはワンプライス固定
+  // エントランス・バウチャー・ドリンクチケットはワンプライス固定
   useEffect(() => {
-    if (productType === "entrance" || isVoucher) setPriceMode("fixed");
-  }, [productType, isVoucher]);
+    if (productType === "entrance" || isVoucher || isDrinkTicket) setPriceMode("fixed");
+  }, [productType, isVoucher, isDrinkTicket]);
+
+  const addDrinkTier = () => {
+    setDrinkTiers((prev) => [...prev, { min_quantity: "", unit_price: "" }]);
+  };
+  const removeDrinkTier = (i: number) => {
+    setDrinkTiers((prev) => prev.filter((_, idx) => idx !== i));
+  };
+  const updateDrinkTier = (i: number, field: keyof BulkTierInput, value: string) => {
+    setDrinkTiers((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
+  };
 
   // ウェルカムチア: 金額が変わるたびに、同金額の既存ワンプライスチアQRを候補として取得する
   useEffect(() => {
@@ -239,7 +256,7 @@ export function QRCreateForm({
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!label.trim()) { setError("ラベルを入力してください"); return; }
-    if (productType !== "entrance" && !isVoucher && !imageUrl) { setError("QR画像をアップロードしてください"); return; }
+    if (productType !== "entrance" && !isVoucher && !isDrinkTicket && !imageUrl) { setError("QR画像をアップロードしてください"); return; }
     if (!recipientId) { setError("宛先を選択してください"); return; }
     if (targets.length === 0) { setError("配分先を1人以上設定してください"); return; }
     if (!targets.some((t) => t.profile_id === recipientId)) { setError("宛先を配分先に含めてください"); return; }
@@ -263,6 +280,30 @@ export function QRCreateForm({
       if (wcAmount <= 0) { setError("ウェルカムチアの金額を入力してください"); return; }
       if (wcAmount >= fixedAmount) { setError("ウェルカムチアの金額はエントランス料金より低くしてください"); return; }
     }
+    let parsedDrinkTiers: { min_quantity: number; unit_price: number }[] = [];
+    if (isDrinkTicket && drinkQuantitySelectable && drinkTiers.length > 0) {
+      let prevMinQty = 1;
+      let prevUnitPrice = fixedAmount;
+      for (const t of drinkTiers) {
+        const minQty = parseInt(t.min_quantity, 10);
+        const unitPrice = parseAmt(t.unit_price);
+        if (!Number.isInteger(minQty) || minQty <= prevMinQty) {
+          setError("まとめ買い割引の段階は杯数が昇順（2以上）である必要があります");
+          return;
+        }
+        if (!Number.isInteger(unitPrice) || unitPrice <= 0) {
+          setError("まとめ買い割引の単価を入力してください");
+          return;
+        }
+        if (unitPrice > prevUnitPrice) {
+          setError("まとめ買い割引は杯数が増えるごとに単価を同額以下にしてください");
+          return;
+        }
+        prevMinQty = minQty;
+        prevUnitPrice = unitPrice;
+      }
+      parsedDrinkTiers = drinkTiers.map((t) => ({ min_quantity: parseInt(t.min_quantity, 10), unit_price: parseAmt(t.unit_price) }));
+    }
     setError(null);
     startTransition(async () => {
       const res = await fetch("/api/qr/create", {
@@ -271,7 +312,7 @@ export function QRCreateForm({
         body: JSON.stringify({
           event_id: eventId,
           label: label || undefined,
-          image_url: productType !== "entrance" && !isVoucher ? (imageUrl || undefined) : undefined,
+          image_url: productType !== "entrance" && !isVoucher && !isDrinkTicket ? (imageUrl || undefined) : undefined,
           product_type: productType,
           min_amount: priceMode === "fixed" ? fixedAmount : minAmount,
           max_amount: priceMode === "fixed" ? fixedAmount : maxAmount,
@@ -310,6 +351,11 @@ export function QRCreateForm({
             bg_color: bgColor,
             fg_color: fgColor,
             label_color: labelColor,
+          }),
+          ...(isDrinkTicket && {
+            payment_type: customSubtype,
+            quantity_selectable: drinkQuantitySelectable,
+            bulk_pricing: drinkQuantitySelectable && parsedDrinkTiers.length > 0 ? parsedDrinkTiers : null,
           }),
           bypass_validity: bypassValidity,
         }),
@@ -711,6 +757,12 @@ export function QRCreateForm({
                   labelColor={labelColor}
                 />
               </div>
+            ) : isDrinkTicket ? (
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl px-4 py-3">
+                <p className="text-xs text-slate-400">
+                  ドリンクチケットは画像・QRを使用しません。決済完了画面の表示のみで受け渡しを確認します。
+                </p>
+              </div>
             ) : (
               <>
                 <QRImageUpload
@@ -959,6 +1011,81 @@ export function QRCreateForm({
               </div>
             )}
 
+            {/* ドリンクチケット設定（custom かつ payment_type='D' のとき） */}
+            {isDrinkTicket && (
+              <div className="space-y-4 bg-cyan-500/5 border border-cyan-500/20 rounded-2xl p-4">
+                <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Info size={10} /> ドリンクチケット設定
+                </p>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-black text-slate-300">杯数を指定させる</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">OFFの場合は常に1杯固定になります</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={drinkQuantitySelectable}
+                    onClick={() => setDrinkQuantitySelectable((v) => !v)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${drinkQuantitySelectable ? "bg-cyan-500" : "bg-slate-700"}`}
+                  >
+                    <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${drinkQuantitySelectable ? "translate-x-5" : "translate-x-1"}`} />
+                  </button>
+                </div>
+
+                {drinkQuantitySelectable && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">まとめ買い割引</label>
+                      <button
+                        type="button"
+                        onClick={addDrinkTier}
+                        disabled={drinkTiers.length >= 4}
+                        className="flex items-center gap-1 text-[10px] font-black text-cyan-400 hover:text-cyan-300 uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Plus size={12} /> 段階を追加
+                      </button>
+                    </div>
+                    {drinkTiers.length === 0 ? (
+                      <p className="text-[10px] text-slate-600">未設定の場合、割引はありません（何杯でも単価固定）</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {drinkTiers.map((tier, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              value={tier.min_quantity}
+                              onChange={(e) => updateDrinkTier(i, "min_quantity", e.target.value)}
+                              placeholder="例: 3"
+                              min={2}
+                              className="w-20 h-11 bg-slate-950/50 border-slate-700 rounded-xl px-3 text-sm text-white text-center focus:border-cyan-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            />
+                            <span className="text-[10px] text-slate-500 font-bold shrink-0">杯以上→1杯¥</span>
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              value={tier.unit_price}
+                              onChange={(e) => updateDrinkTier(i, "unit_price", e.target.value)}
+                              placeholder="例: 500"
+                              className="flex-1 h-11 bg-slate-950/50 border-slate-700 rounded-xl px-3 text-sm text-white focus:border-cyan-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            />
+                            <button type="button" onClick={() => removeDrinkTier(i)} className="text-slate-600 hover:text-red-400 transition-colors shrink-0">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-slate-600">
+                      段階が上がるごとに、通常単価（下記「価格設定」の金額）以下になるよう設定してください。
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 価格設定（エントランス・バウチャーはワンプライス固定） */}
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">価格設定</label>
@@ -1079,7 +1206,7 @@ export function QRCreateForm({
 
       <button
         type="submit"
-        disabled={isPending || !label.trim() || (productType !== "entrance" && !isVoucher && !imageUrl) || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
+        disabled={isPending || !label.trim() || (productType !== "entrance" && !isVoucher && !isDrinkTicket && !imageUrl) || !recipientId || Math.abs(totalRatio - 100) > 0.1 || !typeBBalanceOk}
         className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>QRを作成 <ArrowRight size={18} /></>}

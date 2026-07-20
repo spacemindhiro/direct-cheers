@@ -70,6 +70,8 @@ export async function PATCH(
     max_amount,
     stock_limit,
     track_inventory,
+    quantity_selectable,
+    bulk_pricing,
   } = await req.json() as {
     label?: string;
     image_url?: string | null;
@@ -88,11 +90,14 @@ export async function PATCH(
     max_amount?: number;
     stock_limit?: number | null;
     track_inventory?: boolean;
+    quantity_selectable?: boolean;
+    bulk_pricing?: { min_quantity: number; unit_price: number }[] | null;
   };
 
   const hasProductUpdates =
     product_name !== undefined || min_amount !== undefined || max_amount !== undefined ||
-    stock_limit !== undefined || track_inventory !== undefined;
+    stock_limit !== undefined || track_inventory !== undefined ||
+    quantity_selectable !== undefined || bulk_pricing !== undefined;
 
   // 宛先本人は image_url / strip_image_url のみ更新可。それ以外のフィールドは organizer/agent/admin のみ。
   if (!canEdit && !isRecipient) {
@@ -179,6 +184,33 @@ export async function PATCH(
         );
       }
     }
+    if (quantity_selectable !== undefined || bulk_pricing !== undefined) {
+      const isDrinkTicket = product.type === "custom" && product.payment_type === "D";
+      if (!isDrinkTicket) {
+        return NextResponse.json({ error: "quantity_selectable / bulk_pricing はドリンクチケットのみ指定できます" }, { status: 400 });
+      }
+      const effQuantitySelectable = quantity_selectable ?? true;
+      if (effQuantitySelectable && Array.isArray(bulk_pricing) && bulk_pricing.length > 0) {
+        if (bulk_pricing.length > 4) {
+          return NextResponse.json({ error: "まとめ買い割引は最大4段階までです" }, { status: 400 });
+        }
+        let prevMinQty = 1;
+        let prevUnitPrice = effMin;
+        for (const tier of bulk_pricing) {
+          if (!Number.isInteger(tier.min_quantity) || tier.min_quantity <= prevMinQty) {
+            return NextResponse.json({ error: "まとめ買い割引の段階は杯数が昇順（2以上）である必要があります" }, { status: 400 });
+          }
+          if (!Number.isInteger(tier.unit_price) || tier.unit_price <= 0) {
+            return NextResponse.json({ error: "まとめ買い割引の単価が不正です" }, { status: 400 });
+          }
+          if (tier.unit_price > prevUnitPrice) {
+            return NextResponse.json({ error: "まとめ買い割引は杯数が増えるごとに単価を同額以下にしてください" }, { status: 400 });
+          }
+          prevMinQty = tier.min_quantity;
+          prevUnitPrice = tier.unit_price;
+        }
+      }
+    }
   }
 
   // デフォルト金額は変更後のmin/max範囲内であることを確認
@@ -234,6 +266,13 @@ export async function PATCH(
     if (max_amount !== undefined) productUpdates.max_amount = max_amount;
     if (stock_limit !== undefined) productUpdates.stock_limit = stock_limit;
     if (track_inventory !== undefined) productUpdates.track_inventory = track_inventory;
+    if (quantity_selectable !== undefined) {
+      productUpdates.quantity_selectable = quantity_selectable;
+      if (quantity_selectable === false) productUpdates.bulk_pricing = null;
+    }
+    if (bulk_pricing !== undefined && quantity_selectable !== false) {
+      productUpdates.bulk_pricing = bulk_pricing;
+    }
 
     const { error: productError } = await adminC
       .from("products")

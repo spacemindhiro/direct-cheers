@@ -61,6 +61,8 @@ export async function POST(req: Request) {
     touchpay_enabled = false,
     welcome_cheer_amount = null,
     welcome_cheer_eligible_product_ids = [],
+    quantity_selectable = true,
+    bulk_pricing = null,
   } = body as {
     event_id: string;
     label?: string;
@@ -71,7 +73,7 @@ export async function POST(req: Request) {
     recipient_name_context?: "organizer" | "artist";
     targets: { profile_id: string; distribution_ratio: number }[];
     is_personal?: boolean;
-    payment_type?: "A" | "B" | "C" | "V";
+    payment_type?: "A" | "B" | "C" | "V" | "D";
     stock_limit?: number | null;
     track_inventory?: boolean;
     image_url?: string | null;
@@ -88,6 +90,8 @@ export async function POST(req: Request) {
     touchpay_enabled?: boolean;
     welcome_cheer_amount?: number | null;
     welcome_cheer_eligible_product_ids?: string[];
+    quantity_selectable?: boolean;
+    bulk_pricing?: { min_quantity: number; unit_price: number }[] | null;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -197,6 +201,40 @@ export async function POST(req: Request) {
     }
   }
 
+  // ドリンクチケット（custom×Dタイプ）: QRを使わない即時受け渡し用商品。
+  // payment_type='D' は custom タイプでのみ使用可（entrance等での誤指定を防ぐ）。
+  const isDrinkTicket = product_type === "custom" && payment_type === "D";
+  if (payment_type === "D" && product_type !== "custom") {
+    return NextResponse.json({ error: "payment_type='D' はカスタムタイプのみ指定できます" }, { status: 400 });
+  }
+  if (isDrinkTicket && min_amount !== max_amount) {
+    return NextResponse.json({ error: "ドリンクチケットは金額を固定にしてください" }, { status: 400 });
+  }
+  let validatedBulkPricing: { min_quantity: number; unit_price: number }[] | null = null;
+  if (isDrinkTicket && quantity_selectable && Array.isArray(bulk_pricing) && bulk_pricing.length > 0) {
+    if (bulk_pricing.length > 4) {
+      return NextResponse.json({ error: "まとめ買い割引は最大4段階までです" }, { status: 400 });
+    }
+    let prevMinQty = 1;
+    let prevUnitPrice = min_amount;
+    for (const tier of bulk_pricing) {
+      if (!Number.isInteger(tier.min_quantity) || tier.min_quantity <= prevMinQty) {
+        return NextResponse.json({ error: "まとめ買い割引の段階は杯数が昇順（2以上）である必要があります" }, { status: 400 });
+      }
+      if (!Number.isInteger(tier.unit_price) || tier.unit_price <= 0) {
+        return NextResponse.json({ error: "まとめ買い割引の単価が不正です" }, { status: 400 });
+      }
+      if (tier.unit_price > prevUnitPrice) {
+        return NextResponse.json({ error: "まとめ買い割引は杯数が増えるごとに単価を同額以下にしてください" }, { status: 400 });
+      }
+      prevMinQty = tier.min_quantity;
+      prevUnitPrice = tier.unit_price;
+    }
+    validatedBulkPricing = bulk_pricing;
+  } else if (!isDrinkTicket && bulk_pricing != null) {
+    return NextResponse.json({ error: "bulk_pricing はドリンクチケットのみ指定できます" }, { status: 400 });
+  }
+
   // products + qr_configs + qr_config_targets をアトミックに作成
   const adminClient = createAdminClient();
   const { data: rpcRows, error: rpcError } = await adminClient.rpc("create_qr_bundle", {
@@ -234,6 +272,21 @@ export async function POST(req: Request) {
   }
 
   const row = (rpcRows as any[])[0];
+
+  // ドリンクチケット: 杯数指定可否・まとめ買い割引ティアを反映
+  // （create_qr_bundle は汎用列のみ扱うため、作成後にUPDATEで設定する）
+  if (isDrinkTicket) {
+    const { error: drinkUpdateError } = await adminClient
+      .from("products")
+      .update({
+        quantity_selectable,
+        bulk_pricing: quantity_selectable ? validatedBulkPricing : null,
+      })
+      .eq("product_id", row.out_product_id);
+    if (drinkUpdateError) {
+      return NextResponse.json({ error: `ドリンクチケット設定の保存に失敗しました: ${drinkUpdateError.message}` }, { status: 500 });
+    }
+  }
 
   // ウェルカムチア: デフォルト受取先（主催者宛のワンプライスチア）を同じ仕組み
   // （create_qr_bundle）でもう1本作成し、エントランス商品にリンクする。

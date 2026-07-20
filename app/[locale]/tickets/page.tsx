@@ -14,7 +14,7 @@ async function TicketsContent() {
 
   const admin = createAdminClient();
   const selectQuery = `
-    ticket_id, ticket_code, status, checked_in_at, email, created_at,
+    ticket_id, ticket_code, status, checked_in_at, email, created_at, quantity,
     reservation_id,
     reservation:entrance_reservations(status),
     product:products(name, type, payment_type, min_amount),
@@ -87,6 +87,7 @@ async function TicketsContent() {
                 paymentType={t.product?.payment_type ?? null}
                 productType={t.product?.type ?? undefined}
                 amount={t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0}
+                quantity={t.quantity ?? null}
                 stripImageUrl={t.transaction?.qr_config?.strip_image_url ?? null}
                 bgColor={t.transaction?.qr_config?.bg_color ?? undefined}
                 fgColor={t.transaction?.qr_config?.fg_color ?? undefined}

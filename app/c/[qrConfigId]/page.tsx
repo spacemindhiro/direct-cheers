@@ -113,7 +113,7 @@ async function CheersContent({
 
   const productsQuery = admin
     .from("products")
-    .select("product_id, name, type, payment_type, min_amount, max_amount, sales_start_at, sales_end_at")
+    .select("product_id, name, type, payment_type, min_amount, max_amount, sales_start_at, sales_end_at, quantity_selectable, bulk_pricing")
     .is("deleted_at", null);
 
   const { data: products } = qrProductId
@@ -207,6 +207,8 @@ async function CheersContent({
     max_amount: p.max_amount,
     amount_step: qrAmountStep,
     default_amount: qrDefaultAmount ?? p.min_amount,
+    quantity_selectable: p.quantity_selectable ?? true,
+    bulk_pricing: p.bulk_pricing ?? null,
   }));
 
   return (

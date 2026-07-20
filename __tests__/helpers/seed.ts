@@ -200,7 +200,7 @@ export async function insertProduct(params: {
   eventId: string;
   name?: string;
   type?: string;
-  paymentType?: "A" | "B" | "C" | "V";
+  paymentType?: "A" | "B" | "C" | "V" | "D";
   minAmount?: number;
   maxAmount?: number;
   stockLimit?: number;
@@ -209,6 +209,8 @@ export async function insertProduct(params: {
   artistId?: string | null;
   welcomeCheerAmount?: number | null;
   welcomeCheerDefaultProductId?: string | null;
+  quantitySelectable?: boolean;
+  bulkPricing?: { min_quantity: number; unit_price: number }[] | null;
 }): Promise<string> {
   const id = newId();
   const { error } = await testAdmin.from("products").insert({
@@ -225,6 +227,8 @@ export async function insertProduct(params: {
     artist_id: params.artistId ?? null,
     welcome_cheer_amount: params.welcomeCheerAmount ?? null,
     welcome_cheer_default_product_id: params.welcomeCheerDefaultProductId ?? null,
+    quantity_selectable: params.quantitySelectable ?? true,
+    bulk_pricing: params.bulkPricing ?? null,
   });
   if (error) throw new Error(`product 挿入失敗: ${error.message}`);
   return id;

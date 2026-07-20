@@ -81,7 +81,8 @@ export async function POST(req: Request) {
       existingTicketCode = t?.ticket_code ?? null;
       existingTicketQuantity = t?.quantity ?? null;
     }
-    return buildResponse(email, existing, product, qrcInfo, !!senderProfileId, hasPasskey, existingTicketId, existingTicketCode, existingTicketQuantity);
+    const existingAutoCheckin = product.product_type === "entrance" && product.payment_type === "C" && product.auto_checkin;
+    return buildResponse(email, existing, product, qrcInfo, !!senderProfileId, hasPasskey, existingTicketId, existingTicketCode, existingTicketQuantity, existingAutoCheckin);
   }
 
   const productId = meta.product_id || null;
@@ -246,6 +247,7 @@ export async function POST(req: Request) {
   let ticketId: string | null = null;
   let ticketCode: string | null = null;
   let ticketQuantity: number | null = null;
+  let autoCheckin = false;
   const needsTicket =
     (product.product_type === "entrance" ||
      (product.product_type === "custom" && (product.payment_type === "V" || product.payment_type === "D"))) &&
@@ -254,6 +256,9 @@ export async function POST(req: Request) {
     // 人数（当日現地QR決済で複数人分をまとめて購入した場合）。未指定は1名。
     const parsedQuantity = parseInt(meta.quantity ?? "", 10);
     const quantity = Number.isInteger(parsedQuantity) && parsedQuantity >= 1 ? parsedQuantity : 1;
+    // エントランス×Cタイプでauto_checkin有効時は、QRスキャンによる
+    // チェックインを待たず決済完了と同時に入場確定（used）にする。
+    autoCheckin = product.product_type === "entrance" && product.payment_type === "C" && !!product.auto_checkin;
     const { data: t } = await admin
       .from("tickets")
       .insert({
@@ -262,7 +267,8 @@ export async function POST(req: Request) {
         email: email ?? null,
         holder_profile_id: senderProfileId,
         transaction_id: transactionId,
-        status: "valid",
+        status: autoCheckin ? "used" : "valid",
+        ...(autoCheckin ? { checked_in_at: new Date().toISOString() } : {}),
         quantity,
       })
       .select("ticket_id, ticket_code")
@@ -293,6 +299,7 @@ export async function POST(req: Request) {
     ticketId,
     ticketCode,
     ticketQuantity,
+    autoCheckin,
   );
 
   if (email) {
@@ -407,12 +414,14 @@ function buildResponse(
   ticketId: string | null = null,
   ticketCode: string | null = null,
   ticketQuantity: number | null = null,
+  autoCheckin: boolean = false,
 ): NextResponse {
   return NextResponse.json({
     transaction_id: tx.transaction_id,
     ticket_id: ticketId,
     ticket_code: ticketCode,
     ticket_quantity: ticketQuantity,
+    entrance_auto_checkin: autoCheckin,
     email,
     amount: tx.total_gross_amount,
     serial_number: tx.sequence_number_in_event,
@@ -431,10 +440,10 @@ async function getProductInfo(
   admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
   productId: string | null
 ) {
-  if (!productId) return { artist_id: null, artist_name: null, event_title: null, artist_avatar: null, product_name: null, product_type: null, payment_type: null };
+  if (!productId) return { artist_id: null, artist_name: null, event_title: null, artist_avatar: null, product_name: null, product_type: null, payment_type: null, auto_checkin: false };
   const { data } = await admin
     .from("products")
-    .select("name, type, payment_type, artist_id, artist:profiles!artist_id(display_name, avatar_url), event:events!event_id(title)")
+    .select("name, type, payment_type, artist_id, auto_checkin, artist:profiles!artist_id(display_name, avatar_url), event:events!event_id(title)")
     .eq("product_id", productId)
     .single();
   return {
@@ -445,5 +454,6 @@ async function getProductInfo(
     product_name: data?.name ?? null,
     product_type: data?.type ?? null,
     payment_type: (data as any)?.payment_type ?? null,
+    auto_checkin: (data as any)?.auto_checkin ?? false,
   };
 }

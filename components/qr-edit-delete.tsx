@@ -32,6 +32,7 @@ export function QREditDelete({
   isDrinkTicket = false,
   currentQuantitySelectable = true,
   currentBulkPricing = null,
+  currentAutoCheckin = false,
   currentLabel,
   currentImageUrl,
   currentStripImageUrl,
@@ -68,6 +69,7 @@ export function QREditDelete({
   isDrinkTicket?: boolean;
   currentQuantitySelectable?: boolean;
   currentBulkPricing?: { min_quantity: number; unit_price: number }[] | null;
+  currentAutoCheckin?: boolean;
   currentLabel: string;
   currentImageUrl?: string | null;
   currentStripImageUrl?: string | null;
@@ -130,6 +132,9 @@ export function QREditDelete({
   const removeDrinkTier = (i: number) => setDrinkTiers((prev) => prev.filter((_, idx) => idx !== i));
   const updateDrinkTier = (i: number, field: keyof BulkTierInput, value: string) =>
     setDrinkTiers((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
+
+  // エントランス×Cタイプ: 決済完了と同時に入場確定（QRスキャン省略）
+  const [autoCheckin, setAutoCheckin] = useState(currentAutoCheckin);
 
   // 対面タッチ決済（Case④）: エントランスCタイプ、またはバウチャー×金額固定のみ対象
   const touchpayEligible = (isEntrance && paymentType === "C") || (isVoucher && !isRange);
@@ -270,6 +275,7 @@ export function QREditDelete({
           body.quantity_selectable = drinkQuantitySelectable;
           body.bulk_pricing = drinkQuantitySelectable && parsedDrinkTiers.length > 0 ? parsedDrinkTiers : null;
         }
+        if (isEntrance && paymentType === "C") body.auto_checkin = autoCheckin;
       }
 
       const res = await fetch(`/api/qr/${qrConfigId}`, {
@@ -307,6 +313,7 @@ export function QREditDelete({
     setEditTrackInv(trackInventory);
     setDrinkQuantitySelectable(currentQuantitySelectable);
     setDrinkTiers((currentBulkPricing ?? []).map((t) => ({ min_quantity: String(t.min_quantity), unit_price: String(t.unit_price) })));
+    setAutoCheckin(currentAutoCheckin);
     setTargets(
       currentTargets.map((t) => ({
         profile_id: t.profile_id,
@@ -458,6 +465,25 @@ export function QREditDelete({
                   >
                     <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${editTrackInv ? "translate-x-5" : "translate-x-1"}`} />
                   </button>
+                </div>
+              )}
+              {isEntrance && paymentType === "C" && (
+                <div className="space-y-1.5 mt-2">
+                  <div className="flex items-center justify-between bg-slate-800/50 rounded-2xl px-4 py-3">
+                    <div>
+                      <p className="text-xs font-black text-slate-300">決済完了と同時に入場確定にする</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">ONにすると入場QRスキャンを省略します</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={autoCheckin}
+                      onClick={() => setAutoCheckin((v) => !v)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${autoCheckin ? "bg-emerald-500" : "bg-slate-700"}`}
+                    >
+                      <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${autoCheckin ? "translate-x-5" : "translate-x-1"}`} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -882,6 +908,14 @@ export function QREditDelete({
                   <span className="text-slate-400">対面タッチ決済</span>
                   <span className={`font-bold ${currentTouchpayEnabled ? "text-emerald-400" : "text-slate-500"}`}>
                     {currentTouchpayEnabled ? "許可" : "不許可"}
+                  </span>
+                </div>
+              )}
+              {isEntrance && paymentType === "C" && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">決済で即入場確定</span>
+                  <span className={`font-bold ${currentAutoCheckin ? "text-emerald-400" : "text-slate-500"}`}>
+                    {currentAutoCheckin ? "ON（QRスキャン省略）" : "OFF"}
                   </span>
                 </div>
               )}

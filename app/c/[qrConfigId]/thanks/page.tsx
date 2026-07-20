@@ -5,7 +5,7 @@ import { useSearchParams, useParams, useRouter } from "next/navigation";
 import { CheersCard } from "@/components/cheers-card";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
 import { FollowButton } from "@/components/follow-button";
-import { Loader2, ArrowLeft, PlusCircle, MessageSquare, Send, LayoutDashboard } from "lucide-react";
+import { Loader2, ArrowLeft, PlusCircle, MessageSquare, Send, LayoutDashboard, CheckCircle } from "lucide-react";
 
 // エントランス入場QR・バウチャー引換QR共通。スキャナ（components/checkin-client.tsx）は
 // 読み取った値をそのまま ticket_code として /api/entrance/checkin へ送るため、
@@ -77,6 +77,7 @@ type PaymentResult = {
   ticket_id: string | null;
   ticket_code: string | null;
   ticket_quantity: number | null;
+  entrance_auto_checkin: boolean;
   email: string | null;
   amount: number;
   artist_name: string | null;
@@ -323,8 +324,9 @@ function ThanksContent() {
         )}
 
         {/* 入場QR（entrance の場合。B/Cタイプはこの場で即発券されるため、
-            その場でスタッフにスキャンしてもらう必要がある） */}
-        {result.product_type === "entrance" && result.ticket_code && (
+            その場でスタッフにスキャンしてもらう必要がある。
+            ただしauto_checkin設定時は決済と同時に入場確定済みのためQRは出さない） */}
+        {result.product_type === "entrance" && result.ticket_code && !result.entrance_auto_checkin && (
           <TicketCheckinQR
             ticketCode={result.ticket_code}
             title="入場QR"
@@ -332,6 +334,15 @@ function ThanksContent() {
             amount={result.amount}
             hint="入場時にスタッフへこの画面を見せてください"
           />
+        )}
+
+        {/* auto_checkin: 決済完了と同時に入場確定済み。QRスキャンは不要 */}
+        {result.product_type === "entrance" && result.entrance_auto_checkin && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-3xl p-6 text-center space-y-2">
+            <CheckCircle size={28} className="text-emerald-400 mx-auto" />
+            <p className="text-base font-black text-white">入場確定済み</p>
+            <p className="text-xs text-slate-400">このままご入場いただけます</p>
+          </div>
         )}
 
         {/* ドリンクチケット: QRの代わりに、大きな杯数表示＋経過秒数カウンターで受け渡し証跡とする */}

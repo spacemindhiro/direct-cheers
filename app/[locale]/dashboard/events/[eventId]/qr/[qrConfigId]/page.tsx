@@ -123,11 +123,12 @@ async function QRDetailContent({
     soldCount: number;
     quantitySelectable: boolean;
     bulkPricing: { min_quantity: number; unit_price: number }[] | null;
+    autoCheckin: boolean;
   } | null = null;
   if (productId && event) {
     const { data: product } = await adminClient
       .from("products")
-      .select("type, payment_type, sales_start_at, sales_end_at, name, min_amount, max_amount, stock_limit, track_inventory, sold_count, quantity_selectable, bulk_pricing")
+      .select("type, payment_type, sales_start_at, sales_end_at, name, min_amount, max_amount, stock_limit, track_inventory, sold_count, quantity_selectable, bulk_pricing, auto_checkin")
       .eq("product_id", productId)
       .single();
     if (product) {
@@ -155,6 +156,7 @@ async function QRDetailContent({
         soldCount: product.sold_count ?? 0,
         quantitySelectable: (product as any).quantity_selectable ?? true,
         bulkPricing: (product as any).bulk_pricing ?? null,
+        autoCheckin: (product as any).auto_checkin ?? false,
       };
     }
   }
@@ -314,6 +316,7 @@ async function QRDetailContent({
           isDrinkTicket={isDrinkTicket}
           currentQuantitySelectable={productInfo?.quantitySelectable ?? true}
           currentBulkPricing={productInfo?.bulkPricing ?? null}
+          currentAutoCheckin={productInfo?.autoCheckin ?? false}
           currentLabel={qr.label ?? ""}
           currentImageUrl={(qr as any).image_url ?? null}
           currentStripImageUrl={(qr as any).strip_image_url ?? null}

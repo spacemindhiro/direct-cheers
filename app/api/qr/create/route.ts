@@ -63,6 +63,7 @@ export async function POST(req: Request) {
     welcome_cheer_eligible_product_ids = [],
     quantity_selectable = true,
     bulk_pricing = null,
+    auto_checkin = false,
   } = body as {
     event_id: string;
     label?: string;
@@ -92,6 +93,7 @@ export async function POST(req: Request) {
     welcome_cheer_eligible_product_ids?: string[];
     quantity_selectable?: boolean;
     bulk_pricing?: { min_quantity: number; unit_price: number }[] | null;
+    auto_checkin?: boolean;
   };
 
   // イベントが published かつ自分が organizer or agent であることを確認
@@ -210,6 +212,9 @@ export async function POST(req: Request) {
   if (isDrinkTicket && min_amount !== max_amount) {
     return NextResponse.json({ error: "ドリンクチケットは金額を固定にしてください" }, { status: 400 });
   }
+  if (auto_checkin && !(product_type === "entrance" && payment_type === "C")) {
+    return NextResponse.json({ error: "auto_checkin はエントランス×Cタイプのみ指定できます" }, { status: 400 });
+  }
   let validatedBulkPricing: { min_quantity: number; unit_price: number }[] | null = null;
   if (isDrinkTicket && quantity_selectable && Array.isArray(bulk_pricing) && bulk_pricing.length > 0) {
     if (bulk_pricing.length > 4) {
@@ -285,6 +290,17 @@ export async function POST(req: Request) {
       .eq("product_id", row.out_product_id);
     if (drinkUpdateError) {
       return NextResponse.json({ error: `ドリンクチケット設定の保存に失敗しました: ${drinkUpdateError.message}` }, { status: 500 });
+    }
+  }
+
+  // エントランス×Cタイプ: 決済完了と同時に入場確定（QRスキャン省略）フラグ
+  if (product_type === "entrance" && payment_type === "C" && auto_checkin) {
+    const { error: autoCheckinError } = await adminClient
+      .from("products")
+      .update({ auto_checkin: true })
+      .eq("product_id", row.out_product_id);
+    if (autoCheckinError) {
+      return NextResponse.json({ error: `入場確定設定の保存に失敗しました: ${autoCheckinError.message}` }, { status: 500 });
     }
   }
 

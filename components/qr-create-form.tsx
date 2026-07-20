@@ -98,6 +98,8 @@ export function QRCreateForm({
   const [customSubtype, setCustomSubtype] = useState<CustomSubtype>("V");
   const [voucherStockLimit, setVoucherStockLimit] = useState<string>("");
   const [trackInventoryC, setTrackInventoryC] = useState(false);
+  // Cタイプ限定: 決済完了と同時に入場確定（QRスキャン省略）
+  const [autoCheckin, setAutoCheckin] = useState(false);
   // ドリンクチケット用（custom かつ payment_type='D'）
   const [drinkQuantitySelectable, setDrinkQuantitySelectable] = useState(true);
   const [drinkTiers, setDrinkTiers] = useState<BulkTierInput[]>([]);
@@ -330,6 +332,7 @@ export function QRCreateForm({
             payment_type: paymentType,
             stock_limit: stockLimit ? Number(stockLimit) : null,
             track_inventory: paymentType === "C" ? trackInventoryC : true,
+            ...(paymentType === "C" && { auto_checkin: autoCheckin }),
             ...((paymentType === "A" || paymentType === "B") && salesStartAt && salesEndAt && {
               sales_start_at: jstLocalToUtcIso(salesStartAt),
               sales_end_at: jstLocalToUtcIso(salesEndAt),
@@ -905,6 +908,24 @@ export function QRCreateForm({
                     />
                     <span className="text-xs text-slate-300 font-bold">Cタイプでも在庫管理する</span>
                   </label>
+                )}
+
+                {/* Cタイプのみ: 決済完了と同時に入場確定（QRスキャン省略） */}
+                {paymentType === "C" && (
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={autoCheckin}
+                        onChange={(e) => setAutoCheckin(e.target.checked)}
+                        className="w-4 h-4 rounded accent-indigo-500"
+                      />
+                      <span className="text-xs text-slate-300 font-bold">決済完了と同時に入場確定にする（QRスキャン省略）</span>
+                    </label>
+                    <p className="text-[10px] text-slate-500 pl-7">
+                      ONにすると、決済完了画面に入場QRを出さず、購入と同時にそのまま入場扱いになります。スタッフによるスキャンは不要です。
+                    </p>
+                  </div>
                 )}
 
                 {/* Cタイプのみ: ウェルカムチア（2階建て構造） */}

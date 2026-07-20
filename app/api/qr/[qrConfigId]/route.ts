@@ -72,6 +72,7 @@ export async function PATCH(
     track_inventory,
     quantity_selectable,
     bulk_pricing,
+    auto_checkin,
   } = await req.json() as {
     label?: string;
     image_url?: string | null;
@@ -92,12 +93,14 @@ export async function PATCH(
     track_inventory?: boolean;
     quantity_selectable?: boolean;
     bulk_pricing?: { min_quantity: number; unit_price: number }[] | null;
+    auto_checkin?: boolean;
   };
 
   const hasProductUpdates =
     product_name !== undefined || min_amount !== undefined || max_amount !== undefined ||
     stock_limit !== undefined || track_inventory !== undefined ||
-    quantity_selectable !== undefined || bulk_pricing !== undefined;
+    quantity_selectable !== undefined || bulk_pricing !== undefined ||
+    auto_checkin !== undefined;
 
   // 宛先本人は image_url / strip_image_url のみ更新可。それ以外のフィールドは organizer/agent/admin のみ。
   if (!canEdit && !isRecipient) {
@@ -211,6 +214,12 @@ export async function PATCH(
         }
       }
     }
+    if (auto_checkin !== undefined) {
+      const isEntranceC = product.type === "entrance" && product.payment_type === "C";
+      if (!isEntranceC) {
+        return NextResponse.json({ error: "auto_checkin はエントランス×Cタイプのみ指定できます" }, { status: 400 });
+      }
+    }
   }
 
   // デフォルト金額は変更後のmin/max範囲内であることを確認
@@ -273,6 +282,7 @@ export async function PATCH(
     if (bulk_pricing !== undefined && quantity_selectable !== false) {
       productUpdates.bulk_pricing = bulk_pricing;
     }
+    if (auto_checkin !== undefined) productUpdates.auto_checkin = auto_checkin;
 
     const { error: productError } = await adminC
       .from("products")

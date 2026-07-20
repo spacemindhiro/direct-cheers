@@ -239,7 +239,7 @@ export async function POST(req: Request) {
     if (isRepeat) {
       broadcastCheerNew(eventId, gross).catch(() => {});
     } else {
-      broadcastTouchpaySignup(eventId, ticket.ticket_id, quantity).catch(() => {});
+      broadcastTouchpaySignup(eventId, ticket.ticket_id, quantity, meta.target_device_id || null).catch(() => {});
     }
   }
 

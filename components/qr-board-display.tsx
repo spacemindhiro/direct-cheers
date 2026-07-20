@@ -831,12 +831,16 @@ export function QRBoardDisplay({
     // 親機スタッフが「次の決済へ」を押す（touchpay-clearイベント）まで、
     // タイマーでは絶対に消さない（客がQRを読み取る時間を確実に確保するため）。
     channel.on("broadcast", { event: "touchpay-signup" }, ({ payload }) => {
-      const { ticket_id, quantity } = payload as { ticket_id: string; quantity: number };
+      const { ticket_id, quantity, target_device_id } = payload as { ticket_id: string; quantity: number; target_device_id?: string | null };
+      // target_device_id指定時、自分宛てでなければ無視（子機を1台に絞ったペアリング）
+      if (target_device_id != null && target_device_id !== deviceId) return;
       setTouchpaySignup({ ticketId: ticket_id, quantity });
     });
 
     // 親機スタッフの明示操作でのみサインアップQRをクリアする
-    channel.on("broadcast", { event: "touchpay-clear" }, () => {
+    channel.on("broadcast", { event: "touchpay-clear" }, ({ payload }) => {
+      const { target_device_id } = (payload ?? {}) as { target_device_id?: string | null };
+      if (target_device_id != null && target_device_id !== deviceId) return;
       setTouchpaySignup(null);
     });
 

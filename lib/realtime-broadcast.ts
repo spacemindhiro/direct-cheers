@@ -30,8 +30,10 @@ export async function broadcastCheerNew(eventId: string, amount: number): Promis
  * タッチ決済（Case④）完了時、子機（iPad）へサインアップ用QRの表示を指示する。
  * ticketIdはサインアップフロー（/entrance/signup/[ticketId]）のトークンとして使う。
  * card_fingerprintそのものはクライアントに渡さない。
+ * targetDeviceIdを指定すると、その子機（display_devices.device_id）だけが
+ * 表示する（他の子機は無視する）。未指定時は全子機へ表示される（後方互換フォールバック）。
  */
-export async function broadcastTouchpaySignup(eventId: string, ticketId: string, quantity: number): Promise<void> {
+export async function broadcastTouchpaySignup(eventId: string, ticketId: string, quantity: number, targetDeviceId?: string | null): Promise<void> {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -48,7 +50,7 @@ export async function broadcastTouchpaySignup(eventId: string, ticketId: string,
         messages: [{
           topic:   `event-display:${eventId}`,
           event:   "touchpay-signup",
-          payload: { ticket_id: ticketId, quantity },
+          payload: { ticket_id: ticketId, quantity, target_device_id: targetDeviceId ?? null },
         }],
       }),
     });
@@ -58,9 +60,9 @@ export async function broadcastTouchpaySignup(eventId: string, ticketId: string,
 /**
  * 親機のスタッフが「次の決済へ」を明示的にタップした時にのみ呼ぶ。
  * 子機のサインアップQRオーバーレイはタイマーでは消えない仕様のため、
- * このイベントだけがクリアのトリガーになる。
+ * このイベントだけがクリアのトリガーになる。targetDeviceId指定時はその子機のみクリアする。
  */
-export async function broadcastTouchpayClear(eventId: string): Promise<void> {
+export async function broadcastTouchpayClear(eventId: string, targetDeviceId?: string | null): Promise<void> {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -77,7 +79,7 @@ export async function broadcastTouchpayClear(eventId: string): Promise<void> {
         messages: [{
           topic:   `event-display:${eventId}`,
           event:   "touchpay-clear",
-          payload: {},
+          payload: { target_device_id: targetDeviceId ?? null },
         }],
       }),
     });

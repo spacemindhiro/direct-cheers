@@ -20,11 +20,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { event_id } = await req.json() as { event_id: string };
+  const { event_id, target_device_id } = await req.json() as { event_id: string; target_device_id?: string | null };
   if (!event_id) {
     return NextResponse.json({ error: "Missing event_id" }, { status: 400 });
   }
 
-  await broadcastTouchpayClear(event_id);
+  await broadcastTouchpayClear(event_id, target_device_id ?? null);
   return NextResponse.json({ ok: true });
 }

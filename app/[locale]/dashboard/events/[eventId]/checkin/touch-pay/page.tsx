@@ -55,12 +55,25 @@ async function TouchPayContent({ params }: { params: Promise<{ eventId: string }
     ))
     .map((p) => ({ product_id: p.product_id, name: p.name, min_amount: p.min_amount }));
 
+  // 決済完了後のサインアップQRをどの子機に表示するか、親機側でペアリングするための一覧
+  const { data: displayDevicesRaw } = await admin
+    .from("display_devices")
+    .select("device_id, device_name, last_seen_at")
+    .eq("event_id", eventId)
+    .order("last_seen_at", { ascending: false });
+  const displayDevices = (displayDevicesRaw ?? []).map((d) => ({
+    device_id: d.device_id,
+    device_name: d.device_name,
+    last_seen_at: d.last_seen_at,
+  }));
+
   return (
     <TouchPayClient
       eventId={event.event_id}
       eventTitle={event.title}
       products={products}
       terminalLocationId={terminalLocationId}
+      displayDevices={displayDevices}
     />
   );
 }

@@ -8,10 +8,13 @@ import {
   TerminalEventsEnum,
   type ReaderInterface,
 } from "@capgo/capacitor-stripe-terminal";
-import { Loader2, Bluetooth, CheckCircle, AlertCircle, ArrowLeft, Smartphone, XCircle, Clock, PartyPopper } from "lucide-react";
+import { Loader2, Bluetooth, CheckCircle, AlertCircle, ArrowLeft, Smartphone, XCircle, Clock, PartyPopper, Tv, Pencil } from "lucide-react";
 import Link from "next/link";
 
 type Product = { product_id: string; name: string; min_amount: number };
+type DisplayDevice = { device_id: string; device_name: string | null; last_seen_at: string };
+
+const PAIRED_DEVICE_KEY = (eventId: string) => `dc_touchpay_paired_device:${eventId}`;
 
 // カードリーダー(Bluetooth)自体の接続状態。決済の状態(ChargeStatus)とは独立して管理する。
 type ReaderStatus = "disconnected" | "discovering" | "connecting" | "connected";
@@ -48,14 +51,31 @@ export function TouchPayClient({
   eventTitle,
   products,
   terminalLocationId,
+  displayDevices,
 }: {
   eventId: string;
   eventTitle: string;
   products: Product[];
   terminalLocationId: string | null;
+  displayDevices: DisplayDevice[];
 }) {
   const [isNative, setIsNative] = useState(false);
   const [terminalReady, setTerminalReady] = useState(false);
+
+  // 決済完了後のサインアップQRを表示する子機のペアリング（この端末＝親機に紐付けてlocalStorageへ永続化）
+  const [pairedDeviceId, setPairedDeviceId] = useState<string | null>(null);
+  const [showDevicePicker, setShowDevicePicker] = useState(false);
+  useEffect(() => {
+    try {
+      setPairedDeviceId(localStorage.getItem(PAIRED_DEVICE_KEY(eventId)));
+    } catch { /* localStorage不可の環境は未ペアリング扱い */ }
+  }, [eventId]);
+  const pairDevice = useCallback((deviceId: string) => {
+    try { localStorage.setItem(PAIRED_DEVICE_KEY(eventId), deviceId); } catch { /* ベストエフォート */ }
+    setPairedDeviceId(deviceId);
+    setShowDevicePicker(false);
+  }, [eventId]);
+  const pairedDevice = displayDevices.find((d) => d.device_id === pairedDeviceId);
 
   // リーダー接続状態
   const [readerStatus, setReaderStatus] = useState<ReaderStatus>("disconnected");
@@ -259,7 +279,7 @@ export function TouchPayClient({
   }, []);
 
   const startCharge = useCallback(async () => {
-    if (!productId || !connectedReader) return;
+    if (!productId || !connectedReader || !pairedDeviceId) return;
     lastFailureRef.current = null;
     abortReasonRef.current = null;
     setChargeError("");
@@ -269,7 +289,7 @@ export function TouchPayClient({
       const piRes = await fetch("/api/entrance/terminal/payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId, quantity }),
+        body: JSON.stringify({ product_id: productId, quantity, target_device_id: pairedDeviceId }),
       });
       const piData = await piRes.json();
       if (!piRes.ok) throw new Error(piData.error ?? "決済準備に失敗しました");
@@ -311,7 +331,7 @@ export function TouchPayClient({
       setChargeStatus(status);
       setChargeError(message);
     }
-  }, [productId, connectedReader, quantity, clearCollectTimeout, resolveChargeFailure]);
+  }, [productId, connectedReader, quantity, pairedDeviceId, clearCollectTimeout, resolveChargeFailure]);
 
   // スタッフによる明示的なキャンセル（客のタップ待ち中のみ操作可能）
   const cancelCharge = useCallback(async () => {
@@ -336,9 +356,9 @@ export function TouchPayClient({
     fetch("/api/entrance/terminal/clear-signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId }),
+      body: JSON.stringify({ event_id: eventId, target_device_id: pairedDeviceId }),
     }).catch(() => {});
-  }, [eventId]);
+  }, [eventId, pairedDeviceId]);
 
   // リピーター: スタッフ操作を待たず3秒後に自動で閉じる（子機側は既存の投げ銭演出が自然に終わるため何もしない）
   useEffect(() => {
@@ -376,6 +396,57 @@ export function TouchPayClient({
               </span>
             )}
           </div>
+        </div>
+
+        {/* サインアップQR表示先の子機ペアリング。未ペアリングだと全子機に出てしまうため必須。 */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3">
+          {pairedDevice ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Tv size={14} className="text-indigo-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">表示先の子機</p>
+                  <p className="text-xs font-bold text-white truncate">{pairedDevice.device_name || pairedDevice.device_id.slice(0, 8)}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDevicePicker((v) => !v)}
+                className="flex items-center gap-1 text-[10px] font-black text-slate-500 hover:text-slate-300 uppercase tracking-widest shrink-0"
+              >
+                <Pencil size={11} /> 変更
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-amber-400">
+              <AlertCircle size={14} className="shrink-0" />
+              <p className="text-xs font-bold">サインアップQRを表示する子機を選んでください</p>
+            </div>
+          )}
+
+          {(showDevicePicker || !pairedDevice) && (
+            <div className="mt-3 space-y-1.5">
+              {displayDevices.length === 0 ? (
+                <p className="text-[10px] text-slate-600">この会場で登録済みの子機がありません。先に子機を起動してください。</p>
+              ) : (
+                displayDevices.map((d) => (
+                  <button
+                    key={d.device_id}
+                    type="button"
+                    onClick={() => pairDevice(d.device_id)}
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                      d.device_id === pairedDeviceId
+                        ? "bg-indigo-500/20 border-indigo-500/50 text-white"
+                        : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600"
+                    }`}
+                  >
+                    <Tv size={13} className="shrink-0" />
+                    <span className="text-xs font-bold truncate">{d.device_name || d.device_id.slice(0, 8)}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         {readerError && (
@@ -596,7 +667,7 @@ export function TouchPayClient({
               <button
                 type="button"
                 onClick={startCharge}
-                disabled={!productId || !connectedReader || reconnecting}
+                disabled={!productId || !connectedReader || reconnecting || !pairedDeviceId}
                 className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.15em] hover:brightness-110 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 カードをタッチして決済

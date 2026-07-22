@@ -95,6 +95,7 @@ export default function ProfileEditPage() {
   const [inviter, setInviter] = useState<{ display_name: string | null; profile_id: string } | null>(null);
   const [signedDoc, setSignedDoc] = useState<{ id: string; signed_at: string } | null>(null);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'other'>('other');
+  const [updatingConnect, setUpdatingConnect] = useState(false);
   const router = useRouter();
 
   const applyProfileData = (data: Profile) => {
@@ -246,7 +247,6 @@ export default function ProfileEditPage() {
   const isCreator   = isArtist || isOrganizer || isAgent;
 
   const stripeConnected = !!profile?.stripe_connect_id;
-  const [updatingConnect, setUpdatingConnect] = useState(false);
   const handleOpenUpdateLink = async () => {
     setUpdatingConnect(true);
     try {

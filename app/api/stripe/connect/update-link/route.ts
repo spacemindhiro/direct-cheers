@@ -12,6 +12,11 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com
 // account_onboarding（新規登録ウィザード）ではなく account_update
 // （既存アカウントの編集用）を使うことで、初回登録の長い導線を
 // 繰り返させずに直接編集画面へ案内する。
+// ただしStripe側は「details_submitted（初回必須情報の提出）が完了していない
+// アカウントにはaccount_updateタイプを発行できない」という制約を持つ。
+// DBのverification_status（pending等）だけでは実際にdetails_submittedが
+// 済んでいるか判定できず食い違いうるため、Stripeへ実アカウント状態を
+// 問い合わせてリンク種別を出し分ける。
 export async function POST() {
   try {
     const supabase = await createClient();
@@ -31,11 +36,14 @@ export async function POST() {
       return NextResponse.json({ error: "まだ口座登録が完了していません" }, { status: 400 });
     }
 
+    const account = await stripe.accounts.retrieve(me.stripe_connect_id);
+    const linkType = account.details_submitted ? "account_update" : "account_onboarding";
+
     const accountLink = await stripe.accountLinks.create({
       account: me.stripe_connect_id,
       refresh_url: `${SITE_URL}/dashboard/profile/connect-return?refresh=1`,
       return_url:  `${SITE_URL}/dashboard/profile/connect-return?success=1`,
-      type: "account_update",
+      type: linkType,
     });
 
     return NextResponse.json({ url: accountLink.url });

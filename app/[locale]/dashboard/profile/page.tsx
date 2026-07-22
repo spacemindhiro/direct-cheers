@@ -255,9 +255,11 @@ export default function ProfileEditPage() {
       if (data.url) {
         window.location.href = data.url;
       } else {
+        toast.error(data.error ?? '変更用リンクの発行に失敗しました');
         setUpdatingConnect(false);
       }
     } catch {
+      toast.error('変更用リンクの発行に失敗しました');
       setUpdatingConnect(false);
     }
   };

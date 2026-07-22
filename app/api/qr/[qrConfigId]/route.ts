@@ -118,12 +118,13 @@ export async function PATCH(
     type: string; payment_type: string | null;
     min_amount: number; max_amount: number;
     stock_limit: number | null; sold_count: number; track_inventory: boolean;
+    quantity_selectable: boolean;
   } | null = null;
   const needProduct = hasProductUpdates || (default_amount !== undefined && default_amount !== null) || touchpay_enabled === true;
   if (needProduct && qr.product_id) {
     const { data } = await adminC
       .from("products")
-      .select("type, payment_type, min_amount, max_amount, stock_limit, sold_count, track_inventory")
+      .select("type, payment_type, min_amount, max_amount, stock_limit, sold_count, track_inventory, quantity_selectable")
       .eq("product_id", qr.product_id)
       .single();
     product = data;
@@ -232,12 +233,17 @@ export async function PATCH(
     }
   }
 
-  // 対面タッチ決済（Case④）はentrance×Cタイプ、またはcustom×バウチャー(V)×金額固定のみ許可。
+  // 対面タッチ決済（Case④）はentrance×Cタイプ、custom×バウチャー(V)×金額固定、
+  // またはcustom×ドリンクチケット(D)×杯数指定オフのみ許可。
   // クライアントの申告を信用せず、サーバー側で対象条件を再検証する。
+  // quantity_selectableは同一リクエストで一緒に変更されうるため、送信された
+  // 値があればそちらを優先し、無ければDB上の現行値を見る。
   if (touchpay_enabled === true) {
+    const effQuantitySelectableForTouchpay = quantity_selectable ?? product?.quantity_selectable ?? true;
     const eligible = !!product && (
       (product.type === "entrance" && product.payment_type === "C") ||
-      (product.type === "custom" && product.payment_type === "V" && effMin === effMax)
+      (product.type === "custom" && product.payment_type === "V" && effMin === effMax) ||
+      (product.type === "custom" && product.payment_type === "D" && effQuantitySelectableForTouchpay === false)
     );
     if (!eligible) {
       return NextResponse.json({ error: "この商品は対面タッチ決済に対応していません" }, { status: 400 });

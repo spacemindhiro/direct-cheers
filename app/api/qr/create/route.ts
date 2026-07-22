@@ -156,11 +156,13 @@ export async function POST(req: Request) {
   const artistId = targets.length === 1 ? targets[0].profile_id : null;
   const productName = label ?? `${range.label} チア`;
 
-  // 対面タッチ決済（Case④）はentrance×Cタイプ、またはcustom×バウチャー(V)×金額固定のみ許可。
+  // 対面タッチ決済（Case④）はentrance×Cタイプ、custom×バウチャー(V)×金額固定、
+  // またはcustom×ドリンクチケット(D)×杯数指定オフのみ許可。
   // クライアントの申告を信用せず、サーバー側で対象条件を再検証する。
   const touchpayAllowedType =
     (product_type === "entrance" && payment_type === "C") ||
-    (product_type === "custom" && payment_type === "V" && min_amount === max_amount);
+    (product_type === "custom" && payment_type === "V" && min_amount === max_amount) ||
+    (product_type === "custom" && payment_type === "D" && quantity_selectable === false);
   const effectiveTouchpayEnabled = touchpay_enabled && touchpayAllowedType;
 
   // ウェルカムチア（2階建て構造）はentrance×Cタイプのみ許可。

@@ -12,11 +12,20 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://direct-cheers.com
 // account_onboarding（新規登録ウィザード）ではなく account_update
 // （既存アカウントの編集用）を使うことで、初回登録の長い導線を
 // 繰り返させずに直接編集画面へ案内する。
-// ただしStripe側は「details_submitted（初回必須情報の提出）が完了していない
-// アカウントにはaccount_updateタイプを発行できない」という制約を持つ。
-// DBのverification_status（pending等）だけでは実際にdetails_submittedが
-// 済んでいるか判定できず食い違いうるため、Stripeへ実アカウント状態を
-// 問い合わせてリンク種別を出し分ける。
+// ただしStripe側はアカウントの状態・種別によって「account_updateタイプは
+// 発行できない」という制約を持つことがある（例: details_submitted未完了、
+// あるいはstandardタイプのアカウント等）。この判定条件をこちらで個別に
+// 推測すると必ず漏れるため、まずaccount_updateを試し、Stripeがこの
+// アカウントには無効だと拒否した場合のみaccount_onboardingにフォールバックする。
+async function createAccountLink(accountId: string, linkType: "account_update" | "account_onboarding") {
+  return stripe.accountLinks.create({
+    account: accountId,
+    refresh_url: `${SITE_URL}/dashboard/profile/connect-return?refresh=1`,
+    return_url:  `${SITE_URL}/dashboard/profile/connect-return?success=1`,
+    type: linkType,
+  });
+}
+
 export async function POST() {
   try {
     const supabase = await createClient();
@@ -36,15 +45,16 @@ export async function POST() {
       return NextResponse.json({ error: "まだ口座登録が完了していません" }, { status: 400 });
     }
 
-    const account = await stripe.accounts.retrieve(me.stripe_connect_id);
-    const linkType = account.details_submitted ? "account_update" : "account_onboarding";
-
-    const accountLink = await stripe.accountLinks.create({
-      account: me.stripe_connect_id,
-      refresh_url: `${SITE_URL}/dashboard/profile/connect-return?refresh=1`,
-      return_url:  `${SITE_URL}/dashboard/profile/connect-return?success=1`,
-      type: linkType,
-    });
+    let accountLink: Stripe.AccountLink;
+    try {
+      accountLink = await createAccountLink(me.stripe_connect_id, "account_update");
+    } catch (err) {
+      const isInvalidLinkType =
+        err instanceof Stripe.errors.StripeInvalidRequestError &&
+        err.message.includes("account_update");
+      if (!isInvalidLinkType) throw err;
+      accountLink = await createAccountLink(me.stripe_connect_id, "account_onboarding");
+    }
 
     return NextResponse.json({ url: accountLink.url });
   } catch (err) {

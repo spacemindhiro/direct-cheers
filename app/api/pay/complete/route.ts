@@ -62,10 +62,11 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   if (existing) {
-    const [product, qrcInfo, hasPasskey] = await Promise.all([
+    const [product, qrcInfo, hasPasskey, welcomeCheerAmount] = await Promise.all([
       getProductInfo(admin, existing.product_id),
       getQrConfigInfo(admin, existing.qr_config_id ?? null),
       checkHasPasskey(admin, senderProfileId),
+      getWelcomeCheerAmount(admin, pi?.id ?? ""),
     ]);
     let existingTicketId: string | null = null;
     let existingTicketCode: string | null = null;
@@ -82,7 +83,19 @@ export async function POST(req: Request) {
       existingTicketQuantity = t?.quantity ?? null;
     }
     const existingAutoCheckin = product.product_type === "entrance" && product.payment_type === "C" && product.auto_checkin;
-    return buildResponse(email, existing, product, qrcInfo, !!senderProfileId, hasPasskey, existingTicketId, existingTicketCode, existingTicketQuantity, existingAutoCheckin);
+    return buildResponse(
+      email,
+      { ...existing, total_gross_amount: existing.total_gross_amount + welcomeCheerAmount },
+      product,
+      qrcInfo,
+      !!senderProfileId,
+      hasPasskey,
+      existingTicketId,
+      existingTicketCode,
+      existingTicketQuantity,
+      existingAutoCheckin,
+      welcomeCheerAmount || null,
+    );
   }
 
   const productId = meta.product_id || null;
@@ -300,6 +313,7 @@ export async function POST(req: Request) {
     ticketCode,
     ticketQuantity,
     autoCheckin,
+    welcomeCheerTotal || null,
   );
 
   if (email) {
@@ -385,6 +399,21 @@ async function getQrConfigInfo(
   };
 }
 
+// 同一PIの2階（ウェルカムチア）行の金額を取得。存在しなければ0。
+async function getWelcomeCheerAmount(
+  admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
+  stripePaymentIntentId: string,
+): Promise<number> {
+  if (!stripePaymentIntentId) return 0;
+  const { data } = await admin
+    .from("transactions")
+    .select("total_gross_amount")
+    .eq("stripe_payment_intent_id", stripePaymentIntentId)
+    .eq("stripe_pi_sequence", 1)
+    .maybeSingle();
+  return data?.total_gross_amount ?? 0;
+}
+
 // profile_id を受け取り passkey_credentials だけ確認
 async function checkHasPasskey(
   admin: ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>,
@@ -415,6 +444,7 @@ function buildResponse(
   ticketCode: string | null = null,
   ticketQuantity: number | null = null,
   autoCheckin: boolean = false,
+  welcomeCheerAmount: number | null = null,
 ): NextResponse {
   return NextResponse.json({
     transaction_id: tx.transaction_id,
@@ -424,6 +454,7 @@ function buildResponse(
     entrance_auto_checkin: autoCheckin,
     email,
     amount: tx.total_gross_amount,
+    welcome_cheer_amount: welcomeCheerAmount,
     serial_number: tx.sequence_number_in_event,
     event_id: qrcInfo.eventId,
     qr_image_url: qrcInfo.imageUrl,

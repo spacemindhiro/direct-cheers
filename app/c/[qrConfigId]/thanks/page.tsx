@@ -11,8 +11,8 @@ import { Loader2, ArrowLeft, PlusCircle, MessageSquare, Send, LayoutDashboard, C
 // 読み取った値をそのまま ticket_code として /api/entrance/checkin へ送るため、
 // QRに載せる値は必ず ticket_code（ticket_idではない）でなければならない。
 function TicketCheckinQR({
-  ticketCode, title, productName, amount, hint,
-}: { ticketCode: string; title: string; productName: string; amount: number; hint: string }) {
+  ticketCode, title, productName, amount, welcomeCheerAmount, hint,
+}: { ticketCode: string; title: string; productName: string; amount: number; welcomeCheerAmount?: number | null; hint: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -32,6 +32,11 @@ function TicketCheckinQR({
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{title}</p>
       <p className="text-xl font-black text-slate-900 leading-tight">{productName}</p>
       <p className="text-sm font-bold text-slate-500">¥{amount.toLocaleString()}</p>
+      {!!welcomeCheerAmount && (
+        <p className="text-[11px] font-bold text-indigo-500">
+          うちウェルカムチア ¥{welcomeCheerAmount.toLocaleString()}
+        </p>
+      )}
       <div className="flex justify-center">
         <canvas ref={canvasRef} className="rounded-xl" />
       </div>
@@ -80,6 +85,7 @@ type PaymentResult = {
   entrance_auto_checkin: boolean;
   email: string | null;
   amount: number;
+  welcome_cheer_amount: number | null;
   artist_name: string | null;
   artist_id: string | null;
   event_id: string | null;
@@ -319,6 +325,7 @@ function ThanksContent() {
             title="引換券"
             productName={result.product_name ?? ""}
             amount={result.amount}
+            welcomeCheerAmount={result.welcome_cheer_amount}
             hint="スタッフにこの画面を見せてください"
           />
         )}
@@ -332,6 +339,7 @@ function ThanksContent() {
             title="入場QR"
             productName={result.product_name ?? ""}
             amount={result.amount}
+            welcomeCheerAmount={result.welcome_cheer_amount}
             hint="入場時にスタッフへこの画面を見せてください"
           />
         )}
@@ -357,6 +365,7 @@ function ThanksContent() {
             eventTitle={result.event_title ?? ""}
             artistAvatar={result.recipient_avatar ?? result.artist_avatar}
             amount={result.amount}
+            welcomeCheerAmount={result.welcome_cheer_amount}
             transactionId={result.transaction_id}
             serialNumber={result.serial_number}
             thanks={thanks}

@@ -18,6 +18,7 @@ type DigitalTicketProps = {
   paymentType: "A" | "B" | "C" | "V" | "D" | null;
   productType?: string;
   amount: number;
+  welcomeCheerAmount?: number | null;
   quantity?: number | null;
   stripImageUrl?: string | null;
   bgColor?: string;
@@ -40,6 +41,7 @@ export function DigitalTicket({
   paymentType,
   productType,
   amount,
+  welcomeCheerAmount,
   quantity,
   stripImageUrl,
   bgColor = "#0f172a",
@@ -237,6 +239,11 @@ export function DigitalTicket({
                 <p className="text-lg font-black text-white italic tabular-nums mt-0.5">
                   ¥{amount.toLocaleString()}
                 </p>
+                {!!welcomeCheerAmount && (
+                  <p className="text-[9px] text-indigo-300 font-bold mt-0.5">
+                    うちウェルカムチア ¥{welcomeCheerAmount.toLocaleString()}
+                  </p>
+                )}
                 {paymentType === "C" && (
                   <p className="text-[9px] text-amber-400 font-bold mt-0.5">入場時決済</p>
                 )}

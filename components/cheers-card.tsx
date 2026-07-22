@@ -16,6 +16,7 @@ type CheersCardProps = {
   artistAvatar: string | null;
   imageUrl?: string | null;
   amount: number;
+  welcomeCheerAmount?: number | null;
   nickname?: string | null;
   comment?: string | null;
   transactionId: string;
@@ -34,6 +35,7 @@ export function CheersCard({
   artistAvatar,
   imageUrl,
   amount,
+  welcomeCheerAmount,
   nickname,
   comment,
   transactionId,
@@ -129,7 +131,14 @@ export function CheersCard({
 
             <div className="flex items-baseline justify-between">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cheers Amount</p>
-              <p className="text-4xl font-black text-white italic tracking-tighter">¥{amount.toLocaleString()}</p>
+              <div className="text-right">
+                <p className="text-4xl font-black text-white italic tracking-tighter">¥{amount.toLocaleString()}</p>
+                {!!welcomeCheerAmount && (
+                  <p className="text-[10px] font-bold text-indigo-300">
+                    うちウェルカムチア ¥{welcomeCheerAmount.toLocaleString()}
+                  </p>
+                )}
+              </div>
             </div>
 
             {(nickname || comment) && (

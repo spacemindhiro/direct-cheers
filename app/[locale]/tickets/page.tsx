@@ -20,7 +20,7 @@ async function TicketsContent() {
     product:products(name, type, payment_type, min_amount),
     event:events(event_id, title, venue, start_at),
     transaction:transactions!transaction_id(
-      total_gross_amount,
+      total_gross_amount, stripe_payment_intent_id,
       qr_config:qr_configs!qr_config_id(strip_image_url, bg_color, fg_color, label_color)
     )
   `;
@@ -43,6 +43,23 @@ async function TicketsContent() {
     seen.add(t.ticket_id);
     return true;
   });
+
+  // ウェルカムチア（2階transaction）: 同一PIのstripe_pi_sequence=1行をバッチ取得し、
+  // 「本体+ウェルカムチア」の内訳表示に使う。無ければ従来通りのシンプル表示。
+  const piIds = [...new Set(
+    list.map((t: any) => t.transaction?.stripe_payment_intent_id).filter((id): id is string => !!id)
+  )];
+  const welcomeCheerByPi = new Map<string, number>();
+  if (piIds.length > 0) {
+    const { data: wcRows } = await admin
+      .from("transactions")
+      .select("stripe_payment_intent_id, total_gross_amount")
+      .in("stripe_payment_intent_id", piIds)
+      .eq("stripe_pi_sequence", 1);
+    for (const row of wcRows ?? []) {
+      welcomeCheerByPi.set(row.stripe_payment_intent_id as string, row.total_gross_amount as number);
+    }
+  }
 
   return (
     <div className="space-y-8 pb-20">
@@ -86,7 +103,11 @@ async function TicketsContent() {
                 checkedInAt={t.checked_in_at ?? null}
                 paymentType={t.product?.payment_type ?? null}
                 productType={t.product?.type ?? undefined}
-                amount={t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0}
+                amount={
+                  (t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0) +
+                  (welcomeCheerByPi.get(t.transaction?.stripe_payment_intent_id ?? "") ?? 0)
+                }
+                welcomeCheerAmount={welcomeCheerByPi.get(t.transaction?.stripe_payment_intent_id ?? "") ?? null}
                 quantity={t.quantity ?? null}
                 stripImageUrl={t.transaction?.qr_config?.strip_image_url ?? null}
                 bgColor={t.transaction?.qr_config?.bg_color ?? undefined}

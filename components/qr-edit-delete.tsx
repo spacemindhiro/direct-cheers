@@ -136,8 +136,9 @@ export function QREditDelete({
   // エントランス×Cタイプ: 決済完了と同時に入場確定（QRスキャン省略）
   const [autoCheckin, setAutoCheckin] = useState(currentAutoCheckin);
 
-  // 対面タッチ決済（Case④）: エントランスCタイプ、またはバウチャー×金額固定のみ対象
-  const touchpayEligible = (isEntrance && paymentType === "C") || (isVoucher && !isRange);
+  // 対面タッチ決済（Case④）: エントランスCタイプ、バウチャー×金額固定、
+  // またはドリンクチケット×杯数指定オフ（常に数量1固定）のみ対象
+  const touchpayEligible = (isEntrance && paymentType === "C") || (isVoucher && !isRange) || (isDrinkTicket && !drinkQuantitySelectable);
   const [targets, setTargets] = useState<DistTarget[]>(
     currentTargets.map((t) => ({
       profile_id: t.profile_id,

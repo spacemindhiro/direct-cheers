@@ -210,9 +210,10 @@ export function QRCreateForm({
     );
   };
 
-  // 対面タッチ決済（Case④）: エントランスCタイプ、またはバウチャー×金額固定のみ対象。
-  // レンジ指定は現場で金額を選ぶ画面を挟めないため対象外。
-  const touchpayEligible = (productType === "entrance" && paymentType === "C") || (isVoucher && priceMode === "fixed");
+  // 対面タッチ決済（Case④）: エントランスCタイプ、バウチャー×金額固定、
+  // またはドリンクチケット×杯数指定オフ（常に数量1固定）のみ対象。
+  // レンジ指定・杯数指定ONは現場で金額/数量を選ぶ画面を挟めないため対象外。
+  const touchpayEligible = (productType === "entrance" && paymentType === "C") || (isVoucher && priceMode === "fixed") || (isDrinkTicket && !drinkQuantitySelectable);
   const [touchpayEnabled, setTouchpayEnabled] = useState(false);
   useEffect(() => {
     if (!touchpayEligible) setTouchpayEnabled(false);

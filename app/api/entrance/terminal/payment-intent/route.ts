@@ -45,15 +45,18 @@ export async function POST(req: Request) {
 
   const { data: product } = await admin
     .from("products")
-    .select("product_id, min_amount, max_amount, event_id, type, payment_type")
+    .select("product_id, min_amount, max_amount, event_id, type, payment_type, quantity_selectable")
     .eq("product_id", product_id)
     .is("deleted_at", null)
     .single();
 
-  // 対面タッチ決済の対象はentrance×Cタイプ、またはcustom×バウチャー(V)×金額固定のみ
+  // 対面タッチ決済の対象はentrance×Cタイプ、custom×バウチャー(V)×金額固定、
+  // またはcustom×ドリンクチケット(D)×杯数指定オフ（常に数量1固定、まとめ買い割引の
+  // 適用余地が無い商品）のみ
   const productEligible = !!product && (
     (product.type === "entrance" && product.payment_type === "C") ||
-    (product.type === "custom" && product.payment_type === "V" && product.min_amount === product.max_amount)
+    (product.type === "custom" && product.payment_type === "V" && product.min_amount === product.max_amount) ||
+    (product.type === "custom" && product.payment_type === "D" && product.quantity_selectable === false)
   );
   if (!productEligible) {
     return NextResponse.json({ error: "対面タッチ決済に対応していない商品です" }, { status: 400 });

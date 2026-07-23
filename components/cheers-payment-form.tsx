@@ -165,6 +165,7 @@ export function CheersPaymentForm({
   // 別人購入やテストでのユーザー切り替えができるよう「変更」を残す。
   const [isEmailLocked] = useState(isAuthLocked);
   const [pendingMethod, setPendingMethod] = useState<"card" | "paypay" | null>(null);
+  const [checkoutError, setCheckoutError] = useState("");
   const [isPending, startTransition] = useTransition();
 
   // タイプA用
@@ -207,6 +208,7 @@ export function CheersPaymentForm({
 
   // 通常Checkoutフロー（B・C・チアーズ）
   const proceedToCheckout = (paymentMethod: "card" | "paypay", confirmedEmail: string) => {
+    setCheckoutError("");
     startTransition(async () => {
       const res = await fetch("/api/pay/cheers", {
         method: "POST",
@@ -222,7 +224,11 @@ export function CheersPaymentForm({
         }),
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setCheckoutError(data.error ?? "決済の開始に失敗しました");
+      }
     });
   };
 
@@ -479,6 +485,10 @@ export function CheersPaymentForm({
               {isPending ? <Loader2 size={18} className="animate-spin" /> : "PayPay で支払う"}
             </button>
           </>
+        )}
+
+        {checkoutError && (
+          <p className="text-center text-xs text-red-400 font-bold">{checkoutError}</p>
         )}
       </div>
     </div>

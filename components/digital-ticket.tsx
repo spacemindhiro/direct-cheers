@@ -253,9 +253,7 @@ export function DigitalTicket({
           <div className="bg-slate-900/60 rounded-2xl px-4 py-3 border border-slate-700/40">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{isDrinkTicket ? "Quantity" : "Plan"}</p>
             {isDrinkTicket ? (
-              <p className="text-sm font-black text-indigo-300 mt-0.5">
-                {(quantity ?? 1) === 1 ? "1" : `${quantity}杯`}
-              </p>
+              <p className="text-sm font-black text-indigo-300 mt-0.5">{quantity ?? 1}</p>
             ) : isVoucher ? (
               <p className="text-sm font-black text-indigo-300 mt-0.5">バウチャー</p>
             ) : paymentType && paymentTypeLabel[paymentType] ? (

@@ -10,15 +10,29 @@ export async function NfcRoutingContent({
   const { nfcRoutingId } = await params;
   const admin = createAdminClient();
 
-  const { data: booth } = await admin
-    .from("booth_devices")
+  // ホルダーマスタ（NFCタグ→ホルダー→現在表示）を正とし、
+  // 移行期間中のみ旧booth_devicesにフォールバックする
+  const { data: holder } = await admin
+    .from("booth_holders")
     .select("current_qr_config_id")
     .eq("nfc_routing_id", nfcRoutingId)
+    .is("deleted_at", null)
     .maybeSingle();
 
-  if (!booth?.current_qr_config_id) redirect("/");
+  let qrConfigId = holder?.current_qr_config_id ?? null;
 
-  redirect(`/c/${booth.current_qr_config_id}`);
+  if (!qrConfigId) {
+    const { data: booth } = await admin
+      .from("booth_devices")
+      .select("current_qr_config_id")
+      .eq("nfc_routing_id", nfcRoutingId)
+      .maybeSingle();
+    qrConfigId = booth?.current_qr_config_id ?? null;
+  }
+
+  if (!qrConfigId) redirect("/");
+
+  redirect(`/c/${qrConfigId}`);
 }
 
 export default function NfcRoutingPage({

@@ -17,7 +17,8 @@ export async function proxy(request: NextRequest) {
     path.endsWith(".jpeg") ||
     path.endsWith(".svg") ||
     path === "/manifest.json" || // 未ログイン時に/auth/loginへリダイレクトされ、PWAのmanifest取得が失敗するため除外
-    path === "/sw.js";
+    path === "/sw.js" ||
+    path.startsWith("/.well-known/"); // App Links検証(assetlinks.json)はGoogleが未認証で取得するため除外
 
   if (isApiPath) {
     return NextResponse.next({ request });
@@ -50,10 +51,24 @@ export async function proxy(request: NextRequest) {
     normalizedPath.startsWith("/display") || // 子機(PWA)起動時、未ログインでも/auth/loginへリダイレクトしない（認可は画面側で実施）
     path.startsWith("/account/"); // アカウント復旧・統合確認（ロケールなし）
 
-  // /c/・/entrance/・/r/ は [locale] の外にあるルート — intl middleware を通さない
+  // /c/・/entrance/・/r/・/auth/qr/ は [locale] の外にあるルート — intl middleware を通さない
   // /r/ はNFCタップ（未ログイン前提）からのアクセスのため認証チェックも不可
-  if (path.startsWith("/c/") || path.startsWith("/entrance/") || path.startsWith("/r/")) {
-    return NextResponse.next({ request });
+  // /auth/qr/ はスキャナ端末のQRログイン（未ログイン前提のルートハンドラ）
+  if (path.startsWith("/c/") || path.startsWith("/entrance/") || path.startsWith("/r/") || path.startsWith("/auth/qr/")) {
+    const response = NextResponse.next({ request });
+    // 簡易ログイン（dc_ce Cookie）は、認識が行われるたびに有効期限を
+    // スライドさせる。決済しなくても定期的にQRを読むだけで途切れずに
+    // 済むようにするため（長期のテストでも都度メール再入力を防ぐ）。
+    const dcCe = request.cookies.get("dc_ce")?.value;
+    if (dcCe) {
+      response.cookies.set("dc_ce", dcCe, {
+        maxAge: 60 * 60 * 24 * 365,
+        path: "/",
+        sameSite: "lax",
+        httpOnly: false,
+      });
+    }
+    return response;
   }
 
   if (isPublicPath) {

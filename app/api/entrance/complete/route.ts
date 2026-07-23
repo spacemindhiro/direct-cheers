@@ -8,10 +8,9 @@
  * タイプA（5日以内 PaymentIntentパス）: カードオーソリ完了後に呼ばれる。
  * - transaction + チケット更新をアトミックに実行
  *
- * タイプC: SetupIntent confirm 後 → チェックイン時に決済実行
- * - チケット即時発行
- *
  * タイプB: Stripe Checkout の complete フックから呼ばれる（session_id で）
+ *
+ * タイプC: 当日決済専用（事前予約なし）のため、このルートの対象外（到達したら400）
  */
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
@@ -122,26 +121,9 @@ export async function POST(req: Request) {
     });
   }
 
-  // タイプC: reservation update + tickets insert をアトミックに実行
-  const { data: rpcRows, error: rpcError } = await admin.rpc("complete_entrance_typec_reserve", {
-    p_reservation_id:    reservation.reservation_id,
-    p_payment_method_id: paymentMethodId,
-    p_product_id:        reservation.product_id,
-    p_event_id:          reservation.event_id,
-    p_email:             reservation.email,
-  });
-
-  if (rpcError) {
-    return NextResponse.json({ error: rpcError.message }, { status: 500 });
-  }
-
-  const row = (rpcRows as any[])[0];
-  return NextResponse.json({
-    ok: true,
-    ticket_id:   row?.out_ticket_id   ?? null,
-    ticket_code: row?.out_ticket_code ?? null,
-    payment_type: "C",
-  });
+  // タイプCは当日決済専用（事前予約なし）のため、この経路には到達しないはず。
+  // /api/entrance/reserve がタイプCの予約作成自体を拒否しているため、ここに来た場合は異常系。
+  return NextResponse.json({ error: "この商品は当日決済専用です" }, { status: 400 });
 }
 
 async function handleTypeB(

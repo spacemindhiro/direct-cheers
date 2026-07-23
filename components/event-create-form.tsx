@@ -4,7 +4,8 @@ import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { jstLocalToUtcIso, addHoursToLocalDT } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Loader2, MapPin, Music, Search, X, Plus } from "lucide-react";
+import { VenueSelect } from "@/components/venue-select";
+import { ArrowRight, Loader2, Music, Search, X, Plus } from "lucide-react";
 
 type Artist = { profile_id: string; display_name: string };
 
@@ -64,6 +65,7 @@ export function EventCreateForm({
     const fd = new FormData(e.currentTarget);
     const title = fd.get("title") as string;
     const venue = fd.get("venue") as string;
+    const venue_id = (fd.get("venue_id") as string) || null;
     const start_at = fd.get("start_at") as string;
     const end_at = fd.get("end_at") as string;
 
@@ -79,6 +81,7 @@ export function EventCreateForm({
         body: JSON.stringify({
           title,
           venue,
+          venue_id,
           start_at: jstLocalToUtcIso(start_at),
           end_at: jstLocalToUtcIso(end_at),
           artists: selectedArtists.map((a) => ({
@@ -113,17 +116,7 @@ export function EventCreateForm({
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
-            <MapPin size={11} className="text-pink-500" /> 会場
-          </label>
-          <Input
-            name="venue"
-            placeholder="例: WOMB, Shibuya"
-            required
-            className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
-        </div>
+        <VenueSelect />
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">

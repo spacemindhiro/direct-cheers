@@ -36,8 +36,14 @@ async function DashboardNav() {
   const headersList = await headers();
   const currentPath = headersList.get('x-pathname') ?? '/dashboard';
   const isDisplayPath = /\/dashboard\/events\/[^/]+\/display/.test(currentPath);
+  // タッチ決済アプリ(Capacitor)のWebView内ではパスキー(WebAuthn)が
+  // プラットフォーム制約で一切使えない(実機検証済み)ため、step-upに
+  // 到達すると詰む。capacitor.config.tsのandroid.appendUserAgentで
+  // 付与した識別子でこのアプリからのアクセスと判定し対象外にする。
+  // ログイン自体はstep-up済みスタッフが生成したQRからのみ可能なため許容する。
+  const isNativeApp = (headersList.get('user-agent') ?? '').includes('DirectCheersTouchpayApp');
 
-  if (!isDisplayPath && STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
+  if (!isDisplayPath && !isNativeApp && STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
     const cookieStore = await cookies();
     const stepUpAt = cookieStore.get('dc_stepup')?.value;
     const isFresh = !!stepUpAt && (Date.now() - parseInt(stepUpAt)) < STEP_UP_TTL_MS;

@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, Ticket, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { DigitalTicket } from "@/components/digital-ticket";
+import { WelcomeCheerPicker } from "@/components/welcome-cheer-picker";
 
 async function TicketsContent() {
   const supabase = await createClient();
@@ -13,13 +14,13 @@ async function TicketsContent() {
 
   const admin = createAdminClient();
   const selectQuery = `
-    ticket_id, ticket_code, status, checked_in_at, email, created_at,
+    ticket_id, ticket_code, status, checked_in_at, email, created_at, quantity,
     reservation_id,
     reservation:entrance_reservations(status),
     product:products(name, type, payment_type, min_amount),
     event:events(event_id, title, venue, start_at),
     transaction:transactions!transaction_id(
-      total_gross_amount,
+      total_gross_amount, stripe_payment_intent_id,
       qr_config:qr_configs!qr_config_id(strip_image_url, bg_color, fg_color, label_color)
     )
   `;
@@ -43,8 +44,25 @@ async function TicketsContent() {
     return true;
   });
 
+  // ウェルカムチア（2階transaction）: 同一PIのstripe_pi_sequence=1行をバッチ取得し、
+  // 「本体+ウェルカムチア」の内訳表示に使う。無ければ従来通りのシンプル表示。
+  const piIds = [...new Set(
+    list.map((t: any) => t.transaction?.stripe_payment_intent_id).filter((id): id is string => !!id)
+  )];
+  const welcomeCheerByPi = new Map<string, number>();
+  if (piIds.length > 0) {
+    const { data: wcRows } = await admin
+      .from("transactions")
+      .select("stripe_payment_intent_id, total_gross_amount")
+      .in("stripe_payment_intent_id", piIds)
+      .eq("stripe_pi_sequence", 1);
+    for (const row of wcRows ?? []) {
+      welcomeCheerByPi.set(row.stripe_payment_intent_id as string, row.total_gross_amount as number);
+    }
+  }
+
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8 pt-16 pb-20">
       <div className="space-y-1">
         <Link
           href="/dashboard"
@@ -72,27 +90,34 @@ async function TicketsContent() {
       ) : (
         <div className="space-y-6">
           {list.map((t: any) => (
-            <DigitalTicket
-              key={t.ticket_id}
-              ticketId={t.ticket_id}
-              ticketCode={t.ticket_code}
-              eventTitle={t.event?.title ?? ""}
-              productName={t.product?.name ?? ""}
-              eventVenue={t.event?.venue ?? null}
-              startAt={t.event?.start_at ?? null}
-              holderEmail={t.email}
-              status={t.status}
-              checkedInAt={t.checked_in_at ?? null}
-              paymentType={t.product?.payment_type ?? null}
-              productType={t.product?.type ?? undefined}
-              amount={t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0}
-              stripImageUrl={t.transaction?.qr_config?.strip_image_url ?? null}
-              bgColor={t.transaction?.qr_config?.bg_color ?? undefined}
-              fgColor={t.transaction?.qr_config?.fg_color ?? undefined}
-              labelColor={t.transaction?.qr_config?.label_color ?? undefined}
-              reservationId={t.reservation_id ?? null}
-              reservationStatus={Array.isArray(t.reservation) ? (t.reservation[0] as any)?.status ?? null : (t.reservation as any)?.status ?? null}
-            />
+            <div key={t.ticket_id} className="space-y-3">
+              <DigitalTicket
+                ticketId={t.ticket_id}
+                ticketCode={t.ticket_code}
+                eventTitle={t.event?.title ?? ""}
+                productName={t.product?.name ?? ""}
+                eventVenue={t.event?.venue ?? null}
+                startAt={t.event?.start_at ?? null}
+                holderEmail={t.email}
+                status={t.status}
+                checkedInAt={t.checked_in_at ?? null}
+                paymentType={t.product?.payment_type ?? null}
+                productType={t.product?.type ?? undefined}
+                amount={
+                  (t.transaction?.total_gross_amount ?? t.product?.min_amount ?? 0) +
+                  (welcomeCheerByPi.get(t.transaction?.stripe_payment_intent_id ?? "") ?? 0)
+                }
+                welcomeCheerAmount={welcomeCheerByPi.get(t.transaction?.stripe_payment_intent_id ?? "") ?? null}
+                quantity={t.quantity ?? null}
+                stripImageUrl={t.transaction?.qr_config?.strip_image_url ?? null}
+                bgColor={t.transaction?.qr_config?.bg_color ?? undefined}
+                fgColor={t.transaction?.qr_config?.fg_color ?? undefined}
+                labelColor={t.transaction?.qr_config?.label_color ?? undefined}
+                reservationId={t.reservation_id ?? null}
+                reservationStatus={Array.isArray(t.reservation) ? (t.reservation[0] as any)?.status ?? null : (t.reservation as any)?.status ?? null}
+              />
+              {t.product?.type === "entrance" && <WelcomeCheerPicker ticketId={t.ticket_id} />}
+            </div>
           ))}
         </div>
       )}

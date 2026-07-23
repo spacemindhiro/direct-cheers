@@ -9,7 +9,7 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
 
   const { data: qr } = await admin
     .from("qr_configs")
-    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id, product_id, default_amount, touchpay_enabled")
+    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id, product_id, default_amount, touchpay_enabled, is_welcome_cheer_default")
     .eq("qr_config_id", qrConfigId)
     .is("deleted_at", null)
     .single();
@@ -70,6 +70,9 @@ export async function PATCH(
     max_amount,
     stock_limit,
     track_inventory,
+    quantity_selectable,
+    bulk_pricing,
+    auto_checkin,
   } = await req.json() as {
     label?: string;
     image_url?: string | null;
@@ -88,11 +91,16 @@ export async function PATCH(
     max_amount?: number;
     stock_limit?: number | null;
     track_inventory?: boolean;
+    quantity_selectable?: boolean;
+    bulk_pricing?: { min_quantity: number; unit_price: number }[] | null;
+    auto_checkin?: boolean;
   };
 
   const hasProductUpdates =
     product_name !== undefined || min_amount !== undefined || max_amount !== undefined ||
-    stock_limit !== undefined || track_inventory !== undefined;
+    stock_limit !== undefined || track_inventory !== undefined ||
+    quantity_selectable !== undefined || bulk_pricing !== undefined ||
+    auto_checkin !== undefined;
 
   // 宛先本人は image_url / strip_image_url のみ更新可。それ以外のフィールドは organizer/agent/admin のみ。
   if (!canEdit && !isRecipient) {
@@ -110,12 +118,13 @@ export async function PATCH(
     type: string; payment_type: string | null;
     min_amount: number; max_amount: number;
     stock_limit: number | null; sold_count: number; track_inventory: boolean;
+    quantity_selectable: boolean;
   } | null = null;
   const needProduct = hasProductUpdates || (default_amount !== undefined && default_amount !== null) || touchpay_enabled === true;
   if (needProduct && qr.product_id) {
     const { data } = await adminC
       .from("products")
-      .select("type, payment_type, min_amount, max_amount, stock_limit, sold_count, track_inventory")
+      .select("type, payment_type, min_amount, max_amount, stock_limit, sold_count, track_inventory, quantity_selectable")
       .eq("product_id", qr.product_id)
       .single();
     product = data;
@@ -147,8 +156,8 @@ export async function PATCH(
         .eq("type", product.type)
         .maybeSingle();
       const FALLBACK: Record<string, { min: number; max: number }> = {
-        standard: { min: 500, max: 3_000 }, message: { min: 1000, max: 5_000 },
-        entrance: { min: 300, max: 30_000 }, custom: { min: 500, max: 100_000 },
+        standard: { min: 50, max: 3_000 }, message: { min: 50, max: 5_000 },
+        entrance: { min: 50, max: 30_000 }, custom: { min: 50, max: 100_000 },
       };
       const range = typeConfig
         ? { min: typeConfig.min_amount, max: typeConfig.max_amount }
@@ -179,6 +188,39 @@ export async function PATCH(
         );
       }
     }
+    if (quantity_selectable !== undefined || bulk_pricing !== undefined) {
+      const isDrinkTicket = product.type === "custom" && product.payment_type === "D";
+      if (!isDrinkTicket) {
+        return NextResponse.json({ error: "quantity_selectable / bulk_pricing はドリンクチケットのみ指定できます" }, { status: 400 });
+      }
+      const effQuantitySelectable = quantity_selectable ?? true;
+      if (effQuantitySelectable && Array.isArray(bulk_pricing) && bulk_pricing.length > 0) {
+        if (bulk_pricing.length > 4) {
+          return NextResponse.json({ error: "まとめ買い割引は最大4段階までです" }, { status: 400 });
+        }
+        let prevMinQty = 1;
+        let prevUnitPrice = effMin;
+        for (const tier of bulk_pricing) {
+          if (!Number.isInteger(tier.min_quantity) || tier.min_quantity <= prevMinQty) {
+            return NextResponse.json({ error: "まとめ買い割引の段階は杯数が昇順（2以上）である必要があります" }, { status: 400 });
+          }
+          if (!Number.isInteger(tier.unit_price) || tier.unit_price <= 0) {
+            return NextResponse.json({ error: "まとめ買い割引の単価が不正です" }, { status: 400 });
+          }
+          if (tier.unit_price > prevUnitPrice) {
+            return NextResponse.json({ error: "まとめ買い割引は杯数が増えるごとに単価を同額以下にしてください" }, { status: 400 });
+          }
+          prevMinQty = tier.min_quantity;
+          prevUnitPrice = tier.unit_price;
+        }
+      }
+    }
+    if (auto_checkin !== undefined) {
+      const isEntranceC = product.type === "entrance" && product.payment_type === "C";
+      if (!isEntranceC) {
+        return NextResponse.json({ error: "auto_checkin はエントランス×Cタイプのみ指定できます" }, { status: 400 });
+      }
+    }
   }
 
   // デフォルト金額は変更後のmin/max範囲内であることを確認
@@ -191,12 +233,17 @@ export async function PATCH(
     }
   }
 
-  // 対面タッチ決済（Case④）はentrance×Cタイプ、またはcustom×バウチャー(V)×金額固定のみ許可。
+  // 対面タッチ決済（Case④）はentrance×Cタイプ、custom×バウチャー(V)×金額固定、
+  // またはcustom×ドリンクチケット(D)×杯数指定オフのみ許可。
   // クライアントの申告を信用せず、サーバー側で対象条件を再検証する。
+  // quantity_selectableは同一リクエストで一緒に変更されうるため、送信された
+  // 値があればそちらを優先し、無ければDB上の現行値を見る。
   if (touchpay_enabled === true) {
+    const effQuantitySelectableForTouchpay = quantity_selectable ?? product?.quantity_selectable ?? true;
     const eligible = !!product && (
       (product.type === "entrance" && product.payment_type === "C") ||
-      (product.type === "custom" && product.payment_type === "V" && effMin === effMax)
+      (product.type === "custom" && product.payment_type === "V" && effMin === effMax) ||
+      (product.type === "custom" && product.payment_type === "D" && effQuantitySelectableForTouchpay === false)
     );
     if (!eligible) {
       return NextResponse.json({ error: "この商品は対面タッチ決済に対応していません" }, { status: 400 });
@@ -234,6 +281,14 @@ export async function PATCH(
     if (max_amount !== undefined) productUpdates.max_amount = max_amount;
     if (stock_limit !== undefined) productUpdates.stock_limit = stock_limit;
     if (track_inventory !== undefined) productUpdates.track_inventory = track_inventory;
+    if (quantity_selectable !== undefined) {
+      productUpdates.quantity_selectable = quantity_selectable;
+      if (quantity_selectable === false) productUpdates.bulk_pricing = null;
+    }
+    if (bulk_pricing !== undefined && quantity_selectable !== false) {
+      productUpdates.bulk_pricing = bulk_pricing;
+    }
+    if (auto_checkin !== undefined) productUpdates.auto_checkin = auto_checkin;
 
     const { error: productError } = await adminC
       .from("products")
@@ -332,8 +387,20 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // ウェルカムチアのデフォルト受取先として内部的に自動生成されたQRは、
+  // エントランスQRの決済処理が参照し続けるため単独では削除できない
+  // （エントランスQR自体を削除したときに連鎖削除される）
+  if (qr.is_welcome_cheer_default) {
+    return NextResponse.json(
+      { error: "このQRはウェルカムチアのデフォルト受取先として自動生成されたものです。単独では削除できません。" },
+      { status: 409 },
+    );
+  }
+
+  const adminClient = admin ?? createAdminClient();
+
   // 売上が1件でもある場合は削除不可
-  const { count } = await (admin ?? createAdminClient())
+  const { count } = await adminClient
     .from("transactions")
     .select("transaction_id", { count: "exact", head: true })
     .eq("qr_config_id", qrConfigId);
@@ -345,12 +412,66 @@ export async function DELETE(
     );
   }
 
+  // このQRがウェルカムチア付きエントランスQRなら、内部的に自動生成した
+  // デフォルト受取先（別のqr_configs/products行）も連鎖削除する。
+  // そちらに売上がある場合も削除不可にする（購入者が既に演者を確定した
+  // ケース等で、実際の配分記録が残っているため）。
+  let cascadeQrConfigId: string | null = null;
+  let cascadeProductId: string | null = null;
+  if (qr.product_id) {
+    const { data: entranceProduct } = await adminClient
+      .from("products")
+      .select("welcome_cheer_default_product_id")
+      .eq("product_id", qr.product_id)
+      .maybeSingle();
+
+    if (entranceProduct?.welcome_cheer_default_product_id) {
+      cascadeProductId = entranceProduct.welcome_cheer_default_product_id;
+      const { data: cascadeQr } = await adminClient
+        .from("qr_configs")
+        .select("qr_config_id")
+        .eq("product_id", cascadeProductId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      cascadeQrConfigId = cascadeQr?.qr_config_id ?? null;
+
+      if (cascadeQrConfigId) {
+        const { count: cascadeCount } = await adminClient
+          .from("transactions")
+          .select("transaction_id", { count: "exact", head: true })
+          .eq("qr_config_id", cascadeQrConfigId);
+        if (cascadeCount && cascadeCount > 0) {
+          return NextResponse.json(
+            { error: "ウェルカムチアの配分実績が残っているため削除できません" },
+            { status: 409 },
+          );
+        }
+      }
+    }
+  }
+
+  const now = new Date().toISOString();
+
   const { error: deleteError } = await sb
     .from("qr_configs")
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: now })
     .eq("qr_config_id", qrConfigId);
 
   if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
+
+  // QRと1:1の商品も一緒に削除する（商品だけ生き残って他機能の候補一覧等に
+  // 紛れ込み続けるのを防ぐ）
+  if (qr.product_id) {
+    await adminClient.from("products").update({ deleted_at: now }).eq("product_id", qr.product_id);
+  }
+
+  // ウェルカムチアのデフォルト受取先を連鎖削除
+  if (cascadeQrConfigId) {
+    await adminClient.from("qr_configs").update({ deleted_at: now }).eq("qr_config_id", cascadeQrConfigId);
+  }
+  if (cascadeProductId) {
+    await adminClient.from("products").update({ deleted_at: now }).eq("product_id", cascadeProductId);
+  }
 
   return NextResponse.json({ ok: true });
 }

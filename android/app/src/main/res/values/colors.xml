@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Webアプリの背景色 bg-slate-950 (#020617) と一致させる -->
+    <color name="siteBackground">#020617</color>
+</resources>

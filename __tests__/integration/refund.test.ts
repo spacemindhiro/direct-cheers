@@ -281,6 +281,96 @@ describe("TC-REFUND-03: キャプチャ済み・settle前 + COMPASSIONATE → re
   });
 });
 
+// ── TC-REFUND-06: 同一PIに2行（ウェルカムチア1階・2階） ────────────────
+describe("TC-REFUND-06: 同一PIに2行（1階・2階）→ 兄弟行も連動して処理される", () => {
+  it("requires_capture: PI cancel → 1階・2階の両方が cancelled になる", async () => {
+    const gross = 3_000;
+    const eventId = await insertEvent({ organizerProfileId, title: "TC-REFUND-06 同一PI2行cancel" });
+    const qrConfigId = await insertQrConfig({
+      eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId,
+    });
+    cleanup.eventIds.push(eventId);
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const pi = await createTestPaymentIntent({ amount: gross, organizerConnectId });
+    const piId = pi.id;
+
+    // 1階（stripe_pi_sequence=0）・2階（同一PI、stripe_pi_sequence=1）
+    const tx1Id = await insertTransaction({
+      qrConfigId, grossAmount: 2500, netAmount: 2150, stripeFee: 99, platformFee: 250,
+      stripePaymentIntentId: piId, stripePiSequence: 0,
+    });
+    const tx2Id = await insertTransaction({
+      qrConfigId, grossAmount: 500, netAmount: 430, stripeFee: 20, platformFee: 50,
+      stripePaymentIntentId: piId, stripePiSequence: 1,
+    });
+    cleanup.transactionIds.push(tx1Id, tx2Id);
+
+    const res = await POST(makePostReq({ paymentIntentId: piId, reason: "同一PI2行キャンセルテスト" }));
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.mode).toBe("cancel");
+
+    const piAfter = await stripe.paymentIntents.retrieve(piId);
+    expect(piAfter.status).toBe("canceled");
+
+    const { data: tx1 } = await testAdmin.from("transactions").select("status").eq("transaction_id", tx1Id).single();
+    const { data: tx2 } = await testAdmin.from("transactions").select("status").eq("transaction_id", tx2Id).single();
+    expect(tx1?.status).toBe("cancelled");
+    expect(tx2?.status).toBe("cancelled");
+  });
+
+  it("キャプチャ済み・settle前 COMPASSIONATE: refundは1回のみ、debt_claimsは1階・2階それぞれに計上される", async () => {
+    const gross = 3_000;
+    const eventId = await insertEvent({ organizerProfileId, title: "TC-REFUND-06 同一PI2行refund" });
+    const qrConfigId = await insertQrConfig({
+      eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId,
+    });
+    cleanup.eventIds.push(eventId);
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const pi = await createTestPaymentIntent({ amount: gross, organizerConnectId });
+    const piId = pi.id;
+    await stripe.paymentIntents.capture(piId);
+
+    const tx1StripeFee = 99;
+    const tx2StripeFee = 20;
+    const tx1Id = await insertTransaction({
+      qrConfigId, grossAmount: 2500, netAmount: 2500 - tx1StripeFee - 250, stripeFee: tx1StripeFee, platformFee: 250,
+      stripePaymentIntentId: piId, status: "completed", stripePiSequence: 0,
+    });
+    const tx2Id = await insertTransaction({
+      qrConfigId, grossAmount: 500, netAmount: 500 - tx2StripeFee - 50, stripeFee: tx2StripeFee, platformFee: 50,
+      stripePaymentIntentId: piId, status: "completed", stripePiSequence: 1,
+    });
+    cleanup.transactionIds.push(tx1Id, tx2Id);
+
+    const res = await POST(makePostReq({
+      paymentIntentId: piId, reason: "同一PI2行返金テスト", refundType: "COMPASSIONATE",
+    }));
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.mode).toBe("presettle_compassionate");
+    // debtAmountは合算値（stripeFee合計 = 99+20 = 119）
+    expect(data.debtAmount).toBe(tx1StripeFee + tx2StripeFee);
+
+    const { data: tx1 } = await testAdmin.from("transactions").select("status").eq("transaction_id", tx1Id).single();
+    const { data: tx2 } = await testAdmin.from("transactions").select("status").eq("transaction_id", tx2Id).single();
+    expect(tx1?.status).toBe("refunded");
+    expect(tx2?.status).toBe("refunded");
+
+    // debt_claimsは行ごとに作成され、claim_amountはそれぞれ自分のstripe_feeになる
+    const { data: claim1 } = await testAdmin.from("debt_claims")
+      .select("claim_id, claim_amount").eq("original_transaction_id", tx1Id).maybeSingle();
+    const { data: claim2 } = await testAdmin.from("debt_claims")
+      .select("claim_id, claim_amount").eq("original_transaction_id", tx2Id).maybeSingle();
+    expect(claim1?.claim_amount).toBe(tx1StripeFee);
+    expect(claim2?.claim_amount).toBe(tx2StripeFee);
+    if (claim1) cleanup.debtClaimIds.push(claim1.claim_id);
+    if (claim2) cleanup.debtClaimIds.push(claim2.claim_id);
+  });
+});
+
 // ── TC-REFUND-04: キャプチャ後・settle後 + FULL_PENALTY ────────────────
 describe("TC-REFUND-04: キャプチャ済み・settle後 + FULL_PENALTY → 全transfer逆転 + debt_claims(platform_fee)", () => {
   let piId: string;

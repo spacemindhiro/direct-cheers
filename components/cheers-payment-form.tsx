@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Heart, Loader2, Mail, CreditCard, CheckCircle, AlertCircle } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { resolveDrinkUnitPrice, type DrinkBulkTier } from "@/lib/drink-ticket-pricing";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 const CUSTOMER_EMAIL_COOKIE = "dc_ce";
@@ -18,10 +19,12 @@ type Product = {
   max_amount: number;
   amount_step?: number;
   default_amount?: number;
+  quantity_selectable?: boolean;
+  bulk_pricing?: DrinkBulkTier[] | null;
 };
 
 function saveEmailCookie(email: string) {
-  document.cookie = `${CUSTOMER_EMAIL_COOKIE}=${encodeURIComponent(email)};max-age=${60 * 60 * 24 * 30};path=/;SameSite=Lax`;
+  document.cookie = `${CUSTOMER_EMAIL_COOKIE}=${encodeURIComponent(email)};max-age=${60 * 60 * 24 * 365};path=/;SameSite=Lax`;
 }
 
 // タイプA: SetupIntent（または5日以内はPaymentIntentオーソリ）でカード入力
@@ -126,6 +129,8 @@ export function CheersPaymentForm({
   paypayEnabled = false,
   deviceName,
   lockedEmail,
+  isAuthLocked = false,
+  recognizedName,
 }: {
   qrConfigId: string;
   products: Product[];
@@ -134,18 +139,31 @@ export function CheersPaymentForm({
   paypayEnabled?: boolean;
   deviceName?: string;
   lockedEmail?: string;
+  isAuthLocked?: boolean;
+  recognizedName?: string;
 }) {
   const selectedProduct = products[0];
   const isTypeA = selectedProduct?.type === "entrance" && selectedProduct?.payment_type === "A";
   const isEntrance = selectedProduct?.type === "entrance";
+  const isDrinkTicket = selectedProduct?.type === "custom" && selectedProduct?.payment_type === "D";
+  const showQuantityStepper = (isEntrance && !isTypeA) || (isDrinkTicket && selectedProduct?.quantity_selectable !== false);
 
   const [amount, setAmount] = useState(products[0]?.default_amount ?? products[0]?.min_amount ?? 500);
-  // エントランス（Aタイプ以外）: 人数分まとめて購入できる。amountは単価のまま、
-  // quantityと掛け合わせた合計金額をStripe側（line item）で計算させる。
+  // エントランス（Aタイプ以外）・ドリンクチケット: 人数/杯数分まとめて購入できる。
+  // amountは単価のまま、quantityと掛け合わせた合計金額をStripe側（line item）で計算させる。
   const [quantity, setQuantity] = useState(1);
-  const totalAmount = isEntrance && !isTypeA ? amount * quantity : amount;
+  const drinkUnitPrice = isDrinkTicket ? resolveDrinkUnitPrice(selectedProduct.min_amount, selectedProduct.bulk_pricing, quantity) : amount;
+  const totalAmount = isDrinkTicket
+    ? drinkUnitPrice * quantity
+    : (isEntrance && !isTypeA ? amount * quantity : amount);
+  const nextDrinkTier = isDrinkTicket
+    ? (selectedProduct.bulk_pricing ?? []).find((t) => t.min_quantity > quantity)
+    : undefined;
   const [email, setEmail] = useState(lockedEmail ?? "");
-  const [isEmailLocked, setIsEmailLocked] = useState(!!lockedEmail);
+  // 本当のログインセッション（Supabase Auth）だけメール変更不可にロックする。
+  // dc_ce Cookieによる簡易ログインは推測にすぎないため、共有端末での
+  // 別人購入やテストでのユーザー切り替えができるよう「変更」を残す。
+  const [isEmailLocked] = useState(isAuthLocked);
   const [pendingMethod, setPendingMethod] = useState<"card" | "paypay" | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -158,11 +176,10 @@ export function CheersPaymentForm({
   const [entranceDone, setEntranceDone] = useState(false);
 
   useEffect(() => {
-    if (lockedEmail) return; // サーバーからロック済み（ログイン済み）
+    if (lockedEmail) return; // サーバーから既に値が来ている（ログイン済みまたはCookie認識済み）
     const match = document.cookie.match(new RegExp(`${CUSTOMER_EMAIL_COOKIE}=([^;]+)`));
     if (match) {
-      setEmail(decodeURIComponent(match[1]));
-      setIsEmailLocked(true); // クッキーがあれば事前登録済み客 → ロック
+      setEmail(decodeURIComponent(match[1])); // 入力の手間を省く事前入力。ロックはしない
     }
   }, [lockedEmail]);
 
@@ -198,7 +215,7 @@ export function CheersPaymentForm({
           qr_config_id: qrConfigId,
           product_id: selectedProduct.product_id,
           amount,
-          quantity: isEntrance ? quantity : undefined,
+          quantity: (isEntrance || isDrinkTicket) ? quantity : undefined,
           payment_method: paymentMethod,
           customer_email: confirmedEmail,
           metadata: { artist_name: recipientName, event_title: eventTitle, device_name: deviceName ?? "" },
@@ -305,7 +322,7 @@ export function CheersPaymentForm({
               <Loader2 size={16} className="animate-spin" />
             ) : pendingMethod === "paypay" ? (
               "PayPay で支払う"
-            ) : (selectedProduct?.type === "entrance" || (selectedProduct?.type === "custom" && selectedProduct?.payment_type === "V")) ? (
+            ) : (selectedProduct?.type === "entrance" || isDrinkTicket || (selectedProduct?.type === "custom" && selectedProduct?.payment_type === "V")) ? (
               <>¥{totalAmount.toLocaleString()} を購入する</>
             ) : (
               <><Heart size={16} className="fill-current" />¥{totalAmount.toLocaleString()} を応援する</>
@@ -326,6 +343,16 @@ export function CheersPaymentForm({
 
   return (
     <div className="space-y-6">
+
+      {/* 簡易ログイン認識バナー（Cookie/セッションから本人特定できた場合のみ） */}
+      {recognizedName && (
+        <div className="flex items-center gap-2 bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-2.5">
+          <CheckCircle size={14} className="text-emerald-400 shrink-0" />
+          <p className="text-xs text-slate-300">
+            <span className="font-bold text-white">{recognizedName}</span> さん、おかえりなさい
+          </p>
+        </div>
+      )}
 
       {/* 金額 */}
       <div className="space-y-3">
@@ -354,10 +381,10 @@ export function CheersPaymentForm({
         )}
       </div>
 
-      {/* 人数（エントランス・Aタイプ以外） */}
-      {isEntrance && !isTypeA && (
+      {/* 人数（エントランス・Aタイプ以外）／杯数（ドリンクチケット） */}
+      {showQuantityStepper && (
         <div className="space-y-2">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">人数</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{isDrinkTicket ? "杯数" : "人数"}</p>
           <div className="flex items-center justify-between bg-slate-800/50 border border-slate-700/50 rounded-2xl px-5 py-3">
             <button
               type="button"
@@ -367,7 +394,9 @@ export function CheersPaymentForm({
             >
               −
             </button>
-            <span className="text-2xl font-black text-white tabular-nums">{quantity}<span className="text-xs text-slate-500 ml-1">名</span></span>
+            <span className="text-2xl font-black text-white tabular-nums">
+              {quantity}<span className="text-xs text-slate-500 ml-1">{isDrinkTicket ? "杯" : "名"}</span>
+            </span>
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.min(10, q + 1))}
@@ -377,6 +406,18 @@ export function CheersPaymentForm({
               ＋
             </button>
           </div>
+          {isDrinkTicket && (
+            <div className="space-y-0.5">
+              {drinkUnitPrice !== selectedProduct.min_amount && (
+                <p className="text-[10px] text-emerald-400 font-bold">まとめ買い割引適用中：1杯あたり ¥{drinkUnitPrice.toLocaleString()}</p>
+              )}
+              {nextDrinkTier && (
+                <p className="text-[10px] text-slate-500">
+                  あと{nextDrinkTier.min_quantity - quantity}杯で1杯 ¥{nextDrinkTier.unit_price.toLocaleString()} に
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -416,7 +457,7 @@ export function CheersPaymentForm({
         >
           {isPending ? (
             <Loader2 size={20} className="animate-spin" />
-          ) : (selectedProduct?.type === "entrance" || (selectedProduct?.type === "custom" && selectedProduct?.payment_type === "V")) ? (
+          ) : (selectedProduct?.type === "entrance" || isDrinkTicket || (selectedProduct?.type === "custom" && selectedProduct?.payment_type === "V")) ? (
             <>¥{totalAmount.toLocaleString()} を購入する</>
           ) : (
             <>

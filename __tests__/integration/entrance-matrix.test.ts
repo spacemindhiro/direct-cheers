@@ -7,10 +7,9 @@
  *   C. チェックイン 認証×チケット状態 マトリクス = 9ケース
  *   D. チェックイン冪等性（同一コードを3回連打）= 3呼び出し
  *   E. 予約バリデーション入力マトリクス = 10ケース
- *   F. タイプB/C プロダクト種別テスト = 5ケース
- *   G. タイプC 在庫チェックなし = 3ケース
- *   H. チェックインの連続失敗 = 5ケース
- * 計: 約70ケース
+ *   F. タイプB/C プロダクト種別テスト（タイプCは事前予約不可の確認含む）= 4ケース
+ *   G. チェックインの連続失敗 = 5ケース
+ * 計: 約65ケース
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import {
@@ -420,14 +419,11 @@ describe("TC-ENT-TYPE: プロダクト種別（B/C）の予約パス分岐検証
     expect(data.url).toMatch(/^https:\/\/checkout\.stripe\.com/);
   });
 
-  it("タイプC (track_inventory=true) → 在庫チェックあり", async () => {
+  it("タイプC → 事前予約は不可（400、当日決済専用）", async () => {
     const productId = await insertProduct({
       eventId: baseEventId,
       paymentType: "C",
-      trackInventory: true,
-      stockLimit: 0,
-      soldCount: 0,
-      name: "TYPE-C track_inventory テスト",
+      name: "TYPE-C テスト",
     });
     cleanup.productIds.push(productId);
 
@@ -437,33 +433,7 @@ describe("TC-ENT-TYPE: プロダクト種別（B/C）の予約パス分岐検証
       body: JSON.stringify({ product_id: productId, customer_email: `type-c-0@test.local` }),
     });
     const res = await reservePOST(req);
-    // stock=0 → SOLD_OUT
-    expect(res.status).toBe(409);
-    const data = await res.json();
-    expect(data.error).toBe("SOLD_OUT");
-  });
-
-  it("タイプC (track_inventory=false) → 在庫チェックなし・常に予約可", async () => {
-    const productId = await insertProduct({
-      eventId: baseEventId,
-      paymentType: "C",
-      trackInventory: false,
-      stockLimit: 0, // stock=0 でも在庫チェックを通過するはず
-      soldCount: 0,
-      name: "TYPE-C no-track テスト",
-    });
-    cleanup.productIds.push(productId);
-
-    const email = `type-c-notrack-${Date.now()}@test.local`;
-    cleanup.provisionalEmails.push(email);
-    const req = new Request("http://localhost/api/entrance/reserve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ product_id: productId, customer_email: email }),
-    });
-    const res = await reservePOST(req);
-    // track_inventory=false → 在庫チェックスキップ → SetupIntent返す
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
   });
 
   it("タイプA（十分な余裕あり）→ SetupIntent パス（is_auth=false）", async () => {

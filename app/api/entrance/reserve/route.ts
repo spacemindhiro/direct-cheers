@@ -1,8 +1,9 @@
 /**
  * POST /api/entrance/reserve
  *
- * タイプA/C: Setup Intent を作成し、フロントでカード保存 → complete へ
- * タイプB:   Checkout Session（即時決済）を作成し、Stripe リダイレクト
+ * タイプA: Setup Intent を作成し、フロントでカード保存 → complete へ
+ * タイプB: Checkout Session（即時決済）を作成し、Stripe リダイレクト
+ * タイプC: 当日決済専用（タッチ決済 or QR自己決済）のため、このルートの対象外（400を返す）
  */
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
@@ -48,16 +49,22 @@ export async function POST(req: Request) {
   }
 
   const paymentType = (product as any).payment_type as "A" | "B" | "C";
-  const trackInventory: boolean = paymentType !== "C" || (product as any).track_inventory === true;
 
-  // 在庫チェック（タイプA/B、またはC且つtrack_inventory=true）
-  if (trackInventory) {
-    const { data: hasStock } = await admin.rpc("reserve_product_stock", {
-      p_product_id: product_id,
-    });
-    if (!hasStock) {
-      return NextResponse.json({ error: "SOLD_OUT" }, { status: 409 });
-    }
+  // タイプCは当日決済限定（タッチ決済 or 当日QR自己決済）の商品であり、
+  // 事前予約（カード保存→チェックイン時課金）は存在しない。予約フローに来たら拒否する。
+  if (paymentType === "C") {
+    return NextResponse.json(
+      { error: "この商品は当日決済専用です。事前予約はできません。" },
+      { status: 400 },
+    );
+  }
+
+  // タイプA/Bは常に在庫管理する
+  const { data: hasStock } = await admin.rpc("reserve_product_stock", {
+    p_product_id: product_id,
+  });
+  if (!hasStock) {
+    return NextResponse.json({ error: "SOLD_OUT" }, { status: 409 });
   }
 
   const eventId = (product as any).event_id as string;

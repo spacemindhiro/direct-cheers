@@ -145,107 +145,113 @@ export async function POST(req: Request) {
 
         if (!paymentIntentId) break;
 
-        const { data: tx } = await admin
+        // ウェルカムチア導入により、1つのPIに複数transactions行（1階・2階）が
+        // 紐づくことがあるため、PI単位で全行を取得し、それぞれに対して
+        // 個別に凍結・debt_claims計上・Transfer逆転を行う。
+        const { data: txs } = await admin
           .from("transactions")
           .select("transaction_id, total_gross_amount")
-          .eq("stripe_payment_intent_id", paymentIntentId)
-          .maybeSingle();
+          .eq("stripe_payment_intent_id", paymentIntentId);
 
-        if (!tx) break;
+        if (!txs || txs.length === 0) break;
 
-        const { data: allDists } = await admin
-          .from("transaction_distributions")
-          .select("profile_id, actual_amount, distribution_status, event_id")
-          .eq("transaction_id", tx.transaction_id);
-
-        // debt_claims の請求先は MoR（on_behalf_of の帰属先）に一致させる。
-        // MoR は常にイベントのオーガナイザー（pay/cheers・entrance決済どちらも同じ原則）。
-        // 「最初に見つかったaccrued配分」をMoRとして扱うと、配分の取得順序次第で
-        // アーティストに誤って請求が付け替わるバグになるため、必ずevent経由で
-        // organizer_profile_idを引く（返金フロー admin/refund/route.ts と同じ原則）。
-        const chargebackEventId = (allDists ?? [])[0]?.event_id ?? null;
-        let chargebackOrganizerProfileId: string | null = null;
-        if (chargebackEventId) {
-          const { data: cbEvent } = await admin
-            .from("events")
-            .select("organizer_profile_id")
-            .eq("event_id", chargebackEventId)
-            .single();
-          chargebackOrganizerProfileId = cbEvent?.organizer_profile_id ?? null;
-        }
-        const primaryProfileId = chargebackOrganizerProfileId
-          ?? (allDists ?? []).find(d => d.distribution_status === "accrued")?.profile_id
-          ?? (allDists ?? [])[0]?.profile_id ?? null;
-
-        const gross = tx.total_gross_amount ?? 0;
         const cbFeeConfig = await getFeeConfig();
-        const stripeProcessingFee = Math.floor(gross * cbFeeConfig.stripe_rate);
-        const platformFeeHeld     = Math.floor(gross * cbFeeConfig.platform_rate);
-        // MoR負担額 = Stripe決済手数料 + MoRへの純送金額（プラットフォーム手数料を除く）
-        // = gross - platformFeeHeld（¥1,500紛争手数料はプラットフォームが負担）
-        const claimAmount = gross - platformFeeHeld;
 
-        const { error: chargebackErr } = await admin.rpc("handle_chargeback", {
-          p_transaction_id:        tx.transaction_id,
-          p_claim_amount:          claimAmount,
-          p_stripe_dispute_fee:    1500,
-          p_dispute_id:            dispute.id,
-          p_primary_profile_id:    primaryProfileId,
-          p_stripe_processing_fee: stripeProcessingFee,
-          p_platform_fee_held:     platformFeeHeld,
-        });
+        for (const tx of txs) {
+          const { data: allDists } = await admin
+            .from("transaction_distributions")
+            .select("profile_id, actual_amount, distribution_status, event_id")
+            .eq("transaction_id", tx.transaction_id);
 
-        if (chargebackErr) throw chargebackErr;
+          // debt_claims の請求先は MoR（on_behalf_of の帰属先）に一致させる。
+          // MoR は常にイベントのオーガナイザー（pay/cheers・entrance決済どちらも同じ原則）。
+          // 「最初に見つかったaccrued配分」をMoRとして扱うと、配分の取得順序次第で
+          // アーティストに誤って請求が付け替わるバグになるため、必ずevent経由で
+          // organizer_profile_idを引く（返金フロー admin/refund/route.ts と同じ原則）。
+          const chargebackEventId = (allDists ?? [])[0]?.event_id ?? null;
+          let chargebackOrganizerProfileId: string | null = null;
+          if (chargebackEventId) {
+            const { data: cbEvent } = await admin
+              .from("events")
+              .select("organizer_profile_id")
+              .eq("event_id", chargebackEventId)
+              .single();
+            chargebackOrganizerProfileId = cbEvent?.organizer_profile_id ?? null;
+          }
+          const primaryProfileId = chargebackOrganizerProfileId
+            ?? (allDists ?? []).find(d => d.distribution_status === "accrued")?.profile_id
+            ?? (allDists ?? [])[0]?.profile_id ?? null;
 
-        // settle済み（paid）の受取人ごとにsettle_transfersをReversalして資金回収
-        const paidDists = (allDists ?? []).filter(d => d.distribution_status === "paid");
-        const reversalDetails: { profile_id: string; amount_reversed: number }[] = [];
-        let totalReversed = 0;
+          const gross = tx.total_gross_amount ?? 0;
+          const stripeProcessingFee = Math.floor(gross * cbFeeConfig.stripe_rate);
+          const platformFeeHeld     = Math.floor(gross * cbFeeConfig.platform_rate);
+          // MoR負担額 = Stripe決済手数料 + MoRへの純送金額（プラットフォーム手数料を除く）
+          // = gross - platformFeeHeld（¥1,500紛争手数料はプラットフォームが負担）
+          const claimAmount = gross - platformFeeHeld;
 
-        for (const dist of paidDists) {
-          if (!dist.event_id || !dist.actual_amount) continue;
+          const { error: chargebackErr } = await admin.rpc("handle_chargeback", {
+            p_transaction_id:        tx.transaction_id,
+            p_claim_amount:          claimAmount,
+            p_stripe_dispute_fee:    1500,
+            p_dispute_id:            dispute.id,
+            p_primary_profile_id:    primaryProfileId,
+            p_stripe_processing_fee: stripeProcessingFee,
+            p_platform_fee_held:     platformFeeHeld,
+          });
 
-          const { data: transfers } = await admin
-            .from("settle_transfers")
-            .select("stripe_transfer_id")
-            .eq("profile_id", dist.profile_id)
-            .eq("event_id", dist.event_id)
-            .order("created_at", { ascending: false });
+          if (chargebackErr) throw chargebackErr;
 
-          let remaining = dist.actual_amount;
-          let reversed  = 0;
+          // settle済み（paid）の受取人ごとにsettle_transfersをReversalして資金回収
+          const paidDists = (allDists ?? []).filter(d => d.distribution_status === "paid");
+          const reversalDetails: { profile_id: string; amount_reversed: number }[] = [];
+          let totalReversed = 0;
 
-          for (const tr of transfers ?? []) {
-            if (remaining <= 0) break;
-            try {
-              const stripeTr  = await stripe.transfers.retrieve(tr.stripe_transfer_id);
-              const reversible = stripeTr.amount - stripeTr.amount_reversed;
-              if (reversible <= 0) continue;
-              const toReverse = Math.min(reversible, remaining);
-              await stripe.transfers.createReversal(tr.stripe_transfer_id, { amount: toReverse });
-              reversed  += toReverse;
-              remaining -= toReverse;
-            } catch (err: any) {
-              console.error(`[webhook] CB reversal失敗 transfer=${tr.stripe_transfer_id}:`, err.message);
+          for (const dist of paidDists) {
+            if (!dist.event_id || !dist.actual_amount) continue;
+
+            const { data: transfers } = await admin
+              .from("settle_transfers")
+              .select("stripe_transfer_id")
+              .eq("profile_id", dist.profile_id)
+              .eq("event_id", dist.event_id)
+              .order("created_at", { ascending: false });
+
+            let remaining = dist.actual_amount;
+            let reversed  = 0;
+
+            for (const tr of transfers ?? []) {
+              if (remaining <= 0) break;
+              try {
+                const stripeTr  = await stripe.transfers.retrieve(tr.stripe_transfer_id);
+                const reversible = stripeTr.amount - stripeTr.amount_reversed;
+                if (reversible <= 0) continue;
+                const toReverse = Math.min(reversible, remaining);
+                await stripe.transfers.createReversal(tr.stripe_transfer_id, { amount: toReverse });
+                reversed  += toReverse;
+                remaining -= toReverse;
+              } catch (err: any) {
+                console.error(`[webhook] CB reversal失敗 transfer=${tr.stripe_transfer_id}:`, err.message);
+              }
+            }
+
+            if (reversed > 0) {
+              reversalDetails.push({ profile_id: dist.profile_id, amount_reversed: reversed });
+              totalReversed += reversed;
             }
           }
 
-          if (reversed > 0) {
-            reversalDetails.push({ profile_id: dist.profile_id, amount_reversed: reversed });
-            totalReversed += reversed;
-          }
+          // debt_claimに回収詳細を記録（このtransaction分のdebt_claim行のみ）
+          await admin
+            .from("debt_claims")
+            .update({
+              recovered_via_reversal: totalReversed,
+              reversal_details:       reversalDetails,
+            })
+            .eq("stripe_dispute_id", dispute.id)
+            .eq("original_transaction_id", tx.transaction_id);
+
+          console.log(`[webhook] chargeback: dispute=${dispute.id} tx=${tx.transaction_id} reversed=¥${totalReversed}`);
         }
-
-        // debt_claimに回収詳細を記録
-        await admin
-          .from("debt_claims")
-          .update({
-            recovered_via_reversal: totalReversed,
-            reversal_details:       reversalDetails,
-          })
-          .eq("stripe_dispute_id", dispute.id);
-
-        console.log(`[webhook] chargeback: dispute=${dispute.id} tx=${tx.transaction_id} reversed=¥${totalReversed}`);
         break;
       }
 
@@ -255,16 +261,18 @@ export async function POST(req: Request) {
       case "charge.dispute.closed": {
         const dispute = event.data.object as Stripe.Dispute;
 
-        const { data: claim } = await admin
+        // ウェルカムチア導入により、1つのdisputeに対して複数のdebt_claims行
+        // （1階・2階それぞれのtransaction分）が存在しうるため、全件処理する。
+        const { data: claims } = await admin
           .from("debt_claims")
           .select("claim_id, profile_id, original_transaction_id, reversal_details, recovered_via_reversal")
-          .eq("stripe_dispute_id", dispute.id)
-          .maybeSingle();
+          .eq("stripe_dispute_id", dispute.id);
 
-        if (!claim) break;
+        if (!claims || claims.length === 0) break;
 
         const isWon = dispute.status === "won";
 
+        for (const claim of claims) {
         if (isWon) {
           // 勝訴: 引き戻した資金を各受取人に再Transfer
           for (const detail of (claim.reversal_details as { profile_id: string; amount_reversed: number }[] ?? [])) {
@@ -338,6 +346,7 @@ export async function POST(req: Request) {
           }
 
           console.log(`[webhook] CB lost: dispute=${dispute.id} recovered=¥${claim.recovered_via_reversal} 残債をactiveで追跡継続`);
+        }
         }
 
         break;

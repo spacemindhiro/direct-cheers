@@ -18,6 +18,7 @@ async function CollectionContent() {
 
   const query = `
     transaction_id, total_gross_amount, created_at, sequence_number_in_event, sender_name, sender_comment,
+    stripe_pi_sequence, welcome_cheer_locked_at,
     product:products!product_id(name, type, artist_id),
     qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, recipient_name_context, event:events!event_id(title, organizer_profile_id))
   `;
@@ -45,7 +46,16 @@ async function CollectionContent() {
   const seen = new Set<string>();
   const cards: any[] = [];
   for (const tx of [...(byProfile ?? []), ...(byEmail ?? [])]) {
-    if (!seen.has(tx.transaction_id) && (tx.product as any)?.type !== "entrance" && (tx.product as any)?.type !== "custom") {
+    // ウェルカムチア（2階、stripe_pi_sequence=1）は購入者が演者を確定するまでは
+    // 非表示。確定前にコレクションへ出すと、まだデフォルト（主催者）宛の状態が
+    // 見えてしまい「後で選べる」という設計意図が崩れる。
+    const isUnconfirmedWelcomeCheer = (tx as any).stripe_pi_sequence === 1 && !(tx as any).welcome_cheer_locked_at;
+    if (
+      !seen.has(tx.transaction_id) &&
+      (tx.product as any)?.type !== "entrance" &&
+      (tx.product as any)?.type !== "custom" &&
+      !isUnconfirmedWelcomeCheer
+    ) {
       seen.add(tx.transaction_id);
       cards.push(tx);
     }

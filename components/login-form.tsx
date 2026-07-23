@@ -4,8 +4,10 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { Loader2, Mail, Send, MailCheck } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
+import { Loader2, Mail, Send, MailCheck, QrCode } from "lucide-react";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
+import { QrLoginScanner } from "@/components/qr-login-scanner";
 
 function GoogleIcon() {
   return (
@@ -29,11 +31,20 @@ export function LoginForm({
   const [googlePending, setGooglePending] = useState(false);
   const [PasskeySetup, setPasskeySetup] = useState<typeof PasskeySetupType | null>(null);
   const [redirectTo, setRedirectTo] = useState("/dashboard");
+  const [isNative, setIsNative] = useState(false);
+  const [showQrScanner, setShowQrScanner] = useState(false);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     setRedirectTo(p.get("redirect") || "/dashboard");
     setEmailHint(p.get("email") ?? "");
+  }, []);
+
+  useEffect(() => {
+    // パスキーはCapacitorのWebView内では動作しない(window.PublicKeyCredentialが
+    // 露出しないプラットフォーム制約。実機のChrome DevToolsで確認済み)ため、
+    // アプリではQRログインを主手段として案内する。
+    setIsNative(Capacitor.isNativePlatform());
   }, []);
 
   useEffect(() => {
@@ -117,6 +128,7 @@ export function LoginForm({
 
   return (
     <div className={cn("w-full space-y-8", className)} {...props}>
+      {showQrScanner && <QrLoginScanner onClose={() => setShowQrScanner(false)} />}
 
       {/* ヘッダー */}
       <div className="text-center space-y-2">
@@ -131,8 +143,28 @@ export function LoginForm({
         </p>
       </div>
 
-      {/* パスキー（メインログイン手段） */}
-      {PasskeySetup && (
+      {/* QRログイン（アプリ内カメラ、親機アプリ専用のメインログイン手段）。
+          パスキーはCapacitorのWebView内では動作しないため代わりにこちらを案内する */}
+      {isNative && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowQrScanner(true)}
+            className="w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl p-4 transition-all active:scale-[0.98]"
+          >
+            <div className="flex items-center gap-3">
+              <QrCode size={22} className="text-pink-500 shrink-0" />
+              <div className="text-left">
+                <p className="text-sm font-black text-white">QRでログイン</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">スタッフ端末に表示したQRを読み取る</p>
+              </div>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* パスキー（Webブラウザでのメインログイン手段） */}
+      {!isNative && PasskeySetup && (
         <div className="space-y-2">
           <PasskeySetup
             mode="authenticate"

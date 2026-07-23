@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Capacitor } from "@capacitor/core";
 import { createClient } from "@/lib/supabase/client";
 import { PasskeySetup } from "@/components/passkey-setup";
 import { ChevronRight, Fingerprint } from "lucide-react";
@@ -16,7 +17,17 @@ function PasskeySetupContent() {
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const handleSuccess = () => router.replace(redirect);
+  const handleSkip = () => router.replace(redirect);
+
   useEffect(() => {
+    // CapacitorのWebView内ではパスキー(WebAuthn)がプラットフォーム制約で
+    // 一切使えない(window.PublicKeyCredentialが露出しない。実機検証済み)ため、
+    // 登録UIを見せても詰むだけ。自動的にスキップして通過させる。
+    if (Capacitor.isNativePlatform()) {
+      handleSkip();
+      return;
+    }
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       if (data.user?.email) {
@@ -28,10 +39,8 @@ function PasskeySetupContent() {
       }
       setLoading(false);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emailParam]);
-
-  const handleSuccess = () => router.replace(redirect);
-  const handleSkip = () => router.replace(redirect);
 
   if (loading) return null;
 

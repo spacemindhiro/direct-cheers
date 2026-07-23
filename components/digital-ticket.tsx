@@ -15,9 +15,11 @@ type DigitalTicketProps = {
   holderEmail: string;
   status: "valid" | "used" | "cancelled";
   checkedInAt?: string | null;
-  paymentType: "A" | "B" | "C" | "V" | null;
+  paymentType: "A" | "B" | "C" | "V" | "D" | null;
   productType?: string;
   amount: number;
+  welcomeCheerAmount?: number | null;
+  quantity?: number | null;
   stripImageUrl?: string | null;
   bgColor?: string;
   fgColor?: string;
@@ -39,6 +41,8 @@ export function DigitalTicket({
   paymentType,
   productType,
   amount,
+  welcomeCheerAmount,
+  quantity,
   stripImageUrl,
   bgColor = "#0f172a",
   fgColor = "#ffffff",
@@ -76,8 +80,14 @@ export function DigitalTicket({
     });
   };
 
+  const isVoucher = productType === "custom" && paymentType === "V";
+  // ドリンクチケットはスキャンによる引換運用を持たない（決済完了画面自体が証跡）。
+  // QRを見せてしまうと店頭スキャナに読み取られ誤って「使用済み」化しうるため、
+  // マイチケット上でもQR・Apple Walletパスは一切生成・表示しない。
+  const isDrinkTicket = productType === "custom" && paymentType === "D";
+
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || isDrinkTicket) return;
     // ブラウザ専用ライブラリを動的ロード
     import("qrcode").then(({ default: QRCode }) => {
       QRCode.toCanvas(canvasRef.current!, ticketCode, {
@@ -89,9 +99,7 @@ export function DigitalTicket({
         },
       }).catch(console.error);
     });
-  }, [ticketCode]);
-
-  const isVoucher = productType === "custom" && paymentType === "V";
+  }, [ticketCode, isDrinkTicket]);
 
   const statusConfig = {
     valid: {
@@ -164,10 +172,12 @@ export function DigitalTicket({
           <p className="text-[9px] font-black uppercase tracking-[0.35em]" style={{ color: labelColor }}>
             Digital Ticket
           </p>
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${st.bg}`}>
-            {st.icon}
-            <span className={st.color}>{st.label}</span>
-          </div>
+          {!isDrinkTicket && (
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${st.bg}`}>
+              {st.icon}
+              <span className={st.color}>{st.label}</span>
+            </div>
+          )}
         </div>
 
         {/* イベント名・チケット種別 */}
@@ -209,12 +219,14 @@ export function DigitalTicket({
           <div className="border-t border-dashed border-slate-700" />
         </div>
 
-        {/* QR コード */}
-        <div className="flex items-center justify-center py-2">
-          <div className="p-3 rounded-2xl" style={{ background: "#ffffff" }}>
-            <canvas ref={canvasRef} />
+        {/* QR コード（ドリンクチケットはスキャン運用が無いため表示しない） */}
+        {!isDrinkTicket && (
+          <div className="flex items-center justify-center py-2">
+            <div className="p-3 rounded-2xl" style={{ background: "#ffffff" }}>
+              <canvas ref={canvasRef} />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* チケット下部情報 */}
         <div className="grid grid-cols-2 gap-3">
@@ -227,6 +239,11 @@ export function DigitalTicket({
                 <p className="text-lg font-black text-white italic tabular-nums mt-0.5">
                   ¥{amount.toLocaleString()}
                 </p>
+                {!!welcomeCheerAmount && (
+                  <p className="text-[9px] text-indigo-300 font-bold mt-0.5">
+                    うちウェルカムチア ¥{welcomeCheerAmount.toLocaleString()}
+                  </p>
+                )}
                 {paymentType === "C" && (
                   <p className="text-[9px] text-amber-400 font-bold mt-0.5">入場時決済</p>
                 )}
@@ -234,8 +251,10 @@ export function DigitalTicket({
             )}
           </div>
           <div className="bg-slate-900/60 rounded-2xl px-4 py-3 border border-slate-700/40">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Plan</p>
-            {isVoucher ? (
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{isDrinkTicket ? "Quantity" : "Plan"}</p>
+            {isDrinkTicket ? (
+              <p className="text-sm font-black text-indigo-300 mt-0.5">{quantity ?? 1}</p>
+            ) : isVoucher ? (
               <p className="text-sm font-black text-indigo-300 mt-0.5">バウチャー</p>
             ) : paymentType && paymentTypeLabel[paymentType] ? (
               <>
@@ -259,13 +278,13 @@ export function DigitalTicket({
                 day: "numeric",
                 hour: "2-digit",
                 minute: "2-digit",
-              })} に{isVoucher ? "引き換え済み" : "入場済み"}
+              })} に{isDrinkTicket ? "決済済み" : isVoucher ? "引き換え済み" : "入場済み"}
             </p>
           </div>
         )}
 
-        {/* Apple Wallet */}
-        {!isUsed && (
+        {/* Apple Wallet（ドリンクチケットはスキャン運用が無いため対象外） */}
+        {!isUsed && !isDrinkTicket && (
           <a
             href={`/api/wallet/ticket/${ticketId}`}
             className="flex items-center justify-center gap-2 w-full bg-black text-white text-sm font-bold rounded-2xl px-4 py-3 hover:bg-slate-800 transition-colors"

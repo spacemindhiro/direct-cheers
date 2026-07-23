@@ -34,9 +34,10 @@ export async function POST(req: Request) {
   const eventAgentId = profile?.role === "organizer" ? profile.responsible_agent_id : user.id;
 
   const body = await req.json();
-  const { title, venue, start_at, end_at, artists, artist_ids, serial_scope } = body as {
+  const { title, venue, venue_id, start_at, end_at, artists, artist_ids, serial_scope } = body as {
     title: string;
     venue: string;
+    venue_id?: string | null;
     start_at: string;
     end_at: string;
     artists?: { profile_id: string; invite_message?: string | null }[];
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
       agent_id: eventAgentId,
       title,
       venue,
+      venue_id: venue_id || null,
       start_at,
       end_at,
       lifecycle_status: "draft",

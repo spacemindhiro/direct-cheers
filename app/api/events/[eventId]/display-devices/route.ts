@@ -56,6 +56,21 @@ export async function POST(
 
   const now = new Date().toISOString();
 
+  // 機材マスタに存在するIDなら、表示名はマスタを正としてキャッシュし、last_seenを更新する。
+  // マスタに無いID（旧・名前ハッシュ由来のIDを持つ移行前クライアント）は従来どおり
+  // クライアント申告の device_name を使う。
+  let resolvedName: string | null = device_name ?? null;
+  const { data: master } = await admin
+    .from("equipment_devices")
+    .select("device_id, display_name")
+    .eq("device_id", device_id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (master) {
+    resolvedName = master.display_name;
+    await admin.from("equipment_devices").update({ last_seen_at: now }).eq("device_id", device_id);
+  }
+
   const { data: existing } = await admin
     .from("display_devices")
     .select("track_id")
@@ -67,14 +82,14 @@ export async function POST(
   if (existing) {
     await admin
       .from("display_devices")
-      .update({ device_name: device_name ?? null, last_seen_at: now })
+      .update({ device_name: resolvedName, last_seen_at: now })
       .eq("event_id", eventId)
       .eq("device_id", device_id);
     trackId = existing.track_id;
   } else {
     await admin
       .from("display_devices")
-      .insert({ event_id: eventId, device_id, device_name: device_name ?? null, last_seen_at: now, track_id: null });
+      .insert({ event_id: eventId, device_id, device_name: resolvedName, last_seen_at: now, track_id: null });
     trackId = null;
   }
 

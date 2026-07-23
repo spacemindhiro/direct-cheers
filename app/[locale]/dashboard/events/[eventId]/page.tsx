@@ -15,6 +15,21 @@ import { LiveSalesBoard } from "@/components/live-sales-board";
 import { EventPayPayToggle } from "@/components/event-paypay-toggle";
 import { EventDetailTabs } from "@/components/event-detail-tabs";
 
+// QR一覧の商品タイプ表示ラベル（type + entrance/customのpayment_type）
+const CUSTOM_SUBTYPE_LABELS: Record<string, string> = {
+  V: "バウチャー",
+  D: "ドリンクチケット",
+};
+
+function qrProductTypeLabel(type: string | undefined, paymentType: string | null | undefined): string {
+  if (!type) return "";
+  if (type === "standard") return "スタンダード";
+  if (type === "message") return "メッセージ";
+  if (type === "entrance") return `エントランス（${paymentType ?? "?"}）`;
+  if (type === "custom") return `カスタム（${CUSTOM_SUBTYPE_LABELS[paymentType ?? "V"] ?? paymentType ?? "V"}）`;
+  return type;
+}
+
 async function EventDetailContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const supabase = await createClient();
@@ -66,9 +81,12 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
   const { data: allQrConfigs } = await adminClient
     .from("qr_configs")
-    .select("qr_config_id, label, created_at")
+    .select("qr_config_id, label, created_at, default_amount, product:products!product_id(type, payment_type, min_amount, max_amount)")
     .eq("event_id", eventId)
     .is("deleted_at", null)
+    // ウェルカムチアのデフォルト受取先として内部的に自動生成されたQRは、
+    // 主催者が管理する対象ではないため一覧から除外する。
+    .eq("is_welcome_cheer_default", false)
     .order("created_at", { ascending: false });
 
   let qrConfigs = allQrConfigs ?? [];
@@ -355,15 +373,34 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
           </div>
         ) : (
           <div className="space-y-3">
-            {qrConfigs.map((qr) => (
-              <Link key={qr.qr_config_id} href={`/dashboard/events/${eventId}/qr/${qr.qr_config_id}`} className="bg-slate-900 border border-slate-800 hover:border-slate-600 rounded-[1.5rem] px-6 py-4 flex items-center justify-between transition-colors">
-                <div>
-                  <p className="font-bold text-white text-sm">{qr.label ?? "QRコード"}</p>
-                  <p className="text-xs text-slate-500">{fmtDate(qr.created_at)}</p>
-                </div>
-                <QrCode size={20} className="text-slate-500" />
-              </Link>
-            ))}
+            {qrConfigs.map((qr) => {
+              const product = (qr as any).product as { type: string; payment_type: string | null; min_amount: number; max_amount: number } | null;
+              const isRange = !!product && product.min_amount !== product.max_amount;
+              return (
+                <Link key={qr.qr_config_id} href={`/dashboard/events/${eventId}/qr/${qr.qr_config_id}`} className="bg-slate-900 border border-slate-800 hover:border-slate-600 rounded-[1.5rem] px-6 py-4 flex items-center justify-between transition-colors">
+                  <div className="space-y-1">
+                    <p className="font-bold text-white text-sm">{qr.label ?? "QRコード"}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                      {product && (
+                        <span className="text-slate-400 font-bold">{qrProductTypeLabel(product.type, product.payment_type)}</span>
+                      )}
+                      {product && (
+                        <span>
+                          {isRange
+                            ? `¥${product.min_amount.toLocaleString()}〜¥${product.max_amount.toLocaleString()}`
+                            : `¥${product.min_amount.toLocaleString()}`}
+                        </span>
+                      )}
+                      {isRange && (qr as any).default_amount != null && (
+                        <span>（デフォルト ¥{((qr as any).default_amount as number).toLocaleString()}）</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600">{fmtDate(qr.created_at)}</p>
+                  </div>
+                  <QrCode size={20} className="text-slate-500 shrink-0" />
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

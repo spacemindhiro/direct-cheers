@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { SwRegister } from "@/components/sw-register";
+import { NativeDeeplinkListener } from "@/components/native-deeplink-listener";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://direct-cheers.com";
 
@@ -46,6 +47,7 @@ export default function RootLayout({
     <html lang="ja" suppressHydrationWarning>
       <body className={`${geistSans.className} antialiased`}>
         <SwRegister />
+        <NativeDeeplinkListener />
         {children}
       </body>
     </html>

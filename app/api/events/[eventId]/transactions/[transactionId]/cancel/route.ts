@@ -102,6 +102,15 @@ export async function POST(
   const piId = parsePiId(tx.stripe_payment_intent_id);
   if (!piId) return NextResponse.json({ error: "PaymentIntentが見つかりません" }, { status: 500 });
 
+  // ウェルカムチアにより同一PIに兄弟transaction行（1階・2階）が紐づくことがあるため、
+  // 対象のtxに加えて同じPIを持つ全行を巻き込んで取消・返金を反映する。
+  const { data: siblingTxs } = await admin
+    .from("transactions")
+    .select("transaction_id, stripe_fee")
+    .eq("stripe_payment_intent_id", tx.stripe_payment_intent_id);
+  const allTxs = siblingTxs && siblingTxs.length > 0 ? siblingTxs : [{ transaction_id: tx.transaction_id, stripe_fee: tx.stripe_fee }];
+  const allTxIds = allTxs.map((t) => t.transaction_id);
+
   let pi: Stripe.PaymentIntent;
   try {
     pi = await stripe.paymentIntents.retrieve(piId);
@@ -116,7 +125,7 @@ export async function POST(
     await admin
       .from("transactions")
       .update({ status: "cancelled" })
-      .eq("transaction_id", tx.transaction_id);
+      .in("transaction_id", allTxIds);
 
     return NextResponse.json({
       success: true,
@@ -132,27 +141,33 @@ export async function POST(
       metadata: { reason: "onsite_cancel", cancelled_by: user.id },
     });
 
-    const stripeFee = tx.stripe_fee ?? 0;
-    if (event.organizer_profile_id && stripeFee > 0) {
-      await admin.from("debt_claims").insert({
-        profile_id: event.organizer_profile_id,
-        original_transaction_id: tx.transaction_id,
-        claim_amount: stripeFee,
-        description: `現場取消（settle前）: 決済手数料 PI:${piId}`,
-      });
+    // 兄弟行（1階・2階）それぞれの決済手数料を個別にdebt_claims計上する
+    let totalStripeFee = 0;
+    if (event.organizer_profile_id) {
+      for (const t of allTxs) {
+        const feeAmount = t.stripe_fee ?? 0;
+        if (feeAmount <= 0) continue;
+        totalStripeFee += feeAmount;
+        await admin.from("debt_claims").insert({
+          profile_id: event.organizer_profile_id,
+          original_transaction_id: t.transaction_id,
+          claim_amount: feeAmount,
+          description: `現場取消（settle前）: 決済手数料 PI:${piId}`,
+        });
+      }
     }
 
     await admin
       .from("transactions")
       .update({ status: "refunded" })
-      .eq("transaction_id", tx.transaction_id);
+      .in("transaction_id", allTxIds);
 
     return NextResponse.json({
       success: true,
       mode: "refund",
       refundId: refund.id,
-      debtAmount: stripeFee,
-      message: `決済を返金しました。決済手数料 ${stripeFee.toLocaleString("ja-JP")}円は精算時にオーガナイザー負担となります。`,
+      debtAmount: totalStripeFee,
+      message: `決済を返金しました。決済手数料 ${totalStripeFee.toLocaleString("ja-JP")}円は精算時にオーガナイザー負担となります。`,
     });
   }
 

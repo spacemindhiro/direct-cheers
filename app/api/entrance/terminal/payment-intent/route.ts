@@ -26,10 +26,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { product_id, quantity: rawQuantity, device_name } = await req.json() as {
+  const { product_id, quantity: rawQuantity, device_name, target_device_id } = await req.json() as {
     product_id: string;
     quantity?: number;
     device_name?: string;
+    target_device_id?: string;
   };
 
   if (!product_id) {
@@ -44,15 +45,18 @@ export async function POST(req: Request) {
 
   const { data: product } = await admin
     .from("products")
-    .select("product_id, min_amount, max_amount, event_id, type, payment_type")
+    .select("product_id, min_amount, max_amount, event_id, type, payment_type, quantity_selectable")
     .eq("product_id", product_id)
     .is("deleted_at", null)
     .single();
 
-  // 対面タッチ決済の対象はentrance×Cタイプ、またはcustom×バウチャー(V)×金額固定のみ
+  // 対面タッチ決済の対象はentrance×Cタイプ、custom×バウチャー(V)×金額固定、
+  // またはcustom×ドリンクチケット(D)×杯数指定オフ（常に数量1固定、まとめ買い割引の
+  // 適用余地が無い商品）のみ
   const productEligible = !!product && (
     (product.type === "entrance" && product.payment_type === "C") ||
-    (product.type === "custom" && product.payment_type === "V" && product.min_amount === product.max_amount)
+    (product.type === "custom" && product.payment_type === "V" && product.min_amount === product.max_amount) ||
+    (product.type === "custom" && product.payment_type === "D" && product.quantity_selectable === false)
   );
   if (!productEligible) {
     return NextResponse.json({ error: "対面タッチ決済に対応していない商品です" }, { status: 400 });
@@ -67,6 +71,21 @@ export async function POST(req: Request) {
 
   if (!qrc?.touchpay_enabled) {
     return NextResponse.json({ error: "この商品は対面タッチ決済が許可されていません" }, { status: 400 });
+  }
+
+  // サインアップQRを表示すべき子機を1台に絞るため必須。ペアリングされていない
+  // 端末からの決済は受け付けない（全子機に出てしまうのを防ぐ）。
+  if (!target_device_id) {
+    return NextResponse.json({ error: "表示する子機が設定されていません。子機とのペアリングを行ってください" }, { status: 400 });
+  }
+  const { data: pairedDevice } = await admin
+    .from("display_devices")
+    .select("device_id")
+    .eq("event_id", product.event_id)
+    .eq("device_id", target_device_id)
+    .maybeSingle();
+  if (!pairedDevice) {
+    return NextResponse.json({ error: "ペアリングされた子機が見つかりません。子機の再ペアリングを行ってください" }, { status: 400 });
   }
 
   const eventRow = qrc?.event as unknown as { organizer_profile_id: string | null; agent_id: string | null; venue: string | null } | null;
@@ -106,6 +125,7 @@ export async function POST(req: Request) {
       event_venue: eventRow?.venue ?? "",
       quantity: String(quantity),
       device_name: device_name ?? "",
+      target_device_id,
       staff_profile_id: user.id,
     },
   });

@@ -5,36 +5,74 @@ import { useSearchParams, useParams, useRouter } from "next/navigation";
 import { CheersCard } from "@/components/cheers-card";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
 import { FollowButton } from "@/components/follow-button";
-import { Loader2, ArrowLeft, PlusCircle, MessageSquare, Send, LayoutDashboard } from "lucide-react";
+import { Loader2, ArrowLeft, PlusCircle, MessageSquare, Send, LayoutDashboard, CheckCircle } from "lucide-react";
 
-function VoucherQR({ ticketId, productName, amount }: { ticketId: string; productName: string; amount: number }) {
+// エントランス入場QR・バウチャー引換QR共通。スキャナ（components/checkin-client.tsx）は
+// 読み取った値をそのまま ticket_code として /api/entrance/checkin へ送るため、
+// QRに載せる値は必ず ticket_code（ticket_idではない）でなければならない。
+function TicketCheckinQR({
+  ticketCode, title, productName, amount, welcomeCheerAmount, hint,
+}: { ticketCode: string; title: string; productName: string; amount: number; welcomeCheerAmount?: number | null; hint: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     import("qrcode").then((QRCode) => {
       if (canvasRef.current) {
-        QRCode.toCanvas(canvasRef.current, ticketId, {
+        QRCode.toCanvas(canvasRef.current, ticketCode, {
           width: 240,
           margin: 2,
           color: { dark: "#0f172a", light: "#ffffff" },
         });
       }
     });
-  }, [ticketId]);
+  }, [ticketCode]);
 
   return (
     <div className="bg-white rounded-3xl p-6 text-center space-y-4">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">引換券</p>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{title}</p>
       <p className="text-xl font-black text-slate-900 leading-tight">{productName}</p>
       <p className="text-sm font-bold text-slate-500">¥{amount.toLocaleString()}</p>
+      {!!welcomeCheerAmount && (
+        <p className="text-[11px] font-bold text-indigo-500">
+          うちウェルカムチア ¥{welcomeCheerAmount.toLocaleString()}
+        </p>
+      )}
       <div className="flex justify-center">
         <canvas ref={canvasRef} className="rounded-xl" />
       </div>
-      <p className="text-[10px] text-slate-400 font-medium">スタッフにこの画面を見せてください</p>
+      <p className="text-[10px] text-slate-400 font-medium">{hint}</p>
+    </div>
+  );
+}
+
+// ドリンクチケット: QR・チケットコードを一切表示しない代わりに、
+// この画面自体を受け渡しの証跡にする。「決済から◯秒経過」のライブカウンターは
+// 静止画スクリーンショットでは絶対に再現できないため、スタッフはこれを見て
+// 本物の決済完了画面であることを確認できる。
+function DrinkTicketReceipt({ quantity, productName }: { quantity: number; productName: string }) {
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setElapsedSec((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="bg-gradient-to-br from-cyan-500/10 to-slate-900 border border-cyan-500/30 rounded-3xl p-8 text-center space-y-4">
+      <p className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em]">{productName || "ドリンクチケット"}</p>
+      <p className="text-8xl font-black text-white italic tracking-tighter tabular-nums leading-none">
+        {quantity}
+        <span className="text-2xl not-italic ml-2">杯</span>
+      </p>
+      <div className="flex items-center justify-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <p className="text-xs font-mono text-emerald-400 tabular-nums">決済から {elapsedSec} 秒経過</p>
+      </div>
+      <p className="text-[10px] text-slate-500">スタッフはこの画面をご確認のうえドリンクをお渡しください</p>
     </div>
   );
 }
 import Link from "next/link";
+import { WelcomeCheerPicker } from "@/components/welcome-cheer-picker";
 
 const DEVICE_TOKEN_KEY = "dc_dt";
 const CUSTOMER_EMAIL_COOKIE = "dc_ce";
@@ -42,8 +80,12 @@ const CUSTOMER_EMAIL_COOKIE = "dc_ce";
 type PaymentResult = {
   transaction_id: string;
   ticket_id: string | null;
+  ticket_code: string | null;
+  ticket_quantity: number | null;
+  entrance_auto_checkin: boolean;
   email: string | null;
   amount: number;
+  welcome_cheer_amount: number | null;
   artist_name: string | null;
   artist_id: string | null;
   event_id: string | null;
@@ -204,7 +246,8 @@ function ThanksContent() {
 
   const email = result.email ?? emailFromCookie();
   const isVoucher = result.product_type === "custom" && result.payment_type === "V";
-  const isPurchase = result.product_type === "entrance" || isVoucher;
+  const isDrinkTicket = result.product_type === "custom" && result.payment_type === "D";
+  const isPurchase = result.product_type === "entrance" || isVoucher || isDrinkTicket;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans pb-20">
@@ -250,8 +293,8 @@ function ThanksContent() {
           </div>
         )}
 
-        {/* Apple Wallet ボタン（iOS/macOS のみ） */}
-        {isAppleDevice() && (isPurchase ? !!result.ticket_id : true) && (
+        {/* Apple Wallet ボタン（iOS/macOS のみ。ドリンクチケットはスキャン運用が無いため対象外） */}
+        {isAppleDevice() && !isDrinkTicket && (isPurchase ? !!result.ticket_id : true) && (
           <a
             href={
               isPurchase
@@ -276,17 +319,53 @@ function ThanksContent() {
         )}
 
         {/* バウチャー引換QR（custom/V の場合） */}
-        {result.product_type === "custom" && result.payment_type === "V" && result.ticket_id && (
-          <VoucherQR ticketId={result.ticket_id} productName={result.product_name ?? ""} amount={result.amount} />
+        {isVoucher && result.ticket_code && (
+          <TicketCheckinQR
+            ticketCode={result.ticket_code}
+            title="引換券"
+            productName={result.product_name ?? ""}
+            amount={result.amount}
+            welcomeCheerAmount={result.welcome_cheer_amount}
+            hint="スタッフにこの画面を見せてください"
+          />
         )}
 
-        {/* Cheers カード（バウチャー以外） */}
-        {!(result.product_type === "custom" && result.payment_type === "V") && (
+        {/* 入場QR（entrance の場合。B/Cタイプはこの場で即発券されるため、
+            その場でスタッフにスキャンしてもらう必要がある。
+            ただしauto_checkin設定時は決済と同時に入場確定済みのためQRは出さない） */}
+        {result.product_type === "entrance" && result.ticket_code && !result.entrance_auto_checkin && (
+          <TicketCheckinQR
+            ticketCode={result.ticket_code}
+            title="入場QR"
+            productName={result.product_name ?? ""}
+            amount={result.amount}
+            welcomeCheerAmount={result.welcome_cheer_amount}
+            hint="入場時にスタッフへこの画面を見せてください"
+          />
+        )}
+
+        {/* auto_checkin: 決済完了と同時に入場確定済み。QRスキャンは不要 */}
+        {result.product_type === "entrance" && result.entrance_auto_checkin && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-3xl p-6 text-center space-y-2">
+            <CheckCircle size={28} className="text-emerald-400 mx-auto" />
+            <p className="text-base font-black text-white">入場確定済み</p>
+            <p className="text-xs text-slate-400">このままご入場いただけます</p>
+          </div>
+        )}
+
+        {/* ドリンクチケット: QRの代わりに、大きな杯数表示＋経過秒数カウンターで受け渡し証跡とする */}
+        {isDrinkTicket && result.ticket_quantity != null && (
+          <DrinkTicketReceipt quantity={result.ticket_quantity} productName={result.product_name ?? ""} />
+        )}
+
+        {/* Cheers カード（バウチャー・ドリンクチケット以外） */}
+        {!(result.product_type === "custom" && (result.payment_type === "V" || result.payment_type === "D")) && (
           <CheersCard
             artistName={result.recipient_name ?? result.artist_name ?? "Artist"}
             eventTitle={result.event_title ?? ""}
             artistAvatar={result.recipient_avatar ?? result.artist_avatar}
             amount={result.amount}
+            welcomeCheerAmount={result.welcome_cheer_amount}
             transactionId={result.transaction_id}
             serialNumber={result.serial_number}
             thanks={thanks}
@@ -294,6 +373,11 @@ function ThanksContent() {
             nickname={msgSent ? (msgNickname || null) : null}
             comment={msgSent ? (msgComment || null) : null}
           />
+        )}
+
+        {/* ウェルカムチア（entrance × ticket_idありのみ） */}
+        {result.product_type === "entrance" && result.ticket_id && (
+          <WelcomeCheerPicker ticketId={result.ticket_id} />
         )}
 
         {/* メッセージ送信（message タイプのみ） */}

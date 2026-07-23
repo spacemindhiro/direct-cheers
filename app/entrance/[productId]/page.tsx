@@ -40,12 +40,6 @@ const PAYMENT_TYPE_INFO = {
     color: "text-green-400",
     bg: "bg-green-500/10 border-green-500/30",
   },
-  C: {
-    label: "当日決済プラン",
-    description: "今日カードを保存し、当日チェックイン時に決済されます",
-    color: "text-amber-400",
-    bg: "bg-amber-500/10 border-amber-500/30",
-  },
 };
 
 function CheckoutFormAC({
@@ -282,6 +276,21 @@ function EntrancePageContent() {
     );
   }
 
+  // タイプC（当日決済）は事前予約の対象外。当日、会場でのタッチ決済/QR自己決済のみ購入可能。
+  if (product.payment_type === "C") {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center px-6">
+        <div className="max-w-md text-center space-y-3">
+          <Ticket size={32} className="text-indigo-400 mx-auto" />
+          <p className="text-white font-black text-lg">{product.name}</p>
+          <p className="text-slate-400 text-sm">
+            このチケットは事前予約の対象外です。イベント当日、会場にてタッチ決済またはQRコードからご購入ください。
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const typeInfo = PAYMENT_TYPE_INFO[product.payment_type];
 
   return (
@@ -417,11 +426,7 @@ function EntrancePageContent() {
                 <CreditCard size={14} className="text-indigo-400" />
                 <p className="text-sm font-black text-white">カード情報を入力</p>
               </div>
-              <p className="text-xs text-slate-500">
-                {product.payment_type === "C"
-                  ? "当日チェックイン時に自動決済されます"
-                  : "イベント5日前に自動決済されます"}
-              </p>
+              <p className="text-xs text-slate-500">イベント5日前に自動決済されます</p>
               <Elements stripe={stripePromise} options={{ clientSecret: setupData.clientSecret }}>
                 <CheckoutFormAC
                   product={product}
@@ -438,15 +443,13 @@ function EntrancePageContent() {
             <div className="bg-green-500/10 border border-green-500/30 rounded-[2rem] p-6 text-center space-y-3">
               <CheckCircle size={32} className="text-green-400 mx-auto" />
               <p className="text-xl font-black text-white">
-                {product.payment_type === "C" ? "予約完了！" : product.payment_type === "A" ? "予約完了！" : "購入完了！"}
+                {product.payment_type === "A" ? "予約完了！" : "購入完了！"}
               </p>
               <p className="text-sm text-slate-400">
                 {product.payment_type === "A" && setupData?.isAuth
                   ? "カードのオーソリ完了。チケットが発行されました。請求はイベント開催確認後に行われます"
                   : product.payment_type === "A"
                   ? "カードを保存しました。イベント5日前に自動決済・チケット発行されます"
-                  : product.payment_type === "C"
-                  ? "当日入場時にチェックインしてください"
                   : "チケットがウォレットに保存されました"}
               </p>
             </div>

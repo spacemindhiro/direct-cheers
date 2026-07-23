@@ -95,6 +95,7 @@ export default function ProfileEditPage() {
   const [inviter, setInviter] = useState<{ display_name: string | null; profile_id: string } | null>(null);
   const [signedDoc, setSignedDoc] = useState<{ id: string; signed_at: string } | null>(null);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'other'>('other');
+  const [updatingConnect, setUpdatingConnect] = useState(false);
   const router = useRouter();
 
   const applyProfileData = (data: Profile) => {
@@ -246,6 +247,22 @@ export default function ProfileEditPage() {
   const isCreator   = isArtist || isOrganizer || isAgent;
 
   const stripeConnected = !!profile?.stripe_connect_id;
+  const handleOpenUpdateLink = async () => {
+    setUpdatingConnect(true);
+    try {
+      const res = await fetch('/api/stripe/connect/update-link', { method: 'POST' });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error(data.error ?? '変更用リンクの発行に失敗しました');
+        setUpdatingConnect(false);
+      }
+    } catch {
+      toast.error('変更用リンクの発行に失敗しました');
+      setUpdatingConnect(false);
+    }
+  };
 
   return (
     <>
@@ -458,6 +475,18 @@ export default function ProfileEditPage() {
                   </p>
                 </div>
               </div>
+            )}
+
+            {stripeConnected && (profile?.verification_status === 'verified' || profile?.verification_status === 'pending') && (
+              <button
+                type="button"
+                onClick={handleOpenUpdateLink}
+                disabled={updatingConnect}
+                className="flex items-center justify-between w-full h-12 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-2xl px-5 font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
+              >
+                <span>{updatingConnect ? '読み込み中...' : '口座情報・本人確認情報を変更する'}</span>
+                <ChevronRight size={16} />
+              </button>
             )}
 
             {(!stripeConnected || profile?.verification_status === 'unverified' || profile?.verification_status === 'rejected') && (

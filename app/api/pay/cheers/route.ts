@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { checkConnectCapabilities } from "@/lib/stripe-check";
 import { buildStatementDescriptorSuffixes } from "@/lib/statement-descriptor";
+import { resolveDrinkUnitPrice } from "@/lib/drink-ticket-pricing";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
         recipient_name_context,
         event:events!event_id(organizer_profile_id, title, venue),
         recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii),
-        product:products!product_id(min_amount, max_amount, deleted_at)
+        product:products!product_id(min_amount, max_amount, deleted_at, type, payment_type, quantity_selectable, bulk_pricing)
       `)
       .eq("qr_config_id", qr_config_id)
       .single(),
@@ -85,7 +86,11 @@ export async function POST(req: Request) {
   // 送ることで、min/maxチェックをすり抜けられてしまう（product_idはページ閲覧時点で誰でも見える値のため）。
   // qr_configs.product_id が未設定の古いQR（1QR:1商品の紐付け導入以前のデータ）は、
   // 同一イベントの商品であることのみを検証するフォールバックにする。
-  let resolvedProduct: { min_amount: number; max_amount: number } | null = null;
+  let resolvedProduct: {
+    min_amount: number; max_amount: number;
+    type?: string; payment_type?: string | null;
+    quantity_selectable?: boolean; bulk_pricing?: { min_quantity: number; unit_price: number }[] | null;
+  } | null = null;
   if (qrc.product_id) {
     if (product_id !== qrc.product_id) {
       return NextResponse.json({ error: "この決済リンクに対応する商品ではありません" }, { status: 400 });
@@ -97,7 +102,7 @@ export async function POST(req: Request) {
   } else {
     const { data: fallbackProduct } = await admin
       .from("products")
-      .select("event_id, min_amount, max_amount")
+      .select("event_id, min_amount, max_amount, type, payment_type, quantity_selectable, bulk_pricing")
       .eq("product_id", product_id)
       .is("deleted_at", null)
       .single();
@@ -116,6 +121,17 @@ export async function POST(req: Request) {
       { error: `Amount must be between ${resolvedProduct.min_amount} and ${resolvedProduct.max_amount}` },
       { status: 400 },
     );
+  }
+
+  // ドリンクチケット（custom×Dタイプ）: 単価はクライアントの申告を一切信用せず、
+  // DBに保存された基準単価・まとめ買い割引ティアと数量からサーバー側で確定計算する。
+  const isDrinkTicket = resolvedProduct.type === "custom" && resolvedProduct.payment_type === "D";
+  let effectiveUnitAmount = amount;
+  if (isDrinkTicket) {
+    if (resolvedProduct.quantity_selectable === false && quantity !== 1) {
+      return NextResponse.json({ error: "この商品は数量を指定できません" }, { status: 400 });
+    }
+    effectiveUnitAmount = resolveDrinkUnitPrice(resolvedProduct.min_amount, resolvedProduct.bulk_pricing, quantity);
   }
 
   // このルートはチア/メッセージ決済専用（入場券は /api/entrance/reserve）なので isEntrance は常にfalse
@@ -183,7 +199,7 @@ export async function POST(req: Request) {
             // 実会場のあるイベント興行での決済であることをStripe側に明示する
             ...(eventRow?.venue ? { description: `イベント会場: ${eventRow.venue}` } : {}),
           },
-          unit_amount: amount,
+          unit_amount: effectiveUnitAmount,
         },
         quantity,
       },

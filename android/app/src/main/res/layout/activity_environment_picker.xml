@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@color/siteBackground"
+    android:padding="32dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="DIRECT CHEERS"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="接続先の環境を選択してください"
+        android:textColor="#94A3B8"
+        android:textSize="13sp"
+        android:layout_marginBottom="32dp" />
+
+    <Button
+        android:id="@+id/btn_env_stg"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginBottom="12dp"
+        android:text="STG（検証環境）"
+        android:textAllCaps="false"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#4F46E5" />
+
+    <Button
+        android:id="@+id/btn_env_production"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginBottom="12dp"
+        android:text="本番環境"
+        android:textAllCaps="false"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#DB2777" />
+
+    <Button
+        android:id="@+id/btn_env_local"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginBottom="32dp"
+        android:text="ローカル開発（localhost:3000）"
+        android:textAllCaps="false"
+        android:textSize="14sp"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#334155" />
+
+    <TextView
+        android:id="@+id/tv_last_env"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#64748B"
+        android:textSize="11sp" />
+
+</LinearLayout>

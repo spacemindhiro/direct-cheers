@@ -251,9 +251,11 @@ export function DigitalTicket({
             )}
           </div>
           <div className="bg-slate-900/60 rounded-2xl px-4 py-3 border border-slate-700/40">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Plan</p>
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{isDrinkTicket ? "Quantity" : "Plan"}</p>
             {isDrinkTicket ? (
-              <p className="text-sm font-black text-indigo-300 mt-0.5">{quantity ?? 1}杯</p>
+              <p className="text-sm font-black text-indigo-300 mt-0.5">
+                {(quantity ?? 1) === 1 ? "1" : `${quantity}杯`}
+              </p>
             ) : isVoucher ? (
               <p className="text-sm font-black text-indigo-300 mt-0.5">バウチャー</p>
             ) : paymentType && paymentTypeLabel[paymentType] ? (
@@ -278,7 +280,7 @@ export function DigitalTicket({
                 day: "numeric",
                 hour: "2-digit",
                 minute: "2-digit",
-              })} に{isVoucher ? "引き換え済み" : "入場済み"}
+              })} に{isDrinkTicket ? "決済済み" : isVoucher ? "引き換え済み" : "入場済み"}
             </p>
           </div>
         )}

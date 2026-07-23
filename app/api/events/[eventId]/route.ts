@@ -43,9 +43,10 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { title, venue, start_at, end_at, artists, artist_ids, paypay_enabled } = body as {
+  const { title, venue, venue_id, start_at, end_at, artists, artist_ids, paypay_enabled } = body as {
     title?: string;
     venue?: string;
+    venue_id?: string | null;
     start_at?: string;
     end_at?: string;
     artists?: { profile_id: string; invite_message?: string | null }[];
@@ -66,6 +67,7 @@ export async function PATCH(
   const updates: Record<string, unknown> = {};
   if (title !== undefined) updates.title = title;
   if (venue !== undefined) updates.venue = venue;
+  if (venue_id !== undefined) updates.venue_id = venue_id || null;
   if (start_at !== undefined) updates.start_at = start_at;
   if (end_at !== undefined) updates.end_at = end_at;
   if (paypay_enabled !== undefined) updates.paypay_enabled = paypay_enabled;

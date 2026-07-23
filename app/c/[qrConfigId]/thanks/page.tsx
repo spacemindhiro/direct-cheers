@@ -61,7 +61,6 @@ function DrinkTicketReceipt({ quantity, productName }: { quantity: number; produ
       <p className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em]">{productName || "ドリンクチケット"}</p>
       <p className="text-8xl font-black text-white italic tracking-tighter tabular-nums leading-none">
         {quantity}
-        <span className="text-2xl not-italic ml-2">杯</span>
       </p>
       <div className="flex items-center justify-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />

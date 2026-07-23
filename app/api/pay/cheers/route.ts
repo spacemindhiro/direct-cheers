@@ -65,7 +65,7 @@ export async function POST(req: Request) {
         recipient_name_context,
         event:events!event_id(organizer_profile_id, title, venue),
         recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii),
-        product:products!product_id(min_amount, max_amount, deleted_at, type, payment_type, quantity_selectable, bulk_pricing)
+        product:products!product_id(name, min_amount, max_amount, deleted_at, type, payment_type, quantity_selectable, bulk_pricing)
       `)
       .eq("qr_config_id", qr_config_id)
       .single(),
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
   // qr_configs.product_id が未設定の古いQR（1QR:1商品の紐付け導入以前のデータ）は、
   // 同一イベントの商品であることのみを検証するフォールバックにする。
   let resolvedProduct: {
-    min_amount: number; max_amount: number;
+    name?: string; min_amount: number; max_amount: number;
     type?: string; payment_type?: string | null;
     quantity_selectable?: boolean; bulk_pricing?: { min_quantity: number; unit_price: number }[] | null;
   } | null = null;
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
   } else {
     const { data: fallbackProduct } = await admin
       .from("products")
-      .select("event_id, min_amount, max_amount, type, payment_type, quantity_selectable, bulk_pricing")
+      .select("event_id, name, min_amount, max_amount, type, payment_type, quantity_selectable, bulk_pricing")
       .eq("product_id", product_id)
       .is("deleted_at", null)
       .single();
@@ -126,6 +126,12 @@ export async function POST(req: Request) {
   // ドリンクチケット（custom×Dタイプ）: 単価はクライアントの申告を一切信用せず、
   // DBに保存された基準単価・まとめ買い割引ティアと数量からサーバー側で確定計算する。
   const isDrinkTicket = resolvedProduct.type === "custom" && resolvedProduct.payment_type === "D";
+  // このQRから購入できる商品のうち、チア/メッセージ以外（エントランス券・バウチャー・
+  // ドリンクチケット）は「応援」ではなく対価のある「購入」なので、Stripeの明細名も
+  // 「◯◯への応援」ではなく商品名そのものを出す。
+  const isVoucher = resolvedProduct.type === "custom" && resolvedProduct.payment_type === "V";
+  const isEntranceTicket = resolvedProduct.type === "entrance";
+  const isPurchase = isDrinkTicket || isVoucher || isEntranceTicket;
   let effectiveUnitAmount = amount;
   if (isDrinkTicket) {
     if (resolvedProduct.quantity_selectable === false && quantity !== 1) {
@@ -193,9 +199,11 @@ export async function POST(req: Request) {
         price_data: {
           currency: "jpy",
           product_data: {
-            name: metadata?.artist_name
-              ? `${metadata.artist_name} への応援 / ${metadata.event_title ?? ""}`
-              : "Direct Cheers",
+            name: isPurchase
+              ? `${resolvedProduct.name ?? "商品"} / ${metadata?.event_title ?? ""}`
+              : metadata?.artist_name
+                ? `${metadata.artist_name} への応援 / ${metadata.event_title ?? ""}`
+                : "Direct Cheers",
             // 実会場のあるイベント興行での決済であることをStripe側に明示する
             ...(eventRow?.venue ? { description: `イベント会場: ${eventRow.venue}` } : {}),
           },

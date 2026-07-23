@@ -4,9 +4,11 @@ import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { jstLocalToUtcIso, addHoursToLocalDT } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { VenueSelect } from "@/components/venue-select";
 import { ArrowRight, Loader2, Search, X, Plus } from "lucide-react";
 
 type Artist = { profile_id: string; display_name: string; status?: string };
+type Venue = { venue_id: string; name: string; prefecture: string; city: string };
 
 type EventEditFormProps = {
   eventId: string;
@@ -16,6 +18,7 @@ type EventEditFormProps = {
     start_at: string;
     end_at: string;
   };
+  initialVenue: Venue | null;
   currentArtists: Artist[];
   connectedArtists: Artist[];
   lifecycleStatus: string;
@@ -24,6 +27,7 @@ type EventEditFormProps = {
 export function EventEditForm({
   eventId,
   defaultValues,
+  initialVenue,
   currentArtists,
   connectedArtists,
   lifecycleStatus,
@@ -79,6 +83,7 @@ export function EventEditForm({
     const fd = new FormData(e.currentTarget);
     const title = fd.get("title") as string;
     const venue = fd.get("venue") as string;
+    const venue_id = (fd.get("venue_id") as string) || null;
     const start_at = fd.get("start_at") as string;
     const end_at = fd.get("end_at") as string;
 
@@ -94,6 +99,7 @@ export function EventEditForm({
         body: JSON.stringify({
           title,
           venue,
+          venue_id,
           start_at: jstLocalToUtcIso(start_at),
           end_at: jstLocalToUtcIso(end_at),
           artists: selectedArtists.map((a) => ({
@@ -139,17 +145,7 @@ export function EventEditForm({
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-            会場
-          </label>
-          <Input
-            name="venue"
-            defaultValue={defaultValues.venue}
-            required
-            className="h-14 bg-slate-950/50 border-slate-700 rounded-2xl px-5 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
-        </div>
+        <VenueSelect initialName={defaultValues.venue} initialSelected={initialVenue} />
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">

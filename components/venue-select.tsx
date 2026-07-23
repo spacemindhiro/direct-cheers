@@ -10,11 +10,11 @@ type Venue = { venue_id: string; name: string; prefecture: string; city: string 
 // イベント作成フォームの会場選択。会場マスタ(venues)は組織横断で共有するため、
 // オートコンプリートで既存会場を検索し、無ければその場で新規登録する。
 // 選択結果はhidden inputでvenue_id・会場名(表示用の従来venueテキスト)を親フォームに渡す。
-export function VenueSelect({ initialName }: { initialName?: string }) {
-  const [query, setQuery] = useState(initialName ?? "");
+export function VenueSelect({ initialName, initialSelected }: { initialName?: string; initialSelected?: Venue | null }) {
+  const [query, setQuery] = useState(initialSelected?.name ?? initialName ?? "");
   const [results, setResults] = useState<Venue[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selected, setSelected] = useState<Venue | null>(null);
+  const [selected, setSelected] = useState<Venue | null>(initialSelected ?? null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newVenueError, setNewVenueError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);

@@ -62,7 +62,7 @@ async function TicketsContent() {
   }
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8 pt-16 pb-20">
       <div className="space-y-1">
         <Link
           href="/dashboard"

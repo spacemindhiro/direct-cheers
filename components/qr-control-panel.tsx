@@ -163,6 +163,10 @@ export function QRControlPanel({
   const [pushError, setPushError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const channelRef = useRef<any>(null);
+  // CHANNEL_ERROR/TIMED_OUT/CLOSED後の再接続トリガー。インクリメントすると
+  // チャンネル購読useEffectが再実行され、チャンネルを作り直して再購読する。
+  const [reconnectNonce, setReconnectNonce] = useState(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── トラック・子機（DB） ───────────────────────────
   const [tracks, setTracks] = useState<DisplayTrack[]>([]);
@@ -213,6 +217,10 @@ export function QRControlPanel({
 
   // Realtime channel setup
   useEffect(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     const supabase = createClient();
     const controlId = `ctrl-${crypto.randomUUID().slice(0, 8)}`;
 
@@ -226,18 +234,39 @@ export function QRControlPanel({
       setDevices(all.filter((d) => d.role === "display"));
     });
 
+    let cancelled = false;
+
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         setConnected(true);
         await channel.track({ role: "control", joined_at: new Date().toISOString() });
-      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
         setConnected(false);
+        // 子機側と同様、切断を検知したら数秒後に自動で再購読を試みる
+        // （cancelled=trueならこのeffectの片付け中の意図的なCLOSEDなので再接続しない）。
+        if (!cancelled) {
+          reconnectTimerRef.current = setTimeout(() => {
+            if (!cancelled) setReconnectNonce((n) => n + 1);
+          }, 5000);
+        }
       }
     });
 
     channelRef.current = channel;
-    return () => { supabase.removeChannel(channel); };
-  }, [eventId]);
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [eventId, reconnectNonce]);
+
+  // 手動再接続ボタン用。保留中の自動リトライがあれば先に打ち消してから即座に再購読する。
+  const handleReconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    setReconnectNonce((n) => n + 1);
+  }, []);
 
   // スケジュール取得
   const fetchSchedules = useCallback(async (trackId: string | null) => {
@@ -814,9 +843,17 @@ export function QRControlPanel({
           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Control Panel</p>
           <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-tight">{eventTitle}</h1>
         </div>
-        {connected
-          ? <div className="flex items-center gap-1.5 text-xs text-green-400 font-bold"><Radio size={12} className="animate-pulse" /> LIVE</div>
-          : <div className="flex items-center gap-1.5 text-xs text-red-400 font-bold"><WifiOff size={12} /> 切断中</div>}
+        {connected ? (
+          <div className="flex items-center gap-1.5 text-xs text-green-400 font-bold"><Radio size={12} className="animate-pulse" /> LIVE</div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleReconnect}
+            className="flex items-center gap-1.5 text-xs text-red-400 font-bold bg-red-500/10 border border-red-500/30 rounded-full px-3 py-1.5"
+          >
+            <WifiOff size={12} /> 切断中・再接続
+          </button>
+        )}
       </div>
 
       {/* タブ切り替え（大分類） */}

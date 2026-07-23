@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveCheerCardIdentity } from "@/lib/statement-descriptor";
 
 async function resolveContext(qrConfigId: string, userId: string) {
   const supabase = await createClient();
@@ -64,7 +65,7 @@ export async function GET(
       .eq("entrance_product_id", product.product_id),
     admin
       .from("products")
-      .select("product_id, name, artist_id, artist:profiles!artist_id(display_name, avatar_url)")
+      .select("product_id, name, artist_id")
       .eq("event_id", qr.event_id)
       .eq("type", "standard")
       .eq("min_amount", product.welcome_cheer_amount)
@@ -85,15 +86,63 @@ export async function GET(
     .filter((id) => id !== product.welcome_cheer_default_product_id)
     .filter((id) => candidateIdSet.has(id));
 
+  // 表示名・アバターは、候補商品に紐づくQRの宛先設定（recipient_profile_id・
+  // recipient_name_context）を優先して解決する。product.artist_idの生の
+  // display_name/avatar_urlを直接使うと、QRが「主催者名義」だったり演者が
+  // 名義専用の別名・別写真を設定していたりする場合に、実際のQR表示と
+  // 名前・写真が一致しなくなる（他のCheersカード表示と同じルールで揃える）。
+  const productIds = (candidateProducts ?? []).map((p: any) => p.product_id);
+  const { data: qrConfigRows } = productIds.length > 0
+    ? await admin
+        .from("qr_configs")
+        .select("product_id, recipient_profile_id, recipient_name_context")
+        .in("product_id", productIds)
+        .is("deleted_at", null)
+    : { data: [] };
+  const qrConfigByProduct = new Map((qrConfigRows ?? []).map((q) => [q.product_id, q]));
+
+  const artistIds = (candidateProducts ?? []).map((p: any) => p.artist_id).filter((id): id is string => !!id);
+  const recipientIds = (qrConfigRows ?? []).map((q) => q.recipient_profile_id).filter((id): id is string => !!id);
+  const allProfileIds = [...new Set([...artistIds, ...recipientIds])];
+  const { data: profileRows } = allProfileIds.length > 0
+    ? await admin
+        .from("profiles")
+        .select("profile_id, display_name, avatar_url, artist_name, organizer_name, artist_avatar_url, organizer_avatar_url")
+        .in("profile_id", allProfileIds)
+    : { data: [] };
+  const profileMap = new Map((profileRows ?? []).map((p) => [p.profile_id, p]));
+
   return NextResponse.json({
     welcome_cheer_amount: product.welcome_cheer_amount,
     eligible_product_ids: eligibleIds,
-    candidates: (candidateProducts ?? []).map((p: any) => ({
-      product_id: p.product_id,
-      name: p.name,
-      artist_name: p.artist?.display_name ?? null,
-      artist_avatar: p.artist?.avatar_url ?? null,
-    })),
+    candidates: (candidateProducts ?? []).map((p: any) => {
+      const qrc = qrConfigByProduct.get(p.product_id);
+      const recipient = qrc?.recipient_profile_id ? profileMap.get(qrc.recipient_profile_id) : null;
+      const artist = p.artist_id ? profileMap.get(p.artist_id) : null;
+      const { name, avatarUrl } = resolveCheerCardIdentity({
+        recipientNameContext: (qrc?.recipient_name_context as "organizer" | "artist") ?? "artist",
+        recipient: recipient ? {
+          organizerName: recipient.organizer_name,
+          artistName: recipient.artist_name,
+          displayName: recipient.display_name,
+          organizerAvatarUrl: recipient.organizer_avatar_url,
+          artistAvatarUrl: recipient.artist_avatar_url,
+          avatarUrl: recipient.avatar_url,
+        } : null,
+        productArtist: artist ? {
+          artistName: artist.artist_name,
+          displayName: artist.display_name,
+          avatarUrl: artist.avatar_url,
+        } : null,
+        fallbackName: p.name,
+      });
+      return {
+        product_id: p.product_id,
+        name: p.name,
+        artist_name: name,
+        artist_avatar: avatarUrl,
+      };
+    }),
   });
 }
 

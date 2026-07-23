@@ -528,6 +528,13 @@ export function QRBoardDisplay({
   // NFCタグのリダイレクト先（この機材が載っているホルダーのcurrent_qr_config_id）を
   // 実際の表示に同期。グループモードで一覧表示中(qrState=null)はnullを送り
   // ホームへのフォールバックに任せる。
+  //
+  // キオスク端末は数時間〜終日開きっぱなしで運用するため、セッション切れ等で
+  // このリクエストが認証エラーになると、画面自体は正常に動いて見えるのに
+  // NFCタグの飛び先だけがDB上ずっと更新されなくなる（表示は合っているのに
+  // 来場者だけ古い/空のQRに飛ばされる）。手動リロードでしか復旧できないと
+  // 気づくのが遅れるため、401/403を検知したら自動でページをリロードし
+  // 認証をやり直させることで自己修復させる。
   const syncBoothDevice = useCallback(() => {
     if (!masterDeviceId) return;
     const qrConfigId = qrStateRef.current?.qr_config_id ?? null;
@@ -535,7 +542,11 @@ export function QRBoardDisplay({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_id: masterDeviceId, event_id: eventId, qr_config_id: qrConfigId }),
-    }).catch(() => {});
+    })
+      .then((res) => {
+        if (res.status === 401 || res.status === 403) window.location.reload();
+      })
+      .catch(() => {});
   }, [eventId, masterDeviceId]);
 
   // 割り当てられたトラックのタイムテーブルを取得

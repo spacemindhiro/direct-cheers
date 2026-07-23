@@ -216,6 +216,10 @@ export function QRBoardDisplay({
   });
   const [flash, setFlash] = useState(false);
   const [connected, setConnected] = useState(false);
+  // CHANNEL_ERROR/TIMED_OUT/CLOSED後の再接続トリガー。インクリメントすると
+  // チャンネル購読useEffectが再実行され、チャンネルを作り直して再購読する。
+  const [reconnectNonce, setReconnectNonce] = useState(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // タイムテーブル
   const [schedules, setSchedules] = useState<DisplaySchedule[]>([]);
@@ -776,6 +780,10 @@ export function QRBoardDisplay({
     // 機材IDが確定するまで購読しない（presenceキーが仮IDのまま登録されて
     // 親機に幽霊デバイスとして見えるのを防ぐ）
     if (!masterDeviceId) return;
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
     const supabase = createClient();
     const deviceId = masterDeviceId;
 
@@ -864,14 +872,25 @@ export function QRBoardDisplay({
       registerDevice().then((trackId) => fetchSchedules(trackId));
     });
 
+    let cancelled = false;
+
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         setConnected(true);
+        setChannelError(null);
         const battery = await getBatteryLevel();
         channel.track({ role: "display", device_id: deviceId, device_name: deviceName, battery_level: battery, joined_at: new Date().toISOString() });
-      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
         setConnected(false);
         setChannelError(`接続エラー: ${status}`);
+        // ネットワーク瞬断・端末スリープ復帰等での切断は自動では復帰しないため、
+        // 数秒後に自動で再購読を試みる（cancelled=trueならこのeffectの片付け中の
+        // 意図的なCLOSEDなので再接続しない）。
+        if (!cancelled) {
+          reconnectTimerRef.current = setTimeout(() => {
+            if (!cancelled) setReconnectNonce((n) => n + 1);
+          }, 5000);
+        }
       }
     });
 
@@ -881,6 +900,7 @@ export function QRBoardDisplay({
     }, 5 * 60 * 1000);
 
     return () => {
+      cancelled = true;
       clearInterval(timer);
       if (surgeTimerRef.current) clearTimeout(surgeTimerRef.current);
       if (counterPulseTimerRef.current) clearTimeout(counterPulseTimerRef.current);
@@ -891,7 +911,16 @@ export function QRBoardDisplay({
       }
       supabase.removeChannel(channel);
     };
-  }, [eventId, deviceName, masterDeviceId, onCheerNew, registerDevice, fetchSchedules, applySchedule, applyGroup, clearGroupReturnTimer]);
+  }, [eventId, deviceName, masterDeviceId, onCheerNew, registerDevice, fetchSchedules, applySchedule, applyGroup, clearGroupReturnTimer, reconnectNonce]);
+
+  // 手動再接続ボタン用。保留中の自動リトライがあれば先に打ち消してから即座に再購読する。
+  const handleReconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    setReconnectNonce((n) => n + 1);
+  }, []);
 
   // 長押し検出（3秒でロック解除モーダル表示）
   const HOLD_DURATION = 3000;
@@ -1050,9 +1079,18 @@ export function QRBoardDisplay({
           {schedules.length > 0 && !isForcedOverride && (
             <span className="text-[9px] font-black text-indigo-400/60 uppercase tracking-widest">AUTO</span>
           )}
-          {connected
-            ? <Wifi size={14} className="text-green-400/50" />
-            : <WifiOff size={14} className="text-red-400/50" />}
+          {connected ? (
+            <Wifi size={14} className="text-green-400/50" />
+          ) : (
+            <button
+              type="button"
+              onClick={handleReconnect}
+              className="pointer-events-auto flex items-center gap-1 text-red-400 bg-red-500/10 border border-red-500/30 rounded-full px-2 py-1"
+            >
+              <WifiOff size={12} />
+              <span className="text-[9px] font-black uppercase tracking-widest">再接続</span>
+            </button>
+          )}
         </div>
 
         {/* チア数カウンター */}
@@ -1169,6 +1207,15 @@ export function QRBoardDisplay({
               ? <p className="text-red-400 font-bold text-sm">{channelError}</p>
               : <p className="text-slate-400 font-bold text-sm">親機からの指示を待機中</p>}
             <p className="text-slate-600 text-xs">{eventTitle}</p>
+            {channelError && (
+              <button
+                type="button"
+                onClick={handleReconnect}
+                className="pointer-events-auto flex items-center gap-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold rounded-full px-4 py-2"
+              >
+                <WifiOff size={12} /> 再接続
+              </button>
+            )}
           </div>
         )}
 

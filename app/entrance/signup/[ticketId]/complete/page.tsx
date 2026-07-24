@@ -22,7 +22,7 @@ async function TouchpaySignupCompleteContent({
       <p className="text-lg font-black text-white">アカウントに紐付けました</p>
       <p className="text-sm text-slate-400">今日の入場チケットはマイチケットからいつでも確認できます</p>
       <Link
-        href="/tickets"
+        href={`/tickets#ticket-${ticketId}`}
         className="w-full max-w-xs h-12 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center mt-2"
       >
         マイチケットを見る

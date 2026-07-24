@@ -90,7 +90,11 @@ async function TicketsContent() {
       ) : (
         <div className="space-y-6">
           {list.map((t: any) => (
-            <div key={t.ticket_id} className="space-y-3">
+            <div
+              key={t.ticket_id}
+              id={`ticket-${t.ticket_id}`}
+              className="space-y-3 rounded-3xl scroll-mt-6 target:ring-2 target:ring-pink-500 target:ring-offset-4 target:ring-offset-slate-950"
+            >
               <DigitalTicket
                 ticketId={t.ticket_id}
                 ticketCode={t.ticket_code}

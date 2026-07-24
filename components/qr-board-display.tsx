@@ -1178,7 +1178,7 @@ export function QRBoardDisplay({
           </div>
         ) : groupMode && groupList.length > 1 ? (
           <div className="relative flex flex-col items-center gap-4 px-6 py-8 w-full h-full max-h-full">
-            <p className="text-2xl font-black text-white text-center">読み取りたい宛先を選んでください</p>
+            <p className="text-2xl font-black text-white text-center">読み取りたいQRコードを選んでください</p>
             <div
               ref={groupListScrollRef}
               onScroll={checkScrollBottom}

@@ -4,7 +4,7 @@ import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const STEP_UP_MAX_AGE = 480 * 60; // 480分（秒単位）。dashboard layout の STEP_UP_TTL_MS と一致させる
+const STEP_UP_MAX_AGE = 1440 * 60; // 24時間（秒単位）。dashboard layout の STEP_UP_TTL_MS と一致させる
 
 function getRpIdAndOrigin(req: Request): { rpId: string; origin: string } {
   const host = req.headers.get("host") ?? "localhost";

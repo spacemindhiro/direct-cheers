@@ -7,7 +7,7 @@ import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { StepUpForm } from '@/components/step-up-form';
 
-const STEP_UP_TTL_MS = 480 * 60 * 1000;
+const STEP_UP_TTL_MS = 1440 * 60 * 1000; // 24時間
 
 async function StepUpContent({
   searchParams,

@@ -4,7 +4,7 @@ import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-const STEP_UP_MAX_AGE = 480 * 60; // 480分（秒単位）
+const STEP_UP_MAX_AGE = 1440 * 60; // 24時間（秒単位）
 
 function getRpIdAndOrigin(req: Request) {
   const host = req.headers.get('host') ?? 'localhost';

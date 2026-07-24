@@ -9,7 +9,7 @@ import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner'
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
 
 const STEP_UP_ROLES = ['artist', 'organizer', 'agent', 'admin'] as const;
-const STEP_UP_TTL_MS = 480 * 60 * 1000;
+const STEP_UP_TTL_MS = 1440 * 60 * 1000; // 24時間
 
 async function DashboardNav() {
   const supabase = await createClient();

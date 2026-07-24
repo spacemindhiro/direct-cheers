@@ -32,9 +32,6 @@ function ProfileSetupForm() {
 
   const handleSubmit = (formData: FormData) => {
     const displayName = (formData.get('display_name') as string).trim();
-    const instagram = (formData.get('instagram') as string).trim();
-    const soundcloud = (formData.get('soundcloud') as string).trim();
-    const website = (formData.get('website') as string).trim();
 
     startTransition(async () => {
       setError(null);
@@ -46,18 +43,12 @@ function ProfileSetupForm() {
         return;
       }
 
-      const socialLinks: Record<string, string> = {};
-      if (instagram) socialLinks.instagram = instagram;
-      if (soundcloud) socialLinks.soundcloud = soundcloud;
-      if (website) socialLinks.website = website;
-
       const { error: insertError } = await supabase
         .from('profiles')
         .upsert({
           profile_id: user.id,
           display_name: displayName,
           role: 'user',
-          social_links: socialLinks,
         }, { onConflict: 'profile_id' });
 
       if (insertError) {
@@ -155,31 +146,6 @@ function ProfileSetupForm() {
                 placeholder="あなたの名前またはニックネーム"
                 required
                 className="w-full h-14 bg-slate-950/50 border border-slate-700 rounded-2xl px-5 text-sm text-white focus:border-pink-500 outline-none transition-all placeholder:text-slate-600 font-bold"
-              />
-            </div>
-
-            {/* SNSリンク（任意） */}
-            <div className="space-y-3">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-                Social Links <span className="text-slate-600 normal-case font-normal">（任意）</span>
-              </p>
-              <input
-                type="text"
-                name="instagram"
-                placeholder="Instagram URL"
-                className="w-full h-12 bg-slate-950/50 border border-slate-800 rounded-xl px-5 text-sm text-white focus:border-pink-500/50 outline-none transition-all placeholder:text-slate-700 font-medium"
-              />
-              <input
-                type="text"
-                name="soundcloud"
-                placeholder="SoundCloud URL"
-                className="w-full h-12 bg-slate-950/50 border border-slate-800 rounded-xl px-5 text-sm text-white focus:border-pink-500/50 outline-none transition-all placeholder:text-slate-700 font-medium"
-              />
-              <input
-                type="url"
-                name="website"
-                placeholder="Website URL"
-                className="w-full h-12 bg-slate-950/50 border border-slate-800 rounded-xl px-5 text-sm text-white focus:border-pink-500/50 outline-none transition-all placeholder:text-slate-700 font-medium"
               />
             </div>
 

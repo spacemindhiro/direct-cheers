@@ -60,7 +60,7 @@ export async function GET(request: Request) {
       res.cookies.set('dc_stepup', String(Date.now()), {
         httpOnly: true,
         sameSite: 'lax',
-        maxAge: 480 * 60,
+        maxAge: 1440 * 60, // 24時間
         path: '/',
       });
     }

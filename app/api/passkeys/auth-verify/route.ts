@@ -140,7 +140,7 @@ export async function POST(req: Request) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: 480 * 60,
+    maxAge: 1440 * 60, // 24時間
     path: '/',
   });
   return response;

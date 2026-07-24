@@ -13,6 +13,17 @@ type Props = {
   onSuccess?: () => void;
 };
 
+// stepup系API（getUser()必須）は、放置端末で裏のセッションが切れていると
+// 401 Unauthorizedを返す。パスキー自体は成功していても素っ気ないエラーが
+// 出るだけで「パスキーが壊れている」ように誤解されるため、この場合だけは
+// エラー表示せず再ログインへ誘導する。
+function redirectToLoginIfUnauthorized(message: string): boolean {
+  if (message !== "Unauthorized") return false;
+  const redirectTo = window.location.pathname + window.location.search;
+  window.location.href = `/auth/login?redirect=${encodeURIComponent(redirectTo)}`;
+  return true;
+}
+
 function getDeviceLabel(): string {
   if (typeof navigator === "undefined") return "";
   const ua = navigator.userAgent;
@@ -153,6 +164,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       onSuccess?.();
     } catch (err: any) {
       if (err.name === "NotAllowedError") { setStatus("idle"); return; }
+      if (redirectToLoginIfUnauthorized(err.message)) return;
       setErrorMsg(err.message ?? "エラーが発生しました");
       setStatus("error");
     }
@@ -185,6 +197,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       onSuccess?.();
     } catch (err: any) {
       if (err.name === "NotAllowedError") { setStatus("idle"); return; }
+      if (redirectToLoginIfUnauthorized(err.message)) return;
       setErrorMsg(err.message ?? "エラーが発生しました");
       setStatus("error");
     }

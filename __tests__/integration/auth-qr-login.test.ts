@@ -63,7 +63,7 @@ describe("TC-AUTH-QR: /auth/qr/[token]", () => {
     expect(setCookie).toContain("dc_stepup=");
     expect(setCookie).toContain("HttpOnly");
     expect(setCookie).toContain("Path=/");
-    expect(setCookie).toContain(`Max-Age=${480 * 60}`);
+    expect(setCookie).toContain(`Max-Age=${1440 * 60}`);
     // 値は発行時刻(ms)であること（過去10秒以内）
     const value = Number(setCookie.match(/dc_stepup=(\d+)/)?.[1]);
     expect(value).toBeGreaterThan(Date.now() - 10_000);

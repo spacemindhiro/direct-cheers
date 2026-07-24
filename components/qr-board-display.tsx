@@ -73,7 +73,10 @@ function getActiveSchedule(schedules: DisplaySchedule[], now: Date): DisplaySche
 // 名前・画像は「チアカード（/c/[qrConfigId]）」が使うのと同じ優先順位ロジック
 // （recipient_name_contextに応じたorganizer/artist名義 → product.artist → 未設定）で解決する。
 // 複数QRの選択タイルで見分けが付くようにするための画像なので、全QRでほぼ同じになりがちな
-// qr_configs.image_url（チアカード自体の画像）ではなく、宛先本人の写真を使う。
+// qr_configs.image_url（チアカード自体の画像）ではなく、宛先本人の写真を使うのが基本。
+// ただしエントランス・カスタム（バウチャー/ドリンクチケット）は同一主催者配下で
+// 宛先（オーガナイザー）画像が使い回されがちで、グループ一覧に並べると見分けが
+// つかず味気なくなるため、QR自体に個別画像が設定されていればそちらを優先する。
 function qrConfigToState(qc: QrConfigInfo, siteUrl: string, overrideLabel?: string | null): QRState | null {
   if (!qc) return null;
   const { name: artistName, avatarUrl: artistAvatarUrl } = resolveCheerCardIdentity({
@@ -97,13 +100,15 @@ function qrConfigToState(qc: QrConfigInfo, siteUrl: string, overrideLabel?: stri
       : null,
     fallbackName: "",
   });
+  const isTicketType = qc.product?.type === "entrance" || qc.product?.type === "custom";
+  const tileImageUrl = (isTicketType && qc.image_url) ? qc.image_url : artistAvatarUrl;
   return {
     qr_config_id: qc.qr_config_id,
     qr_url: `${siteUrl}/c/${qc.qr_config_id}`,
     product_name: qc.product?.name ?? "",
     label: overrideLabel ?? qc.label ?? qc.product?.name ?? "",
     artist_name: artistName,
-    artist_avatar_url: artistAvatarUrl,
+    artist_avatar_url: tileImageUrl,
   };
 }
 
@@ -528,6 +533,13 @@ export function QRBoardDisplay({
   // NFCタグのリダイレクト先（この機材が載っているホルダーのcurrent_qr_config_id）を
   // 実際の表示に同期。グループモードで一覧表示中(qrState=null)はnullを送り
   // ホームへのフォールバックに任せる。
+  //
+  // キオスク端末は数時間〜終日開きっぱなしで運用するため、セッション切れ等で
+  // このリクエストが認証エラーになると、画面自体は正常に動いて見えるのに
+  // NFCタグの飛び先だけがDB上ずっと更新されなくなる（表示は合っているのに
+  // 来場者だけ古い/空のQRに飛ばされる）。手動リロードでしか復旧できないと
+  // 気づくのが遅れるため、401/403を検知したら自動でページをリロードし
+  // 認証をやり直させることで自己修復させる。
   const syncBoothDevice = useCallback(() => {
     if (!masterDeviceId) return;
     const qrConfigId = qrStateRef.current?.qr_config_id ?? null;
@@ -535,7 +547,11 @@ export function QRBoardDisplay({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_id: masterDeviceId, event_id: eventId, qr_config_id: qrConfigId }),
-    }).catch(() => {});
+    })
+      .then((res) => {
+        if (res.status === 401 || res.status === 403) window.location.reload();
+      })
+      .catch(() => {});
   }, [eventId, masterDeviceId]);
 
   // 割り当てられたトラックのタイムテーブルを取得

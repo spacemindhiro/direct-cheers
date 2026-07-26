@@ -20,6 +20,11 @@ export function EvidenceUploadForm({ eventId }: Props) {
   const [converting, setConverting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  // TODO(調査用・恒久対応後に削除): 本番でアップロードした写真が0バイトになる
+  // 事象の原因究明のため、実機の画面上でファイルサイズの推移を直接確認できる
+  // よう一時的に仕込んでいるデバッグ表示。
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const log = (msg: string) => setDebugLog((prev) => [...prev, `${new Date().toLocaleTimeString("ja-JP")} ${msg}`]);
 
   // iPhoneのカメラで撮った写真はデフォルトでHEIC形式だが、ブラウザの<img>タグでは
   // 表示できない（保存自体は成功するため、証跡ページで壊れた画像アイコンになって
@@ -42,17 +47,24 @@ export function EvidenceUploadForm({ eventId }: Props) {
   };
 
   const convertIfHeic = async (file: File): Promise<File> => {
-    if (!(await isHeic(file))) return file;
+    log(`選択: ${file.name} size=${file.size} type=${file.type || "(空)"}`);
+    const heic = await isHeic(file);
+    log(`HEIC判定: ${heic} (この時点でのfile.size=${file.size})`);
+    if (!heic) return file;
     const { default: heic2any } = await import("heic2any");
     const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
     const blob = Array.isArray(result) ? result[0] : result;
+    log(`heic2any変換結果: size=${blob?.size ?? "(null)"}`);
     if (!blob || blob.size === 0) throw new Error("HEIC変換結果が空でした");
-    return new File([blob], file.name.replace(/\.(heic|heif)$/i, ".jpg"), { type: "image/jpeg" });
+    const converted = new File([blob], file.name.replace(/\.(heic|heif)$/i, ".jpg"), { type: "image/jpeg" });
+    log(`変換後File: size=${converted.size}`);
+    return converted;
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
     if (selected.length === 0) return;
+    log(`input選択イベント: ${selected.length}件`);
     setConverting(true);
     setError("");
     try {
@@ -60,7 +72,9 @@ export function EvidenceUploadForm({ eventId }: Props) {
       const next = [...files, ...converted].slice(0, 10);
       setFiles(next);
       setPreviews(next.map((f) => URL.createObjectURL(f)));
-    } catch {
+      log(`files state更新後: ${next.map((f) => f.size).join(",")}`);
+    } catch (err) {
+      log(`変換エラー: ${err instanceof Error ? err.message : String(err)}`);
       setError("写真の変換に失敗しました。別の写真でお試しください");
     } finally {
       setConverting(false);
@@ -84,6 +98,7 @@ export function EvidenceUploadForm({ eventId }: Props) {
       const uploadedPaths: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        log(`アップロード開始 ${i + 1}枚目: ${file.name} size=${file.size}`);
 
         // 1a. サーバーから署名付きURLを取得（ファイル名だけ送る小さいリクエスト）
         const urlRes = await fetch(`/api/events/${eventId}/evidence/upload-url`, {
@@ -106,12 +121,15 @@ export function EvidenceUploadForm({ eventId }: Props) {
         // 空のまま送信されてしまうことがあり（本番で実際に0バイトの
         // ファイルが保存される事象を確認済み）、SDK公式のuploadToSignedUrl
         // （内部でFormDataにラップして送る）に置き換えて解消する。
+        log(`uploadToSignedUrl呼び出し直前: file.size=${file.size} path=${path}`);
         const { error: uploadError } = await supabase.storage
           .from("event-evidence")
           .uploadToSignedUrl(path, token, file, { contentType });
         if (uploadError) {
+          log(`uploadToSignedUrlエラー: ${uploadError.message}`);
           throw new Error(`写真${i + 1}枚目: アップロード失敗 (${uploadError.message})`);
         }
+        log(`uploadToSignedUrl成功: path=${path}`);
         uploadedPaths.push(path);
       }
 
@@ -153,6 +171,16 @@ export function EvidenceUploadForm({ eventId }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* 調査用デバッグ表示（恒久対応後に削除） */}
+      {debugLog.length > 0 && (
+        <div className="bg-black border border-red-500/50 rounded-xl p-3 space-y-0.5 max-h-48 overflow-y-auto">
+          <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">Debug Log</p>
+          {debugLog.map((l, i) => (
+            <p key={i} className="text-[9px] text-green-400 font-mono break-all">{l}</p>
+          ))}
+        </div>
+      )}
+
       {/* 写真アップロード */}
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">写真（最大10枚）</p>

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Upload, Loader2, CheckCircle2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   eventId: string;
@@ -11,7 +10,6 @@ type Props = {
 
 export function EvidenceUploadForm({ eventId }: Props) {
   const router = useRouter();
-  const supabase = createClient();
   const [description, setDescription] = useState("");
   const [attendanceCount, setAttendanceCount] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -93,44 +91,30 @@ export function EvidenceUploadForm({ eventId }: Props) {
     setError("");
 
     try {
-      // 1. 署名付きURLを取得してクライアントから直接Supabase Storageにアップロード
-      //    （Next.js/Vercelのボディサイズ制限を完全にバイパス）
+      // 署名付きURLでSupabase Storage（supabase.co、別ドメイン）へ直接送る2方式
+      // （生fetch PUT／SDKのuploadToSignedUrl）とも、iOS Safariで本文が
+      // 届かない事象を本番で確認した（file.sizeは送信直前まで確実に非0な
+      // ことをデバッグログで確認済み）。共通点は「クロスオリジンへの送信」
+      // のみだったため、同一オリジン（自サーバー経由）でのアップロードに
+      // 切り替える。ファイルサイズは証跡写真程度（数MB）でVercelの制限内。
       const uploadedPaths: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         log(`アップロード開始 ${i + 1}枚目: ${file.name} size=${file.size}`);
 
-        // 1a. サーバーから署名付きURLを取得（ファイル名だけ送る小さいリクエスト）
-        const urlRes = await fetch(`/api/events/${eventId}/evidence/upload-url`, {
+        const formData = new FormData();
+        formData.append("file", file);
+        const uploadRes = await fetch(`/api/events/${eventId}/evidence/upload`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name }),
+          body: formData,
         });
-        if (!urlRes.ok) {
-          const urlData = await urlRes.json().catch(() => ({}));
-          throw new Error(`写真${i + 1}枚目: ${(urlData as { error?: string }).error ?? "URL取得失敗"}`);
+        const uploadData = await uploadRes.json().catch(() => ({}));
+        if (!uploadRes.ok || !uploadData.path) {
+          log(`upload APIエラー: ${JSON.stringify(uploadData)}`);
+          throw new Error(`写真${i + 1}枚目: ${(uploadData as { error?: string }).error ?? "アップロード失敗"}`);
         }
-        const { path, token, contentType } = await urlRes.json() as {
-          path: string;
-          token: string;
-          contentType: string;
-        };
-
-        // 1b. 署名付きURLへアップロード（Vercelを経由しない）。
-        // 生のfetch PUTでBlobをbodyに直接渡す実装は、iOS Safariでbodyが
-        // 空のまま送信されてしまうことがあり（本番で実際に0バイトの
-        // ファイルが保存される事象を確認済み）、SDK公式のuploadToSignedUrl
-        // （内部でFormDataにラップして送る）に置き換えて解消する。
-        log(`uploadToSignedUrl呼び出し直前: file.size=${file.size} path=${path}`);
-        const { error: uploadError } = await supabase.storage
-          .from("event-evidence")
-          .uploadToSignedUrl(path, token, file, { contentType });
-        if (uploadError) {
-          log(`uploadToSignedUrlエラー: ${uploadError.message}`);
-          throw new Error(`写真${i + 1}枚目: アップロード失敗 (${uploadError.message})`);
-        }
-        log(`uploadToSignedUrl成功: path=${path}`);
-        uploadedPaths.push(path);
+        log(`upload API成功: path=${uploadData.path}`);
+        uploadedPaths.push(uploadData.path as string);
       }
 
       // 2. パスを証跡APIに送信

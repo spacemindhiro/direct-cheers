@@ -23,14 +23,28 @@ export function EvidenceUploadForm({ eventId }: Props) {
   // 表示できない（保存自体は成功するため、証跡ページで壊れた画像アイコンになって
   // 初めて気づく）。選択された時点でJPEGに変換しておき、プレビュー・保存とも
   // 常に表示可能な形式で扱う。
-  const isHeic = (file: File) =>
-    file.type === "image/heic" || file.type === "image/heif" || /\.(heic|heif)$/i.test(file.name);
+  //
+  // 判定はfile.name/file.typeに頼らず、実バイト列の先頭(ftypボックス)を見て行う。
+  // iOS Safariは<input type="file">経由で渡す際にHEICを内部的にJPEGへ変換済みの
+  // ことがあるが、その場合もファイル名は".HEIC"のまま・file.typeも不正確なことがある。
+  // 名前だけで判定すると、既にJPEGのバイト列を誤ってHEICデコーダに渡してしまい、
+  // デコード失敗で空のBlobが返り、エラーも出ないまま0バイトのファイルが
+  // アップロードされてしまっていた（本番で実際に発生・確認済み）。
+  const isHeic = async (file: File): Promise<boolean> => {
+    const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    if (head.length < 12) return false;
+    const isFtypBox = head[4] === 0x66 && head[5] === 0x74 && head[6] === 0x79 && head[7] === 0x70; // 'ftyp'
+    if (!isFtypBox) return false;
+    const brand = String.fromCharCode(head[8], head[9], head[10], head[11]);
+    return ["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1"].includes(brand);
+  };
 
   const convertIfHeic = async (file: File): Promise<File> => {
-    if (!isHeic(file)) return file;
+    if (!(await isHeic(file))) return file;
     const { default: heic2any } = await import("heic2any");
     const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
     const blob = Array.isArray(result) ? result[0] : result;
+    if (!blob || blob.size === 0) throw new Error("HEIC変換結果が空でした");
     return new File([blob], file.name.replace(/\.(heic|heif)$/i, ".jpg"), { type: "image/jpeg" });
   };
 

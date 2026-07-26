@@ -3,28 +3,15 @@
 import { useState } from "react";
 import { Upload, Loader2, CheckCircle2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   eventId: string;
 };
 
-// iOS Safariでfetch()+FormDataを使うと、まれにmultipart境界(boundary)を
-// 含むContent-Typeヘッダーが正しく付与されず、サーバー側で
-// "no boundary found in multipart body" となって本文を解析できないことが
-// ある（本番のサーバーログで実際に確認済み）。XMLHttpRequestでのFormData送信は
-// この問題が起きないため、アップロードだけXHR経由に切り替える。
-function uploadFormData(url: string, formData: FormData): Promise<{ status: number; text: string }> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url);
-    xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText });
-    xhr.onerror = () => reject(new Error("ネットワークエラー"));
-    xhr.send(formData);
-  });
-}
-
 export function EvidenceUploadForm({ eventId }: Props) {
   const router = useRouter();
+  const supabase = createClient();
   const [description, setDescription] = useState("");
   const [attendanceCount, setAttendanceCount] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -106,32 +93,32 @@ export function EvidenceUploadForm({ eventId }: Props) {
     setError("");
 
     try {
-      // 署名付きURLでSupabase Storage（supabase.co、別ドメイン）へ直接送る2方式
-      // （生fetch PUT／SDKのuploadToSignedUrl）とも、iOS Safariで本文が
-      // 届かない事象を本番で確認した（file.sizeは送信直前まで確実に非0な
-      // ことをデバッグログで確認済み）。共通点は「クロスオリジンへの送信」
-      // のみだったため、同一オリジン（自サーバー経由）でのアップロードに
-      // 切り替える。ファイルサイズは証跡写真程度（数MB）でVercelの制限内。
+      // サーバー経由（Vercel APIルートでformData()を解析）だと、iPhoneの
+      // 生の写真サイズ(2〜4MB)でmultipart境界が失われるエラーが本番で
+      // 再現し続けた（fetch/XHRどちらでも同じ）。Supabase公式ドキュメントが
+      // 6MB未満のファイルに推奨している標準アップロード方式（ブラウザから
+      // supabase-js経由で直接ストレージへ書き込む）に切り替える。
+      // 直接書き込みには対象イベントの主催者/担当エージェント/管理者のみ
+      // 許可するRLSポリシーが必要（migration側で追加、アプリのAPIルートが
+      // 既に行っている認可条件をDB側に複製したもの）。
       const uploadedPaths: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         log(`アップロード開始 ${i + 1}枚目: ${file.name} size=${file.size}`);
 
-        const formData = new FormData();
-        formData.append("file", file);
-        log(`XHR送信直前: FormData構築完了`);
-        const { status, text: rawText } = await uploadFormData(
-          `/api/events/${eventId}/evidence/upload`,
-          formData,
-        );
-        log(`upload APIレスポンス: status=${status} bodyLen=${rawText.length} body=${rawText.slice(0, 200)}`);
-        let uploadData: { path?: string; error?: string } = {};
-        try { uploadData = JSON.parse(rawText); } catch { /* 非JSON応答はそのままログ済み */ }
-        if (status < 200 || status >= 300 || !uploadData.path) {
-          throw new Error(`写真${i + 1}枚目: ${uploadData.error ?? "アップロード失敗"}`);
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const baseName = (file.name.replace(/\.[^.]+$/, "") || "photo").replace(/[^a-zA-Z0-9_-]/g, "_") || "photo";
+        const path = `${eventId}/${crypto.randomUUID()}-${baseName}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("event-evidence")
+          .upload(path, file, { contentType: file.type || "image/jpeg" });
+        if (uploadError) {
+          log(`直接アップロードエラー: ${uploadError.message}`);
+          throw new Error(`写真${i + 1}枚目: ${uploadError.message}`);
         }
-        log(`upload API成功: path=${uploadData.path}`);
-        uploadedPaths.push(uploadData.path as string);
+        log(`直接アップロード成功: path=${path}`);
+        uploadedPaths.push(path);
       }
 
       // 2. パスを証跡APIに送信

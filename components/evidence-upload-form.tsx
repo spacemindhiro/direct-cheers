@@ -8,6 +8,21 @@ type Props = {
   eventId: string;
 };
 
+// iOS Safariでfetch()+FormDataを使うと、まれにmultipart境界(boundary)を
+// 含むContent-Typeヘッダーが正しく付与されず、サーバー側で
+// "no boundary found in multipart body" となって本文を解析できないことが
+// ある（本番のサーバーログで実際に確認済み）。XMLHttpRequestでのFormData送信は
+// この問題が起きないため、アップロードだけXHR経由に切り替える。
+function uploadFormData(url: string, formData: FormData): Promise<{ status: number; text: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText });
+    xhr.onerror = () => reject(new Error("ネットワークエラー"));
+    xhr.send(formData);
+  });
+}
+
 export function EvidenceUploadForm({ eventId }: Props) {
   const router = useRouter();
   const [description, setDescription] = useState("");
@@ -104,20 +119,16 @@ export function EvidenceUploadForm({ eventId }: Props) {
 
         const formData = new FormData();
         formData.append("file", file);
-        log(`fetch実行直前: FormData構築完了`);
-        const uploadRes = await fetch(`/api/events/${eventId}/evidence/upload`, {
-          method: "POST",
-          body: formData,
-        }).catch((err) => {
-          log(`fetch自体が例外: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`);
-          throw err;
-        });
-        const rawText = await uploadRes.text();
-        log(`upload APIレスポンス: status=${uploadRes.status} bodyLen=${rawText.length} body=${rawText.slice(0, 200)}`);
+        log(`XHR送信直前: FormData構築完了`);
+        const { status, text: rawText } = await uploadFormData(
+          `/api/events/${eventId}/evidence/upload`,
+          formData,
+        );
+        log(`upload APIレスポンス: status=${status} bodyLen=${rawText.length} body=${rawText.slice(0, 200)}`);
         let uploadData: { path?: string; error?: string } = {};
         try { uploadData = JSON.parse(rawText); } catch { /* 非JSON応答はそのままログ済み */ }
-        if (!uploadRes.ok || !uploadData.path) {
-          throw new Error(`写真${i + 1}枚目: ${(uploadData as { error?: string }).error ?? "アップロード失敗"}`);
+        if (status < 200 || status >= 300 || !uploadData.path) {
+          throw new Error(`写真${i + 1}枚目: ${uploadData.error ?? "アップロード失敗"}`);
         }
         log(`upload API成功: path=${uploadData.path}`);
         uploadedPaths.push(uploadData.path as string);

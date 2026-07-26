@@ -15,14 +15,40 @@ export function EvidenceUploadForm({ eventId }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // iPhoneのカメラで撮った写真はデフォルトでHEIC形式だが、ブラウザの<img>タグでは
+  // 表示できない（保存自体は成功するため、証跡ページで壊れた画像アイコンになって
+  // 初めて気づく）。選択された時点でJPEGに変換しておき、プレビュー・保存とも
+  // 常に表示可能な形式で扱う。
+  const isHeic = (file: File) =>
+    file.type === "image/heic" || file.type === "image/heif" || /\.(heic|heif)$/i.test(file.name);
+
+  const convertIfHeic = async (file: File): Promise<File> => {
+    if (!isHeic(file)) return file;
+    const { default: heic2any } = await import("heic2any");
+    const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+    const blob = Array.isArray(result) ? result[0] : result;
+    return new File([blob], file.name.replace(/\.(heic|heif)$/i, ".jpg"), { type: "image/jpeg" });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
-    const next = [...files, ...selected].slice(0, 10);
-    setFiles(next);
-    setPreviews(next.map((f) => URL.createObjectURL(f)));
+    if (selected.length === 0) return;
+    setConverting(true);
+    setError("");
+    try {
+      const converted = await Promise.all(selected.map(convertIfHeic));
+      const next = [...files, ...converted].slice(0, 10);
+      setFiles(next);
+      setPreviews(next.map((f) => URL.createObjectURL(f)));
+    } catch {
+      setError("写真の変換に失敗しました。別の写真でお試しください");
+    } finally {
+      setConverting(false);
+    }
   };
 
   const removeFile = (index: number) => {
@@ -112,14 +138,24 @@ export function EvidenceUploadForm({ eventId }: Props) {
       {/* 写真アップロード */}
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">写真（最大10枚）</p>
-        <label className="flex flex-col items-center justify-center h-32 bg-slate-800 border-2 border-dashed border-slate-700 rounded-2xl cursor-pointer hover:border-pink-500/40 transition-colors">
-          <Upload size={20} className="text-slate-600 mb-2" />
-          <p className="text-xs text-slate-500">クリックして写真を選択</p>
+        <label className={`flex flex-col items-center justify-center h-32 bg-slate-800 border-2 border-dashed border-slate-700 rounded-2xl transition-colors ${converting ? "opacity-60" : "cursor-pointer hover:border-pink-500/40"}`}>
+          {converting ? (
+            <>
+              <Loader2 size={20} className="text-slate-600 mb-2 animate-spin" />
+              <p className="text-xs text-slate-500">写真を変換中...</p>
+            </>
+          ) : (
+            <>
+              <Upload size={20} className="text-slate-600 mb-2" />
+              <p className="text-xs text-slate-500">クリックして写真を選択</p>
+            </>
+          )}
           <input
             type="file"
             multiple
             accept="image/*"
             className="hidden"
+            disabled={converting}
             onChange={handleFileChange}
           />
         </label>
@@ -174,7 +210,7 @@ export function EvidenceUploadForm({ eventId }: Props) {
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={uploading || files.length === 0}
+        disabled={uploading || converting || files.length === 0}
         className="w-full h-12 bg-pink-500 hover:brightness-110 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {uploading ? (

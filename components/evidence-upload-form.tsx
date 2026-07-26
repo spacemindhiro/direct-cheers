@@ -104,13 +104,19 @@ export function EvidenceUploadForm({ eventId }: Props) {
 
         const formData = new FormData();
         formData.append("file", file);
+        log(`fetch実行直前: FormData構築完了`);
         const uploadRes = await fetch(`/api/events/${eventId}/evidence/upload`, {
           method: "POST",
           body: formData,
+        }).catch((err) => {
+          log(`fetch自体が例外: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`);
+          throw err;
         });
-        const uploadData = await uploadRes.json().catch(() => ({}));
+        const rawText = await uploadRes.text();
+        log(`upload APIレスポンス: status=${uploadRes.status} bodyLen=${rawText.length} body=${rawText.slice(0, 200)}`);
+        let uploadData: { path?: string; error?: string } = {};
+        try { uploadData = JSON.parse(rawText); } catch { /* 非JSON応答はそのままログ済み */ }
         if (!uploadRes.ok || !uploadData.path) {
-          log(`upload APIエラー: ${JSON.stringify(uploadData)}`);
           throw new Error(`写真${i + 1}枚目: ${(uploadData as { error?: string }).error ?? "アップロード失敗"}`);
         }
         log(`upload API成功: path=${uploadData.path}`);

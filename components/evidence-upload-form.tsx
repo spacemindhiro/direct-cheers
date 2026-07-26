@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Upload, Loader2, CheckCircle2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   eventId: string;
@@ -10,6 +11,7 @@ type Props = {
 
 export function EvidenceUploadForm({ eventId }: Props) {
   const router = useRouter();
+  const supabase = createClient();
   const [description, setDescription] = useState("");
   const [attendanceCount, setAttendanceCount] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -93,20 +95,22 @@ export function EvidenceUploadForm({ eventId }: Props) {
           const urlData = await urlRes.json().catch(() => ({}));
           throw new Error(`写真${i + 1}枚目: ${(urlData as { error?: string }).error ?? "URL取得失敗"}`);
         }
-        const { path, signedUrl, contentType } = await urlRes.json() as {
+        const { path, token, contentType } = await urlRes.json() as {
           path: string;
-          signedUrl: string;
+          token: string;
           contentType: string;
         };
 
-        // 1b. 署名付きURLに直接PUT（Vercelを経由しない）
-        const putRes = await fetch(signedUrl, {
-          method: "PUT",
-          headers: { "Content-Type": contentType },
-          body: file,
-        });
-        if (!putRes.ok) {
-          throw new Error(`写真${i + 1}枚目: アップロード失敗 (HTTP ${putRes.status})`);
+        // 1b. 署名付きURLへアップロード（Vercelを経由しない）。
+        // 生のfetch PUTでBlobをbodyに直接渡す実装は、iOS Safariでbodyが
+        // 空のまま送信されてしまうことがあり（本番で実際に0バイトの
+        // ファイルが保存される事象を確認済み）、SDK公式のuploadToSignedUrl
+        // （内部でFormDataにラップして送る）に置き換えて解消する。
+        const { error: uploadError } = await supabase.storage
+          .from("event-evidence")
+          .uploadToSignedUrl(path, token, file, { contentType });
+        if (uploadError) {
+          throw new Error(`写真${i + 1}枚目: アップロード失敗 (${uploadError.message})`);
         }
         uploadedPaths.push(path);
       }

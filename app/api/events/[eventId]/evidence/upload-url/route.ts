@@ -62,5 +62,5 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ path, signedUrl: data.signedUrl, contentType });
+  return NextResponse.json({ path, signedUrl: data.signedUrl, token: data.token, contentType });
 }

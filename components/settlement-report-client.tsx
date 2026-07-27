@@ -180,7 +180,7 @@ export function SettlementReportClient({
                         : <span className="text-slate-600">未振込</span>}
                     </td>
                     <td className="px-5 py-3">
-                      <DistStatus d={{ actual_amount: r.total_amount, frozen_amount: r.frozen_amount, hold_released: r.settle_amount != null }} />
+                      <DistStatus d={{ actual_amount: r.total_amount, frozen_amount: r.frozen_amount, hold_released: r.hold_released }} />
                     </td>
                   </tr>
                 ))}
@@ -212,6 +212,9 @@ export function SettlementReportClient({
                     <div className="flex items-center gap-2 mb-0.5">
                       <p className="text-xs font-black text-white print:text-black">{qr.label}</p>
                       <span className="text-xs text-pink-400 font-bold print:text-pink-600">{qr.txCount.toLocaleString()}チア</span>
+                      {qr.totalQuantity !== qr.txCount && (
+                        <span className="text-xs text-slate-500 print:text-slate-600">（計{qr.totalQuantity.toLocaleString()}件）</span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 print:text-slate-600">
                       売上 {yen(qr.totalGross)} → Stripe {yen(qr.totalStripeFee)} + 手数料 {yen(qr.totalPlatformFee)} = 配分原資 {yen(qr.totalNet)}

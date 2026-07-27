@@ -701,8 +701,9 @@ describe("TC-ADMIN-OPS-D: cron/reconcile — 定期照合", () => {
     const agentDist = dists!.find((d) => d.distribution_role === "agent");
     const platformDist = dists!.find((d) => d.distribution_role === "platform");
 
-    // 実手数料(99)は見積り(200)より安かった → net_actual(2401) - platformFee(250) = 2151
-    expect(organizerDist?.actual_amount).toBe(2151);
+    // 実手数料(Math.ceil(2500*0.0396)=100, 浮動小数点誤差で99.00000000000001→ceil)
+    // は見積り(200)より安かった → net_actual(2400) - platformFee(250) = 2150
+    expect(organizerDist?.actual_amount).toBe(2150);
     // agent・platformは固定額のまま変化しない
     expect(agentDist?.actual_amount).toBe(125);
     expect(platformDist?.actual_amount).toBe(125);

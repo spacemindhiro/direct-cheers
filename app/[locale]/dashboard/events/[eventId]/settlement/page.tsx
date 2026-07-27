@@ -95,10 +95,14 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
   const qrIds = qrConfigs.map(q => q.qr_config_id);
 
   // トランザクション
+  // stripe_fee/net_amount は決済時点の見積り。stripe_fee_actual/stripe_net_actual は
+  // 照合(reconcile)後の実測値で、照合済みならこちらを優先する（見積りのまま
+  // レポートを表示すると、照合による訂正がサマリーに反映されず古い数値のまま
+  // になってしまうため）。
   let allTxs: any[] = [];
   for (let i = 0; i < qrIds.length; i += BATCH) {
     const { data } = await admin.from("transactions")
-      .select("transaction_id, qr_config_id, total_gross_amount, stripe_fee, platform_fee, net_amount")
+      .select("transaction_id, qr_config_id, total_gross_amount, stripe_fee, platform_fee, net_amount, stripe_fee_actual, stripe_net_actual")
       .in("qr_config_id", qrIds.slice(i, i + BATCH))
       .eq("status", "completed").neq("transaction_type", "invitation");
     allTxs.push(...(data ?? []));
@@ -126,10 +130,15 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
   const qrQuantityMap   = new Map<string, number>();
   for (const tx of allTxs) {
     const q = tx.qr_config_id;
+    const platformFee = tx.platform_fee ?? 0;
+    const stripeFee = tx.stripe_fee_actual ?? tx.stripe_fee ?? 0;
+    const netAmount = tx.stripe_net_actual != null
+      ? tx.stripe_net_actual - platformFee
+      : (tx.net_amount ?? 0);
     qrGrossMap.set(q,      (qrGrossMap.get(q)      ?? 0) + (tx.total_gross_amount ?? 0));
-    qrStripeFeeMap.set(q,  (qrStripeFeeMap.get(q)  ?? 0) + (tx.stripe_fee ?? 0));
-    qrPlatformFeeMap.set(q,(qrPlatformFeeMap.get(q) ?? 0) + (tx.platform_fee ?? 0));
-    qrNetMap.set(q,        (qrNetMap.get(q)         ?? 0) + (tx.net_amount ?? 0));
+    qrStripeFeeMap.set(q,  (qrStripeFeeMap.get(q)  ?? 0) + stripeFee);
+    qrPlatformFeeMap.set(q,(qrPlatformFeeMap.get(q) ?? 0) + platformFee);
+    qrNetMap.set(q,        (qrNetMap.get(q)         ?? 0) + netAmount);
     qrTxCountMap.set(q,    (qrTxCountMap.get(q)     ?? 0) + 1);
     qrQuantityMap.set(q,   (qrQuantityMap.get(q)    ?? 0) + (qtyByTxId.get(tx.transaction_id) ?? 1));
   }
@@ -232,12 +241,26 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
         total_amount:  (prev?.total_amount  ?? 0) + d.actual_amount,
         frozen_amount: (prev?.frozen_amount ?? 0) + d.frozen_amount,
         hold_released: d.hold_released && (prev?.hold_released ?? true),
-        settle_amount: settleByProfile.get(d.profile_id) ?? null,
+        settle_amount: null, // 下でロール行ごとに配分し直す
       });
     }
   }
   const eventRecipients: EventRecipientRow[] = [...eventRecipientMap.values()]
     .sort((a, b) => (ROLE_ORDER[a.role as keyof typeof ROLE_ORDER] ?? 4) - (ROLE_ORDER[b.role as keyof typeof ROLE_ORDER] ?? 4));
+
+  // 振込実績(settle_transfers)はプロフィール単位の合計しか記録されておらず、
+  // ロール別の内訳を持たない。そのため同一人物が複数ロール(organizer兼agent等)を
+  // 持つ場合、各ロール行に同じプロフィール合計をそのまま出すと二重に振り込まれた
+  // ように見えてしまう。ロール行ごとに「自分の合計配分額(total_amount)を上限」
+  // として、未消化分から順に割り当てる。
+  const remainingSettleByProfile = new Map(settleByProfile);
+  for (const r of eventRecipients) {
+    const remaining = remainingSettleByProfile.get(r.profile_id);
+    if (remaining === undefined) continue; // settle_transfers記録なし → 未振込のまま
+    const allocated = Math.max(0, Math.min(remaining, r.total_amount));
+    r.settle_amount = allocated;
+    remainingSettleByProfile.set(r.profile_id, remaining - allocated);
+  }
 
   // イベント全体集計
   const totalGross       = qrGroups.reduce((s, g) => s + g.totalGross, 0);

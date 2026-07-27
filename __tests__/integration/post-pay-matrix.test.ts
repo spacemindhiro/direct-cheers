@@ -559,6 +559,77 @@ describe("TC-POST-PAY-MULTI-TX: 複数TX混在時の照合 — verified/unverifi
     expect(t2?.amount_mismatch).toBe(1_000);
   });
 
+  it("同一PIに2行（ウェルカムチア1階・2階）→ 合算照合が一致し、手数料が比率按分される", async () => {
+    const eventId = await insertEvent({ organizerProfileId, title: "MULTI-TX 同一PI2行" });
+    const qrConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
+    cleanup.eventIds.push(eventId);
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const piId = `pi_admin_multirow_${Date.now()}`;
+    stripeMockAmounts.set(piId, 3000); // Stripe側の実決済額は合計3000
+
+    // 1階（エントランス本体）: stripe_pi_sequence=0
+    const tx1Id = await insertTransaction({
+      qrConfigId,
+      grossAmount: 2500,
+      netAmount: 2100,
+      stripeFee: 99, // 概算値。reconcileで実額に上書きされる
+      platformFee: 250,
+      stripePaymentIntentId: piId,
+      reconciled: false,
+      stripePiSequence: 0,
+    });
+    cleanup.transactionIds.push(tx1Id);
+
+    // 2階（ウェルカムチア）: stripe_pi_sequence=1、同一PI
+    const tx2Id = await insertTransaction({
+      qrConfigId,
+      grossAmount: 500,
+      netAmount: 450,
+      stripeFee: 20,
+      platformFee: 50,
+      stripePaymentIntentId: piId,
+      reconciled: false,
+      stripePiSequence: 1,
+    });
+    cleanup.transactionIds.push(tx2Id);
+
+    mockAdminAuth();
+    const req = new Request("http://localhost/api/admin/reconcile/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId }),
+    });
+    const res = await reconcilePOST(req);
+    expect(res.status).toBe(200);
+
+    const { data: tx1 } = await testAdmin.from("transactions")
+      .select("amount_verified, amount_mismatch, stripe_fee_actual, stripe_net_actual, reconciled_at")
+      .eq("transaction_id", tx1Id).single();
+    const { data: tx2 } = await testAdmin.from("transactions")
+      .select("amount_verified, amount_mismatch, stripe_fee_actual, stripe_net_actual, reconciled_at")
+      .eq("transaction_id", tx2Id).single();
+
+    // 合算(2500+500=3000)がStripe実額(3000)と一致するため、両方とも一致判定になる
+    // （PIグループ化していない旧実装だと、各行を個別にPI全体の金額3000と比較して
+    // しまい、両方とも誤って不一致判定になっていた）
+    expect(tx1?.amount_verified).toBe(true);
+    expect(tx1?.amount_mismatch).toBe(0);
+    expect(tx2?.amount_verified).toBe(true);
+    expect(tx2?.amount_mismatch).toBe(0);
+    expect(tx1?.reconciled_at).not.toBeNull();
+    expect(tx2?.reconciled_at).not.toBeNull();
+
+    // 実手数料(fee=Math.ceil(3000*0.0396)=119, net=2881)がgross比率で按分され、
+    // 端数は最後の行(gross小さい方=2階)に寄せられる
+    expect(tx1?.stripe_fee_actual).toBe(99);
+    expect(tx2?.stripe_fee_actual).toBe(20);
+    expect((tx1?.stripe_fee_actual ?? 0) + (tx2?.stripe_fee_actual ?? 0)).toBe(119);
+    expect(tx1?.stripe_net_actual).toBe(2400);
+    expect(tx2?.stripe_net_actual).toBe(481);
+    expect((tx1?.stripe_net_actual ?? 0) + (tx2?.stripe_net_actual ?? 0)).toBe(2881);
+  });
+
   it("照合済みトランザクションは再照合で再試行されない（冪等）", async () => {
     const eventId = await insertEvent({ organizerProfileId, title: "MULTI-TX 冪等" });
     const qrConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });

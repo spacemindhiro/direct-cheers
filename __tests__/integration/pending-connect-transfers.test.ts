@@ -147,6 +147,7 @@ describe("TC-PENDING-01: settle時にconnectIdなし → pending_connect_transfe
   let artistProfileId: string;
   let eventId: string;
   let organizerConnectId: string;
+  let txId: string;
 
   beforeAll(async () => {
     organizerConnectId = await createTestConnectAccount();
@@ -179,7 +180,7 @@ describe("TC-PENDING-01: settle時にconnectIdなし → pending_connect_transfe
       { profileId: artistProfileId, ratio: 0.5 },
     ]);
 
-    const txId = await insertTransaction({
+    txId = await insertTransaction({
       qrConfigId, grossAmount: GROSS, netAmount: NET,
       stripeFee: STRIPE_FEE, platformFee: PLATFORM_FEE, stripePaymentIntentId: pi.id,
     });
@@ -192,6 +193,8 @@ describe("TC-PENDING-01: settle時にconnectIdなし → pending_connect_transfe
 
   it("settle成功・artistはpending_connect_transfersに記録され、transferResultsにpending_onboardingエラー", async () => {
     mockAdminAuth();
+    // PIは作成時点でsucceeded済み・reconciled_atもinsertTransactionのデフォルトで
+    // 設定済みのため、追加のキャプチャ・照合操作は不要。
     const req = new Request("http://localhost", { method: "POST" });
     const res = await settlePOST(req, { params: Promise.resolve({ eventId }) });
     const data = await res.json();
@@ -259,6 +262,7 @@ describe("TC-PENDING-02: 無効なconnectIdでStripe Transferが失敗 → pendi
   let artistProfileId: string;
   let eventId: string;
   let organizerConnectId: string;
+  let txId: string;
 
   beforeAll(async () => {
     organizerConnectId = await createTestConnectAccount();
@@ -292,7 +296,7 @@ describe("TC-PENDING-02: 無効なconnectIdでStripe Transferが失敗 → pendi
       { profileId: artistProfileId, ratio: 0.5 },
     ]);
 
-    const txId = await insertTransaction({
+    txId = await insertTransaction({
       qrConfigId, grossAmount: GROSS, netAmount: NET,
       stripeFee: STRIPE_FEE, platformFee: PLATFORM_FEE, stripePaymentIntentId: pi.id,
     });
@@ -305,6 +309,8 @@ describe("TC-PENDING-02: 無効なconnectIdでStripe Transferが失敗 → pendi
 
   it("Stripe Transfer APIエラー → pending_connect_transfersにlast_error付きで記録される", async () => {
     mockAdminAuth();
+    // PIは作成時点でsucceeded済み・reconciled_atもinsertTransactionのデフォルトで
+    // 設定済みのため、追加のキャプチャ・照合操作は不要。
     const req = new Request("http://localhost", { method: "POST" });
     const res = await settlePOST(req, { params: Promise.resolve({ eventId }) });
     const data = await res.json();

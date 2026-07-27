@@ -100,7 +100,7 @@ export async function POST(
   // トランザクション取得（招待は精算対象外）
   const { data: transactions } = await admin
     .from("transactions")
-    .select("transaction_id, qr_config_id, total_gross_amount, net_amount, status, stripe_payment_intent_id")
+    .select("transaction_id, qr_config_id, total_gross_amount, net_amount, platform_fee, stripe_net_actual, status, stripe_payment_intent_id, reconciled_at, amount_verified")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed")
     .neq("transaction_type", "invitation");
@@ -109,6 +109,90 @@ export async function POST(
     return NextResponse.json({ error: "No completed transactions" }, { status: 400 });
 
   const totalGross = transactions.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+
+  // 未照合の決済が残っている場合は送金を中断する。
+  // 開催承認(/api/admin/events/[eventId]/capture-all)でキャプチャ済みである
+  // ことが前提。このエンドポイントは照合ロジックを一切持たず、「全件照合済みか」
+  // を確認するだけにとどめる（照合は cron/reconcile・管理者手動 reconcile が
+  // 別途担う）。
+  const unreconciled = transactions.filter(
+    (t) => !(t as any).reconciled_at || (t as any).amount_verified === false
+  );
+  if (unreconciled.length > 0) {
+    return NextResponse.json({
+      error: "未照合の決済が残っているため送金できません。照合完了後に再度実行してください。",
+      unreconciled_count: unreconciled.length,
+      unreconciled_transaction_ids: unreconciled.map((t) => t.transaction_id),
+    }, { status: 409 });
+  }
+
+  function parsePiId(raw: string | null): string | null {
+    if (!raw) return null;
+    if (raw.startsWith("{")) {
+      try { const p = JSON.parse(raw); if (p?.id) return p.id; } catch {}
+    }
+    return raw;
+  }
+
+  // pi_id → transaction_id[] マップ（chargeId 反映用）
+  // ウェルカムチアにより同一PIに複数transactions行（1階・2階）が紐づくことがあるため、
+  // 1PI=1txを前提にせず配列で持つ。
+  const txByPiId = new Map<string, string[]>();
+  for (const tx of transactions) {
+    const piId = parsePiId((tx as any).stripe_payment_intent_id);
+    if (piId) txByPiId.set(piId, [...(txByPiId.get(piId) ?? []), tx.transaction_id]);
+  }
+
+  const allPaymentIntentIds = new Set(
+    transactions
+      .map((tx) => parsePiId(tx.stripe_payment_intent_id))
+      .filter((id): id is string => !!id)
+  );
+
+  // 入場チケット決済（qr_config_id を持たない Type A / C）
+  const { data: ticketTxIds } = await admin
+    .from("tickets")
+    .select("transaction_id")
+    .eq("event_id", eventId)
+    .not("transaction_id", "is", null);
+  if (ticketTxIds && ticketTxIds.length > 0) {
+    const { data: entranceTxs } = await admin
+      .from("transactions")
+      .select("transaction_id, stripe_payment_intent_id")
+      .in("transaction_id", ticketTxIds.map((t) => t.transaction_id as string))
+      .eq("status", "completed")
+      .not("stripe_payment_intent_id", "is", null);
+    for (const tx of entranceTxs ?? []) {
+      const piId = parsePiId((tx as any).stripe_payment_intent_id);
+      if (piId) {
+        allPaymentIntentIds.add(piId);
+        const txId = (tx as any).transaction_id as string;
+        txByPiId.set(piId, [...(txByPiId.get(piId) ?? []), txId]);
+      }
+    }
+  }
+
+  // chargeId を取得して txId → chargeId マップを作成
+  // source_transaction による Transfer に使う（platform available 残高に依存しない）。
+  // ここでキャプチャは行わない — 未照合ならこの手前で既に中断しており、照合が
+  // 完了している以上、対象PIは開催承認(capture route)で必ずキャプチャ済みのはず。
+  const chargeIdByTxId = new Map<string, string>();
+
+  await Promise.all(
+    [...allPaymentIntentIds].map(async (piId) => {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
+        const charge = pi.latest_charge as Stripe.Charge | null;
+        if (!charge?.id) return;
+        // 同一PIに複数transaction（1階・2階）が紐づく場合、全行に同じchargeIdを反映する
+        for (const txId of txByPiId.get(piId) ?? []) {
+          chargeIdByTxId.set(txId, charge.id);
+        }
+      } catch (err: any) {
+        console.error(`[settle] charge 取得失敗 pi=${piId}:`, err.message);
+      }
+    })
+  );
 
   // qr_config_targets（分配先・比率）を取得
   const { data: targets } = await admin
@@ -138,7 +222,11 @@ export async function POST(
   const desiredDists = new Map<string, DistEntry>();
 
   for (const tx of transactions) {
-    const net = (tx as any).net_amount ?? 0;
+    // チェックを通過している以上、全transactionはstripe_net_actualが入っているはず。
+    // 推定値(net_amount)ではなく照合済みの実額を使う。
+    const net = (tx as any).stripe_net_actual != null
+      ? (tx as any).stripe_net_actual - ((tx as any).platform_fee ?? 0)
+      : (tx as any).net_amount ?? 0;
     const txTargets = targetsByQr.get(tx.qr_config_id ?? "") ?? [];
 
     for (const target of txTargets) {
@@ -283,101 +371,6 @@ export async function POST(
     if (distErr)
       return NextResponse.json({ error: distErr.message }, { status: 500 });
   }
-
-  // Payment Intent をキャプチャ
-  function parsePiId(raw: string | null): string | null {
-    if (!raw) return null;
-    if (raw.startsWith("{")) {
-      try { const p = JSON.parse(raw); if (p?.id) return p.id; } catch {}
-    }
-    return raw;
-  }
-
-  // pi_id → transaction_id[] マップ（destination_transfer_id 更新用）
-  // ウェルカムチアにより同一PIに複数transactions行（1階・2階）が紐づくことがあるため、
-  // 1PI=1txを前提にせず配列で持つ。
-  const txByPiId = new Map<string, string[]>();
-  for (const tx of transactions) {
-    const piId = parsePiId((tx as any).stripe_payment_intent_id);
-    if (piId) txByPiId.set(piId, [...(txByPiId.get(piId) ?? []), tx.transaction_id]);
-  }
-
-  const allPaymentIntentIds = new Set(
-    transactions
-      .map((tx) => parsePiId(tx.stripe_payment_intent_id))
-      .filter((id): id is string => !!id)
-  );
-
-  // 入場チケット決済（qr_config_id を持たない Type A / C）
-  const { data: ticketTxIds } = await admin
-    .from("tickets")
-    .select("transaction_id")
-    .eq("event_id", eventId)
-    .not("transaction_id", "is", null);
-  if (ticketTxIds && ticketTxIds.length > 0) {
-    const { data: entranceTxs } = await admin
-      .from("transactions")
-      .select("transaction_id, stripe_payment_intent_id")
-      .in("transaction_id", ticketTxIds.map((t) => t.transaction_id as string))
-      .eq("status", "completed")
-      .not("stripe_payment_intent_id", "is", null);
-    for (const tx of entranceTxs ?? []) {
-      const piId = parsePiId((tx as any).stripe_payment_intent_id);
-      if (piId) {
-        allPaymentIntentIds.add(piId);
-        const txId = (tx as any).transaction_id as string;
-        txByPiId.set(piId, [...(txByPiId.get(piId) ?? []), txId]);
-      }
-    }
-  }
-
-  const captureResults: { pi_id: string; captured: boolean; error?: string }[] = await Promise.all(
-    [...allPaymentIntentIds].map(async (piId) => {
-      try {
-        const pi = await stripe.paymentIntents.retrieve(piId);
-        if (pi.status === "succeeded") {
-          console.log(`[settle] skip (already captured) pi=${piId}`);
-          return { pi_id: piId, captured: true };
-        }
-        if (pi.status !== "requires_capture") {
-          console.error(`[settle] uncapturable pi=${piId} status=${pi.status}`);
-          return { pi_id: piId, captured: false, error: `キャプチャ不可: status=${pi.status}` };
-        }
-        await stripe.paymentIntents.capture(piId);
-        console.log(`[settle] captured pi=${piId}`);
-        return { pi_id: piId, captured: true };
-      } catch (err: any) {
-        console.error(`[settle] capture failed pi=${piId} error=${err.message}`);
-        return { pi_id: piId, captured: false, error: err.message };
-      }
-    })
-  );
-
-  const captureFailures = captureResults.filter((r) => !r.captured);
-  if (captureFailures.length > 0) {
-    console.error(`[settle] ${captureFailures.length} capture(s) failed for event=${eventId}`, captureFailures);
-  }
-
-  // キャプチャ済み PI から chargeId を取得して txId → chargeId マップを作成
-  // source_transaction による Transfer に使う（platform available 残高に依存しない）
-  const capturedPiIds = captureResults.filter((r) => r.captured).map((r) => r.pi_id);
-  const chargeIdByTxId = new Map<string, string>();
-
-  await Promise.all(
-    capturedPiIds.map(async (piId) => {
-      try {
-        const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
-        const charge = pi.latest_charge as Stripe.Charge | null;
-        if (!charge?.id) return;
-        // 同一PIに複数transaction（1階・2階）が紐づく場合、全行に同じchargeIdを反映する
-        for (const txId of txByPiId.get(piId) ?? []) {
-          chargeIdByTxId.set(txId, charge.id);
-        }
-      } catch (err: any) {
-        console.error(`[settle] charge 取得失敗 pi=${piId}:`, err.message);
-      }
-    })
-  );
 
   // Transfer 実行
   // - organizer/artist: source_transaction でチャージ単位 Transfer（platform available 残高不要）
@@ -575,8 +568,6 @@ export async function POST(
     success: true,
     total_gross: totalGross,
     distributions: distributionRows.length,
-    captures: captureResults,
-    capture_failures: captureFailures.length,
     transfers: transferResults,
     destination_charge_flow: isDestinationChargeFlow,
   });

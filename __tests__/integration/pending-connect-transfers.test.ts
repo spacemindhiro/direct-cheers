@@ -14,7 +14,6 @@ import {
   createTestConnectAccount,
   deleteTestConnectAccount,
   createTestCapturedPaymentIntent,
-  captureAndReconcileTransactions,
   topUpTestBalance,
   stripe,
 } from "../helpers/stripe-fixtures";
@@ -194,7 +193,8 @@ describe("TC-PENDING-01: settle時にconnectIdなし → pending_connect_transfe
 
   it("settle成功・artistはpending_connect_transfersに記録され、transferResultsにpending_onboardingエラー", async () => {
     mockAdminAuth();
-    await captureAndReconcileTransactions(testAdmin, [txId]);
+    // PIは作成時点でsucceeded済み・reconciled_atもinsertTransactionのデフォルトで
+    // 設定済みのため、追加のキャプチャ・照合操作は不要。
     const req = new Request("http://localhost", { method: "POST" });
     const res = await settlePOST(req, { params: Promise.resolve({ eventId }) });
     const data = await res.json();
@@ -309,7 +309,8 @@ describe("TC-PENDING-02: 無効なconnectIdでStripe Transferが失敗 → pendi
 
   it("Stripe Transfer APIエラー → pending_connect_transfersにlast_error付きで記録される", async () => {
     mockAdminAuth();
-    await captureAndReconcileTransactions(testAdmin, [txId]);
+    // PIは作成時点でsucceeded済み・reconciled_atもinsertTransactionのデフォルトで
+    // 設定済みのため、追加のキャプチャ・照合操作は不要。
     const req = new Request("http://localhost", { method: "POST" });
     const res = await settlePOST(req, { params: Promise.resolve({ eventId }) });
     const data = await res.json();

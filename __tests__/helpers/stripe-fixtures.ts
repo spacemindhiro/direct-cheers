@@ -150,7 +150,8 @@ export async function captureAndGetDestinationTransfer(piId: string): Promise<st
 export async function captureAndReconcileTransactions(
   testAdmin: any,
   transactionIds: string[],
-): Promise<void> {
+): Promise<Map<string, { feeActual: number; netActual: number }>> {
+  const result = new Map<string, { feeActual: number; netActual: number }>();
   const { data: txs } = await testAdmin
     .from("transactions")
     .select("transaction_id, stripe_payment_intent_id, total_gross_amount")
@@ -199,8 +200,11 @@ export async function captureAndReconcileTransactions(
           reconcile_error: null,
         })
         .eq("transaction_id", tx.transaction_id);
+
+      result.set(tx.transaction_id, { feeActual: rowFee, netActual: rowNet });
     }
   }
+  return result;
 }
 
 // テスト用 Stripe Checkout Session を作成（pay/cheers route のアサーション用）

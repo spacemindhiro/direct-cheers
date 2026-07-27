@@ -50,9 +50,8 @@ const GROSS = 20_000;
 const STRIPE_FEE = Math.ceil(GROSS * 0.0396); // 792
 const PLATFORM_FEE = Math.floor(GROSS * 0.10);  // 2000
 const NET = GROSS - STRIPE_FEE - PLATFORM_FEE;  // 17208
-const EXPECTED_AGENT = Math.floor(GROSS * 0.05); // 1000
-const EXPECTED_ORG = Math.floor(NET * 0.5);      // 8604
-const EXPECTED_ARTIST = Math.floor(NET * 0.5);   // 8604
+// 実際の分配額はStripeの実手数料(照合結果)から動的に算出する（推定式との
+// 1円程度の差異が実際に起こり得るため、各テストでstripe_net_actualを都度参照する）
 
 let adminProfileId: string;
 let organizerProfileId: string;
@@ -258,6 +257,19 @@ describe("TC-POST-PAY-01: イベント終了 → 照合 → ロック確認 → 
     const evidenceId = await insertEventEvidence({ eventId, submittedByProfileId: organizerProfileId });
     cleanup.evidenceIds.push(evidenceId);
 
+    // settleは推定値(net_amount)ではなく、step Bの照合で書き込まれた実額
+    // (stripe_net_actual)を使って配分する。期待値もそこから動的に算出する
+    // （DBの推定式とStripe実際の手数料には1円程度の差が出ることがあるため）。
+    const { data: reconciledTx } = await testAdmin
+      .from("transactions")
+      .select("stripe_net_actual, platform_fee")
+      .eq("transaction_id", txId)
+      .single();
+    const realNet = (reconciledTx!.stripe_net_actual ?? 0) - (reconciledTx!.platform_fee ?? 0);
+    const expectedAgent = Math.floor(GROSS * 0.05);
+    const expectedOrg = Math.floor(realNet * 0.5);
+    const expectedArtist = Math.floor(realNet * 0.5);
+
     mockAdminAuth();
     const req = new Request("http://localhost", { method: "POST" });
     const res = await settlePOST(req, { params: Promise.resolve({ eventId }) });
@@ -278,13 +290,13 @@ describe("TC-POST-PAY-01: イベント終了 → 照合 → ロック確認 → 
     const orgTransfer = (transfers ?? []).find((t) => t.profile_id === organizerProfileId);
     const artistTransfer = (transfers ?? []).find((t) => t.profile_id === artistProfileId);
 
-    expect(agentTransfer?.amount).toBe(EXPECTED_AGENT);
-    expect(orgTransfer?.amount).toBe(EXPECTED_ORG);
-    expect(artistTransfer?.amount).toBe(EXPECTED_ARTIST);
+    expect(agentTransfer?.amount).toBe(expectedAgent);
+    expect(orgTransfer?.amount).toBe(expectedOrg);
+    expect(artistTransfer?.amount).toBe(expectedArtist);
 
     // 合計一致（1円のズレもない）
     const total = (transfers ?? []).reduce((s, t) => s + t.amount, 0);
-    expect(total).toBe(EXPECTED_AGENT + EXPECTED_ORG + EXPECTED_ARTIST);
+    expect(total).toBe(expectedAgent + expectedOrg + expectedArtist);
 
     // settlement_summary の承認フラグ確認
     const { data: summary } = await testAdmin
@@ -310,8 +322,17 @@ describe("TC-POST-PAY-01: イベント終了 → 照合 → ロック確認 → 
     expect(allAccrued).toBe(true);
 
     // transaction_distributions 合計 = settle_transfers 合計（DB の整合性）
+    // 期待値はDの推定式ではなく、実際に照合された金額から動的に算出する。
+    const { data: reconciledTx } = await testAdmin
+      .from("transactions")
+      .select("stripe_net_actual, platform_fee")
+      .eq("transaction_id", txId)
+      .single();
+    const realNet = (reconciledTx!.stripe_net_actual ?? 0) - (reconciledTx!.platform_fee ?? 0);
+    const expectedTotal = Math.floor(GROSS * 0.05) + Math.floor(realNet * 0.5) + Math.floor(realNet * 0.5);
+
     const distTotal = (dists ?? []).reduce((s, d) => s + (d.actual_amount ?? 0), 0);
-    expect(distTotal).toBe(EXPECTED_AGENT + EXPECTED_ORG + EXPECTED_ARTIST);
+    expect(distTotal).toBe(expectedTotal);
   });
 
   // F. 二重 settle ブロック

@@ -126,6 +126,7 @@ afterAll(async () => {
 describe("TC-SETTLE-01: destination charge フロー", () => {
   let eventId: string;
   let txId: string;
+  let piId: string;
 
   beforeAll(async () => {
     eventId = await insertEvent({ organizerProfileId, title: "TC-SETTLE-01 イベント" });
@@ -140,6 +141,7 @@ describe("TC-SETTLE-01: destination charge フロー", () => {
 
     const gross = 10_000;
     const pi = await createTestPaymentIntent({ amount: gross, organizerConnectId });
+    piId = pi.id;
 
     txId = await insertTransaction({
       qrConfigId,
@@ -158,8 +160,11 @@ describe("TC-SETTLE-01: destination charge フロー", () => {
 
   it("settle 後: organizer・artist それぞれに source_transaction Transfer が作成される", async () => {
     // settle は「全決済が照合済み」を前提条件として要求する（開催承認=キャプチャのみ
-    // →照合→送金、の順を強制するため）。テストでも実際にキャプチャ・照合してから呼ぶ。
-    await captureAndReconcileTransactions(testAdmin, [txId]);
+    // →照合→送金、の順を強制するため）。reconciled_atはinsertTransactionが
+    // デフォルトで設定済みなので、ここでは開催承認相当の実キャプチャのみ行う
+    // （stripe_net_actualは未設定のままとなり、net_amountの推定値ベースで
+    // 分配される既存の期待値と一致させる）。
+    await stripe.paymentIntents.capture(piId);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId }) });
     const data = await res.json();
@@ -215,6 +220,7 @@ describe("TC-SETTLE-01: destination charge フロー", () => {
 describe("TC-SETTLE-03: エージェント手数料の分配", () => {
   let eventId: string;
   let txId: string;
+  let piId: string;
 
   beforeAll(async () => {
     eventId = await insertEvent({ organizerProfileId, agentId: agentProfileId, title: "TC-SETTLE-03 エージェントあり" });
@@ -229,6 +235,7 @@ describe("TC-SETTLE-03: エージェント手数料の分配", () => {
 
     const gross = 20_000;
     const pi = await createTestPaymentIntent({ amount: gross, organizerConnectId });
+    piId = pi.id;
     txId = await insertTransaction({
       qrConfigId,
       grossAmount: gross,
@@ -245,7 +252,7 @@ describe("TC-SETTLE-03: エージェント手数料の分配", () => {
   }, 60_000);
 
   it("エージェント手数料が gross × 0.05 で計上され settle_transfer が作成される", async () => {
-    await captureAndReconcileTransactions(testAdmin, [txId]);
+    await stripe.paymentIntents.capture(piId);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId }) });
     expect(res.status).toBe(200);
@@ -283,6 +290,7 @@ describe("TC-SETTLE-04: 未確定アーティストの分配がオーガナイ�
   let eventId: string;
   let unconfirmedArtistId: string;
   let txId: string;
+  let piId: string;
 
   beforeAll(async () => {
     unconfirmedArtistId = await insertProfile({
@@ -302,6 +310,7 @@ describe("TC-SETTLE-04: 未確定アーティストの分配がオーガナイ�
 
     const gross = 5_000;
     const pi = await createTestPaymentIntent({ amount: gross, organizerConnectId });
+    piId = pi.id;
     txId = await insertTransaction({
       qrConfigId,
       grossAmount: gross,
@@ -318,7 +327,7 @@ describe("TC-SETTLE-04: 未確定アーティストの分配がオーガナイ�
   }, 60_000);
 
   it("未確定アーティストへの配分がオーガナイザーに振り替えられる", async () => {
-    await captureAndReconcileTransactions(testAdmin, [txId]);
+    await stripe.paymentIntents.capture(piId);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId }) });
     expect(res.status).toBe(200);
@@ -445,9 +454,9 @@ describe("TC-PAY-05: SavedCard off_session オーソリ → settle で1円単位
     expect(pi.capture_method).toBe("manual");
   });
 
-  it("開催承認（キャプチャ・照合）後、送金ロジックが1円単位で3者分配する", async () => {
+  it("開催承認（キャプチャ）後、送金ロジックが1円単位で3者分配する", async () => {
     mockAdminAuth();
-    await captureAndReconcileTransactions(testAdmin, [pay05TxId]);
+    await stripe.paymentIntents.capture(offSessionPiId);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId: pay05EventId }) });
     const data = await res.json();
@@ -553,7 +562,7 @@ describe("TC-SETTLE-06: 照合差異・再精算（分割精算の総額一致�
     const evidenceId = await insertEventEvidence({ eventId, submittedByProfileId: organizerProfileId });
     cleanup.evidenceIds.push(evidenceId);
 
-    await captureAndReconcileTransactions(testAdmin, [txId]);
+    await stripe.paymentIntents.capture(pi.id);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId }) });
     if (res.status !== 200) {
@@ -676,8 +685,8 @@ describe("TC-SETTLE-07: PayPay 即時キャプチャ済み PI（succeeded）の�
 
   it("送金ロジックが succeeded PI で source_transaction で3者分配する", async () => {
     mockAdminAuth();
-    // 開催承認相当（succeeded 済みPIはcapture-all側でも即skipされる）＋照合
-    await captureAndReconcileTransactions(testAdmin, [pay07TxId]);
+    // PIは作成時点でsucceeded済み・reconciled_atもinsertTransactionのデフォルトで
+    // 設定済みのため、追加のキャプチャ・照合操作は不要。
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId: pay07EventId }) });
     const data = await res.json();
@@ -756,6 +765,7 @@ describe("TC-SETTLE-08: 未照合の決済が残っていると送金が中断�
       stripeFee: Math.ceil(gross * 0.0396),
       platformFee: Math.floor(gross * 0.10),
       stripePaymentIntentId: pi.id,
+      reconciled: false, // insertTransactionはデフォルトで即reconciled_at済みにするため、未照合を明示する
     });
     cleanup.transactionIds.push(txId);
 

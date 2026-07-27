@@ -612,6 +612,7 @@ describe("TC-WC-B: entrance/terminal/complete — 同一PIに1階・2階の2 tra
     });
     wcQrConfigId = await insertQrConfig({
       eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId, productId: wcProductId,
+      recipientNameContext: "organizer",
     });
     await insertQrConfigTargets(wcQrConfigId, [{ profileId: organizerProfileId, ratio: 1 }]);
     cleanup.productIds.push(wcProductId);

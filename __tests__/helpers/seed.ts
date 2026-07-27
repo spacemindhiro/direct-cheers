@@ -69,6 +69,7 @@ export async function insertQrConfig(params: {
   creatorProfileId: string;
   recipientProfileId: string;
   productId?: string | null;
+  recipientNameContext?: "organizer" | "artist";
 }): Promise<string> {
   const id = params.qrConfigId ?? newId();
   const productId = params.productId ?? null;
@@ -79,6 +80,7 @@ export async function insertQrConfig(params: {
     creator_profile_id: params.creatorProfileId,
     recipient_profile_id: params.recipientProfileId,
     product_id: productId,
+    ...(params.recipientNameContext ? { recipient_name_context: params.recipientNameContext } : {}),
   });
   if (error) throw new Error(`QR config 挿入失敗: ${error.message}`);
   return id;

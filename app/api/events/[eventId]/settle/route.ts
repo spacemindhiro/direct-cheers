@@ -81,11 +81,18 @@ export async function POST(
   // このイベントに紐づく qr_configs を取得
   const { data: qrConfigs } = await admin
     .from("qr_configs")
-    .select("qr_config_id")
+    .select("qr_config_id, recipient_name_context")
     .eq("event_id", eventId)
     .is("deleted_at", null);
 
   const qrConfigIds = (qrConfigs ?? []).map((q) => q.qr_config_id);
+  // qr_config_id -> recipient_name_context（'organizer' | 'artist'）
+  // distribution_role は受取人プロフィールのグローバルroleではなく、この
+  // QR自体の文脈（organizer名義/artist名義）で決める（詳細は
+  // supabase/migrations/20260727010000_fix_distribution_role_context.sql 参照）。
+  const qrContextMap = new Map(
+    (qrConfigs ?? []).map((q) => [q.qr_config_id, (q as any).recipient_name_context === "organizer" ? "organizer" : "artist"])
+  );
 
   if (qrConfigIds.length === 0)
     return NextResponse.json({ error: "No QR configs for this event" }, { status: 400 });
@@ -110,7 +117,7 @@ export async function POST(
       qr_config_id,
       profile_id,
       distribution_ratio,
-      profile:profiles!profile_id(role, stripe_connect_id)
+      profile:profiles!profile_id(stripe_connect_id)
     `)
     .in("qr_config_id", qrConfigIds)
     .is("deleted_at", null);
@@ -138,10 +145,8 @@ export async function POST(
       const amount = Math.floor(net * Number(target.distribution_ratio));
       if (amount <= 0) continue;
 
-      const profileRole = (target.profile as any)?.role ?? "artist";
-      const distRole = ["artist", "organizer", "agent"].includes(profileRole)
-        ? profileRole
-        : "artist";
+      const profileRole = qrContextMap.get(target.qr_config_id) ?? "artist";
+      const distRole = profileRole;
 
       const isUnconfirmedArtist =
         profileRole === "artist" && !confirmedArtistIds.has(target.profile_id);

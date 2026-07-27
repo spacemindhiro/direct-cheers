@@ -20,6 +20,18 @@ export async function POST(
     .from("profiles").select("role").eq("profile_id", user.id).single();
   if (me?.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  // エビデンス確認（「開催承認」＝このキャプチャ操作の前提として、開催実施の
+  // 証跡が提出されていることを要求する。精算済みイベントの再キャプチャ時は
+  // 既にエビデンスがあるはずなので、この条件は実質的な制約にならない）。
+  const { data: evidence } = await admin
+    .from("event_evidences")
+    .select("evidence_id")
+    .eq("event_id", eventId)
+    .limit(1)
+    .maybeSingle();
+  if (!evidence)
+    return NextResponse.json({ error: "No evidence submitted" }, { status: 400 });
+
   const { data: qrConfigs } = await admin
     .from("qr_configs").select("qr_config_id").eq("event_id", eventId).is("deleted_at", null);
   const qrIds = (qrConfigs ?? []).map((q) => q.qr_config_id);

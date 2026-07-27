@@ -47,13 +47,18 @@ export async function GET(req: Request) {
     const admin = createAdminClient();
     const now = new Date();
 
-    // settled 済み・かつ未照合（reconciled_atが未設定）のイベントを取得
-    // （settle = キャプチャ実行済み = 照合可能。reconciled_atが立っている
-    // イベントは全transactionの照合が完了済みのため対象から外し、
-    // 運用が続いてsettledイベントが積み上がっても対象件数を絞れるようにする）。
+    // ended（開催終了・未承認）または settled（精算承認済み）で未照合
+    // （reconciled_atが未設定）のイベントを取得。
+    // 精算承認(settle)は「全件照合済み」を前提条件として要求するため、
+    // 承認前のendedイベントの時点で照合を進めておく必要がある
+    // （settle = キャプチャ実行済み = 照合可能。以前はsettled済みのみを
+    // 対象にしていたため、承認前に自動で照合が進むことがなかった）。
+    // reconciled_atが立っているイベントは全transactionの照合が完了済み
+    // のため対象から外し、運用が続いてイベントが積み上がっても対象件数を
+    // 絞れるようにする。
     const settledEvents = await fetchAllPages<{ event_id: string; title: string }>(
       admin, "events", "event_id, title",
-      (q) => q.eq("lifecycle_status", "settled").is("reconciled_at", null),
+      (q) => q.in("lifecycle_status", ["ended", "settled"]).is("reconciled_at", null),
     );
 
     const settledEventIds = settledEvents.map((e) => e.event_id);

@@ -17,6 +17,7 @@ import {
   createTestConnectAccount,
   deleteTestConnectAccount,
   createTestCapturedPaymentIntent,
+  captureAndReconcileTransactions,
 } from "../helpers/stripe-fixtures";
 import {
   insertProfile,
@@ -399,6 +400,7 @@ describe("TC-POST-PAY-03: サブエージェント含む多者分配 — 合計�
   const MULTI_AGENT = Math.floor(MULTI_GROSS * 0.05);
 
   let multiEventId: string;
+  let multiTxId: string;
   let artist2ProfileId: string;
   let artist2ConnectId: string;
 
@@ -434,7 +436,7 @@ describe("TC-POST-PAY-03: サブエージェント含む多者分配 — 合計�
       { profileId: artist2ProfileId, ratio: 0.2 },
     ]);
 
-    const txId = await insertTransaction({
+    multiTxId = await insertTransaction({
       qrConfigId,
       grossAmount: MULTI_GROSS,
       netAmount: MULTI_NET,
@@ -442,7 +444,7 @@ describe("TC-POST-PAY-03: サブエージェント含む多者分配 — 合計�
       platformFee: MULTI_PLATFORM_FEE,
       stripePaymentIntentId: pi.id,
     });
-    cleanup.transactionIds.push(txId);
+    cleanup.transactionIds.push(multiTxId);
 
     await insertEventArtist({ eventId: multiEventId, artistProfileId });
     await insertEventArtist({ eventId: multiEventId, artistProfileId: artist2ProfileId });
@@ -456,6 +458,7 @@ describe("TC-POST-PAY-03: サブエージェント含む多者分配 — 合計�
 
   it("4者分配（agent+org+artist1+artist2）の Transfer 合計が net - platform_fee に一致する", async () => {
     mockAdminAuth();
+    await captureAndReconcileTransactions(testAdmin, [multiTxId]);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await settlePOST(req, { params: Promise.resolve({ eventId: multiEventId }) });
     const data = await res.json();

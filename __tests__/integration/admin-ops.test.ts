@@ -25,6 +25,7 @@ import {
   insertTransaction,
   insertDistribution,
   insertSettleTransfer,
+  insertEventEvidence,
 } from "../helpers/seed";
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 
@@ -109,6 +110,7 @@ const cleanup = {
   distributionIds: [] as string[],
   settleTransferIds: [] as string[],
   summaryIds: [] as string[],
+  evidenceIds: [] as string[],
 };
 
 function mockAdminAuth() {
@@ -329,6 +331,10 @@ describe("TC-ADMIN-OPS-C: admin/events/capture-all — 一括キャプチャ", (
       stripePaymentIntentId: pi.id,
     });
     cleanup.transactionIds.push(txId);
+
+    // capture-all は「開催承認」の前提としてエビデンス提出済みを要求する
+    const evidenceId = await insertEventEvidence({ eventId: captureEventId, submittedByProfileId: organizerProfileId });
+    cleanup.evidenceIds.push(evidenceId);
   }, 60_000);
 
   it("TC-ADMIN-OPS-C-01: 非 admin → 403", async () => {
@@ -437,6 +443,59 @@ describe("TC-ADMIN-OPS-D: cron/reconcile — 定期照合", () => {
     expect(data.checked).toBeGreaterThanOrEqual(1);
 
     // tx が照合済みになること
+    const { data: tx } = await testAdmin.from("transactions")
+      .select("amount_verified, reconciled_at")
+      .eq("transaction_id", txId).single();
+    expect(tx?.amount_verified).toBe(true);
+    expect(tx?.reconciled_at).not.toBeNull();
+
+    mockPiAmounts.delete(mockPiId);
+    process.env.CRON_SECRET = orig;
+  });
+
+  it("TC-ADMIN-OPS-D-03b: ended（未承認）イベント + 未照合 tx → 対象に含まれ照合される", async () => {
+    // 精算承認(settle)は「全件照合済み」を前提条件として要求するため、承認前の
+    // endedイベントの時点で自動照合が進む必要がある。cronの対象条件が
+    // settledのみだと承認前に永久に照合されないため、endedも対象に含める。
+    const secret = process.env.CRON_SECRET ?? "test_cron_secret";
+    const orig = process.env.CRON_SECRET;
+    process.env.CRON_SECRET = secret;
+
+    const cronEventId = await insertEvent({ organizerProfileId, title: "TC-ADMIN-OPS-D ended test" });
+    cleanup.eventIds.push(cronEventId);
+    await testAdmin.from("events").update({ lifecycle_status: "ended" }).eq("event_id", cronEventId);
+
+    const qrConfigId = await insertQrConfig({
+      eventId: cronEventId,
+      creatorProfileId: organizerProfileId,
+      recipientProfileId: organizerProfileId,
+    });
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const mockPiId = `pi_cron_ended_test_${Date.now()}`;
+    mockPiAmounts.set(mockPiId, 10_000);
+
+    const txId = await insertTransaction({
+      qrConfigId,
+      grossAmount: 10_000,
+      netAmount: 8604,
+      stripeFee: 396,
+      platformFee: 1000,
+      stripePaymentIntentId: mockPiId,
+      reconciled: false,
+    });
+    cleanup.transactionIds.push(txId);
+
+    const req = new Request("http://localhost/api/cron/reconcile", {
+      method: "GET",
+      headers: { authorization: `Bearer ${secret}` },
+    });
+    const res = await cronReconcileGET(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.checked).toBeGreaterThanOrEqual(1);
+
     const { data: tx } = await testAdmin.from("transactions")
       .select("amount_verified, reconciled_at")
       .eq("transaction_id", txId).single();

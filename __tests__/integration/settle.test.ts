@@ -7,6 +7,7 @@ import {
   deleteTestConnectAccount,
   createTestPaymentIntent,
   createTestCapturedPaymentIntent,
+  captureAndReconcileTransactions,
   stripe,
 } from "../helpers/stripe-fixtures";
 import {
@@ -156,6 +157,9 @@ describe("TC-SETTLE-01: destination charge フロー", () => {
   }, 60_000);
 
   it("settle 後: organizer・artist それぞれに source_transaction Transfer が作成される", async () => {
+    // settle は「全決済が照合済み」を前提条件として要求する（開催承認=キャプチャのみ
+    // →照合→送金、の順を強制するため）。テストでも実際にキャプチャ・照合してから呼ぶ。
+    await captureAndReconcileTransactions(testAdmin, [txId]);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId }) });
     const data = await res.json();
@@ -210,6 +214,7 @@ describe("TC-SETTLE-01: destination charge フロー", () => {
 // ── TC-SETTLE-03: エージェント手数料 ────────────────────────────────────
 describe("TC-SETTLE-03: エージェント手数料の分配", () => {
   let eventId: string;
+  let txId: string;
 
   beforeAll(async () => {
     eventId = await insertEvent({ organizerProfileId, agentId: agentProfileId, title: "TC-SETTLE-03 エージェントあり" });
@@ -224,7 +229,7 @@ describe("TC-SETTLE-03: エージェント手数料の分配", () => {
 
     const gross = 20_000;
     const pi = await createTestPaymentIntent({ amount: gross, organizerConnectId });
-    const txId = await insertTransaction({
+    txId = await insertTransaction({
       qrConfigId,
       grossAmount: gross,
       netAmount: gross - Math.ceil(gross * 0.0396) - Math.floor(gross * 0.10),
@@ -240,6 +245,7 @@ describe("TC-SETTLE-03: エージェント手数料の分配", () => {
   }, 60_000);
 
   it("エージェント手数料が gross × 0.05 で計上され settle_transfer が作成される", async () => {
+    await captureAndReconcileTransactions(testAdmin, [txId]);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId }) });
     expect(res.status).toBe(200);
@@ -276,6 +282,7 @@ describe("TC-SETTLE-03: エージェント手数料の分配", () => {
 describe("TC-SETTLE-04: 未確定アーティストの分配がオーガナイザーに帰属", () => {
   let eventId: string;
   let unconfirmedArtistId: string;
+  let txId: string;
 
   beforeAll(async () => {
     unconfirmedArtistId = await insertProfile({
@@ -295,7 +302,7 @@ describe("TC-SETTLE-04: 未確定アーティストの分配がオーガナイ�
 
     const gross = 5_000;
     const pi = await createTestPaymentIntent({ amount: gross, organizerConnectId });
-    const txId = await insertTransaction({
+    txId = await insertTransaction({
       qrConfigId,
       grossAmount: gross,
       netAmount: gross - Math.ceil(gross * 0.0396) - Math.floor(gross * 0.10),
@@ -311,6 +318,7 @@ describe("TC-SETTLE-04: 未確定アーティストの分配がオーガナイ�
   }, 60_000);
 
   it("未確定アーティストへの配分がオーガナイザーに振り替えられる", async () => {
+    await captureAndReconcileTransactions(testAdmin, [txId]);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId }) });
     expect(res.status).toBe(200);
@@ -357,6 +365,7 @@ describe("TC-PAY-05: SavedCard off_session オーソリ → settle で1円単位
   let customerId: string;
   let offSessionPiId: string;
   let pay05EventId: string;
+  let pay05TxId: string;
 
   beforeAll(async () => {
     // 1. Stripe Customer 作成 + SetupIntent でカード情報を安全に登録
@@ -407,7 +416,7 @@ describe("TC-PAY-05: SavedCard off_session オーソリ → settle で1円単位
       { profileId: artistProfileId, ratio: 0.5 },
     ]);
 
-    const txId = await insertTransaction({
+    pay05TxId = await insertTransaction({
       qrConfigId,
       grossAmount: GROSS,
       netAmount: NET,
@@ -415,7 +424,7 @@ describe("TC-PAY-05: SavedCard off_session オーソリ → settle で1円単位
       platformFee: PLATFORM_FEE,
       stripePaymentIntentId: offSessionPiId,
     });
-    cleanup.transactionIds.push(txId);
+    cleanup.transactionIds.push(pay05TxId);
 
     await insertEventArtist({ eventId: pay05EventId, artistProfileId });
     const evidenceId = await insertEventEvidence({
@@ -436,8 +445,9 @@ describe("TC-PAY-05: SavedCard off_session オーソリ → settle で1円単位
     expect(pi.capture_method).toBe("manual");
   });
 
-  it("settle ロジックが off_session PI をキャプチャし1円単位で3者分配する", async () => {
+  it("開催承認（キャプチャ・照合）後、送金ロジックが1円単位で3者分配する", async () => {
     mockAdminAuth();
+    await captureAndReconcileTransactions(testAdmin, [pay05TxId]);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId: pay05EventId }) });
     const data = await res.json();
@@ -543,6 +553,7 @@ describe("TC-SETTLE-06: 照合差異・再精算（分割精算の総額一致�
     const evidenceId = await insertEventEvidence({ eventId, submittedByProfileId: organizerProfileId });
     cleanup.evidenceIds.push(evidenceId);
 
+    await captureAndReconcileTransactions(testAdmin, [txId]);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId }) });
     if (res.status !== 200) {
@@ -620,6 +631,7 @@ describe("TC-SETTLE-07: PayPay 即時キャプチャ済み PI（succeeded）の�
   const EXPECTED_ARTIST = Math.floor(NET * 0.5);   // 4281
 
   let pay07EventId: string;
+  let pay07TxId: string;
 
   beforeAll(async () => {
     // PayPay と同じく automatic capture 済み（succeeded）の PI を作成
@@ -644,7 +656,7 @@ describe("TC-SETTLE-07: PayPay 即時キャプチャ済み PI（succeeded）の�
       { profileId: artistProfileId, ratio: 0.5 },
     ]);
 
-    const txId = await insertTransaction({
+    pay07TxId = await insertTransaction({
       qrConfigId,
       grossAmount: GROSS,
       netAmount: NET,
@@ -652,7 +664,7 @@ describe("TC-SETTLE-07: PayPay 即時キャプチャ済み PI（succeeded）の�
       platformFee: PLATFORM_FEE,
       stripePaymentIntentId: pi.id,
     });
-    cleanup.transactionIds.push(txId);
+    cleanup.transactionIds.push(pay07TxId);
 
     await insertEventArtist({ eventId: pay07EventId, artistProfileId });
     const evidenceId = await insertEventEvidence({
@@ -662,18 +674,16 @@ describe("TC-SETTLE-07: PayPay 即時キャプチャ済み PI（succeeded）の�
     cleanup.evidenceIds.push(evidenceId);
   }, 120_000);
 
-  it("settle が succeeded PI のキャプチャをスキップし source_transaction で3者分配する", async () => {
+  it("送金ロジックが succeeded PI で source_transaction で3者分配する", async () => {
     mockAdminAuth();
+    // 開催承認相当（succeeded 済みPIはcapture-all側でも即skipされる）＋照合
+    await captureAndReconcileTransactions(testAdmin, [pay07TxId]);
     const req = new Request("http://localhost", { method: "POST" });
     const res = await POST(req, { params: Promise.resolve({ eventId: pay07EventId }) });
     const data = await res.json();
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-
-    // PI はすでにキャプチャ済み → captures に captured: true で記録される
-    const captureResult = (data.captures ?? []).find((c: any) => c.captured === true);
-    expect(captureResult).toBeDefined();
 
     // transaction_distributions の検証
     const { data: dists } = await testAdmin
@@ -715,6 +725,95 @@ describe("TC-SETTLE-07: PayPay 即時キャプチャ済み PI（succeeded）の�
       .eq("event_id", pay07EventId)
       .single();
     expect(summary?.is_approved_for_payout).toBe(true);
+    if (summary) cleanup.summaryIds.push(summary.summary_id);
+  });
+});
+
+// ── TC-SETTLE-08: 未照合ブロック ─────────────────────────────────────────
+describe("TC-SETTLE-08: 未照合の決済が残っていると送金が中断される", () => {
+  let eventId: string;
+  let txId: string;
+  let piId: string;
+
+  beforeAll(async () => {
+    eventId = await insertEvent({ organizerProfileId, title: "TC-SETTLE-08 未照合" });
+    const qrConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId });
+    cleanup.eventIds.push(eventId);
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    await insertQrConfigTargets(qrConfigId, [
+      { profileId: organizerProfileId, ratio: 0.5 },
+      { profileId: artistProfileId, ratio: 0.5 },
+    ]);
+
+    const gross = 3_000;
+    const pi = await createTestPaymentIntent({ amount: gross, organizerConnectId });
+    piId = pi.id;
+    txId = await insertTransaction({
+      qrConfigId,
+      grossAmount: gross,
+      netAmount: gross - Math.ceil(gross * 0.0396) - Math.floor(gross * 0.10),
+      stripeFee: Math.ceil(gross * 0.0396),
+      platformFee: Math.floor(gross * 0.10),
+      stripePaymentIntentId: pi.id,
+    });
+    cleanup.transactionIds.push(txId);
+
+    await insertEventArtist({ eventId, artistProfileId });
+    const evidenceId = await insertEventEvidence({ eventId, submittedByProfileId: organizerProfileId });
+    cleanup.evidenceIds.push(evidenceId);
+  }, 60_000);
+
+  it("キャプチャ・照合前に送金を呼ぶと409で中断され、Transferが1件も実行されない", async () => {
+    const req = new Request("http://localhost", { method: "POST" });
+    const res = await POST(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(409);
+    const data = await res.json();
+    expect(data.unreconciled_count).toBe(1);
+    expect(data.unreconciled_transaction_ids).toContain(txId);
+
+    const { data: transfers } = await testAdmin
+      .from("settle_transfers")
+      .select("stripe_transfer_id")
+      .eq("event_id", eventId);
+    expect(transfers ?? []).toHaveLength(0);
+
+    const { data: summary } = await testAdmin
+      .from("settlement_summaries")
+      .select("summary_id")
+      .eq("event_id", eventId)
+      .maybeSingle();
+    expect(summary).toBeNull();
+  });
+
+  it("開催承認（キャプチャ）だけでは照合済みにならず、送金は引き続き409になる", async () => {
+    // 開催承認 = キャプチャのみ（capture-all と同じ操作をStripe APIで直接再現）
+    await stripe.paymentIntents.capture(piId);
+    const req = new Request("http://localhost", { method: "POST" });
+    const res = await POST(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(409);
+  });
+
+  it("照合完了後は送金が成功し、Transferが実行される", async () => {
+    await captureAndReconcileTransactions(testAdmin, [txId]);
+    const req = new Request("http://localhost", { method: "POST" });
+    const res = await POST(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+
+    const { data: transfers } = await testAdmin
+      .from("settle_transfers")
+      .select("stripe_transfer_id, profile_id, amount")
+      .eq("event_id", eventId);
+    expect((transfers ?? []).length).toBeGreaterThan(0);
+    (transfers ?? []).forEach((s) => cleanup.settleTransferIds.push(s.stripe_transfer_id));
+
+    const { data: summary } = await testAdmin
+      .from("settlement_summaries")
+      .select("summary_id")
+      .eq("event_id", eventId)
+      .single();
     if (summary) cleanup.summaryIds.push(summary.summary_id);
   });
 });

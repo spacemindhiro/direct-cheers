@@ -140,6 +140,69 @@ export async function captureAndGetDestinationTransfer(piId: string): Promise<st
   return typeof transfer === "string" ? transfer : (transfer as any).id;
 }
 
+// settle は「全決済が照合済み(reconciled_at IS NOT NULL AND amount_verified = true)」
+// であることを前提条件として要求する（開催承認=キャプチャのみ→照合→送金、という
+// 順を強制するため）。settleのテストで実際にPIをキャプチャし、Stripeの実チャージ
+// 情報を使って本番の照合(app/api/cron/reconcile/route.ts)と同じ計算式で
+// transactions.{reconciled_at, amount_verified, stripe_fee_actual, stripe_net_actual}
+// を書き込む。ウェルカムチア等、同一PIに複数transaction行が紐づくケースにも対応する
+// （gross比率で按分、端数は最後の行に寄せる）。
+export async function captureAndReconcileTransactions(
+  testAdmin: any,
+  transactionIds: string[],
+): Promise<void> {
+  const { data: txs } = await testAdmin
+    .from("transactions")
+    .select("transaction_id, stripe_payment_intent_id, total_gross_amount")
+    .in("transaction_id", transactionIds);
+
+  const byPi = new Map<string, { transaction_id: string; total_gross_amount: number }[]>();
+  for (const tx of txs ?? []) {
+    const piId = tx.stripe_payment_intent_id as string;
+    const list = byPi.get(piId) ?? [];
+    list.push(tx);
+    byPi.set(piId, list);
+  }
+
+  for (const [piId, groupTxs] of byPi.entries()) {
+    let pi = await stripe.paymentIntents.retrieve(piId);
+    if (pi.status === "requires_capture") {
+      await stripe.paymentIntents.capture(piId);
+    }
+    pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge.balance_transaction"] });
+    const charge = pi.latest_charge as Stripe.Charge | null;
+    const bt = charge?.balance_transaction as Stripe.BalanceTransaction | null;
+    const stripeFee = bt?.fee ?? 0;
+    const stripeNet = bt?.net ?? 0;
+    const groupGross = groupTxs.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+
+    const sorted = [...groupTxs].sort((a, b) => (b.total_gross_amount ?? 0) - (a.total_gross_amount ?? 0));
+    let allocatedFee = 0;
+    let allocatedNet = 0;
+    for (let i = 0; i < sorted.length; i++) {
+      const tx = sorted[i];
+      const isLast = i === sorted.length - 1;
+      const rowGross = tx.total_gross_amount ?? 0;
+      const rowFee = isLast ? stripeFee - allocatedFee : Math.floor((stripeFee * rowGross) / groupGross);
+      const rowNet = isLast ? stripeNet - allocatedNet : Math.floor((stripeNet * rowGross) / groupGross);
+      allocatedFee += rowFee;
+      allocatedNet += rowNet;
+
+      await testAdmin
+        .from("transactions")
+        .update({
+          amount_verified: true,
+          amount_mismatch: 0,
+          stripe_fee_actual: rowFee,
+          stripe_net_actual: rowNet,
+          reconciled_at: new Date().toISOString(),
+          reconcile_error: null,
+        })
+        .eq("transaction_id", tx.transaction_id);
+    }
+  }
+}
+
 // テスト用 Stripe Checkout Session を作成（pay/cheers route のアサーション用）
 export async function retrieveRecentCheckoutSession(
   qrConfigId: string,

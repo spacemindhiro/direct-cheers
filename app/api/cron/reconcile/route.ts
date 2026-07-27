@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
+import { acquirePiLock, releasePiLock } from "@/lib/reconcile-lock";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -173,6 +174,11 @@ export async function GET(req: Request) {
     }
 
     for (const [piId, groupTxs] of piGroups.entries()) {
+      const gotLock = await acquirePiLock(admin, piId);
+      if (!gotLock) {
+        console.log(`[reconcile] pi=${piId} 他の実行が処理中のためスキップ（次回実行時に再試行）`);
+        continue;
+      }
       try {
         const pi = await stripe.paymentIntents.retrieve(piId, {
           expand: ["latest_charge.balance_transaction"],
@@ -353,6 +359,8 @@ export async function GET(req: Request) {
             .update({ reconcile_error: err.message })
             .eq("transaction_id", tx.transaction_id);
         }
+      } finally {
+        await releasePiLock(admin, piId);
       }
     }
 

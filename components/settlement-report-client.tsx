@@ -165,7 +165,7 @@ export function SettlementReportClient({
               </thead>
               <tbody>
                 {eventRecipients.filter(r => isInsider || r.role !== "agent").map(r => (
-                  <tr key={r.profile_id} className={`border-b border-slate-800/50 print:border-slate-100 ${r.frozen_amount > 0 ? "bg-red-950/10 print:bg-red-50" : ""}`}>
+                  <tr key={`${r.profile_id}-${r.role}`} className={`border-b border-slate-800/50 print:border-slate-100 ${r.frozen_amount > 0 ? "bg-red-950/10 print:bg-red-50" : ""}`}>
                     <td className="px-5 py-3 font-bold text-white print:text-black">{r.display_name}</td>
                     <td className="px-5 py-3 text-slate-400 text-xs print:text-slate-600">{ROLE_LABEL[r.role] ?? r.role}</td>
                     <td className="px-5 py-3 font-black text-white text-right print:text-black">{yen(r.total_amount)}</td>
@@ -180,7 +180,7 @@ export function SettlementReportClient({
                         : <span className="text-slate-600">未振込</span>}
                     </td>
                     <td className="px-5 py-3">
-                      <DistStatus d={{ actual_amount: r.total_amount, frozen_amount: r.frozen_amount, hold_released: r.settle_amount != null }} />
+                      <DistStatus d={{ actual_amount: r.total_amount, frozen_amount: r.frozen_amount, hold_released: r.hold_released }} />
                     </td>
                   </tr>
                 ))}
@@ -212,6 +212,9 @@ export function SettlementReportClient({
                     <div className="flex items-center gap-2 mb-0.5">
                       <p className="text-xs font-black text-white print:text-black">{qr.label}</p>
                       <span className="text-xs text-pink-400 font-bold print:text-pink-600">{qr.txCount.toLocaleString()}チア</span>
+                      {qr.totalQuantity !== qr.txCount && (
+                        <span className="text-xs text-slate-500 print:text-slate-600">（計{qr.totalQuantity.toLocaleString()}件）</span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 print:text-slate-600">
                       売上 {yen(qr.totalGross)} → Stripe {yen(qr.totalStripeFee)} + 手数料 {yen(qr.totalPlatformFee)} = 配分原資 {yen(qr.totalNet)}
@@ -229,7 +232,7 @@ export function SettlementReportClient({
                   </thead>
                   <tbody>
                     {qr.distributions.filter(d => isInsider || d.role !== "agent").map(d => (
-                      <tr key={d.profile_id} className={`border-b border-slate-800/50 print:border-slate-100 ${d.frozen_amount > 0 ? "bg-red-950/15 print:bg-red-50" : ""}`}>
+                      <tr key={`${d.profile_id}-${d.role}`} className={`border-b border-slate-800/50 print:border-slate-100 ${d.frozen_amount > 0 ? "bg-red-950/15 print:bg-red-50" : ""}`}>
                         <td className="px-5 py-3 font-bold text-sm text-white print:text-black">{d.display_name}</td>
                         <td className="px-5 py-3 text-slate-400 text-xs print:text-slate-600">{ROLE_LABEL[d.role] ?? d.role}</td>
                         <td className="px-5 py-3 font-black text-right text-white print:text-black">{yen(d.actual_amount)}</td>
@@ -246,7 +249,7 @@ export function SettlementReportClient({
                   <tfoot>
                     <tr className="border-t border-slate-700 print:border-slate-300">
                       <td colSpan={2} className="px-5 py-2 text-xs font-black text-slate-500 print:text-slate-600">小計</td>
-                      <td className="px-5 py-2 font-black text-white text-right print:text-black">{yen(qr.distributions.reduce((s, d) => s + d.actual_amount, 0))}</td>
+                      <td className="px-5 py-2 font-black text-white text-right print:text-black">{yen(qr.distributions.filter(d => isInsider || d.role !== "agent").reduce((s, d) => s + d.actual_amount, 0))}</td>
                       <td colSpan={3} />
                     </tr>
                   </tfoot>

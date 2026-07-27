@@ -12,6 +12,7 @@ export type EventRecipientRow = {
   role: string;
   total_amount: number;
   frozen_amount: number;   // CBで凍結中の金額（total_amountの内数）
+  hold_released: boolean;  // 全QR横断でホールド解除済みか（1つでも未解除ならfalse）
   settle_amount: number | null;
 };
 
@@ -30,6 +31,7 @@ export type QRGroupRow = {
   qr_config_id: string;
   label: string;
   txCount: number;
+  totalQuantity: number;   // ticketsのquantity合算（まとめ買い等で1決済=複数人分のケースを含む実人数）
   totalGross: number;
   totalStripeFee: number;
   totalPlatformFee: number;
@@ -104,11 +106,24 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
   const txIds = allTxs.map(t => t.transaction_id);
   const txToQr = new Map(allTxs.map(t => [t.transaction_id, t.qr_config_id as string]));
 
+  // まとめ買い（当日現地QR決済で複数人分を1決済にまとめるケース）は
+  // tickets.quantityに実人数が入る。1決済=1チアとしてtxCountを数えるだけでは
+  // 実際に何人分/何枚分だったかが分からないため、QR別にquantity合計も出す。
+  let ticketQtys: { transaction_id: string; quantity: number }[] = [];
+  for (let i = 0; i < txIds.length; i += BATCH) {
+    const { data } = await admin.from("tickets")
+      .select("transaction_id, quantity")
+      .in("transaction_id", txIds.slice(i, i + BATCH));
+    ticketQtys.push(...(data ?? []));
+  }
+  const qtyByTxId = new Map(ticketQtys.map(t => [t.transaction_id, t.quantity ?? 1]));
+
   const qrGrossMap      = new Map<string, number>();
   const qrStripeFeeMap  = new Map<string, number>();
   const qrPlatformFeeMap = new Map<string, number>();
   const qrNetMap        = new Map<string, number>();
   const qrTxCountMap    = new Map<string, number>();
+  const qrQuantityMap   = new Map<string, number>();
   for (const tx of allTxs) {
     const q = tx.qr_config_id;
     qrGrossMap.set(q,      (qrGrossMap.get(q)      ?? 0) + (tx.total_gross_amount ?? 0));
@@ -116,6 +131,7 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
     qrPlatformFeeMap.set(q,(qrPlatformFeeMap.get(q) ?? 0) + (tx.platform_fee ?? 0));
     qrNetMap.set(q,        (qrNetMap.get(q)         ?? 0) + (tx.net_amount ?? 0));
     qrTxCountMap.set(q,    (qrTxCountMap.get(q)     ?? 0) + 1);
+    qrQuantityMap.set(q,   (qrQuantityMap.get(q)    ?? 0) + (qtyByTxId.get(tx.transaction_id) ?? 1));
   }
 
   // 配分明細（is_frozen を金額で追跡）
@@ -146,8 +162,13 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
   ]));
 
   // QR別・プロフィール別集計
+  // 同一人物が同一QRで複数ロール（例: オーガナイザー兼エージェント）を持つ場合、
+  // 役割ごとの配分額は別物のため、profile_idだけでなくdistribution_roleも
+  // キーに含めて集計する（roleを無視すると別ロール分が1行に合算され、金額が
+  // 実態より膨らんで見える）。
   // frozen_amount = is_frozen な行の actual_amount の合計（人単位での部分凍結を正確に追跡）
   type ProfDist = {
+    profile_id: string;
     actual_amount: number; frozen_amount: number;
     tax_amount: number; hold_released: boolean; role: string;
   };
@@ -157,8 +178,10 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
     if (!qid) continue;
     if (!qrProfileDist.has(qid)) qrProfileDist.set(qid, new Map());
     const map = qrProfileDist.get(qid)!;
-    const prev = map.get(d.profile_id);
-    map.set(d.profile_id, {
+    const key = `${d.profile_id}::${d.distribution_role}`;
+    const prev = map.get(key);
+    map.set(key, {
+      profile_id:     d.profile_id,
       actual_amount:  (prev?.actual_amount  ?? 0) + (d.actual_amount ?? 0),
       frozen_amount:  (prev?.frozen_amount  ?? 0) + (d.is_frozen ? (d.actual_amount ?? 0) : 0),
       tax_amount:     (prev?.tax_amount     ?? 0) + (d.tax_amount ?? 0),
@@ -170,15 +193,15 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
   // QRグループ構築
   const qrGroups: QRGroupRow[] = qrConfigs.map(qr => {
     const profMap = qrProfileDist.get(qr.qr_config_id) ?? new Map();
-    const distributions: DistributionRow[] = [...profMap.entries()]
-      .map(([pid, d]) => ({
-        profile_id:    pid,
-        display_name:  profileMap.get(pid)?.name ?? pid,
+    const distributions: DistributionRow[] = [...profMap.values()]
+      .map((d) => ({
+        profile_id:    d.profile_id,
+        display_name:  profileMap.get(d.profile_id)?.name ?? d.profile_id,
         role:          d.role,
         actual_amount: d.actual_amount,
         frozen_amount: d.frozen_amount,
         hold_released: d.hold_released,
-        settle_amount: settleByProfile.get(pid) ?? null,
+        settle_amount: settleByProfile.get(d.profile_id) ?? null,
       }))
       .sort((a, b) => (ROLE_ORDER[a.role as keyof typeof ROLE_ORDER] ?? 4) - (ROLE_ORDER[b.role as keyof typeof ROLE_ORDER] ?? 4));
 
@@ -186,6 +209,7 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
       qr_config_id:     qr.qr_config_id,
       label:            qr.label ?? "QR設定",
       txCount:          qrTxCountMap.get(qr.qr_config_id) ?? 0,
+      totalQuantity:    qrQuantityMap.get(qr.qr_config_id) ?? 0,
       totalGross:       qrGrossMap.get(qr.qr_config_id) ?? 0,
       totalStripeFee:   qrStripeFeeMap.get(qr.qr_config_id) ?? 0,
       totalPlatformFee: qrPlatformFeeMap.get(qr.qr_config_id) ?? 0,
@@ -195,17 +219,19 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
     };
   }).filter(g => g.totalGross > 0 || g.distributions.length > 0);
 
-  // ── イベント全体の受取人サマリー（QR横断で合算）────────────────────
+  // ── イベント全体の受取人サマリー（QR横断で合算、ロール単位）────────────
   const eventRecipientMap = new Map<string, EventRecipientRow>();
   for (const qr of qrGroups) {
     for (const d of qr.distributions) {
-      const prev = eventRecipientMap.get(d.profile_id);
-      eventRecipientMap.set(d.profile_id, {
+      const key = `${d.profile_id}::${d.role}`;
+      const prev = eventRecipientMap.get(key);
+      eventRecipientMap.set(key, {
         profile_id:    d.profile_id,
         display_name:  d.display_name,
         role:          d.role,
         total_amount:  (prev?.total_amount  ?? 0) + d.actual_amount,
         frozen_amount: (prev?.frozen_amount ?? 0) + d.frozen_amount,
+        hold_released: d.hold_released && (prev?.hold_released ?? true),
         settle_amount: settleByProfile.get(d.profile_id) ?? null,
       });
     }

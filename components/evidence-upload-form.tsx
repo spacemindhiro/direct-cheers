@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Upload, Loader2, CheckCircle2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   eventId: string;
@@ -10,6 +11,7 @@ type Props = {
 
 export function EvidenceUploadForm({ eventId }: Props) {
   const router = useRouter();
+  const supabase = createClient();
   const [description, setDescription] = useState("");
   const [attendanceCount, setAttendanceCount] = useState("");
   const [files, setFiles] = useState<File[]>([]);
@@ -20,16 +22,12 @@ export function EvidenceUploadForm({ eventId }: Props) {
   const [error, setError] = useState("");
 
   // iPhoneのカメラで撮った写真はデフォルトでHEIC形式だが、ブラウザの<img>タグでは
-  // 表示できない（保存自体は成功するため、証跡ページで壊れた画像アイコンになって
-  // 初めて気づく）。選択された時点でJPEGに変換しておき、プレビュー・保存とも
+  // 表示できない。選択された時点でJPEGに変換しておき、プレビュー・保存とも
   // 常に表示可能な形式で扱う。
   //
   // 判定はfile.name/file.typeに頼らず、実バイト列の先頭(ftypボックス)を見て行う。
   // iOS Safariは<input type="file">経由で渡す際にHEICを内部的にJPEGへ変換済みの
   // ことがあるが、その場合もファイル名は".HEIC"のまま・file.typeも不正確なことがある。
-  // 名前だけで判定すると、既にJPEGのバイト列を誤ってHEICデコーダに渡してしまい、
-  // デコード失敗で空のBlobが返り、エラーも出ないまま0バイトのファイルが
-  // アップロードされてしまっていた（本番で実際に発生・確認済み）。
   const isHeic = async (file: File): Promise<boolean> => {
     const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
     if (head.length < 12) return false;
@@ -77,41 +75,23 @@ export function EvidenceUploadForm({ eventId }: Props) {
     setError("");
 
     try {
-      // 1. 署名付きURLを取得してクライアントから直接Supabase Storageにアップロード
-      //    （Next.js/Vercelのボディサイズ制限を完全にバイパス）
+      // ブラウザからSupabase Storageへ直接アップロードする（Supabase公式が
+      // 6MB未満のファイルに推奨する標準アップロード方式）。書き込みは
+      // 対象イベントの主催者/担当エージェント/管理者のみ許可するRLSポリシーで
+      // 制限している。
       const uploadedPaths: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      for (const file of files) {
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const baseName = (file.name.replace(/\.[^.]+$/, "") || "photo").replace(/[^a-zA-Z0-9_-]/g, "_") || "photo";
+        const path = `${eventId}/${crypto.randomUUID()}-${baseName}.${ext}`;
 
-        // 1a. サーバーから署名付きURLを取得（ファイル名だけ送る小さいリクエスト）
-        const urlRes = await fetch(`/api/events/${eventId}/evidence/upload-url`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name }),
-        });
-        if (!urlRes.ok) {
-          const urlData = await urlRes.json().catch(() => ({}));
-          throw new Error(`写真${i + 1}枚目: ${(urlData as { error?: string }).error ?? "URL取得失敗"}`);
-        }
-        const { path, signedUrl, contentType } = await urlRes.json() as {
-          path: string;
-          signedUrl: string;
-          contentType: string;
-        };
-
-        // 1b. 署名付きURLに直接PUT（Vercelを経由しない）
-        const putRes = await fetch(signedUrl, {
-          method: "PUT",
-          headers: { "Content-Type": contentType },
-          body: file,
-        });
-        if (!putRes.ok) {
-          throw new Error(`写真${i + 1}枚目: アップロード失敗 (HTTP ${putRes.status})`);
-        }
+        const { error: uploadError } = await supabase.storage
+          .from("event-evidence")
+          .upload(path, file, { contentType: file.type || "image/jpeg" });
+        if (uploadError) throw new Error(uploadError.message);
         uploadedPaths.push(path);
       }
 
-      // 2. パスを証跡APIに送信
       const res = await fetch(`/api/events/${eventId}/evidence`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

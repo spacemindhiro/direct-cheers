@@ -68,15 +68,28 @@ export async function GET(request: Request) {
     return res;
   }
 
-  // Google 等 OAuth ログインはオンボーディング不要
+  // Google 等 OAuth ログインでも、statusは他の経路(メール)と同じ審査パイプライン
+  // (pending_onboarding→pending_terms→pending_interview→active)をそのまま通す。
+  // status='active'は「決済を扱う主催者/出演者として審査済み」を意味する項目のため、
+  // ログイン手段だけで即active化してはならない（買い手としての利用はstatusを
+  // 一切見ないため、ここを審査済みにしなくても閲覧・購入は問題なく行える）。
   if (authUser.app_metadata?.provider !== 'email') {
-    await admin.from('profiles').insert({
-      profile_id: authUser.id,
-      display_name: (authUser.user_metadata?.full_name ?? authUser.user_metadata?.name ?? null) as string | null,
-      role: 'user',
-      status: 'active',
-    });
-    return NextResponse.redirect(`${origin}${redirect ?? '/dashboard'}`);
+    const { data: existingProfile } = await admin
+      .from('profiles')
+      .select('profile_id')
+      .eq('profile_id', authUser.id)
+      .maybeSingle();
+    if (!existingProfile) {
+      await admin.from('profiles').insert({
+        profile_id: authUser.id,
+        display_name: (authUser.user_metadata?.full_name ?? authUser.user_metadata?.name ?? null) as string | null,
+        role: 'user',
+      });
+    }
+    const dest = redirect
+      ? `/onboarding/profile?redirect=${encodeURIComponent(redirect)}`
+      : '/onboarding/profile';
+    return NextResponse.redirect(`${origin}${dest}`);
   }
 
   if (authUser.user_metadata?.skip_onboarding) {

@@ -630,6 +630,71 @@ describe("TC-POST-PAY-MULTI-TX: 複数TX混在時の照合 — verified/unverifi
     expect((tx1?.stripe_net_actual ?? 0) + (tx2?.stripe_net_actual ?? 0)).toBe(2881);
   });
 
+  it("按分はagent・platform(運営取り分)を除外し、organizerのみ再分配される", async () => {
+    // 実際にStripe手数料の見積りが実額より高すぎたケースを再現する。
+    // organizerの取り分は増えるべきなのに、platformの固定取り分まで
+    // 再分配プールに混ざり込むと誤って圧縮されてしまう回帰テスト。
+    const eventId = await insertEvent({ organizerProfileId, title: "MULTI-TX platform除外" });
+    const qrConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
+    cleanup.eventIds.push(eventId);
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const piId = `pi_platform_exclude_${Date.now()}`;
+    const gross = 2500;
+    stripeMockAmounts.set(piId, gross); // mock: fee=ceil(2500*0.0396)=99, net=2401
+
+    // DB側は見積り手数料を実際より高く(200)登録しておく
+    const txId = await insertTransaction({
+      qrConfigId,
+      grossAmount: gross,
+      netAmount: 2050, // 2500 - 200(見積fee) - 250(platformFee)
+      stripeFee: 200,
+      platformFee: 250,
+      stripePaymentIntentId: piId,
+      status: "completed",
+      reconciled: false,
+    });
+    cleanup.transactionIds.push(txId);
+
+    const organizerDistId = await insertDistribution({
+      transactionId: txId, eventId, profileId: organizerProfileId, role: "organizer", actualAmount: 2050,
+    });
+    cleanup.distributionIds.push(organizerDistId);
+    const agentDistId = await insertDistribution({
+      transactionId: txId, eventId, profileId: organizerProfileId, role: "agent", actualAmount: 125,
+    });
+    cleanup.distributionIds.push(agentDistId);
+    const platformDistId = await insertDistribution({
+      transactionId: txId, eventId, profileId: adminProfileId, role: "platform", actualAmount: 125,
+    });
+    cleanup.distributionIds.push(platformDistId);
+
+    mockAdminAuth();
+    const req = new Request("http://localhost/api/admin/reconcile/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventId }),
+    });
+    const res = await reconcilePOST(req);
+    expect(res.status).toBe(200);
+
+    const { data: dists } = await testAdmin
+      .from("transaction_distributions")
+      .select("distribution_role, actual_amount")
+      .eq("transaction_id", txId);
+
+    const organizerDist = dists!.find((d) => d.distribution_role === "organizer");
+    const agentDist = dists!.find((d) => d.distribution_role === "agent");
+    const platformDist = dists!.find((d) => d.distribution_role === "platform");
+
+    // 実手数料(99)は見積り(200)より安かった → net_actual(2401) - platformFee(250) = 2151
+    // organizerのみが対象のため、target全額(2151)がそのままorganizerに入る
+    expect(organizerDist?.actual_amount).toBe(2151);
+    // agent・platformは固定額のまま変化しない
+    expect(agentDist?.actual_amount).toBe(125);
+    expect(platformDist?.actual_amount).toBe(125);
+  });
+
   it("照合済みトランザクションは再照合で再試行されない（冪等）", async () => {
     const eventId = await insertEvent({ organizerProfileId, title: "MULTI-TX 冪等" });
     const qrConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });

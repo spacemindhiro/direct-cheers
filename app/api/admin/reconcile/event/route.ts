@@ -172,7 +172,10 @@ export async function POST(req: Request) {
         const allAccruedDists = ((tx.transaction_distributions ?? []) as any[]).filter(
           (d: any) => d.distribution_status === "accrued"
         );
-        const artistOrgDists = allAccruedDists.filter((d: any) => d.distribution_role !== "agent");
+        // agent・platform(運営取り分)はいずれもgross基準の固定額 → 按分対象外。
+        // platformを除外し忘れると、platformの固定取り分までorganizer/artistの
+        // 再分配プールに混ざり込み、organizer/artistの取り分が誤って圧縮される。
+        const artistOrgDists = allAccruedDists.filter((d: any) => !["agent", "platform"].includes(d.distribution_role));
         const platformFee = (tx as any).platform_fee ?? 0;
         const artistOrgTarget = rowStripeNet !== null ? rowStripeNet - platformFee : null;
         const artistOrgEstimated = artistOrgDists.reduce((s: number, d: any) => s + (d.actual_amount ?? 0), 0);

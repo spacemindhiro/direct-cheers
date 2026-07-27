@@ -1,7 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type FeeConfig = {
-  stripe_rate: number;    // 例: 0.0396（3.6% × 消費税1.1）
+  stripe_rate: number;    // 例: 0.0396（3.6% × 消費税1.1）オンラインカード決済(card-not-present)用
+  stripe_present_rate: number; // 例: 0.0355 WisePad等のタッチ決済(card_present)用。消費税上乗せなし
   platform_rate: number;  // 例: 0.10
   agent_fee_rate: number; // platform_rate の半分をエージェントへ (例: 0.05)
   net_rate: number;       // 1 - stripe_rate - platform_rate (例: 0.8604)
@@ -11,6 +12,7 @@ export type FeeConfig = {
 
 const DEFAULT: FeeConfig = {
   stripe_rate: 0.0396,
+  stripe_present_rate: 0.0355,
   platform_rate: 0.10,
   agent_fee_rate: 0.05,
   net_rate: 0.8604,
@@ -24,7 +26,7 @@ export async function getFeeConfig(): Promise<FeeConfig> {
     const admin = createAdminClient();
     const { data } = await admin
       .from("platform_config")
-      .select("stripe_rate, platform_rate, paypay_rate")
+      .select("stripe_rate, stripe_present_rate, platform_rate, paypay_rate")
       .order("updated_at", { ascending: false })
       .limit(1)
       .single();
@@ -32,11 +34,13 @@ export async function getFeeConfig(): Promise<FeeConfig> {
     if (!data) return DEFAULT;
 
     const stripe_rate = Number(data.stripe_rate);
+    const stripe_present_rate = Number(data.stripe_present_rate ?? DEFAULT.stripe_present_rate);
     const platform_rate = Number(data.platform_rate);
     const paypay_rate = Number(data.paypay_rate ?? 0.04378);
     const agent_fee_rate = Math.round(platform_rate / 2 * 10000) / 10000;
     return {
       stripe_rate,
+      stripe_present_rate,
       platform_rate,
       agent_fee_rate,
       net_rate: Math.round((1 - stripe_rate - platform_rate) * 100000) / 100000,

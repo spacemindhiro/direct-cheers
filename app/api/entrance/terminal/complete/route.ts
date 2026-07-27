@@ -108,7 +108,10 @@ export async function POST(req: Request) {
   const welcomeCheerTotal = welcomeCheerUnitAmount != null ? welcomeCheerUnitAmount * quantity : 0;
   const floor1Gross = gross - welcomeCheerTotal;
 
-  const stripeFee = Math.ceil(floor1Gross * feeConfig.stripe_rate);
+  // WisePad等のタッチ決済(card_present)はオンラインカード決済と実手数料率が
+  // 異なる(消費税上乗せがなく、オンライン想定のstripe_rateより低い)ため、
+  // card_present専用のレートで見積もる。
+  const stripeFee = Math.ceil(floor1Gross * feeConfig.stripe_present_rate);
   const platformFee = Math.floor(floor1Gross * feeConfig.platform_rate);
   const agentFee = agentId ? Math.floor(platformFee * (feeConfig.agent_fee_rate / feeConfig.platform_rate)) : 0;
 
@@ -186,7 +189,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (wcQrConfig?.qr_config_id) {
-      const wcStripeFee = Math.ceil(welcomeCheerTotal * feeConfig.stripe_rate);
+      const wcStripeFee = Math.ceil(welcomeCheerTotal * feeConfig.stripe_present_rate);
       const wcPlatformFee = Math.floor(welcomeCheerTotal * feeConfig.platform_rate);
       const wcAgentFee = agentId ? Math.floor(wcPlatformFee * (feeConfig.agent_fee_rate / feeConfig.platform_rate)) : 0;
 

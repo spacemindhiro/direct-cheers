@@ -637,6 +637,80 @@ describe("TC-ADMIN-OPS-D: cron/reconcile — 定期照合", () => {
     mockPiAmounts.delete(mockPiId);
     process.env.CRON_SECRET = orig;
   });
+
+  it("TC-ADMIN-OPS-D-06: 按分はagent・platform(運営取り分)を除外し、organizerのみ再分配される", async () => {
+    // 実際にStripe手数料の見積りが実額より高すぎたケースを再現する。platformの
+    // 固定取り分まで再分配プールに混ざり込むと、organizerの取り分が誤って
+    // 圧縮されてしまう回帰テスト。
+    const secret = process.env.CRON_SECRET ?? "test_cron_secret";
+    const orig = process.env.CRON_SECRET;
+    process.env.CRON_SECRET = secret;
+
+    const cronEventId = await insertEvent({ organizerProfileId, title: "TC-ADMIN-OPS-D platform除外" });
+    cleanup.eventIds.push(cronEventId);
+    await testAdmin.from("events").update({ lifecycle_status: "settled" }).eq("event_id", cronEventId);
+
+    const qrConfigId = await insertQrConfig({
+      eventId: cronEventId,
+      creatorProfileId: organizerProfileId,
+      recipientProfileId: organizerProfileId,
+    });
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const mockPiId = `pi_cron_platform_exclude_${Date.now()}`;
+    const gross = 2500;
+    mockPiAmounts.set(mockPiId, gross); // mock: fee=ceil(2500*0.0396)=99, net=2401
+
+    const txId = await insertTransaction({
+      qrConfigId,
+      grossAmount: gross,
+      netAmount: 2050, // 2500 - 200(見積fee) - 250(platformFee)
+      stripeFee: 200,
+      platformFee: 250,
+      stripePaymentIntentId: mockPiId,
+      reconciled: false,
+    });
+    cleanup.transactionIds.push(txId);
+
+    const organizerDistId = await insertDistribution({
+      transactionId: txId, eventId: cronEventId, profileId: organizerProfileId, role: "organizer", actualAmount: 2050,
+    });
+    cleanup.distributionIds.push(organizerDistId);
+    const agentDistId = await insertDistribution({
+      transactionId: txId, eventId: cronEventId, profileId: organizerProfileId, role: "agent", actualAmount: 125,
+    });
+    cleanup.distributionIds.push(agentDistId);
+    const platformDistId = await insertDistribution({
+      transactionId: txId, eventId: cronEventId, profileId: adminProfileId, role: "platform", actualAmount: 125,
+    });
+    cleanup.distributionIds.push(platformDistId);
+
+    const req = new Request("http://localhost/api/cron/reconcile", {
+      method: "GET",
+      headers: { authorization: `Bearer ${secret}` },
+    });
+    const res = await cronReconcileGET(req);
+    expect(res.status).toBe(200);
+
+    const { data: dists } = await testAdmin
+      .from("transaction_distributions")
+      .select("distribution_role, actual_amount")
+      .eq("transaction_id", txId);
+
+    const organizerDist = dists!.find((d) => d.distribution_role === "organizer");
+    const agentDist = dists!.find((d) => d.distribution_role === "agent");
+    const platformDist = dists!.find((d) => d.distribution_role === "platform");
+
+    // 実手数料(Math.ceil(2500*0.0396)=100, 浮動小数点誤差で99.00000000000001→ceil)
+    // は見積り(200)より安かった → net_actual(2400) - platformFee(250) = 2150
+    expect(organizerDist?.actual_amount).toBe(2150);
+    // agent・platformは固定額のまま変化しない
+    expect(agentDist?.actual_amount).toBe(125);
+    expect(platformDist?.actual_amount).toBe(125);
+
+    mockPiAmounts.delete(mockPiId);
+    process.env.CRON_SECRET = orig;
+  });
 });
 
 // ── TC-ADMIN-OPS-E: refund-all ───────────────────────────────────────────────

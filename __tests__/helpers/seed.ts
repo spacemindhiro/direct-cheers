@@ -141,7 +141,7 @@ export async function insertDistribution(params: {
   transactionId: string;
   eventId: string;
   profileId: string;
-  role: "organizer" | "artist" | "agent";
+  role: "organizer" | "artist" | "agent" | "platform";
   actualAmount: number;
   status?: "accrued" | "paid";
   holdReleased?: boolean;

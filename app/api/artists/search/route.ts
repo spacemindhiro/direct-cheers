@@ -14,11 +14,16 @@ export async function GET(req: Request) {
 
   const admin = createAdminClient();
 
-  // display_name と artist_name の両方を検索
+  // display_name と artist_name の両方を検索。出演依頼の宛先なので、
+  // 出演しうるロール(artist/organizer/agent)のみに絞る。adminは出演しないため対象外。
+  // role='user'（審査未了の一般ユーザー）が候補に出てしまう不具合があったため
+  // statusではなくroleで絞り込む（statusはOAuthログインだけでも進み得るため、
+  // 出演依頼の可否を判定する材料としては不適切）。
   const { data, error } = await admin
     .from("profiles")
     .select("profile_id, display_name, artist_name, avatar_url")
-    .eq("status", "active")
+    .in("role", ["artist", "organizer", "agent"])
+    .is("deleted_at", null)
     .or(`display_name.ilike.%${q}%,artist_name.ilike.%${q}%`)
     .limit(20);
 

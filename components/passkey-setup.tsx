@@ -128,7 +128,16 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       setStatus("success");
       onSuccess?.();
     } catch (err: any) {
-      if (err.name === "NotAllowedError") { setStatus("idle"); return; }
+      // NotAllowedErrorは「ユーザーがキャンセルした」と「この端末に使えるパスキーが
+      // 一つも無かった」の両方で発生し、WebAuthnの仕様上サイト側では区別できない。
+      // authenticateはユーザーが能動的に選んだ操作のため、無言で戻すと「押しても
+      // 何も起きない」ように見えてしまう（実際に遭遇した不具合）。他の方法へ
+      // 気づけるよう一言添える。
+      if (err.name === "NotAllowedError") {
+        setErrorMsg("この端末で使えるパスキーが見つかりませんでした。他の方法もお試しください。");
+        setStatus("error");
+        return;
+      }
       setErrorMsg(err.message ?? "エラーが発生しました");
       setStatus("error");
     }

@@ -73,16 +73,17 @@ export default function LandingPage() {
             Next-Gen Live Experience Platform
           </span>
           <h2 className="text-5xl md:text-8xl font-black mb-10 tracking-tighter text-white leading-[1.05] uppercase">
-            ライブの感動を、<br />
+            ファンが贈り、<br />
             <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent italic">
-              「アーティストへ、直接」
+              アーティストが応え、
             </span>
-            届ける。
+            <br />
+            主催者が育てる。
           </h2>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed mb-12 font-medium text-pretty">
-            Direct Cheersは、会場のQRコードから応援を贈るプラットフォーム。<br className="hidden md:block" />
-            応援の証（Cheers!）として、シリアル刻印入りのデジタル証明書を即座に発行。<br className="hidden md:block" />
-            あなたのスマホの標準ウォレットアプリに格納できます。
+            贈られた応援は、シリアル刻印入りのデジタル証明書として残り、<br className="hidden md:block" />
+            アーティストの収益に、主催者の次の一歩になる。<br className="hidden md:block" />
+            Direct Cheersは、その循環をつくる応援プラットフォームです。
           </p>
           <div className="flex justify-center gap-6">
             <Link href="#demo" className="bg-slate-100 text-slate-900 px-10 py-4 rounded-full font-bold hover:bg-pink-500 hover:text-white transition-all shadow-2xl scale-110">

@@ -24,6 +24,10 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: "Direct Cheers",
     type: "website",
+    // [locale]配下にNext.jsのファイル規約(opengraph-image.png)で置くとビルド時に
+    // "failed to find source route" エラーで落ちるため、public/の静的ファイルを
+    // 直接指定する方式にしている(2026-07-30 本番ビルド失敗で確認)。
+    images: [{ url: "/og-image.png", width: 1424, height: 752 }],
   },
   twitter: {
     card: "summary_large_image",
@@ -32,6 +36,7 @@ export const metadata: Metadata = {
       template: "%s | Direct Cheers",
     },
     description: "ライブ演出をハックして、デジタルアセットを手に入れろ。",
+    images: ["/twitter-image.png"],
   },
 };
 

@@ -88,7 +88,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       // 何も起きない」ように見える(アプリ内WebViewでの登録失敗調査で実際に発生)。
       // ユーザーが能動的に選んだ操作なので一言添える。
       if (err.name === "NotAllowedError") {
-        setErrorMsg("この端末でパスキーを登録できませんでした。他の方法もお試しください。");
+        setErrorMsg("この端末でパスキーを登録できませんでした。アプリ内ブラウザ（LINEやFacebook、Googleアプリ等から開いた場合）だと失敗することがあります。SafariやChromeを直接開いてお試しください。");
         setStatus("error");
         return;
       }
@@ -141,7 +141,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       // 何も起きない」ように見えてしまう（実際に遭遇した不具合）。他の方法へ
       // 気づけるよう一言添える。
       if (err.name === "NotAllowedError") {
-        setErrorMsg("この端末で使えるパスキーが見つかりませんでした。他の方法もお試しください。");
+        setErrorMsg("この端末で使えるパスキーが見つかりませんでした。アプリ内ブラウザ（LINEやFacebook、Googleアプリ等から開いた場合）だと見つからないことがあります。SafariやChromeを直接開いてお試しください。");
         setStatus("error");
         return;
       }

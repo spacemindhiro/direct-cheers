@@ -84,7 +84,14 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
       setStatus("success");
       onSuccess?.();
     } catch (err: any) {
-      if (err.name === "NotAllowedError") { setStatus("idle"); return; }
+      // registerもauthenticate同様、NotAllowedErrorを無言で握りつぶすと「押しても
+      // 何も起きない」ように見える(アプリ内WebViewでの登録失敗調査で実際に発生)。
+      // ユーザーが能動的に選んだ操作なので一言添える。
+      if (err.name === "NotAllowedError") {
+        setErrorMsg("この端末でパスキーを登録できませんでした。他の方法もお試しください。");
+        setStatus("error");
+        return;
+      }
       setErrorMsg(err.message ?? "エラーが発生しました");
       setStatus("error");
     }

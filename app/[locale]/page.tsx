@@ -41,7 +41,7 @@ export default function LandingPage() {
               alt="Direct Cheers Logo" 
               className="w-8 h-8 rounded-lg shadow-lg shadow-pink-500/10 group-hover:scale-110 transition-transform"
             />
-            <h1 className="text-xl font-black tracking-tighter text-white uppercase italic">Direct Cheers</h1>
+            <p className="text-xl font-black tracking-tighter text-white uppercase italic">Direct Cheers</p>
           </Link>
           
           <div className="hidden md:flex gap-8 text-[11px] font-bold tracking-widest uppercase items-center">
@@ -64,6 +64,7 @@ export default function LandingPage() {
         </div>
       </nav>
 
+      <main>
       {/* --- Hero Section --- */}
       <section id="concept" className="relative py-28 px-6 overflow-hidden border-b border-slate-900">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-pink-500/5 blur-[120px] rounded-full -z-10" />
@@ -72,14 +73,14 @@ export default function LandingPage() {
           <span className="inline-block px-4 py-1.5 rounded-full border border-slate-800 text-slate-400 text-[10px] font-bold tracking-[0.2em] uppercase mb-8 bg-slate-900/50">
             Next-Gen Live Experience Platform
           </span>
-          <h2 className="text-5xl md:text-8xl font-black mb-10 tracking-tighter text-white leading-[1.05] uppercase">
+          <h1 className="text-5xl md:text-8xl font-black mb-10 tracking-tighter text-white leading-[1.05] uppercase">
             ファンが贈り、<br />
             <span className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent italic">
               アーティストが応え、
             </span>
             <br />
             主催者が育てる。
-          </h2>
+          </h1>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed mb-12 font-medium text-pretty">
             贈られた応援は、シリアル刻印入りのデジタル証明書として残り、<br className="hidden md:block" />
             アーティストの収益に、主催者の次の一歩になる。<br className="hidden md:block" />
@@ -101,10 +102,10 @@ export default function LandingPage() {
             
             <div className="flex-1 relative z-10 text-left text-pretty">
               <span className="text-pink-500 font-black italic tracking-[0.3em] text-[10px] uppercase block mb-4">Live Simulation</span>
-              <h3 className="text-4xl md:text-5xl font-black text-white mb-6 italic tracking-tighter uppercase leading-tight">
+              <h2 className="text-4xl md:text-5xl font-black text-white mb-6 italic tracking-tighter uppercase leading-tight">
                 決済から発行まで、<br />
                 一連の流れを体験。
-              </h3>
+              </h2>
               <p className="text-slate-400 leading-relaxed mb-8 max-w-md font-medium">
                 本番同様のフローを体験できるシミュレーターを用意しました。<br />
                 テスト決済の完了後、即座にブラウザ上で「応援証明書」が発行されるスムーズなUXを体感してください。
@@ -115,7 +116,7 @@ export default function LandingPage() {
             </div>
 
             <div className="flex-1 relative z-10 w-full md:w-auto">
-              <div className="grid grid-cols-1 gap-4 p-8 bg-slate-950/50 rounded-[2rem] border border-slate-800 shadow-inner">
+              <div className="grid grid-cols-1 gap-4 p-5 md:p-8 bg-slate-950/50 rounded-[2rem] border border-slate-800 shadow-inner">
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-900/80 border border-slate-700/50">
                   <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-500"><Smartphone size={20} /></div>
                   <div className="text-xs font-bold text-slate-300">QRコード読み取り・決済選択</div>
@@ -152,32 +153,32 @@ export default function LandingPage() {
       <section id="features" className="py-24 bg-slate-950 px-6 border-b border-slate-900">
         <div className="max-w-6xl mx-auto text-center">
           <div className="mb-20 text-pretty">
-            <h3 className="text-4xl font-black text-white mb-4 italic tracking-tighter uppercase">The Digital Experience</h3>
+            <h2 className="text-4xl font-black text-white mb-4 italic tracking-tighter uppercase">The Digital Experience</h2>
             <p className="text-slate-500">透明な決済と、消えない感動を両立するテクノロジー</p>
           </div>
           <div className="grid md:grid-cols-3 gap-10 text-pretty">
-            <Link href="/concept/realtime" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all group text-left hover:bg-slate-900/40 relative overflow-hidden block">
+            <Link href="/concept/realtime" className="p-6 md:p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all group text-left hover:bg-slate-900/40 relative overflow-hidden block">
               <div className="text-pink-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity"><Zap size={40} /></div>
-              <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Real-time連動</h4>
+              <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Real-time連動</h3>
               <p className="text-sm text-slate-400 leading-relaxed font-medium">応援をトリガーに会場のVJや照明が変化。あなたの熱量が現場の景色を塗り替える体験を提供します。</p>
               <div className="mt-6 flex items-center gap-2 text-pink-500 text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
                 Learn More <ArrowRight size={12} />
               </div>
             </Link>
 
-            <Link href="/concept/wallet" className="p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group text-left hover:border-violet-500/50 transition-all block">
+            <Link href="/concept/wallet" className="p-6 md:p-10 rounded-[2.5rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-violet-500/20 shadow-2xl relative overflow-hidden group text-left hover:border-violet-500/50 transition-all block">
               <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 blur-3xl group-hover:bg-violet-500/20 transition-all" />
               <div className="text-violet-500 font-black text-5xl italic mb-6 group-hover:scale-110 transition-transform origin-left"><Wallet size={40} /></div>
-              <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Wallet保存</h4>
+              <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">Wallet保存</h3>
               <p className="text-sm text-slate-400 leading-relaxed font-medium">発行されたデジタルカードは Apple Wallet / Google Wallet に追加可能。記念証を、アプリ不要でいつでもスマホから呼び出せます。</p>
               <div className="mt-6 flex items-center gap-2 text-violet-500 text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
                 Learn More <ArrowRight size={12} />
               </div>
             </Link>
 
-            <Link href="/concept/proof" className="p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all text-left hover:bg-slate-900/40 group relative overflow-hidden text-pretty block">
+            <Link href="/concept/proof" className="p-6 md:p-10 rounded-[2.5rem] bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all text-left hover:bg-slate-900/40 group relative overflow-hidden text-pretty block">
               <div className="text-indigo-500 font-black text-5xl italic mb-6 opacity-50 group-hover:opacity-100 transition-opacity"><ShieldCheck size={40} /></div>
-              <h4 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">デジタル証跡</h4>
+              <h3 className="text-2xl font-bold text-white mb-4 italic uppercase tracking-tighter">デジタル証跡</h3>
               <p className="text-sm text-slate-400 leading-relaxed font-medium">すべての資産には独自のシリアルナンバーを付与。改ざん不能な証跡管理により、正当な支援の記録をプラットフォームが保証します。</p>
               <div className="mt-6 flex items-center gap-2 text-indigo-500 text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
                 Learn More <ArrowRight size={12} />
@@ -193,18 +194,18 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto relative z-10 text-center">
           <div className="mb-20 text-pretty">
             <span className="text-pink-500 font-black italic tracking-[0.3em] text-[10px] uppercase block mb-4">Service Lineup</span>
-            <h3 className="text-4xl md:text-5xl font-black text-white mb-4 italic tracking-tighter uppercase leading-tight">提供サービスと価格体系</h3>
+            <h2 className="text-4xl md:text-5xl font-black text-white mb-4 italic tracking-tighter uppercase leading-tight">提供サービスと価格体系</h2>
             <p className="text-slate-500 max-w-2xl mx-auto font-medium">
               すべての決済は、デジタル資産の譲渡、演出参加、またはイベント入場権利の付与という「明確な役務」に基づいています。
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Link href="/concept/standard" className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-pink-500/50 transition-all relative overflow-hidden text-left hover:bg-slate-900/60">
+            <Link href="/concept/standard" className="p-5 md:p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-pink-500/50 transition-all relative overflow-hidden text-left hover:bg-slate-900/60">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-pink-500 border border-slate-700 group-hover:bg-pink-500/10 transition-colors"><Award size={24} /></div>
-                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Standard</h4>
+                <h3 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Standard</h3>
               </div>
               <div className="mb-8">
                 <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
@@ -221,11 +222,11 @@ export default function LandingPage() {
               </div>
             </Link>
 
-            <Link href="/concept/message" className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-violet-500/50 transition-all relative overflow-hidden text-left hover:bg-slate-900/60">
+            <Link href="/concept/message" className="p-5 md:p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-violet-500/50 transition-all relative overflow-hidden text-left hover:bg-slate-900/60">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-green-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Auto Process</div>
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-violet-500 border border-slate-700 group-hover:bg-violet-500/10 transition-colors"><BellDot size={24} /></div>
-                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Message</h4>
+                <h3 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Message</h3>
               </div>
               <div className="mb-8">
                 <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
@@ -242,11 +243,11 @@ export default function LandingPage() {
               </div>
             </Link>
 
-            <Link href="/concept/entrance" className="p-8 rounded-[2.5rem] bg-slate-950 border-2 border-indigo-500/30 shadow-[0_0_40px_rgba(79,70,229,0.15)] flex flex-col group relative overflow-hidden text-left text-pretty hover:bg-indigo-500/5 transition-all">
+            <Link href="/concept/entrance" className="p-5 md:p-8 rounded-[2.5rem] bg-slate-950 border-2 border-indigo-500/30 shadow-[0_0_40px_rgba(79,70,229,0.15)] flex flex-col group relative overflow-hidden text-left text-pretty hover:bg-indigo-500/5 transition-all">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Review Required</div>
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors"><Ticket size={24} /></div>
-                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Entrance</h4>
+                <h3 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Entrance</h3>
               </div>
               <div className="mb-8">
                 <p className="text-indigo-300 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
@@ -263,11 +264,11 @@ export default function LandingPage() {
               </div>
             </Link>
 
-            <Link href="/concept/custom" className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-amber-500/50 transition-all relative overflow-hidden text-left hover:bg-slate-900/60">
+            <Link href="/concept/custom" className="p-5 md:p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 flex flex-col group hover:border-amber-500/50 transition-all relative overflow-hidden text-left hover:bg-slate-900/60">
               <div className="absolute top-0 right-0 px-5 py-1.5 bg-amber-600 text-white text-[9px] font-black uppercase tracking-[0.2em] italic shadow-lg">Manual Process</div>
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-amber-500 border border-slate-700 group-hover:bg-amber-500/10 transition-colors"><Construction size={24} /></div>
-                <h4 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Custom</h4>
+                <h3 className="text-2xl font-bold text-white italic uppercase tracking-tighter">Custom</h3>
               </div>
               <div className="mb-8">
                 <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest mb-1">想定ボリューム</p>
@@ -296,9 +297,9 @@ export default function LandingPage() {
             <span className="text-indigo-400 font-black italic tracking-[0.3em] text-[10px] uppercase block mb-4">
               Trust & Governance
             </span>
-            <h3 className="text-4xl md:text-5xl font-black text-white mb-6 italic tracking-tighter uppercase">
+            <h2 className="text-4xl md:text-5xl font-black text-white mb-6 italic tracking-tighter uppercase">
               安心・安全への<span className="text-indigo-500 underline decoration-indigo-500/30">徹底した誓約</span>
-            </h3>
+            </h2>
             <p className="text-slate-400 max-w-2xl mx-auto font-medium leading-relaxed">
               25年の金融システム開発の知見を活かし、日本の法令を遵守。<br className="hidden md:block" />
               アーティストとファンの信頼を守るための厳格なガバナンス体制を構築しています。
@@ -306,19 +307,19 @@ export default function LandingPage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 mb-12">
-            <div className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all group">
+            <div className="p-5 md:p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all group">
               <UserCheck className="text-indigo-500 mb-6 group-hover:scale-110 transition-transform" size={32} />
-              <h4 className="text-lg font-bold text-white mb-3 italic uppercase tracking-tighter">加盟店審査</h4>
+              <h3 className="text-lg font-bold text-white mb-3 italic uppercase tracking-tighter">加盟店審査</h3>
               <p className="text-xs text-slate-500 leading-relaxed font-medium">全オーガナイザーへのKYC（本人確認）を実施。プラットフォームによる事前承認を必須としています。</p>
             </div>
-            <div className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all group">
+            <div className="p-5 md:p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all group">
               <FileSearch className="text-indigo-500 mb-6 group-hover:scale-110 transition-transform" size={32} />
-              <h4 className="text-lg font-bold text-white mb-3 italic uppercase tracking-tighter">対価の正当性</h4>
+              <h3 className="text-lg font-bold text-white mb-3 italic uppercase tracking-tighter">対価の正当性</h3>
               <p className="text-xs text-slate-500 leading-relaxed font-medium">アイテムの価値と決済額が妥当かを個別に審査。不適切な取引はシステムで自動遮断されます。</p>
             </div>
-            <div className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all group">
+            <div className="p-5 md:p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800 hover:border-indigo-500/30 transition-all group">
               <LockIcon className="text-indigo-500 mb-6 group-hover:scale-110 transition-transform" size={32} />
-              <h4 className="text-lg font-bold text-white mb-3 italic uppercase tracking-tighter">資金移動の透明性</h4>
+              <h3 className="text-lg font-bold text-white mb-3 italic uppercase tracking-tighter">資金移動の透明性</h3>
               <p className="text-xs text-slate-500 leading-relaxed font-medium">イベント開催のエビデンス照合まで売上をロック。1円単位のログ照合で不正を許しません。</p>
             </div>
           </div>
@@ -347,11 +348,11 @@ export default function LandingPage() {
                 <Zap size={12} />
                 Payment Prep
               </span>
-              <h3 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">
+              <h2 className="text-3xl md:text-4xl font-black text-white italic tracking-tighter uppercase leading-tight">
                 イベント現場で<br />
                 <span className="text-orange-400">「1秒決済」</span>するための<br />
                 事前準備
-              </h3>
+              </h2>
             </div>
 
             {/* Apple/Google Pay説明 */}
@@ -425,7 +426,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 gap-16 items-center bg-slate-900/40 border border-slate-800 rounded-[3.5rem] p-8 md:p-16 relative group hover:border-slate-700 transition-colors">
             <div className="space-y-8 text-left text-pretty">
               <span className="text-indigo-400 font-black italic tracking-[0.4em] text-[10px] uppercase block">Platform Identity</span>
-              <h3 className="text-4xl md:text-5xl font-black text-white italic tracking-tighter uppercase leading-[1.1]">金融の堅牢さと、<br />現場の熱狂を<br /><span className="text-pink-500">ひとつに。</span></h3>
+              <h2 className="text-4xl md:text-5xl font-black text-white italic tracking-tighter uppercase leading-[1.1]">金融の堅牢さと、<br />現場の熱狂を<br /><span className="text-pink-500">ひとつに。</span></h2>
               <p className="text-slate-400 leading-relaxed font-medium">Direct Cheersは、25年の金融システム開発キャリアを持つエンジニアが設計しました。一時の流行ではなく、決済インフラとしての安定性と、音楽現場を知る者としての熱量を両立させています。</p>
               <Link href="/about" className="inline-flex items-center gap-4 bg-white text-slate-950 px-10 py-4 rounded-full font-black text-sm hover:bg-indigo-500 hover:text-white transition-all shadow-2xl group uppercase tracking-widest">運営者について詳しく見る <ArrowRight size={18} className="group-hover:translate-x-2 transition-transform" /></Link>
             </div>
@@ -455,18 +456,19 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* --- Footer --- */}
       <footer className="py-24 px-6 border-t border-slate-800 bg-slate-950">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start gap-16 text-pretty">
           <div className="space-y-6 text-left">
-            <h5 className="font-bold text-white tracking-tighter italic text-xl uppercase">Direct Cheers</h5>
+            <h4 className="font-bold text-white tracking-tighter italic text-xl uppercase">Direct Cheers</h4>
             <p className="text-slate-500 text-[10px] uppercase tracking-[0.3em]">Digital Assets for Live Moments.</p>
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-16 text-left">
             <div>
-              <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Navigation</h6>
+              <h5 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Navigation</h5>
               <ul className="text-slate-500 text-[11px] space-y-4 font-bold tracking-widest uppercase">
                 <li><Link href="/about" className="text-pink-500 hover:text-white transition-all">私たちについて</Link></li>
                 <li><Link href="#concept" className="hover:text-pink-500 transition-colors">Concept</Link></li>
@@ -475,7 +477,7 @@ export default function LandingPage() {
             </div>
             
             <div>
-              <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Legal</h6>
+              <h5 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Legal</h5>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium tracking-widest uppercase">
                 <li><Link href="/terms" className="hover:text-white transition-colors">利用規約</Link></li>
                 <li><Link href="/privacy" className="hover:text-white transition-colors">プライバシーポリシー</Link></li>
@@ -485,7 +487,7 @@ export default function LandingPage() {
             </div>
 
             <div>
-              <h6 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Contact</h6>
+              <h5 className="text-white font-bold text-[10px] uppercase tracking-[0.3em] mb-8">Contact</h5>
               <ul className="text-slate-500 text-[11px] space-y-4 font-medium tracking-widest uppercase">
                 <li><a href={mailUrl} className="hover:text-white transition-colors">お問い合わせ</a></li>
               </ul>

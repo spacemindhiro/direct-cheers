@@ -98,6 +98,11 @@ export async function POST(req: Request) {
 
       // 静的表記＝ウェブサイト名固定（JCB審査の文字一致用）。
       // prefix（動的suffixと結合されるベース）は常に固定文字列（カスタマイズ不可）。
+      //
+      // payouts.schedule.interval="manual"は必須設定。指定しないとStripeの
+      // デフォルト（自動・毎週金曜）のまま作成され、「出金管理」機能
+      // （14日保留・照合済みチェック・管理者判断）を一度も使わなくても
+      // Stripeが勝手に銀行へ自動出金してしまう（2026-08-07 本番で発生・確認）。
       accountParams.settings = {
         payments: {
           statement_descriptor: PLATFORM_STATIC_DESCRIPTOR,
@@ -106,6 +111,9 @@ export async function POST(req: Request) {
           statement_descriptor_prefix_kanji: PLATFORM_PREFIX,
           statement_descriptor_kana: PLATFORM_STATIC_DESCRIPTOR_KANA,
         } as Stripe.AccountCreateParams.Settings.Payments,
+        payouts: {
+          schedule: { interval: "manual" },
+        },
       };
 
       if (!isCompany) {

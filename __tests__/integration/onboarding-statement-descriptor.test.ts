@@ -156,6 +156,16 @@ describe("TC-ONB-SD-01: 新規Connectアカウント作成時の statement_descr
     await onboardingPOST(makeReq({ business_type: "individual" }));
     expectFixedDescriptors(captured.accountCreateParams?.settings?.payments);
   }, 15_000);
+
+  // 2026-08-07: payout_schedule未指定だとStripeのデフォルト(自動・毎週)のまま
+  // 作成され、「出金管理」機能を使わずにStripeが勝手に銀行へ自動出金してしまう
+  // 不具合が本番で発生した。新規作成時に必ずmanualを明示する回帰テスト。
+  it("payout_scheduleは常にmanual（Stripeの自動出金を無効化）", async () => {
+    const profileId = await freshProfile("payoutsched");
+    mockAuth(profileId);
+    await onboardingPOST(makeReq({ business_type: "individual" }));
+    expect(captured.accountCreateParams?.settings?.payouts?.schedule?.interval).toBe("manual");
+  }, 15_000);
 });
 
 // ── TC-ONB-SD-02: 既存アカウントの再編集時 ──────────────────────────────

@@ -195,6 +195,94 @@ describe("TC-EVENTS-DETAIL-B: events/lineup — 出演承認・辞退", () => {
   });
 });
 
+// ── TC-EVENTS-DETAIL-E: events/[eventId] PATCH — 出演者の削除→再登録 ────
+describe("TC-EVENTS-DETAIL-E: events/[eventId] PATCH — 出演者の削除→再登録", () => {
+  it("TC-EVENTS-DETAIL-E-01: 削除→再登録で同じ event_artist_id が復活し deleted_at=null になる（重複行なし）", async () => {
+    const eventId = await insertEvent({ organizerProfileId, agentId: agentProfileId, title: "TC-EVENTS-DETAIL-E-01" });
+    cleanup.eventIds.push(eventId);
+    mockAs(organizerProfileId, "organizer");
+
+    // 1. 追加
+    const addReq = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artist_ids: [artistProfileId] }),
+    });
+    const addRes = await eventPATCH(addReq, { params: Promise.resolve({ eventId }) });
+    expect(addRes.status).toBe(200);
+
+    const { data: afterAdd } = await testAdmin
+      .from("event_artists")
+      .select("event_artist_id, status, deleted_at")
+      .eq("event_id", eventId)
+      .eq("artist_profile_id", artistProfileId)
+      .single();
+    expect(afterAdd?.status).toBe("pending");
+    expect(afterAdd?.deleted_at).toBe(null);
+    const originalEaId = afterAdd?.event_artist_id;
+
+    // 2. 削除（論理削除）
+    const removeReq = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artist_ids: [] }),
+    });
+    const removeRes = await eventPATCH(removeReq, { params: Promise.resolve({ eventId }) });
+    expect(removeRes.status).toBe(200);
+
+    const { data: afterRemove } = await testAdmin
+      .from("event_artists")
+      .select("event_artist_id, deleted_at")
+      .eq("event_id", eventId)
+      .eq("artist_profile_id", artistProfileId)
+      .single();
+    expect(afterRemove?.event_artist_id).toBe(originalEaId);
+    expect(afterRemove?.deleted_at).not.toBe(null);
+
+    // 3. 再登録
+    const readdReq = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artist_ids: [artistProfileId] }),
+    });
+    const readdRes = await eventPATCH(readdReq, { params: Promise.resolve({ eventId }) });
+    expect(readdRes.status).toBe(200);
+
+    const { data: allRows } = await testAdmin
+      .from("event_artists")
+      .select("event_artist_id, status, deleted_at")
+      .eq("event_id", eventId)
+      .eq("artist_profile_id", artistProfileId);
+    expect(allRows?.length).toBe(1); // 新規行が増えず、既存行が復活している
+    expect(allRows?.[0].event_artist_id).toBe(originalEaId);
+    expect(allRows?.[0].status).toBe("pending");
+    expect(allRows?.[0].deleted_at).toBe(null);
+  });
+
+  it("TC-EVENTS-DETAIL-E-02: 未登録アーティストの新規追加は従来通り新規行を作成する", async () => {
+    const eventId = await insertEvent({ organizerProfileId, agentId: agentProfileId, title: "TC-EVENTS-DETAIL-E-02" });
+    cleanup.eventIds.push(eventId);
+    mockAs(organizerProfileId, "organizer");
+
+    const req = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artist_ids: [artistProfileId] }),
+    });
+    const res = await eventPATCH(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(200);
+
+    const { data: rows } = await testAdmin
+      .from("event_artists")
+      .select("status, deleted_at")
+      .eq("event_id", eventId)
+      .eq("artist_profile_id", artistProfileId);
+    expect(rows?.length).toBe(1);
+    expect(rows?.[0].status).toBe("pending");
+    expect(rows?.[0].deleted_at).toBe(null);
+  });
+});
+
 // ── TC-EVENTS-DETAIL-C: invite — 招待コード生成 ─────────────────────────
 describe("TC-EVENTS-DETAIL-C: events/invite — 招待コード生成", () => {
   it("TC-EVENTS-DETAIL-C-01: オーガナイザーが招待コード生成 → code が返る", async () => {

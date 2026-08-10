@@ -104,38 +104,87 @@ export async function PATCH(
         .in("event_artist_id", toRemove.map((a) => a.event_artist_id));
     }
 
-    // 追加: 新リストにいるが現在いない → pending で insert
-    const toAdd = artistList.filter((a) => !currentIds.has(a.profile_id));
-    if (toAdd.length > 0) {
-      const rows = toAdd.map((a, i) => ({
-        event_id: eventId,
-        artist_profile_id: a.profile_id,
-        performance_order: (currentArtists?.length ?? 0) + i + 1,
-        status: "pending",
-      }));
-      const { data: insertedEAs } = await supabase
+    // 追加: 新リストにいるが現在いない
+    const toAddList = artistList.filter((a) => !currentIds.has(a.profile_id));
+    if (toAddList.length > 0) {
+      // 過去に論理削除された行があれば復活させる（同一event×artistはUNIQUE制約のため新規insert不可）
+      const { data: deletedRows } = await supabase
         .from("event_artists")
-        .insert(rows)
-        .select("event_artist_id, artist_profile_id");
+        .select("event_artist_id, artist_profile_id")
+        .eq("event_id", eventId)
+        .in("artist_profile_id", toAddList.map((a) => a.profile_id))
+        .not("deleted_at", "is", null);
 
-      // 新規アーティストごとにメッセージスレッドを作成（メッセージがあれば投稿）
+      const deletedEaIdByProfileId = new Map(
+        (deletedRows ?? []).map((r) => [r.artist_profile_id, r.event_artist_id])
+      );
+      const toRestore = toAddList.filter((a) => deletedEaIdByProfileId.has(a.profile_id));
+      const toCreate = toAddList.filter((a) => !deletedEaIdByProfileId.has(a.profile_id));
+
+      if (toRestore.length > 0) {
+        const { error: restoreError } = await supabase
+          .from("event_artists")
+          .update({ status: "pending", deleted_at: null })
+          .in("event_artist_id", toRestore.map((a) => deletedEaIdByProfileId.get(a.profile_id)!));
+        if (restoreError) {
+          return NextResponse.json({ error: restoreError.message }, { status: 500 });
+        }
+      }
+
+      let insertedEAs: { event_artist_id: string; artist_profile_id: string }[] = [];
+      if (toCreate.length > 0) {
+        const rows = toCreate.map((a, i) => ({
+          event_id: eventId,
+          artist_profile_id: a.profile_id,
+          performance_order: (currentArtists?.length ?? 0) + i + 1,
+          status: "pending",
+        }));
+        const { data, error: insertError } = await supabase
+          .from("event_artists")
+          .insert(rows)
+          .select("event_artist_id, artist_profile_id");
+        if (insertError) {
+          return NextResponse.json({ error: insertError.message }, { status: 500 });
+        }
+        insertedEAs = data ?? [];
+      }
+
+      const addedEAs = [
+        ...insertedEAs,
+        ...toRestore.map((a) => ({
+          event_artist_id: deletedEaIdByProfileId.get(a.profile_id)!,
+          artist_profile_id: a.profile_id,
+        })),
+      ];
+
+      // 追加/復活したアーティストごとにメッセージスレッドを用意（メッセージがあれば投稿）
       try {
         const admin = createAdminClient();
-        for (const ea of insertedEAs ?? []) {
-          const { data: conv } = await admin
+        for (const ea of addedEAs) {
+          const { data: existingConv } = await admin
             .from("conversations")
-            .insert({ type: "booking", event_artist_id: ea.event_artist_id })
             .select("conversation_id")
-            .single();
-          if (!conv) continue;
-          await admin.from("conversation_participants").insert([
-            { conversation_id: conv.conversation_id, profile_id: event.organizer_profile_id },
-            { conversation_id: conv.conversation_id, profile_id: ea.artist_profile_id },
-          ]);
-          const entry = toAdd.find((a) => a.profile_id === ea.artist_profile_id);
+            .eq("event_artist_id", ea.event_artist_id)
+            .maybeSingle();
+
+          let conversationId = existingConv?.conversation_id;
+          if (!conversationId) {
+            const { data: conv } = await admin
+              .from("conversations")
+              .insert({ type: "booking", event_artist_id: ea.event_artist_id })
+              .select("conversation_id")
+              .single();
+            if (!conv) continue;
+            conversationId = conv.conversation_id;
+            await admin.from("conversation_participants").insert([
+              { conversation_id: conversationId, profile_id: event.organizer_profile_id },
+              { conversation_id: conversationId, profile_id: ea.artist_profile_id },
+            ]);
+          }
+          const entry = toAddList.find((a) => a.profile_id === ea.artist_profile_id);
           if (entry?.invite_message?.trim()) {
             await admin.from("messages").insert({
-              conversation_id: conv.conversation_id,
+              conversation_id: conversationId,
               sender_profile_id: user.id,
               body: entry.invite_message.trim(),
               message_type: "text",
@@ -144,7 +193,7 @@ export async function PATCH(
         }
       } catch { /* 非致死的 */ }
 
-      // 新規アーティストへ通知
+      // 追加/復活したアーティストへ通知
       try {
         const admin = createAdminClient();
         const { data: eventData } = await admin
@@ -160,7 +209,7 @@ export async function PATCH(
 
         const organizerDisplayName = organizer?.organizer_name ?? organizer?.display_name ?? "オーガナイザー";
 
-        const notifs = toAdd.map((a) => ({
+        const notifs = toAddList.map((a) => ({
           profile_id: a.profile_id,
           type: "lineup_invite",
           title: "出演依頼が届いています",
@@ -170,7 +219,7 @@ export async function PATCH(
         await admin.from("notifications").insert(notifs);
 
         // メール送信（fire-and-forget）
-        for (const a of toAdd) {
+        for (const a of toAddList) {
           const { data: authUser } = await admin.auth.admin.getUserById(a.profile_id);
           const email = authUser.user?.email;
           if (email) {

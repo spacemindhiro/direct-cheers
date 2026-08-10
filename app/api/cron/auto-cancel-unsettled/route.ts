@@ -27,6 +27,7 @@ export async function GET(req: Request) {
   let cancelledEvents = 0;
   let cancelledTx = 0;
   let errors = 0;
+  let debtRecorded = 0;
   const failures: FailureDetail[] = [];
 
   for (const event of events ?? []) {
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
 
     const { data: txs } = await admin
       .from("transactions")
-      .select("transaction_id, stripe_payment_intent_id, total_gross_amount")
+      .select("transaction_id, stripe_payment_intent_id, total_gross_amount, stripe_fee")
       .in("qr_config_id", qrIds)
       .eq("status", "completed");
 
@@ -85,9 +86,26 @@ export async function GET(req: Request) {
           await stripe.paymentIntents.cancel(piId);
           await admin.from("transactions").update({ status: "cancelled" }).in("transaction_id", txIds);
         } else if (pi.status === "succeeded") {
-          // 想定外(通常はrequires_captureのはず)。安全側に倒して返金する
+          // 想定外(通常はrequires_captureのはず)。安全側に倒して返金する。
+          // PayPay等automatic captureの決済はここに来る。返金してもStripeの決済手数料は
+          // 戻らないため(現場取消と同じ扱い)、organizerのdebt_claimsに計上する
+          // (2026-08-11 未精算のまま自動キャンセルした際に手数料をプラットフォームが
+          // 無記録のまま被っていた不具合として発覚・修正)。
           await stripe.refunds.create({ payment_intent: piId });
           await admin.from("transactions").update({ status: "refunded" }).in("transaction_id", txIds);
+          if (event.organizer_profile_id) {
+            for (const t of groupTxs) {
+              const feeAmount = t.stripe_fee ?? 0;
+              if (feeAmount <= 0) continue;
+              await admin.from("debt_claims").insert({
+                profile_id: event.organizer_profile_id,
+                original_transaction_id: t.transaction_id,
+                claim_amount: feeAmount,
+                description: `自動キャンセル（未精算${AUTH_EXPIRE_DAYS}日超過）: 決済手数料 PI:${piId}`,
+              });
+              debtRecorded++;
+            }
+          }
         }
         // canceled/refunded 等は既に終端状態のため何もしない
         cancelledTx += groupTxs.length;
@@ -131,5 +149,5 @@ export async function GET(req: Request) {
     failures,
   });
 
-  return NextResponse.json({ success: true, cancelledEvents, cancelledTx, errors });
+  return NextResponse.json({ success: true, cancelledEvents, cancelledTx, errors, debtRecorded });
 }

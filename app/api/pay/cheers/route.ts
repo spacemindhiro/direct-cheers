@@ -192,9 +192,14 @@ export async function POST(req: Request) {
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     payment_method_types: paymentMethodTypes,
+    // capture_methodをここ(セッション全体)で指定すると、対応しきれない決済手段が
+    // 黙ってCheckoutのUIから除外される(Stripe 2025-09-30.clover以前の仕様。
+    // Linkがpayment_method_typesに含めても一度も表示されない不具合として発覚・
+    // 2026-08-11修正)。Stripeの型定義上 payment_method_options.link.capture_method
+    // も 'manual' をサポートしており(cardと同様にオーソリ可能)、card・linkの両方に
+    // 個別指定する。PayPayはmanual capture非対応のため何も指定せずStripe側の
+    // デフォルトのautomaticに任せる。
     payment_intent_data: {
-      // PayPay は仕様上 manual capture 非対応のため即時キャプチャ。カードはオーソリ維持。
-      capture_method: payment_method === "paypay" ? "automatic" : "manual",
       ...(useOnBehalfOf ? { on_behalf_of: organizerConnectId! } : {}),
       ...(statementDescriptorSuffix ? { statement_descriptor_suffix: statementDescriptorSuffix } : {}),
     },
@@ -248,8 +253,12 @@ export async function POST(req: Request) {
     sessionParams.payment_method_options = {
       card: {
         request_three_d_secure: "automatic",
+        capture_method: "manual",
         ...(suffixKana ? { statement_descriptor_suffix_kana: suffixKana } : {}),
         ...(suffixKanji ? { statement_descriptor_suffix_kanji: suffixKanji } : {}),
+      },
+      link: {
+        capture_method: "manual",
       },
     };
   }

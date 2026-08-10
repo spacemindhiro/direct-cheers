@@ -171,7 +171,12 @@ describe("TC-PAY-01: カード決済（destination charge フロー）", () => {
     expect(pid?.on_behalf_of).toBe(organizerConnectId);
     expect(pid?.transfer_data).toBeUndefined();
     expect(pid?.application_fee_amount).toBeUndefined();
-    expect(pid?.capture_method).toBe("manual");
+    // capture_methodはセッション全体ではなくpayment_method_options側で個別指定する
+    // (2026-08-11 Link非表示不具合の根本修正。session全体で指定するとLinkが黙って
+    //  除外される旧API挙動があったため)
+    expect(pid?.capture_method).toBeUndefined();
+    expect(captured.sessionCreateParams?.payment_method_options?.card?.capture_method).toBe("manual");
+    expect(captured.sessionCreateParams?.payment_method_options?.link?.capture_method).toBe("manual");
   });
 
   it("metadata.device_name が Checkout Session の metadata にも記録される（子機モード端末識別）", async () => {
@@ -217,8 +222,11 @@ describe("TC-PAY-02: PayPay 決済（即時キャプチャ・destination charge 
     expect(data.url).toBeTruthy();
 
     const pid = captured.sessionCreateParams?.payment_intent_data;
-    // PayPay は manual capture 非対応 → automatic に切り替わっていることを確認
-    expect(pid?.capture_method).toBe("automatic");
+    // PayPay は manual capture 非対応 → capture_method を一切指定せず
+    // Stripe側のデフォルト(automatic)に任せる（session全体にもpayment_method_options
+    // にもcapture_methodを送らないことを確認）
+    expect(pid?.capture_method).toBeUndefined();
+    expect(captured.sessionCreateParams?.payment_method_options).toBeUndefined();
     // PayPay は Stripe Connect の on_behalf_of を現行 API でサポートしていないため未設定
     expect(pid?.on_behalf_of).toBeUndefined();
     expect(pid?.transfer_data).toBeUndefined();
@@ -293,7 +301,10 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
 
       const pid = captured.sessionCreateParams?.payment_intent_data;
       expect(pid?.on_behalf_of).toBe(organizerConnectId);
-      expect(pid?.capture_method).toBe("manual");
+      // capture_methodはpayment_method_options側で個別指定する(2026-08-11修正)
+      expect(pid?.capture_method).toBeUndefined();
+      expect(captured.sessionCreateParams?.payment_method_options?.card?.capture_method).toBe("manual");
+      expect(captured.sessionCreateParams?.payment_method_options?.link?.capture_method).toBe("manual");
       // payment_method_typesを手動指定する場合、"card"だけではLinkが自動的に
       // 有効化されないため常に"link"も明示する(2026-08-10 本番でLinkが一度も
       // 表示されない不具合として発覚・修正)。
@@ -318,9 +329,11 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       expect(res.status).toBe(200);
 
       const pid = captured.sessionCreateParams?.payment_intent_data;
-      // Apple Pay は wallet token として card type で処理 → on_behalf_of / capture_method はカードと同一
+      // Apple Pay は wallet token として card type で処理 → on_behalf_of はカードと同一
       expect(pid?.on_behalf_of).toBe(organizerConnectId);
-      expect(pid?.capture_method).toBe("manual");
+      expect(pid?.capture_method).toBeUndefined();
+      expect(captured.sessionCreateParams?.payment_method_options?.card?.capture_method).toBe("manual");
+      expect(captured.sessionCreateParams?.payment_method_options?.link?.capture_method).toBe("manual");
       expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
     });
   });
@@ -343,14 +356,16 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
 
       const pid = captured.sessionCreateParams?.payment_intent_data;
       expect(pid?.on_behalf_of).toBe(organizerConnectId);
-      expect(pid?.capture_method).toBe("manual");
+      expect(pid?.capture_method).toBeUndefined();
+      expect(captured.sessionCreateParams?.payment_method_options?.card?.capture_method).toBe("manual");
+      expect(captured.sessionCreateParams?.payment_method_options?.link?.capture_method).toBe("manual");
       expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
     });
   });
 
   // ── TC-PAY-MATRIX-04: Link決済（正常系）────────────────────────────
   describe("TC-PAY-MATRIX-04: Link決済（正常系）", () => {
-    it("payment_method_types に 'link' が含まれ on_behalf_of が設定される", async () => {
+    it("payment_method_types に 'link' が含まれ on_behalf_of・capture_method: manual が設定される", async () => {
       const req = new Request("http://localhost/api/pay/cheers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -366,7 +381,11 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
 
       const pid = captured.sessionCreateParams?.payment_intent_data;
       expect(pid?.on_behalf_of).toBe(organizerConnectId);
-      expect(pid?.capture_method).toBe("manual");
+      expect(pid?.capture_method).toBeUndefined();
+      // Linkはpayment_method_options.link.capture_methodで'manual'をサポートする
+      // (Stripe型定義で確認済み。cardと同様にオーソリ可能)
+      expect(captured.sessionCreateParams?.payment_method_options?.link?.capture_method).toBe("manual");
+      expect(captured.sessionCreateParams?.payment_method_options?.card?.capture_method).toBe("manual");
       // Link は card と一緒に提供される
       expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
     });
@@ -374,7 +393,7 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
 
   // ── TC-PAY-MATRIX-05: PayPay（ハイブリッド戦略・正常系）──────────────
   describe("TC-PAY-MATRIX-05: PayPay（on_behalf_of除外・消費税5桁精度）", () => {
-    it("on_behalf_of なし・capture_method: automatic・Capability チェックをスキップ", async () => {
+    it("on_behalf_of なし・capture_methodは未指定(Stripeデフォルトのautomatic)・Capability チェックをスキップ", async () => {
       const req = new Request("http://localhost/api/pay/cheers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -391,8 +410,9 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       const pid = captured.sessionCreateParams?.payment_intent_data;
       // PayPay は on_behalf_of 非対応（ハイブリッド戦略）
       expect(pid?.on_behalf_of).toBeUndefined();
-      // PayPay は manual capture 非対応 → automatic
-      expect(pid?.capture_method).toBe("automatic");
+      // PayPay は manual capture 非対応 → capture_methodを一切指定せずStripe側のデフォルト(automatic)に任せる
+      expect(pid?.capture_method).toBeUndefined();
+      expect(captured.sessionCreateParams?.payment_method_options).toBeUndefined();
       expect(captured.sessionCreateParams?.payment_method_types).toEqual(["paypay"]);
     });
   });

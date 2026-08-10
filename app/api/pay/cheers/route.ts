@@ -10,14 +10,18 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").r
 
 type PaymentMethod = "card" | "apple_pay" | "google_pay" | "link" | "paypay";
 
-// Stripeはpayment_method_typesを手動指定する場合、"card"を含めるだけではLinkは
-// 自動的に有効化されない（"link"を明示的に含める必要がある）。指定を省略すれば
-// ダッシュボード設定に応じて動的に決まるが、このルートは他の理由で手動指定して
-// いるため、cardを使う全ケースでlinkも明示する（2026-08-10 本番でLinkが一度も
-// 表示されない不具合として発覚・修正）。
-function resolvePaymentMethodTypes(method: PaymentMethod): Stripe.Checkout.SessionCreateParams.PaymentMethodType[] {
+// Stripe公式の決済手段トラブルシューティングツールの診断で判明: payment_method_types
+// を手動指定すると、Linkの動的な利用資格判定（ダッシュボードの決済手段設定に基づく
+// 仕組み）がバイパスされる。"link"を配列に含めてもAPIは受理するだけで実際の
+// CheckoutのUIには表示されない（2026-08-11 本番でLinkが一度も表示されない不具合の
+// 根本原因と確定）。card/apple_pay/google_pay/linkの各フローはpayment_method_types
+// 自体を省略し、ダッシュボードのデフォルト決済手段設定（card・linkともにon）による
+// 動的判定に委ねる。ダッシュボード設定はPayPayもonになっており意図せず紛れ込むため、
+// excluded_payment_method_typesで明示的に除外する。PayPay専用フローは従来通り
+// payment_method_typesを明示指定する（Linkの問題とは無関係で動作実績あり）。
+function resolvePaymentMethodTypes(method: PaymentMethod): Stripe.Checkout.SessionCreateParams.PaymentMethodType[] | undefined {
   if (method === "paypay") return ["paypay"] as unknown as Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
-  return ["card", "link"]; // card / apple_pay / google_pay / link はすべて card type ベース
+  return undefined; // 省略 = ダッシュボードの決済手段設定による動的判定
 }
 
 export async function POST(req: Request) {
@@ -191,7 +195,12 @@ export async function POST(req: Request) {
   }
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
-    payment_method_types: paymentMethodTypes,
+    // paymentMethodTypesがundefined(=card/apple_pay/google_pay/linkのいずれか)の場合は
+    // キー自体を送らず、ダッシュボードの決済手段設定による動的判定に委ねる
+    // (resolvePaymentMethodTypesのコメント参照)。paypayの場合のみ明示指定する。
+    ...(paymentMethodTypes
+      ? { payment_method_types: paymentMethodTypes }
+      : { excluded_payment_method_types: ["paypay"] as unknown as Stripe.Checkout.SessionCreateParams.ExcludedPaymentMethodType[] }),
     // capture_methodをここ(セッション全体)で指定すると、対応しきれない決済手段が
     // 黙ってCheckoutのUIから除外される(Stripe 2025-09-30.clover以前の仕様。
     // Linkがpayment_method_typesに含めても一度も表示されない不具合として発覚・

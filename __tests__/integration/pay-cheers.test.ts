@@ -41,7 +41,12 @@ vi.mock("stripe", async (importOriginal) => {
         if ((params.payment_method_types ?? []).includes("paypay")) {
           return { url: "https://checkout.stripe.com/c/pay/cs_test_paypay_stub", id: "cs_test_paypay_stub" };
         }
-        if ((params.payment_method_types ?? []).includes("link")) {
+        // card/apple_pay/google_pay/linkフローはpayment_method_typesを省略し、ダッシュボードの
+        // 決済手段設定による動的判定に委ねる(2026-08-11修正。Stripe公式トラブルシューティング
+        // ツールの診断により、手動指定するとLinkの動的な利用資格判定がバイパスされ実際には
+        // 表示されないと判明したため)。判定にpayment_method_typesが使えなくなったので、
+        // 代わりにキーが省略されていること自体で判定する。
+        if (!params.payment_method_types) {
           return { url: "https://checkout.stripe.com/c/pay/cs_test_link_stub", id: "cs_test_link_stub" };
         }
         return origCreate(params, opts);
@@ -160,8 +165,8 @@ describe("TC-PAY-01: カード決済（destination charge フロー）", () => {
     expect(data.url).toMatch(/^https:\/\/checkout\.stripe\.com\//);
 
     // Checkout Session がメタデータ付きで作成されていることを確認
-    // (payment_method_typesにlinkを含むためcheckout.sessions.createはスタブを
-    //  返す。実Stripeへ問い合わせず、routeが送信したパラメータで直接検証する)
+    // (payment_method_typesを省略する動的判定フローのためcheckout.sessions.create
+    //  はスタブを返す。実Stripeへ問い合わせず、routeが送信したパラメータで直接検証する)
     expect(captured.sessionCreateParams?.metadata?.qr_config_id).toBe(qrConfigId);
 
     // route が Stripe に渡した payment_intent_data を検証
@@ -285,7 +290,7 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
 
   // ── TC-PAY-MATRIX-01: カード決済（正常系）────────────────────────────
   describe("TC-PAY-MATRIX-01: カード決済（正常系）", () => {
-    it("on_behalf_of が設定され capture_method: manual / payment_method_types: ['card', 'link']", async () => {
+    it("on_behalf_of が設定され capture_method: manual / payment_method_typesは省略しダッシュボードの動的判定に委ねる", async () => {
       const req = new Request("http://localhost/api/pay/cheers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -305,16 +310,19 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       expect(pid?.capture_method).toBeUndefined();
       expect(captured.sessionCreateParams?.payment_method_options?.card?.capture_method).toBe("manual");
       expect(captured.sessionCreateParams?.payment_method_options?.link?.capture_method).toBe("manual");
-      // payment_method_typesを手動指定する場合、"card"だけではLinkが自動的に
-      // 有効化されないため常に"link"も明示する(2026-08-10 本番でLinkが一度も
-      // 表示されない不具合として発覚・修正)。
-      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
+      // payment_method_typesを手動指定するとLinkの動的な利用資格判定がバイパスされ
+      // 実際には表示されないとStripe公式トラブルシューティングツールで判明したため、
+      // キー自体を省略しダッシュボードの決済手段設定による動的判定に委ねる
+      // (2026-08-11 本番でLinkが一度も表示されない不具合の根本原因と確定・修正)。
+      expect(captured.sessionCreateParams?.payment_method_types).toBeUndefined();
+      // ダッシュボード設定はPayPayもonのため意図せず紛れ込まないよう明示的に除外する
+      expect(captured.sessionCreateParams?.excluded_payment_method_types).toEqual(["paypay"]);
     });
   });
 
   // ── TC-PAY-MATRIX-02: Apple Pay（正常系）────────────────────────────
   describe("TC-PAY-MATRIX-02: Apple Pay（正常系）", () => {
-    it("Apple Pay は card type として処理 — on_behalf_of 設定・payment_method_types: ['card', 'link']", async () => {
+    it("Apple Pay は card type として処理 — on_behalf_of 設定・payment_method_typesは省略", async () => {
       const req = new Request("http://localhost/api/pay/cheers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -334,13 +342,14 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       expect(pid?.capture_method).toBeUndefined();
       expect(captured.sessionCreateParams?.payment_method_options?.card?.capture_method).toBe("manual");
       expect(captured.sessionCreateParams?.payment_method_options?.link?.capture_method).toBe("manual");
-      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
+      expect(captured.sessionCreateParams?.payment_method_types).toBeUndefined();
+      expect(captured.sessionCreateParams?.excluded_payment_method_types).toEqual(["paypay"]);
     });
   });
 
   // ── TC-PAY-MATRIX-03: Google Pay（正常系）───────────────────────────
   describe("TC-PAY-MATRIX-03: Google Pay（正常系）", () => {
-    it("Google Pay は card type として処理 — on_behalf_of 設定・payment_method_types: ['card', 'link']", async () => {
+    it("Google Pay は card type として処理 — on_behalf_of 設定・payment_method_typesは省略", async () => {
       const req = new Request("http://localhost/api/pay/cheers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -359,13 +368,14 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       expect(pid?.capture_method).toBeUndefined();
       expect(captured.sessionCreateParams?.payment_method_options?.card?.capture_method).toBe("manual");
       expect(captured.sessionCreateParams?.payment_method_options?.link?.capture_method).toBe("manual");
-      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
+      expect(captured.sessionCreateParams?.payment_method_types).toBeUndefined();
+      expect(captured.sessionCreateParams?.excluded_payment_method_types).toEqual(["paypay"]);
     });
   });
 
   // ── TC-PAY-MATRIX-04: Link決済（正常系）────────────────────────────
   describe("TC-PAY-MATRIX-04: Link決済（正常系）", () => {
-    it("payment_method_types に 'link' が含まれ on_behalf_of・capture_method: manual が設定される", async () => {
+    it("payment_method_typesは省略し on_behalf_of・capture_method: manual が設定される", async () => {
       const req = new Request("http://localhost/api/pay/cheers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -386,8 +396,10 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       // (Stripe型定義で確認済み。cardと同様にオーソリ可能)
       expect(captured.sessionCreateParams?.payment_method_options?.link?.capture_method).toBe("manual");
       expect(captured.sessionCreateParams?.payment_method_options?.card?.capture_method).toBe("manual");
-      // Link は card と一緒に提供される
-      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
+      // payment_method_typesを手動指定するとLinkの動的な利用資格判定がバイパスされるため
+      // 省略し、ダッシュボードの決済手段設定による動的判定に委ねる(2026-08-11修正)
+      expect(captured.sessionCreateParams?.payment_method_types).toBeUndefined();
+      expect(captured.sessionCreateParams?.excluded_payment_method_types).toEqual(["paypay"]);
     });
   });
 

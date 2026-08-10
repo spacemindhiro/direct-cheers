@@ -14,6 +14,7 @@ import {
   createTestConnectAccount,
   deleteTestConnectAccount,
   createTestPaymentIntent,
+  createTestCapturedPaymentIntent,
 } from "../helpers/stripe-fixtures";
 import { insertProfile, deleteAuthUsers, insertEvent, insertQrConfig, insertTransaction } from "../helpers/seed";
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
@@ -41,6 +42,7 @@ const cleanup = {
   eventIds: [] as string[],
   qrConfigIds: [] as string[],
   transactionIds: [] as string[],
+  debtClaimIds: [] as string[],
 };
 
 let organizerConnectId: string;
@@ -288,4 +290,88 @@ describe("TC-AUTOCANCEL-D: settled済みイベント → 対象外", () => {
     const pi = await stripe.paymentIntents.retrieve(piId);
     expect(pi.status).toBe("requires_capture");
   }, 30_000);
+});
+
+// PayPay等automatic capture決済は7日超過時点で既にsucceeded状態のため、
+// cancelではなくrefundになる。refundではStripeの決済手数料が戻らないため、
+// 現場取消(cancel/route.ts)と同じくorganizerのdebt_claimsに計上する
+// (2026-08-11 未精算のまま自動キャンセルした際に手数料をプラットフォームが
+// 無記録のまま被っていた不具合として発覚・修正)。
+describe("TC-AUTOCANCEL-E: PayPay等(succeeded)・7日超過 → refund + debt_claims計上", () => {
+  let organizerProfileId: string;
+  let eventId: string;
+  let transactionId: string;
+  let piId: string;
+  const stripeFee = 218;
+
+  beforeAll(async () => {
+    const ts = Date.now();
+    organizerProfileId = await insertProfile({
+      role: "organizer",
+      displayName: "PayPay自動キャンセル対象オーガナイザー",
+      email: `autocancel-paypay-${ts}@test.local`,
+      stripeConnectId: `acct_fake_paypay_${ts}`,
+    });
+    cleanup.profileIds.push(organizerProfileId);
+
+    eventId = await insertEvent({
+      organizerProfileId,
+      title: "TC-AUTOCANCEL PayPay未settledイベント",
+      startAt: daysAgo(8),
+      endAt: daysAgo(7),
+    });
+    cleanup.eventIds.push(eventId);
+    await testAdmin.from("events").update({ lifecycle_status: "published" }).eq("event_id", eventId);
+
+    const qrConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const pi = await createTestCapturedPaymentIntent({ amount: 3_000 });
+    piId = pi.id;
+    expect(pi.status).toBe("succeeded");
+
+    transactionId = await insertTransaction({
+      qrConfigId,
+      grossAmount: 3_000,
+      netAmount: 3_000 - stripeFee,
+      stripeFee,
+      platformFee: 0,
+      stripePaymentIntentId: piId,
+    });
+    cleanup.transactionIds.push(transactionId);
+  }, 60_000);
+
+  it("TC-AUTOCANCEL-E-01: 実行 → cancelledEvents=1・debtRecorded=1・errors=0", async () => {
+    const { secret, restore } = withCronSecret();
+    const req = new Request("http://localhost/api/cron/auto-cancel-unsettled", {
+      method: "GET",
+      headers: { authorization: `Bearer ${secret}` },
+    });
+    const res = await autoCancelGET(req);
+    const data = await res.json();
+    restore();
+
+    expect(res.status).toBe(200);
+    expect(data.cancelledEvents).toBe(1);
+    expect(data.errors).toBe(0);
+    expect(data.debtRecorded).toBe(1);
+  }, 30_000);
+
+  it("TC-AUTOCANCEL-E-02: transactions.status='refunded' に更新される", async () => {
+    const { data: tx } = await testAdmin.from("transactions").select("status").eq("transaction_id", transactionId).single();
+    expect(tx?.status).toBe("refunded");
+  });
+
+  it("TC-AUTOCANCEL-E-03: debt_claimsにorganizer宛の決済手数料が計上される", async () => {
+    const { data: claim } = await testAdmin
+      .from("debt_claims")
+      .select("claim_id, profile_id, original_transaction_id, claim_amount, description")
+      .eq("original_transaction_id", transactionId)
+      .maybeSingle();
+    expect(claim).toBeTruthy();
+    if (claim) cleanup.debtClaimIds.push(claim.claim_id);
+    expect(claim?.profile_id).toBe(organizerProfileId);
+    expect(claim?.claim_amount).toBe(stripeFee);
+    expect(claim?.description).toContain(piId);
+  });
 });

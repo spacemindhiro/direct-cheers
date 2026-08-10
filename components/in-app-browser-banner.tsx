@@ -17,9 +17,9 @@ function detect(ua: string): Detection {
   if (/Twitter/.test(ua))   return { inApp: true, appName: "X (Twitter)", platform };
   if (/TikTok/.test(ua))    return { inApp: true, appName: "TikTok",      platform };
 
-  // iOS で Safari 以外（Chrome iOS / Firefox iOS 等）
-  const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua) && !/Chrome/.test(ua);
-  if (isIOS && !isSafari) return { inApp: true, appName: "", platform: 'ios' };
+  // iOSは全ブラウザがWebKit実装のためApple Payはブラウザの種類を問わず使える
+  // （Chrome iOS/Firefox iOS等もSafari同様に対応。2026-08-11、Safari限定という
+  // 誤った前提で警告していたのを撤去）。
 
   return { inApp: false, appName: "", platform };
 }
@@ -35,7 +35,6 @@ export function InAppBrowserBanner() {
   const [platform, setPlatform] = useState<Platform>("unknown");
   const [copied, setCopied] = useState(false);
   const [intentUrl, setIntentUrl] = useState("");
-  const [safariUrl, setSafariUrl] = useState("");
 
   useEffect(() => {
     const result = detect(navigator.userAgent);
@@ -46,19 +45,12 @@ export function InAppBrowserBanner() {
       if (result.platform === "android") {
         setIntentUrl(buildChromeIntentUrl(window.location.href));
       }
-      // x-safari-https:// はApple非公式だが長年実績のあるスキーム。
-      // LINE等のアプリ内WebViewはこのスキームをハンドルできないことが多いため、
-      // 名前付きアプリ（appName非空）では出さず、iOS+非Safariブラウザ（Chrome等）限定で使う。
-      if (result.platform === "ios" && result.appName === "") {
-        setSafariUrl(window.location.href.replace(/^https?:\/\//, "x-safari-https://"));
-      }
     }
   }, []);
 
   if (!show) return null;
 
   const payService = platform === "ios" ? "Apple Pay" : platform === "android" ? "Google Pay" : "Apple Pay / Google Pay";
-  const isNamedApp = appName !== "";
 
   const handleCopy = async () => {
     try {
@@ -75,8 +67,7 @@ export function InAppBrowserBanner() {
           <div className="space-y-1 min-w-0">
             <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">{payService}</p>
             <p className="text-xs font-bold text-amber-200 leading-relaxed">
-              {isNamedApp ? `${appName}内ブラウザでは` : "このブラウザでは"}
-              {payService}が使えません。
+              {appName}内ブラウザでは{payService}が使えません。
             </p>
             <p className="text-xs text-slate-400 leading-relaxed">
               Stripe Link・カードはこのままご利用いただけます。
@@ -98,14 +89,6 @@ export function InAppBrowserBanner() {
             >
               <ExternalLink size={11} />
               Chromeで開く
-            </a>
-          ) : safariUrl ? (
-            <a
-              href={safariUrl}
-              className="flex items-center gap-1.5 h-8 px-3 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/20 rounded-lg text-[10px] font-black text-amber-300 transition-all"
-            >
-              <ExternalLink size={11} />
-              Safariで開く
             </a>
           ) : (
             <button

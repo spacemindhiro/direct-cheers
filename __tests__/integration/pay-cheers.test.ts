@@ -10,7 +10,6 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest
 import {
   createTestConnectAccount,
   deleteTestConnectAccount,
-  retrieveRecentCheckoutSession,
   stripe,
 } from "../helpers/stripe-fixtures";
 import { insertProfile, deleteAuthUsers } from "../helpers/seed";
@@ -161,9 +160,9 @@ describe("TC-PAY-01: カード決済（destination charge フロー）", () => {
     expect(data.url).toMatch(/^https:\/\/checkout\.stripe\.com\//);
 
     // Checkout Session がメタデータ付きで作成されていることを確認
-    const session = await retrieveRecentCheckoutSession(qrConfigId);
-    expect(session).not.toBeNull();
-    expect(session!.metadata?.qr_config_id).toBe(qrConfigId);
+    // (payment_method_typesにlinkを含むためcheckout.sessions.createはスタブを
+    //  返す。実Stripeへ問い合わせず、routeが送信したパラメータで直接検証する)
+    expect(captured.sessionCreateParams?.metadata?.qr_config_id).toBe(qrConfigId);
 
     // route が Stripe に渡した payment_intent_data を検証
     // （API v2026-02-25.clover 以降、payment_intent は session 完了まで作成されないため
@@ -191,8 +190,7 @@ describe("TC-PAY-01: カード決済（destination charge フロー）", () => {
     const res = await POST(req);
     expect(res.status).toBe(200);
 
-    const session = await retrieveRecentCheckoutSession(qrConfigId);
-    expect(session!.metadata?.device_name).toBe("DJ-01");
+    expect(captured.sessionCreateParams?.metadata?.device_name).toBe("DJ-01");
   });
 });
 
@@ -246,9 +244,6 @@ describe("TC-PAY-03: Connect 未設定オーガナイザー（フォールバッ
 
     expect(res.status).toBe(200);
     expect(data.url).toBeTruthy();
-
-    const session = await retrieveRecentCheckoutSession(noConnectQrConfigId);
-    expect(session).not.toBeNull();
 
     // Connect なし → on_behalf_of / application_fee_amount が設定されないことを確認
     const pid = captured.sessionCreateParams?.payment_intent_data;

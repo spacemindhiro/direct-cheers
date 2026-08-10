@@ -282,7 +282,7 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
 
   // ── TC-PAY-MATRIX-01: カード決済（正常系）────────────────────────────
   describe("TC-PAY-MATRIX-01: カード決済（正常系）", () => {
-    it("on_behalf_of が設定され capture_method: manual / payment_method_types: ['card']", async () => {
+    it("on_behalf_of が設定され capture_method: manual / payment_method_types: ['card', 'link']", async () => {
       const req = new Request("http://localhost/api/pay/cheers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -299,13 +299,16 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       const pid = captured.sessionCreateParams?.payment_intent_data;
       expect(pid?.on_behalf_of).toBe(organizerConnectId);
       expect(pid?.capture_method).toBe("manual");
-      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card"]);
+      // payment_method_typesを手動指定する場合、"card"だけではLinkが自動的に
+      // 有効化されないため常に"link"も明示する(2026-08-10 本番でLinkが一度も
+      // 表示されない不具合として発覚・修正)。
+      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
     });
   });
 
   // ── TC-PAY-MATRIX-02: Apple Pay（正常系）────────────────────────────
   describe("TC-PAY-MATRIX-02: Apple Pay（正常系）", () => {
-    it("Apple Pay は card type として処理 — on_behalf_of 設定・payment_method_types: ['card']", async () => {
+    it("Apple Pay は card type として処理 — on_behalf_of 設定・payment_method_types: ['card', 'link']", async () => {
       const req = new Request("http://localhost/api/pay/cheers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -323,13 +326,13 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       // Apple Pay は wallet token として card type で処理 → on_behalf_of / capture_method はカードと同一
       expect(pid?.on_behalf_of).toBe(organizerConnectId);
       expect(pid?.capture_method).toBe("manual");
-      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card"]);
+      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
     });
   });
 
   // ── TC-PAY-MATRIX-03: Google Pay（正常系）───────────────────────────
   describe("TC-PAY-MATRIX-03: Google Pay（正常系）", () => {
-    it("Google Pay は card type として処理 — on_behalf_of 設定・payment_method_types: ['card']", async () => {
+    it("Google Pay は card type として処理 — on_behalf_of 設定・payment_method_types: ['card', 'link']", async () => {
       const req = new Request("http://localhost/api/pay/cheers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -346,7 +349,7 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       const pid = captured.sessionCreateParams?.payment_intent_data;
       expect(pid?.on_behalf_of).toBe(organizerConnectId);
       expect(pid?.capture_method).toBe("manual");
-      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card"]);
+      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
     });
   });
 
@@ -370,8 +373,7 @@ describe("TC-PAY-MATRIX-V2: 全決済手段・Capabilityチェック統合マト
       expect(pid?.on_behalf_of).toBe(organizerConnectId);
       expect(pid?.capture_method).toBe("manual");
       // Link は card と一緒に提供される
-      expect(captured.sessionCreateParams?.payment_method_types).toContain("link");
-      expect(captured.sessionCreateParams?.payment_method_types).toContain("card");
+      expect(captured.sessionCreateParams?.payment_method_types).toEqual(["card", "link"]);
     });
   });
 

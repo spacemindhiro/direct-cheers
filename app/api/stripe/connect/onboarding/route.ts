@@ -85,7 +85,14 @@ export async function POST(req: Request) {
         type: "express",
         country: "JP",
         email: user.email,
-        capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
+        // link_paymentsを明示リクエストしないと、Stripe側の自動付与に任せることに
+        // なり付与有無がアカウントごとにばらつく(実際に一部アカウントで
+        // link_paymentsが付与されずLinkの選択肢が出ない不具合として発覚・2026-08-10)。
+        capabilities: {
+          transfers: { requested: true },
+          card_payments: { requested: true },
+          link_payments: { requested: true },
+        },
         business_type: isCompany ? "company" : "individual",
         metadata: { profile_id: user.id, display_name: me.display_name ?? "" },
         business_profile: {
@@ -283,6 +290,9 @@ export async function POST(req: Request) {
       // prefixが先頭10文字で自動上書きされるStripeの挙動への対策）。
       stripe.accounts.update(connectId, {
         ...(me.display_name ? { business_profile: { name: me.display_name } } : {}),
+        // 既存アカウントが再訪問した際にもlink_paymentsが未リクエストのままなら
+        // ここで補う(2026-08-10のcapabilities不足修正の一環)。
+        capabilities: { link_payments: { requested: true } },
         settings: {
           payments: {
             statement_descriptor: PLATFORM_STATIC_DESCRIPTOR,

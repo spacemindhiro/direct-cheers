@@ -166,6 +166,18 @@ describe("TC-ONB-SD-01: 新規Connectアカウント作成時の statement_descr
     await onboardingPOST(makeReq({ business_type: "individual" }));
     expect(captured.accountCreateParams?.settings?.payouts?.schedule?.interval).toBe("manual");
   }, 15_000);
+
+  // 2026-08-10: link_paymentsを明示リクエストしていなかったため、Stripe側の
+  // 自動付与に任せることになり付与有無がアカウントごとにばらついていた
+  // (本番20アカウント中5件で未付与、うち1件はcard_paymentsは正常なのに
+  // link_paymentsだけ丸ごと欠落)。決済画面でLinkの選択肢が出ない不具合として
+  // 発覚・修正。新規作成時に必ずリクエストする回帰テスト。
+  it("capabilitiesにlink_paymentsが常にrequested:trueで含まれる", async () => {
+    const profileId = await freshProfile("linkcap");
+    mockAuth(profileId);
+    await onboardingPOST(makeReq({ business_type: "individual" }));
+    expect(captured.accountCreateParams?.capabilities?.link_payments).toEqual({ requested: true });
+  }, 15_000);
 });
 
 // ── TC-ONB-SD-02: 既存アカウントの再編集時 ──────────────────────────────
@@ -193,6 +205,8 @@ describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時の stripe.ac
 
     expect(captured.accountUpdateId).toBe(existingConnectId);
     expectFixedDescriptors(captured.accountUpdateParams?.settings?.payments);
+    // 既存アカウントが再訪問した際にもlink_paymentsを補うため常にリクエストする
+    expect(captured.accountUpdateParams?.capabilities?.link_payments).toEqual({ requested: true });
   });
 
   it("氏名なしの再送信でも静的表記は固定のウェブサイト名で更新される（入力に依存しない）", async () => {
@@ -202,5 +216,7 @@ describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時の stripe.ac
 
     expect(captured.accountUpdateId).toBe(existingConnectId);
     expectFixedDescriptors(captured.accountUpdateParams?.settings?.payments);
+    // 既存アカウントが再訪問した際にもlink_paymentsを補うため常にリクエストする
+    expect(captured.accountUpdateParams?.capabilities?.link_payments).toEqual({ requested: true });
   });
 });

@@ -206,11 +206,3 @@ export async function captureAndReconcileTransactions(
   }
   return result;
 }
-
-// テスト用 Stripe Checkout Session を作成（pay/cheers route のアサーション用）
-export async function retrieveRecentCheckoutSession(
-  qrConfigId: string,
-): Promise<Stripe.Checkout.Session | null> {
-  const sessions = await stripe.checkout.sessions.list({ limit: 10 });
-  return sessions.data.find((s) => s.metadata?.qr_config_id === qrConfigId) ?? null;
-}

@@ -10,10 +10,14 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").r
 
 type PaymentMethod = "card" | "apple_pay" | "google_pay" | "link" | "paypay";
 
+// Stripeはpayment_method_typesを手動指定する場合、"card"を含めるだけではLinkは
+// 自動的に有効化されない（"link"を明示的に含める必要がある）。指定を省略すれば
+// ダッシュボード設定に応じて動的に決まるが、このルートは他の理由で手動指定して
+// いるため、cardを使う全ケースでlinkも明示する（2026-08-10 本番でLinkが一度も
+// 表示されない不具合として発覚・修正）。
 function resolvePaymentMethodTypes(method: PaymentMethod): Stripe.Checkout.SessionCreateParams.PaymentMethodType[] {
   if (method === "paypay") return ["paypay"] as unknown as Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
-  if (method === "link") return ["card", "link"] as Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
-  return ["card"]; // card / apple_pay / google_pay はすべて card type
+  return ["card", "link"]; // card / apple_pay / google_pay / link はすべて card type ベース
 }
 
 export async function POST(req: Request) {

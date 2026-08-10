@@ -40,7 +40,9 @@ vi.mock("stripe", async (importOriginal) => {
         if ((params.payment_method_types ?? []).includes("paypay")) {
           return { url: "https://checkout.stripe.com/c/pay/cs_test_paypay_stub", id: "cs_test_paypay_stub" };
         }
-        if ((params.payment_method_types ?? []).includes("link")) {
+        // card/apple_pay/google_pay/linkフローはpayment_method_typesを省略し、ダッシュボードの
+        // 決済手段設定による動的判定に委ねる(2026-08-11修正。pay-cheers.test.tsと同じ理由)。
+        if (!params.payment_method_types) {
           return { url: "https://checkout.stripe.com/c/pay/cs_test_link_stub", id: "cs_test_link_stub" };
         }
         return origCreate(params, opts);

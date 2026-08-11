@@ -2,7 +2,7 @@ import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from 'react';
 import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw, Activity } from 'lucide-react';
+import { Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw, Activity, Landmark } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { LineupInvitations } from '@/components/lineup-invitations';
@@ -885,6 +885,27 @@ async function DashboardContent() {
             </div>
           </Link>
         </div>
+      )}
+
+      {/* Admin: 弥生会計 CSV / 月末残高レポート */}
+      {profile?.role === 'admin' && (
+        <Link
+          href="/admin/accounting"
+          className="block bg-slate-900 border border-slate-800 hover:border-cyan-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-cyan-500/10 rounded-2xl flex items-center justify-center border border-cyan-500/20 group-hover:bg-cyan-500/20 transition-all">
+              <Landmark size={22} className="text-cyan-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-cyan-400 transition-colors">
+                弥生会計 CSV
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">月次集計・月末預り金残高レポート</p>
+            </div>
+          </div>
+        </Link>
       )}
 
       {/* Admin: Batch Reports */}

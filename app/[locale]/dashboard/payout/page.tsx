@@ -68,6 +68,15 @@ async function PayoutContent() {
     .eq("distribution_status", "accrued")
     .is("deleted_at", null);
 
+  // distributions作成済み判定用: accrued/paid問わず、既に行が存在する取引は
+  // 「distributions未作成」の見込み計算(下記)から除外する
+  const { data: allDistTxRows } = await admin
+    .from("transaction_distributions")
+    .select("transaction_id")
+    .eq("profile_id", user.id)
+    .is("deleted_at", null);
+  const distributedTxIds = new Set((allDistTxRows ?? []).map((d) => d.transaction_id));
+
   // イベント別集計
   type EventRow = {
     event_id: string;
@@ -84,14 +93,12 @@ async function PayoutContent() {
   let available = 0;
   let pending = 0;
   let frozen = 0;
-  const distributedTxIds = new Set<string>();
 
   for (const d of dists ?? []) {
     const tx = (d as any).transaction;
     // completedのトランザクションのみ集計（cancelled/failed/requires_captureは除外）
     if (tx?.status !== "completed") continue;
 
-    distributedTxIds.add((d as any).transaction_id);
     const qrConfig = tx?.qr_config;
     const event = qrConfig?.event;
     const eventId: string = event?.event_id ?? "__unknown__";

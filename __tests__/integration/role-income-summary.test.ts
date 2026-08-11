@@ -11,6 +11,9 @@
  *   TC-INCOME-06: 同一profileが異なるイベントで異なるroleの分配を受けている場合、
  *     profiles.role（静的）ではなくtransaction_distributions（イベント単位の実績）で
  *     正しく振り分けられる（過去に実例あり: 20260727020000_fix_spacemind_hideaway_distribution_data.sql）
+ *   TC-INCOME-07: outstanding_balanceは表示対象月の月末(p_end_utc)ではなく、常に
+ *     クエリ実行時点(now())のStripe残高を返す。過去月を表示しても、その後
+ *     payoutが実行済みなら残高0を返す（P/Lの月次集計とは別軸のB/S項目）
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
@@ -297,5 +300,54 @@ describe("get_role_income_summary", () => {
     const result = await callSummary([mixedProfileId], "2000-01-01T00:00:00Z", "2100-01-01T00:00:00Z");
     expect(result.agent.gross).toBe(600); // イベントAの分だけ
     expect(result.organizer_artist.gross).toBe(8600); // イベントBの分だけ（profiles.role='agent'に引きずられない）
+  });
+
+  it("TC-INCOME-07: outstanding_balanceは表示月末ではなく常に現在時刻基準", async () => {
+    const organizer4ProfileId = await insertProfile({ role: "organizer", displayName: "テストOrganizer4", email: `income-organizer4-${Date.now()}@test.local` });
+    cleanup.profileIds.push(organizer4ProfileId);
+    const event4Id = await insertEvent({ organizerProfileId: organizer4ProfileId, agentId: agentProfileId });
+    cleanup.eventIds.push(event4Id);
+    const qrConfig4Id = await insertQrConfig({ eventId: event4Id, creatorProfileId: organizer4ProfileId, recipientProfileId: organizer4ProfileId });
+    cleanup.qrConfigIds.push(qrConfig4Id);
+
+    const txId = await insertTransaction({
+      qrConfigId: qrConfig4Id,
+      grossAmount: 10000,
+      netAmount: 8600,
+      stripeFee: 400,
+      platformFee: 1000,
+      stripePaymentIntentId: `pi_now_basis_${Date.now()}`,
+    });
+    cleanup.transactionIds.push(txId);
+
+    const distId = await insertDistribution({ transactionId: txId, eventId: event4Id, profileId: organizer4ProfileId, role: "organizer", actualAmount: 8600 });
+    cleanup.distributionIds.push(distId);
+
+    // settleは2026年1月（過去月）に実行されたことにする
+    const transferId = `tr_now_basis_${crypto.randomUUID()}`;
+    await insertSettleTransfer({ eventId: event4Id, profileId: organizer4ProfileId, stripeTransferId: transferId, amount: 8600 });
+    await testAdmin.from("settle_transfers").update({ created_at: "2026-01-15T00:00:00+09:00" }).eq("stripe_transfer_id", transferId);
+    cleanup.settleTransferIds.push(transferId);
+
+    // payoutは「今」実行済み（テスト実行時刻＝現在）
+    const { data: payoutRow, error: payoutErr } = await testAdmin
+      .from("payout_requests")
+      .insert({
+        profile_id: organizer4ProfileId,
+        requested_amount: 8600,
+        stripe_fee_deducted: 500,
+        net_payout_amount: 8100,
+        status: "completed",
+      })
+      .select("request_id")
+      .single();
+    if (payoutErr) throw new Error(payoutErr.message);
+    cleanup.payoutRequestIds.push(payoutRow.request_id);
+
+    // 2026年1月度（settleが起きた月。その時点ではまだpayoutされていなかった）を表示しても、
+    // outstanding_balanceは「今」の状態（=既にpayout済みなので残高0）を返すべき
+    const janResult = await callSummary([organizer4ProfileId], "2025-12-31T15:00:00Z", "2026-01-31T15:00:00Z");
+    expect(janResult.organizer_artist.gross).toBe(8600); // 1月のP/Lはsettleされた実績のまま
+    expect(janResult.organizer_artist.outstanding_balance).toBe(0); // だが残高は「今」時点で既に0
   });
 });

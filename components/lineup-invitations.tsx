@@ -28,15 +28,22 @@ export function LineupInvitations({
 }) {
   const [items, setItems] = useState(invites);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const respond = async (eventId: string, action: "accept" | "reject") => {
     setLoading((prev) => ({ ...prev, [eventId]: true }));
+    setErrors((prev) => ({ ...prev, [eventId]: "" }));
     try {
-      await fetch(`/api/events/${eventId}/lineup/${artistId}`, {
+      const res = await fetch(`/api/events/${eventId}/lineup/${artistId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setErrors((prev) => ({ ...prev, [eventId]: data.error ?? "処理に失敗しました。もう一度お試しください。" }));
+        return;
+      }
       if (action === "reject") {
         setItems((prev) => prev.filter((i) => i.event_id !== eventId));
       } else {
@@ -44,6 +51,8 @@ export function LineupInvitations({
           prev.map((i) => i.event_id === eventId ? { ...i, status: "confirmed" } : i)
         );
       }
+    } catch {
+      setErrors((prev) => ({ ...prev, [eventId]: "通信エラーが発生しました。もう一度お試しください。" }));
     } finally {
       setLoading((prev) => ({ ...prev, [eventId]: false }));
     }
@@ -146,6 +155,10 @@ export function LineupInvitations({
                   </>
                 )}
               </div>
+
+              {errors[inv.event_id] && (
+                <p className="text-xs text-red-400 font-bold">{errors[inv.event_id]}</p>
+              )}
             </div>
           );
         })}

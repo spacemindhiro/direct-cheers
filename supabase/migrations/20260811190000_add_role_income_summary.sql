@@ -59,29 +59,41 @@ BEGIN
       AND td.updated_at >= p_start_utc
       AND td.updated_at <  p_end_utc
   ),
-  -- agent/organizer/artist層: 着金日=settle_transfers.created_at（実Transfer日）
-  -- ロールはprofiles.role（静的1人1ロール）では判定しない。過去に同一プロフィールが
+  -- agent/organizer/artist層: 金額はtransaction_distributions.actual_amountの
+  -- role別実額をそのまま使う（按分・比率計算はしない。既に厳密に確定済みの実額）。
+  -- 着金日の判定にだけsettle_transfersを使う: そのevent+profileへの送金が
+  -- 対象月内に1件でもあれば、そのevent+profileのrole別実額全額を対象月の
+  -- 着金として計上する。
+  -- ロールをprofiles.role（静的1人1ロール）で判定しないのは、過去に同一プロフィールが
   -- 特定イベントでagent兼organizerとして扱われたことが実際にあったため
-  -- （20260727020000_fix_spacemind_hideaway_distribution_data.sql参照）、
-  -- 「そのイベントでそのprofileが実際にどのroleとして分配を受けたか」を
-  -- transaction_distributionsから都度引き当てる。
-  profile_event_role AS (
-    SELECT DISTINCT event_id, profile_id, distribution_role
+  -- （20260727020000_fix_spacemind_hideaway_distribution_data.sql参照。本番でも
+  -- 現に2イベントで同一profileがagent行とorganizer行の両方を持つ状態を確認済み）。
+  -- reversedも含める: 一度着金した実額は、後日reversedになっても「着金した月」の
+  -- grossからは消えない（消える分はreversed_by_role側でnetから引かれる）。
+  -- voidedのみ除外（settle前キャンセルで金銭移動ゼロのため）。
+  role_amount_by_event_profile AS (
+    SELECT event_id, profile_id, distribution_role,
+           SUM(actual_amount)::bigint AS amount
     FROM transaction_distributions
     WHERE profile_id = ANY(p_profile_ids)
       AND distribution_role IN ('agent', 'organizer', 'artist')
+      AND distribution_status IN ('accrued', 'paid', 'reversed')
+      AND deleted_at IS NULL
+    GROUP BY event_id, profile_id, distribution_role
   ),
   transfer_gross_by_role AS (
     SELECT
-      per.distribution_role AS role,
-      COALESCE(SUM(st.amount), 0)::bigint AS amount
-    FROM settle_transfers st
-    JOIN profile_event_role per
-      ON per.event_id = st.event_id AND per.profile_id = st.profile_id
-    WHERE st.profile_id = ANY(p_profile_ids)
-      AND st.created_at >= p_start_utc
-      AND st.created_at <  p_end_utc
-    GROUP BY per.distribution_role
+      ra.distribution_role AS role,
+      COALESCE(SUM(ra.amount), 0)::bigint AS amount
+    FROM role_amount_by_event_profile ra
+    WHERE EXISTS (
+      SELECT 1 FROM settle_transfers st
+      WHERE st.event_id = ra.event_id
+        AND st.profile_id = ra.profile_id
+        AND st.created_at >= p_start_utc
+        AND st.created_at <  p_end_utc
+    )
+    GROUP BY ra.distribution_role
   ),
   reversed_by_role AS (
     SELECT

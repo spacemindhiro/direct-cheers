@@ -148,6 +148,9 @@ export function QREditDelete({
 
   const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
 
+  // カードプレビュー用の金額（レンジ指定はデフォルト金額、固定はその場で編集中の金額を反映）
+  const previewAmount = isRange ? defaultAmount : (parseInt(editFixed, 10) || minAmount);
+
   // 宛先の選択肢は配分に登録されている人のみ
   const recipientOptions = candidates.filter((c) =>
     targets.some((t) => t.profile_id === c.profile_id)
@@ -566,7 +569,7 @@ export function QREditDelete({
                       eventTitle={eventTitle}
                       artistAvatar={candidates.find((c) => c.profile_id === recipientId && c.role === recipientRole)?.avatar_url ?? null}
                       imageUrl={imageUrl}
-                      amount={1000}
+                      amount={previewAmount}
                       transactionId="PREVIEW"
                       serialNumber={1}
                     />

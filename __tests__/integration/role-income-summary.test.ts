@@ -149,15 +149,21 @@ describe("get_role_income_summary", () => {
     cleanup.settleTransferIds.push(revTransferId);
 
     // reversed化（updated_atはtrg update_transaction_distributions_modtimeによりnow()に
-    // 強制上書きされるため、過去日付を指定しても効かない。テストでは「今」を基準にする。
-    const beforeReverse = new Date();
-    await testAdmin
+    // 強制上書きされるため、過去日付を指定しても効かない）。
+    // クエリ窓の境界はJS側のDate.now()ではなくDBが実際に書き込んだupdated_atから
+    // 組み立てる（テスト実行環境とDBコンテナのクロックがズレていると、狭い窓で
+    // JS側のnow()を使うと境界外にこぼれ落ちるため）。
+    const { data: reversedRow } = await testAdmin
       .from("transaction_distributions")
       .update({ distribution_status: "reversed" })
-      .eq("transaction_distribution_id", distId);
-    const afterReverse = new Date(Date.now() + 1000);
+      .eq("transaction_distribution_id", distId)
+      .select("updated_at")
+      .single();
+    const reversedAt = new Date(reversedRow!.updated_at);
+    const windowStart = new Date(reversedAt.getTime() - 1000);
+    const windowEnd = new Date(reversedAt.getTime() + 1000);
 
-    const nowResult = await callSummary([organizer3ProfileId], beforeReverse.toISOString(), afterReverse.toISOString());
+    const nowResult = await callSummary([organizer3ProfileId], windowStart.toISOString(), windowEnd.toISOString());
     expect(nowResult.organizer_artist.reversed).toBe(4300); // reversedになった「今」の期間にマイナス計上対象として現れる
     expect(nowResult.organizer_artist.gross).toBe(0); // この期間には新規着金はない（着金は10月なので対象外）
 

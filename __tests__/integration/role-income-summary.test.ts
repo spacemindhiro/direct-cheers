@@ -119,8 +119,19 @@ describe("get_role_income_summary", () => {
   });
 
   it("TC-INCOME-03: reversedはtransaction_distributions.updated_atの月にマイナス計上される", async () => {
+    // 他テスト(TC-01)と同じevent+profileを使い回すと、1つのevent+profileに対して
+    // 異なる月に複数回settleが走るという非現実的な状態になり、集計が正しく検証
+    // できない（実際の運用ではevent+profileの組み合わせごとに1回のsettleで
+    // その時点の未送金額をまとめて送金する）。このテスト専用のprofile/eventを使う。
+    const organizer3ProfileId = await insertProfile({ role: "organizer", displayName: "テストOrganizer3", email: `income-organizer3-${Date.now()}@test.local` });
+    cleanup.profileIds.push(organizer3ProfileId);
+    const event3Id = await insertEvent({ organizerProfileId: organizer3ProfileId, agentId: agentProfileId });
+    cleanup.eventIds.push(event3Id);
+    const qrConfig3Id = await insertQrConfig({ eventId: event3Id, creatorProfileId: organizer3ProfileId, recipientProfileId: organizer3ProfileId });
+    cleanup.qrConfigIds.push(qrConfig3Id);
+
     const txId = await insertTransaction({
-      qrConfigId,
+      qrConfigId: qrConfig3Id,
       grossAmount: 5000,
       netAmount: 4300,
       stripeFee: 198,
@@ -128,13 +139,12 @@ describe("get_role_income_summary", () => {
       stripePaymentIntentId: `pi_reversed_${Date.now()}`,
     });
     cleanup.transactionIds.push(txId);
-    // TC-INCOME-01と同じorganizerProfileIdを使い回すため、月が重複しないよう10月/11月を使う
     await testAdmin.from("transactions").update({ created_at: "2026-10-03T00:00:00+09:00" }).eq("transaction_id", txId);
 
-    const distId = await insertDistribution({ transactionId: txId, eventId, profileId: organizerProfileId, role: "organizer", actualAmount: 4300 });
+    const distId = await insertDistribution({ transactionId: txId, eventId: event3Id, profileId: organizer3ProfileId, role: "organizer", actualAmount: 4300 });
     cleanup.distributionIds.push(distId);
     const revTransferId = `tr_rev_${crypto.randomUUID()}`;
-    await insertSettleTransfer({ eventId, profileId: organizerProfileId, stripeTransferId: revTransferId, amount: 4300 });
+    await insertSettleTransfer({ eventId: event3Id, profileId: organizer3ProfileId, stripeTransferId: revTransferId, amount: 4300 });
     await testAdmin.from("settle_transfers").update({ created_at: "2026-10-04T00:00:00+09:00" }).eq("stripe_transfer_id", revTransferId);
     cleanup.settleTransferIds.push(revTransferId);
 
@@ -147,11 +157,11 @@ describe("get_role_income_summary", () => {
       .eq("transaction_distribution_id", distId);
     const afterReverse = new Date(Date.now() + 1000);
 
-    const nowResult = await callSummary([organizerProfileId], beforeReverse.toISOString(), afterReverse.toISOString());
+    const nowResult = await callSummary([organizer3ProfileId], beforeReverse.toISOString(), afterReverse.toISOString());
     expect(nowResult.organizer_artist.reversed).toBe(4300); // reversedになった「今」の期間にマイナス計上対象として現れる
     expect(nowResult.organizer_artist.gross).toBe(0); // この期間には新規着金はない（着金は10月なので対象外）
 
-    const octResult = await callSummary([organizerProfileId], "2026-09-30T15:00:00Z", "2026-10-31T15:00:00Z");
+    const octResult = await callSummary([organizer3ProfileId], "2026-09-30T15:00:00Z", "2026-10-31T15:00:00Z");
     expect(octResult.organizer_artist.gross).toBe(4300); // 10月の着金額はreversedでも変わらない
     expect(octResult.organizer_artist.net).toBe(4300); // 10月時点ではまだreverseされていない
   });

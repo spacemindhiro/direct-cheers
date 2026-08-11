@@ -104,6 +104,11 @@ export async function GET(req: Request) {
           .from("transactions")
           .update({ status: "refunded" })
           .eq("transaction_id", voucher.transaction_id),
+        admin
+          .from("transaction_distributions")
+          .update({ distribution_status: "voided" })
+          .eq("transaction_id", voucher.transaction_id)
+          .eq("distribution_status", "accrued"),
       ]);
 
       console.log(`[refund-expired-vouchers] 返金完了 ticket=${voucher.ticket_id} pi=${piId} amount=${tx.total_gross_amount}`);

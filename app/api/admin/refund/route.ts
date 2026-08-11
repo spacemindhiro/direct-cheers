@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { voidTransactionSideEffects } from "@/lib/cancel-transaction-effects";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -265,6 +266,7 @@ export async function POST(req: Request) {
         .from("transactions")
         .update({ status: "cancelled" })
         .in("transaction_id", txIds);
+      await voidTransactionSideEffects(admin, txIds, "voided");
     }
 
     return NextResponse.json({
@@ -337,6 +339,7 @@ export async function POST(req: Request) {
         .from("transactions")
         .update({ status: "refunded" })
         .in("transaction_id", txIds);
+      await voidTransactionSideEffects(admin, txIds, "voided");
     }
 
     return NextResponse.json({
@@ -409,6 +412,7 @@ export async function POST(req: Request) {
       .from("transactions")
       .update({ status: "refunded" })
       .in("transaction_id", txIds);
+    await voidTransactionSideEffects(admin, txIds, "reversed");
   }
 
   const totalReversed = reversalResults.reduce((s, r) => s + r.reversed, 0);

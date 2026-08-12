@@ -53,39 +53,46 @@ export function QRDisplay({
         <head>
           <title>${label}</title>
           <style>
-            /* @page sizeはプレビュー時の初期用紙をA4に寄せるヒント。
-               実際の用紙サイズ・縦横は印刷ダイアログの設定が優先される。
-               vw/vhは印刷時、選択された用紙の向き基準で解決されるため、
-               縦横どちらを選んでもその中で最大化される。
-               html/bodyにoverflow: hiddenを掛け、万一コンテンツが計算上
-               はみ出しても2ページ目に溢れず必ず1ページに収まるようにする。 */
+            /* vw/vhは印刷経路(document.writeしたポップアップ→window.print())だと
+               実際の用紙サイズではなくポップアップの画面上のウィンドウサイズを基準に
+               計算されてしまうことがあり、拡大・中央寄せが効かない原因になる。
+               そのため一切使わず、印刷でも常に正確な物理単位(mm)で固定する。
+               縦横の切り替えは@media print (orientation:...)で用紙の実寸に応じて
+               body自体のサイズを入れ替えることで対応する。 */
             * { box-sizing: border-box; }
             @page { size: A4; margin: 10mm; }
             html, body {
               margin: 0; padding: 0;
-              width: 100vw; height: 100vh;
               overflow: hidden;
               font-family: sans-serif;
             }
             body {
+              /* 既定(縦向き): A4(210x297mm)から@pageのmargin10mm×2を引いた
+                 コンテンツ領域の実寸 */
+              width: 190mm; height: 277mm;
               display: flex; flex-direction: column; align-items: center; justify-content: center;
+            }
+            @media print and (orientation: landscape) {
+              body { width: 277mm; height: 190mm; }
             }
             .qr-wrap {
               flex: 1 1 auto; width: 100%; min-height: 0;
               display: flex; align-items: center; justify-content: center;
             }
             img {
-              width: auto; height: auto;
-              max-width: 85vw;
-              max-height: 65vh;
+              /* 横向き印刷時は使える高さが190mm分しかなく、下記のラベル文字を
+                 2m離れても読めるサイズまで拡大した分の余白も見込んで140mm角に固定。 */
+              width: 140mm; height: 140mm;
             }
             p {
-              flex: 0 0 auto; max-width: 90vw;
-              margin: 0 0 4mm; font-size: 20px; font-weight: 900; text-align: center;
+              /* 2m離れても読めることを想定した文字サイズ（目安: 1m離れるごとに
+                 文字高さ約8〜10mm、2mなら約16〜20mm。前後の余白込みで最大2行を許容） */
+              flex: 0 0 auto; width: 100%;
+              margin: 0 0 5mm; font-size: 14mm; line-height: 1.15; font-weight: 900; text-align: center;
             }
             small {
-              flex: 0 0 auto; max-width: 90vw;
-              margin-top: 4mm; font-size: 10px; line-height: 1.4; color: #666;
+              flex: 0 0 auto; width: 100%;
+              margin-top: 5mm; font-size: 3mm; line-height: 1.3; color: #666;
               word-break: break-all; text-align: center;
             }
           </style>

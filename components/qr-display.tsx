@@ -33,10 +33,18 @@ export function QRDisplay({
     });
   };
 
-  const handlePrint = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL("image/png");
+  const handlePrint = async () => {
+    // 画面表示用canvasは280pxしかなく、A4いっぱいに拡大すると粗くなるため、
+    // 印刷専用に高解像度のQRを別途生成する。
+    const { default: QRCode } = await import("qrcode");
+    const printCanvas = document.createElement("canvas");
+    await QRCode.toCanvas(printCanvas, qrUrl, {
+      width: 2000,
+      margin: 1,
+      color: { dark: "#000000", light: "#ffffff" },
+    }).catch(console.error);
+    const dataUrl = printCanvas.toDataURL("image/png");
+
     const win = window.open("", "_blank");
     if (!win) return;
     win.document.write(`
@@ -45,15 +53,46 @@ export function QRDisplay({
         <head>
           <title>${label}</title>
           <style>
-            body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif; }
-            img { width: 280px; height: 280px; }
-            p { margin: 12px 0 4px; font-size: 18px; font-weight: 900; }
-            small { font-size: 11px; color: #666; word-break: break-all; max-width: 280px; text-align: center; }
+            /* @page sizeはプレビュー時の初期用紙をA4に寄せるヒント。
+               実際の用紙サイズ・縦横は印刷ダイアログの設定が優先される。
+               vw/vhは印刷時、選択された用紙の向き基準で解決されるため、
+               縦横どちらを選んでもその中で最大化される。
+               html/bodyにoverflow: hiddenを掛け、万一コンテンツが計算上
+               はみ出しても2ページ目に溢れず必ず1ページに収まるようにする。 */
+            * { box-sizing: border-box; }
+            @page { size: A4; margin: 10mm; }
+            html, body {
+              margin: 0; padding: 0;
+              width: 100vw; height: 100vh;
+              overflow: hidden;
+              font-family: sans-serif;
+            }
+            body {
+              display: flex; flex-direction: column; align-items: center; justify-content: center;
+            }
+            .qr-wrap {
+              flex: 1 1 auto; width: 100%; min-height: 0;
+              display: flex; align-items: center; justify-content: center;
+            }
+            img {
+              width: auto; height: auto;
+              max-width: 85vw;
+              max-height: 65vh;
+            }
+            p {
+              flex: 0 0 auto; max-width: 90vw;
+              margin: 0 0 4mm; font-size: 20px; font-weight: 900; text-align: center;
+            }
+            small {
+              flex: 0 0 auto; max-width: 90vw;
+              margin-top: 4mm; font-size: 10px; line-height: 1.4; color: #666;
+              word-break: break-all; text-align: center;
+            }
           </style>
         </head>
         <body onload="window.print()">
           <p>${label}</p>
-          <img src="${dataUrl}" />
+          <div class="qr-wrap"><img src="${dataUrl}" /></div>
           <small>${qrUrl}</small>
         </body>
       </html>

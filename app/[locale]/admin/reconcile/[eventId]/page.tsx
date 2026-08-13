@@ -53,6 +53,9 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
     `)
     .in("qr_config_id", qrIds.length > 0 ? qrIds : ["__none__"])
     .eq("status", "completed")
+    // 招待による無料入場(transaction_type='invitation')は金銭移動がなく
+    // 照合対象外のため、ここに含めると永久に「未照合」として残り続ける
+    .neq("transaction_type", "invitation")
     .order("created_at", { ascending: false });
 
   const txList = transactions ?? [];

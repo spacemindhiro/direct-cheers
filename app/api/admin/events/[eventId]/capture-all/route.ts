@@ -41,7 +41,10 @@ export async function POST(
     .from("transactions")
     .select("transaction_id, stripe_payment_intent_id")
     .in("qr_config_id", qrIds)
-    .eq("status", "completed");
+    .eq("status", "completed")
+    // 招待による無料入場(transaction_type='invitation')はStripe決済を伴わず
+    // stripe_payment_intent_idを持たないため、キャプチャ対象外
+    .neq("transaction_type", "invitation");
 
   let captured = 0;
   let skipped = 0;

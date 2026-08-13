@@ -56,29 +56,36 @@ async function ReconcileContent() {
 
   const allQrIds = (qrConfigs ?? []).map((q) => q.qr_config_id);
 
+  // transaction_type='invitation'（招待による無料入場）は金銭移動がなく
+  // stripe_payment_intent_idも持たないため照合対象外。除外しないと永久に
+  // 「未照合」として表示され続けてしまう。
   const [totalRes, reconciledRes, mismatchRes, erroredRes] = await Promise.all([
     admin
       .from("transactions")
       .select("qr_config_id")
       .in("qr_config_id", allQrIds)
-      .eq("status", "completed"),
+      .eq("status", "completed")
+      .neq("transaction_type", "invitation"),
     admin
       .from("transactions")
       .select("qr_config_id")
       .in("qr_config_id", allQrIds)
       .eq("status", "completed")
+      .neq("transaction_type", "invitation")
       .not("reconciled_at", "is", null),
     admin
       .from("transactions")
       .select("transaction_id, qr_config_id, stripe_payment_intent_id, total_gross_amount, amount_mismatch")
       .in("qr_config_id", allQrIds)
       .eq("status", "completed")
+      .neq("transaction_type", "invitation")
       .eq("amount_verified", false),
     admin
       .from("transactions")
       .select("transaction_id, qr_config_id, stripe_payment_intent_id, reconcile_error")
       .in("qr_config_id", allQrIds)
       .eq("status", "completed")
+      .neq("transaction_type", "invitation")
       .not("reconcile_error", "is", null),
   ]);
 

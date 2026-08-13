@@ -101,10 +101,11 @@ async function SettlementsContent() {
 
   const allQrIds = (qrConfigsRes.data ?? []).map((q) => q.qr_config_id);
 
-  // トランザクション詳細取得
+  // トランザクション詳細取得（招待による無料入場はtransaction_type='invitation'で
+  // 金銭移動がなく照合対象外のため、reconciled_atの判定からは除外して集計する）
   const { data: txs } = await admin
     .from("transactions")
-    .select("transaction_id, qr_config_id, total_gross_amount, net_amount, status, created_at, sender_name")
+    .select("transaction_id, qr_config_id, total_gross_amount, net_amount, status, created_at, sender_name, transaction_type, reconciled_at")
     .in("qr_config_id", allQrIds)
     .eq("status", "completed")
     .order("created_at", { ascending: false });
@@ -120,6 +121,8 @@ async function SettlementsContent() {
   const grossByQr = new Map<string, number>();
   const netByQr   = new Map<string, number>();
   const txsByQr   = new Map<string, typeof txs>();
+  // 招待を除く実決済に、未照合（reconciled_at未設定）が1件でも残っているQRか
+  const hasUnreconciledRealTxByQr = new Map<string, boolean>();
   for (const tx of txs ?? []) {
     const id = tx.qr_config_id!;
     grossByQr.set(id, (grossByQr.get(id) ?? 0) + (tx.total_gross_amount ?? 0));
@@ -127,6 +130,9 @@ async function SettlementsContent() {
     const list = txsByQr.get(id) ?? [];
     list.push(tx);
     txsByQr.set(id, list);
+    if ((tx as any).transaction_type !== "invitation" && !(tx as any).reconciled_at) {
+      hasUnreconciledRealTxByQr.set(id, true);
+    }
   }
 
   // 全証跡画像の署名付きURL（1時間有効）を一括生成
@@ -166,6 +172,11 @@ async function SettlementsContent() {
             const settled = event.lifecycle_status === "settled";
             const isRejected = !settled && summary?.is_approved_for_payout === false;
             const hasEvidence = evidences.length > 0;
+            // 開催承認(キャプチャ)が済み、かつ実決済が全件照合済みなら送金実行可能な状態。
+            // 「承認完了」ではなく「送金待ち」——完了はsettleが成功しlifecycle_status='settled'
+            // になった時点（このバッジはそれ以前の中間状態を示すためだけのもの）。
+            const hasUnreconciled = qrIds.some((id) => hasUnreconciledRealTxByQr.get(id));
+            const readyToSettle = !settled && !isRejected && hasEvidence && gross > 0 && !hasUnreconciled;
 
             // オーソリ期限（開催開始日 + 7日）
             const authExpiresAt = event.start_at
@@ -177,17 +188,19 @@ async function SettlementsContent() {
             const isExpiring = !settled && gross > 0 && daysLeft !== null && daysLeft <= 2;
             const isExpired = !settled && gross > 0 && daysLeft !== null && daysLeft <= 0;
 
-            // 売上明細（QR別）
+            // 売上明細（QR別、招待による無料入場は決済ログに出さない）
             const txGroups: TxGroup[] = qrIds.map((qrId) => ({
               qr_config_id: qrId,
               qr_label: qrLabelById.get(qrId) ?? "QRコード",
               total: grossByQr.get(qrId) ?? 0,
-              transactions: (txsByQr.get(qrId) ?? []).map((tx) => ({
-                transaction_id: tx.transaction_id,
-                amount: tx.total_gross_amount ?? 0,
-                created_at: tx.created_at,
-                sender_name: (tx as any).sender_name ?? null,
-              })),
+              transactions: (txsByQr.get(qrId) ?? [])
+                .filter((tx) => (tx as any).transaction_type !== "invitation")
+                .map((tx) => ({
+                  transaction_id: tx.transaction_id,
+                  amount: tx.total_gross_amount ?? 0,
+                  created_at: tx.created_at,
+                  sender_name: (tx as any).sender_name ?? null,
+                })),
             })).filter((g) => g.total > 0);
 
             // 配分内訳（プロフィール別に集計）
@@ -212,7 +225,7 @@ async function SettlementsContent() {
               <div
                 key={event.event_id}
                 className={`bg-slate-900 border rounded-2xl p-5 space-y-4 ${
-                  settled ? "border-emerald-500/20" : isExpired ? "border-red-500/40" : isExpiring ? "border-orange-500/40" : isRejected ? "border-red-500/20" : hasEvidence ? "border-amber-500/20" : "border-slate-800"
+                  settled ? "border-emerald-500/20" : isExpired ? "border-red-500/40" : isExpiring ? "border-orange-500/40" : isRejected ? "border-red-500/20" : readyToSettle ? "border-sky-500/20" : hasEvidence ? "border-amber-500/20" : "border-slate-800"
                 }`}
               >
                 {/* ヘッダー */}
@@ -227,6 +240,8 @@ async function SettlementsContent() {
                         <span className="text-[9px] font-black text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded-full px-2 py-0.5 flex items-center gap-1"><Zap size={9} />期限{daysLeft}日前</span>
                       ) : isRejected ? (
                         <span className="text-[9px] font-black text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">差戻し済み</span>
+                      ) : readyToSettle ? (
+                        <span className="text-[9px] font-black text-sky-400 bg-sky-500/10 border border-sky-500/20 rounded-full px-2 py-0.5 flex items-center gap-1"><CheckCircle2 size={9} />キャプチャ済み・送金待ち</span>
                       ) : hasEvidence ? (
                         <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">要承認</span>
                       ) : (

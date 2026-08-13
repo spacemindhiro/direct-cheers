@@ -114,11 +114,14 @@ export async function GET(
   }
 
   // 明細取得（保存値をそのまま集計するためのソース）
+  // 招待による無料入場(transaction_type='invitation')は金銭移動のない0円
+  // レコードのため、決済ログには表示しない
   const { data: transactions } = await admin
     .from("transactions")
     .select("transaction_id, total_gross_amount, stripe_fee, platform_fee, net_amount, created_at, qr_config_id, sender_name, sender_comment, sender_email, payment_method, product:products!product_id(type, name)")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed")
+    .neq("transaction_type", "invitation")
     .order("created_at", { ascending: false });
 
   const txList = transactions ?? [];

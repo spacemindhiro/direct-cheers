@@ -43,6 +43,10 @@ export async function POST(req: Request) {
     `)
     .in("qr_config_id", qrIds)
     .eq("status", "completed")
+    // 招待による無料入場(transaction_type='invitation')はStripe決済を伴わず
+    // stripe_payment_intent_idを持たないため照合対象外。除外しないと
+    // 「PIが空です」エラーが実行の度に出続ける
+    .neq("transaction_type", "invitation")
     .or("reconciled_at.is.null,reconcile_error.not.is.null,amount_verified.eq.false");
 
   const now = new Date();

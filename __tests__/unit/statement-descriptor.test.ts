@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 import {
   sanitizeStatementDescriptorSuffix,
   sanitizeStatementDescriptorSuffixKanji,
+  sanitizeStatementDescriptorSuffixKana,
   resolveStatementDescriptorSource,
   resolveRecipientAvatarUrl,
   resolveCheerCardIdentity,
@@ -72,6 +73,47 @@ describe("TC-SD-01: sanitizeStatementDescriptorSuffix", () => {
 
   it("maxLenを指定すればその文字数に切り詰められる", () => {
     expect(sanitizeStatementDescriptorSuffix("DJ HIRO TOKYO", 7)).toBe("DJ HIRO");
+  });
+});
+
+/**
+ * TC-SD-01b: sanitizeStatementDescriptorSuffixKana
+ *
+ * Stripeの実際のエラー文言 "This field may contain only katakana, spaces,
+ * dashes and dots" には数字が含まれない。ローマ字名の末尾に数字が付く
+ * ケース（例: "DJ TEST1"）で、ローマ字部分だけ除去されて数字だけが残ると
+ * Stripeに拒否される（本番STG環境で実際に再現・2026-08-16）。
+ */
+describe("TC-SD-01b: sanitizeStatementDescriptorSuffixKana（数字は許可しない）", () => {
+  it("ローマ字+数字の名前は、数字も除去されnullになる（数字だけ残して送信しない）", () => {
+    expect(sanitizeStatementDescriptorSuffixKana("DJ TEST1")).toBeNull();
+  });
+
+  it("ローマ字のみの名前はカタカナ要素が無くnullになる", () => {
+    expect(sanitizeStatementDescriptorSuffixKana("DJ Hiro")).toBeNull();
+  });
+
+  it("カタカナ+数字の名前は、数字だけ除去されカタカナ部分が残る", () => {
+    expect(sanitizeStatementDescriptorSuffixKana("テスト1")).toBe("テスト");
+  });
+
+  it("ひらがなはカタカナに変換されて残る", () => {
+    expect(sanitizeStatementDescriptorSuffixKana("てすと")).toBe("テスト");
+  });
+
+  it("全角ローマ字も除去される（全角記号ゆえ数字同様カタカナではない）", () => {
+    expect(sanitizeStatementDescriptorSuffixKana("ＤＪ　ＨＩＲＯ")).toBeNull();
+  });
+
+  it("空文字・null・undefinedはnullを返す", () => {
+    expect(sanitizeStatementDescriptorSuffixKana("")).toBeNull();
+    expect(sanitizeStatementDescriptorSuffixKana(null)).toBeNull();
+    expect(sanitizeStatementDescriptorSuffixKana(undefined)).toBeNull();
+  });
+
+  it("maxLenを超える部分は切り詰められる", () => {
+    const result = sanitizeStatementDescriptorSuffixKana("アイウエオカキクケコサシスセソタチツテト", 10);
+    expect(result).toBe("アイウエオカキクケコ");
   });
 });
 

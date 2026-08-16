@@ -22,8 +22,10 @@ export type RecipientNameContext = "organizer" | "artist";
 const ALLOWED_CHARS_REGEX = /[^A-Z0-9.,\- ]/g;
 // 漢字・ひらがな・カタカナ・半角全角英数字・基本記号を許可（Stripeの漢字フィールドは比較的広く受け付ける）
 const KANJI_ALLOWED_REGEX = /[^0-9A-Za-zぁ-んァ-ヶー一-龠０-９Ａ-Ｚａ-ｚ.,\- 　]/g;
-// カナフィールドは全角カタカナ・数字・基本記号のみ（Stripeのカナフィールド規約に準拠）
-const KANA_ALLOWED_REGEX = /[^ァ-ー０-９0-9\s\-.]/g;
+// カナフィールドは全角カタカナ・基本記号のみ（数字不可）。Stripeの実際のエラー文言
+// "This field may contain only katakana, spaces, dashes and dots" に数字は含まれず、
+// 数字を許可していると"DJ TEST1"のような名前が数字だけ("1")残ってStripeに拒否される。
+const KANA_ALLOWED_REGEX = /[^ァ-ー\s\-.]/g;
 
 /** 全角英数字を半角に変換する（全角記号・かな漢字は対象外） */
 function toHalfWidthAlnum(input: string): string {

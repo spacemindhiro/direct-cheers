@@ -95,9 +95,22 @@ export function QRDisplay({
               margin-top: 5mm; font-size: 3mm; line-height: 1.3; color: #666;
               word-break: break-all; text-align: center;
             }
+            /* PWAスタンドアロン環境ではwindow.open先のこのタブ自体に
+               ブラウザの戻る/閉じるUIが無く、印刷後に元の画面へ戻る手段が
+               無くなるため、戻るボタンを画面上にのみ表示する（印刷時は除外）。 */
+            .no-print {
+              position: fixed; top: 4mm; left: 4mm;
+              padding: 3mm 5mm; border: none; border-radius: 2mm;
+              background: #0f172a; color: #fff;
+              font-family: sans-serif; font-size: 4mm; font-weight: 900;
+            }
+            @media print {
+              .no-print { display: none !important; }
+            }
           </style>
         </head>
         <body onload="window.print()">
+          <button type="button" class="no-print" onclick="window.close()">← 戻る</button>
           <p>${label}</p>
           <div class="qr-wrap"><img src="${dataUrl}" /></div>
           <small>${qrUrl}</small>

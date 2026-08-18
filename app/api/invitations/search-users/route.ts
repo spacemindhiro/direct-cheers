@@ -28,6 +28,12 @@ export async function GET(req: Request) {
   const q = (searchParams.get("q") ?? "").replace(/[,()]/g, "").trim();
   if (q.length < 1) return NextResponse.json({ users: [] });
 
+  // ILIKE の特殊文字（%, _）をエスケープしてから、ユーザー入力の * を
+  // ワイルドカード(%)に変換する。* を含まない場合は前後を % で囲む
+  // 従来通りの部分一致のまま。
+  const escaped = q.replace(/\\/g, "\\\\").replace(/[%_]/g, (c) => `\\${c}`);
+  const pattern = q.includes("*") ? escaped.replace(/\*/g, "%") : `%${escaped}%`;
+
   const admin = createAdminClient();
 
   // 表示名・アーティスト名・オーガナイザー名のいずれでもヒットさせる
@@ -36,8 +42,9 @@ export async function GET(req: Request) {
     .select("profile_id, display_name, artist_name, organizer_name, avatar_url, role")
     .is("deleted_at", null)
     .neq("profile_id", user.id)
-    .or(`display_name.ilike.%${q}%,artist_name.ilike.%${q}%,organizer_name.ilike.%${q}%`)
-    .limit(20);
+    .or(`display_name.ilike.${pattern},artist_name.ilike.${pattern},organizer_name.ilike.${pattern}`)
+    .order("created_at", { ascending: false })
+    .limit(50);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

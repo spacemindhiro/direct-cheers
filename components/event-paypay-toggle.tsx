@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X, Loader2 } from "lucide-react";
+import { PAYPAY_AVAILABLE } from "@/lib/fee-config";
 
 export function EventPayPayToggle({
   eventId,
@@ -15,6 +16,23 @@ export function EventPayPayToggle({
   const [showModal, setShowModal] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // PayPayはStripe側の審査否決により停止中。DBのenabled値は温存したまま
+  // 表示・操作だけを一律無効化する（再開時はlib/fee-config.tsのフラグを戻すだけでよい）。
+  if (!PAYPAY_AVAILABLE) {
+    return (
+      <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-[1.5rem] p-5 opacity-60">
+        <div>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PayPay 決済</p>
+          <p className="font-black text-sm text-white mt-0.5">無効</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">現在PayPay決済はご利用いただけません</p>
+        </div>
+        <div className="relative w-12 h-6 rounded-full bg-slate-700 shrink-0 cursor-not-allowed">
+          <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow" />
+        </div>
+      </div>
+    );
+  }
 
   const toggle = (next: boolean) => {
     startTransition(async () => {

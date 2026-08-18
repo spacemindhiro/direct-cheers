@@ -8,6 +8,7 @@ import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { LineupInvitations } from '@/components/lineup-invitations';
 import { FollowButton } from '@/components/follow-button';
 import { FollowerHero } from '@/components/follower-hero';
+import { PAYPAY_AVAILABLE } from '@/lib/fee-config';
 
 function AppleGooglePayLinks() {
   return (
@@ -143,7 +144,9 @@ function PaymentOptimizationSection({ pattern, linkRegistered }: { pattern: 'A' 
       <ul className="text-xs space-y-1 leading-relaxed">
         <li className="text-slate-300">📱 <span className="font-bold">Apple Pay / Google Pay</span> — 端末に設定済みならそのまま使えます</li>
         <li className="text-slate-300">⚡ <span className="font-bold">Stripe Link</span> — 事前登録するとワンタッチ決済できます</li>
-        <li className="text-slate-300">🔴 <span className="font-bold">PayPay</span> — イベントが対応していれば使えます</li>
+        {PAYPAY_AVAILABLE && (
+          <li className="text-slate-300">🔴 <span className="font-bold">PayPay</span> — イベントが対応していれば使えます</li>
+        )}
         <li className="text-slate-600">💳 <span className="font-bold">カード入力</span> — 毎回手入力が必要で当日は時間がかかります</li>
       </ul>
       <AppleGooglePayLinks />

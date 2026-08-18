@@ -7,6 +7,7 @@ import { getUser } from "@/lib/supabase/server";
 import { CheersPaymentForm } from "@/components/cheers-payment-form";
 import { InAppBrowserBanner } from "@/components/in-app-browser-banner";
 import { resolveStatementDescriptorSource, resolveRecipientAvatarUrl } from "@/lib/statement-descriptor";
+import { PAYPAY_AVAILABLE } from "@/lib/fee-config";
 import { MapPin, Calendar, Clock, Loader2 } from "lucide-react";
 
 function ValidityMessage({ title, message }: { title: string; message: string }) {
@@ -269,7 +270,7 @@ async function CheersContent({
           products={formProducts}
           recipientName={recipientName}
           eventTitle={event.title}
-          paypayEnabled={event.paypay_enabled ?? false}
+          paypayEnabled={PAYPAY_AVAILABLE && (event.paypay_enabled ?? false)}
           deviceName={deviceName}
           lockedEmail={lockedEmail ?? undefined}
           isAuthLocked={!!user}

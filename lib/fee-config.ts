@@ -1,5 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// PayPayはStripe側の加盟店審査で否決され、2026-08時点で決済実行できない。
+// 方針確定までUI上も一律で無効表示にする（events.paypay_enabledの値は
+// 個別イベントごとに温存し、審査再開時はこのフラグをtrueに戻すだけで
+// 元の状態に復帰できるようにする）。
+export const PAYPAY_AVAILABLE = false;
+
 export type FeeConfig = {
   stripe_rate: number;    // 例: 0.0396（3.6% × 消費税1.1）オンラインカード決済(card-not-present)用
   stripe_present_rate: number; // 例: 0.0355 WisePad等のタッチ決済(card_present)用。消費税上乗せなし

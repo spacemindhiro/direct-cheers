@@ -297,8 +297,10 @@ export async function PATCH(
     if (productError) return NextResponse.json({ error: productError.message }, { status: 500 });
   }
 
+  // RLSにUPDATEポリシーが無い/対象外のケースがあるためadminクライアントで実行。
+  // 権限はcanEdit/isRecipientで検証済み（受取人はimage_url/strip_image_urlのみ許可）。
   if (Object.keys(configUpdates).length > 0) {
-    const { error: configError } = await sb
+    const { error: configError } = await adminC
       .from("qr_configs")
       .update(configUpdates)
       .eq("qr_config_id", qrConfigId);

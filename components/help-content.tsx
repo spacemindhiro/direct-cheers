@@ -172,8 +172,15 @@ function ComingSoon({ role }: { role: "organizer" | "artist" }) {
   );
 }
 
-export function HelpContent({ defaultRole }: { defaultRole: HelpRole }) {
+export function HelpContent({
+  defaultRole,
+  visibleRoles,
+}: {
+  defaultRole: HelpRole;
+  visibleRoles: HelpRole[];
+}) {
   const [tab, setTab] = useState<HelpRole>(defaultRole);
+  const tabs = TABS.filter((t) => visibleRoles.includes(t.id));
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
@@ -183,21 +190,23 @@ export function HelpContent({ defaultRole }: { defaultRole: HelpRole }) {
         <p className="text-xs text-slate-500 mt-1">Direct Cheersの使い方をロール別にご案内します</p>
       </div>
 
-      <div className="flex gap-2 bg-slate-900 border border-slate-800 rounded-2xl p-1">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 text-[11px] font-bold rounded-xl py-2 transition-colors ${
-              tab === t.id
-                ? "bg-pink-500 text-white"
-                : "text-slate-500 hover:text-slate-300"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {tabs.length > 1 && (
+        <div className="flex gap-2 bg-slate-900 border border-slate-800 rounded-2xl p-1">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 text-[11px] font-bold rounded-xl py-2 transition-colors ${
+                tab === t.id
+                  ? "bg-pink-500 text-white"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {tab === "user" && <UserGuide />}
       {tab === "organizer" && <ComingSoon role="organizer" />}

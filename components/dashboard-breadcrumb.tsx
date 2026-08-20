@@ -28,6 +28,7 @@ const LABELS: Record<string, string> = {
   reconcile: "照合管理",
   sales: "売上管理",
   settlements: "精算管理",
+  help: "利用マニュアル",
 };
 
 const LOCALES = ["en", "ja"];

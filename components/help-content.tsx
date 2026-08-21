@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   BarChart2,
   XCircle,
+  Zap,
 } from "lucide-react";
 
 export type HelpRole = "user" | "organizer" | "artist";
@@ -86,8 +87,25 @@ function UserGuide() {
   return (
     <div className="space-y-4">
       <Section
+        icon={<Zap size={16} className="text-pink-500" />}
+        title="① 支払い方法の準備（いちばん大事）"
+        subtitle="Payment Speed"
+      >
+        <p>決済をスムーズに行うために、以下のいずれかを最初に設定しておくことを強くおすすめします。ダッシュボードのトップにも同じ案内が表示されます。</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>
+            <b>Apple Pay</b>（iPhone）: 「ウォレット」アプリでカードを登録しておくと、決済画面でワンタッチで支払えます。ただし
+            <b>LINEなどアプリ内ブラウザではApple Payは使えません</b>
+          </li>
+          <li><b>Google Pay</b>（Android）: 「Google ウォレット」アプリでカードを登録しておくと同様にワンタッチで支払えます</li>
+          <li><b>Stripe Link</b>: ダッシュボードの「Stripe Linkにカードを登録する」（または「/link-setup」）からメールアドレスとカードを登録すると、次回からはメールアドレスの入力だけでどんな環境でも確実にワンタッチ決済できます。<b>Apple Pay/Google Payが使えない場面のバックアップとして特におすすめです</b></li>
+          <li>いずれも未設定の場合はカード番号の手入力でも決済できますが、毎回入力が必要でイベント当日は時間がかかります</li>
+        </ul>
+      </Section>
+
+      <Section
         icon={<KeyRound size={16} className="text-pink-500" />}
-        title="① 会員登録・ログイン"
+        title="② 会員登録・ログイン"
         subtitle="Member Access"
       >
         <p>専用の会員登録は不要です。ログイン画面でメールアドレスを入力するだけで、初めての方は自動的にアカウントが作成されます。</p>
@@ -100,7 +118,7 @@ function UserGuide() {
 
       <Section
         icon={<Heart size={16} className="text-pink-500" />}
-        title="② チアを送る・チケットを購入する"
+        title="③ チアを送る・チケットを購入する"
         subtitle="Send Cheers"
       >
         <p>会場やSNS、告知物にあるQRコードを読み取ると、アーティストやイベントの専用ページが開きます。</p>
@@ -114,7 +132,7 @@ function UserGuide() {
 
       <Section
         icon={<Ticket size={16} className="text-pink-500" />}
-        title="③ マイチケットの使い方"
+        title="④ マイチケットの使い方"
         subtitle="Wallet"
       >
         <p>ダッシュボードの「マイチケット」から、購入したチケットをQRコード付きのデジタルチケットで確認できます。</p>
@@ -128,7 +146,7 @@ function UserGuide() {
 
       <Section
         icon={<Layers size={16} className="text-pink-500" />}
-        title="④ カードコレクション・応援履歴"
+        title="⑤ カードコレクション・応援履歴"
         subtitle="Collection"
       >
         <p>ダッシュボードの「Cheers History」で、これまで応援した金額やコメントの履歴を確認できます。</p>
@@ -137,7 +155,7 @@ function UserGuide() {
 
       <Section
         icon={<UserCog size={16} className="text-pink-500" />}
-        title="⑤ アカウント設定"
+        title="⑥ アカウント設定"
         subtitle="Account"
       >
         <ul className="list-disc pl-4 space-y-1">
@@ -155,6 +173,10 @@ function UserGuide() {
           <p className="text-sm font-black text-white">よくある質問</p>
         </div>
         <div className="space-y-2">
+          <Faq
+            q="Apple Payのボタンが出てきません"
+            a="LINEなどアプリ内ブラウザで開いている場合、その仕様上Apple Payは使用できません。Stripe Linkを登録しておくと、どの環境からでも確実にワンタッチ決済できます。"
+          />
           <Faq
             q="ログインリンクのメールが届きません"
             a="迷惑メールフォルダをご確認ください。それでも届かない場合は、ログイン画面から再度メールアドレスを入力して送信し直してください。"

@@ -28,8 +28,8 @@ export type HelpRole = "user" | "organizer" | "artist";
 
 const TABS: { id: HelpRole; label: string }[] = [
   { id: "user", label: "一般ユーザー" },
-  { id: "organizer", label: "オーガナイザー" },
   { id: "artist", label: "アーティスト" },
+  { id: "organizer", label: "オーガナイザー" },
 ];
 
 function Section({

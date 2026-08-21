@@ -175,7 +175,7 @@ function UserGuide() {
         <div className="space-y-2">
           <Faq
             q="Apple Payのボタンが出てきません"
-            a="LINEなどアプリ内ブラウザで開いている場合、その仕様上Apple Payは使用できません。Stripe Linkを登録しておくと、どの環境からでも確実にワンタッチ決済できます。"
+            a="LINEなどアプリ内ブラウザで開いている場合、その仕様上Apple Payは使用できません。画面右上などのメニューから「他のブラウザで開く」を選び、SafariやChromeなど通常のブラウザで開き直してください。"
           />
           <Faq
             q="ログインリンクのメールが届きません"

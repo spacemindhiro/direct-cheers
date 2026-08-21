@@ -331,8 +331,9 @@ function OrganizerGuide() {
           <li>
             <b>表示用タブレット（子機）を用意できない場合は、印刷したQRコードを会場に掲示するだけで運用できます。</b>
             QR詳細画面の「印刷する」から会場掲示用の高解像度QRを出力し、テーブルや壁に貼っておけば、お客様がご自身のスマートフォンで読み取って直接決済できます。子機や親機パネルの設置は不要です。
+            タイムテーブルに合わせてQR表示を自動切替したい場合は子機用タブレットが必要になりますが、
             <span className="text-indigo-300">表示用タブレットのレンタルも承っています</span>
-            。ご用意が難しい場合は
+            。ご希望の場合は
             <a href="mailto:support@direct-cheers.com" className="text-indigo-300 underline">support@direct-cheers.com</a>
             または担当エージェントまでご相談ください
           </li>

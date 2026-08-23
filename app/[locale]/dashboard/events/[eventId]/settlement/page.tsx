@@ -102,13 +102,20 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
   let allTxs: any[] = [];
   for (let i = 0; i < qrIds.length; i += BATCH) {
     const { data } = await admin.from("transactions")
-      .select("transaction_id, qr_config_id, total_gross_amount, stripe_fee, platform_fee, net_amount, stripe_fee_actual, stripe_net_actual")
+      .select("transaction_id, qr_config_id, total_gross_amount, stripe_fee, platform_fee, net_amount, stripe_fee_actual, stripe_net_actual, created_at")
       .in("qr_config_id", qrIds.slice(i, i + BATCH))
       .eq("status", "completed").neq("transaction_type", "invitation");
     allTxs.push(...(data ?? []));
   }
   const txIds = allTxs.map(t => t.transaction_id);
   const txToQr = new Map(allTxs.map(t => [t.transaction_id, t.qr_config_id as string]));
+  const txCreatedAtMap = new Map(allTxs.map(t => [t.transaction_id, t.created_at as string]));
+  // hold_released列はforce-payout（admin手動操作）でのみtrueになり、通常の
+  // 「決済から14日経過」による自動解除では更新されない。dashboard/payoutの
+  // 出金可否判定(cutoff方式)と揃えず列の値だけを見ると、精算レポートの状態が
+  // 発行時点のまま更新されて見えなくなるため、同じ動的判定をここでも行う。
+  const HOLD_DAYS = 14;
+  const holdCutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   // まとめ買い（当日現地QR決済で複数人分を1決済にまとめるケース）は
   // tickets.quantityに実人数が入る。1決済=1チアとしてtxCountを数えるだけでは
@@ -189,12 +196,14 @@ async function SettlementContent({ params }: { params: Promise<{ eventId: string
     const map = qrProfileDist.get(qid)!;
     const key = `${d.profile_id}::${d.distribution_role}`;
     const prev = map.get(key);
+    const txCreatedAt = txCreatedAtMap.get(d.transaction_id);
+    const effectiveHoldReleased = d.hold_released || (!!txCreatedAt && txCreatedAt < holdCutoff);
     map.set(key, {
       profile_id:     d.profile_id,
       actual_amount:  (prev?.actual_amount  ?? 0) + (d.actual_amount ?? 0),
       frozen_amount:  (prev?.frozen_amount  ?? 0) + (d.is_frozen ? (d.actual_amount ?? 0) : 0),
       tax_amount:     (prev?.tax_amount     ?? 0) + (d.tax_amount ?? 0),
-      hold_released:  d.hold_released && (prev?.hold_released ?? true),
+      hold_released:  effectiveHoldReleased && (prev?.hold_released ?? true),
       role:           d.distribution_role,
     });
   }

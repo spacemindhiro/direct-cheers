@@ -155,7 +155,8 @@ export function SettlementReportClient({
             受取人別 合計（イベント全体）
           </h2>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden print:bg-white print:border-slate-300">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto print:overflow-visible">
+            <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-slate-800 print:border-slate-200">
                   {["連結アカウント", "ロール", "合計配分額", "うちCB凍結", "振込実績", "状態"].map(h => (
@@ -196,6 +197,7 @@ export function SettlementReportClient({
                 </tr>
               </tfoot>
             </table>
+            </div>
           </div>
         </div>
 
@@ -222,7 +224,8 @@ export function SettlementReportClient({
                   </div>
                   {qr.totalTaxAmount > 0 && <p className="text-xs text-slate-500 print:text-slate-600">消費税 {yen(qr.totalTaxAmount)}</p>}
                 </div>
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto print:overflow-visible">
+                <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="border-b border-slate-800/70 print:border-slate-200">
                       {["受取人", "ロール", "配分額", "うちCB凍結", "比率", "状態"].map(h => (
@@ -254,6 +257,7 @@ export function SettlementReportClient({
                     </tr>
                   </tfoot>
                 </table>
+                </div>
               </div>
             ))}
           </div>

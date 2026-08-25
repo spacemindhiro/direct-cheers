@@ -16,7 +16,14 @@ export function EventHandoffRequestButton({
   const [selected, setSelected] = useState(candidates[0]?.profile_id ?? "");
   const router = useRouter();
 
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) {
+    return (
+      <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] p-5 space-y-1">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">代打</p>
+        <p className="text-xs text-slate-500">他にアクティブなエージェントがいないため、代打を依頼できません。</p>
+      </div>
+    );
+  }
 
   const handleRequest = () => {
     const candidate = candidates.find((c) => c.profile_id === selected);

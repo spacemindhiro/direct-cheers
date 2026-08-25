@@ -332,11 +332,11 @@ export async function sendHandoffRequestEmail(opts: {
 }) {
   await send(
     opts.to,
-    `【Direct Cheers】代打の依頼が届いています：${opts.eventTitle}`,
+    `【Direct Cheers】イベント担当の依頼が届いています：${opts.eventTitle}`,
     layout(`
-      <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">代打の依頼が届いています</h1>
+      <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">イベント担当の依頼が届いています</h1>
       <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin:0 0 20px">
-        <strong style="color:#ffffff">${opts.fromAgentName}</strong> さんから、イベント担当の代打を依頼されました。
+        <strong style="color:#ffffff">${opts.fromAgentName}</strong> さんから、このイベントだけの担当を依頼されました。引き継ぎ対象はこのイベントのみです。
         承諾すると、このイベントの担当となり各種サポートを引き受けることになります。
       </p>
       ${eventBox(opts.eventTitle, `依頼元：${opts.fromAgentName}`)}
@@ -356,18 +356,18 @@ export async function sendHandoffResponseEmail(opts: {
   accepted: boolean;
 }) {
   const subject = opts.accepted
-    ? `【Direct Cheers】代打依頼が承諾されました：${opts.eventTitle}`
-    : `【Direct Cheers】代打依頼が却下されました：${opts.eventTitle}`;
+    ? `【Direct Cheers】イベント担当の依頼が承諾されました：${opts.eventTitle}`
+    : `【Direct Cheers】イベント担当の依頼が却下されました：${opts.eventTitle}`;
 
   await send(
     opts.to,
     subject,
     layout(`
       <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">
-        ${opts.accepted ? "代打依頼が承諾されました" : "代打依頼が却下されました"}
+        ${opts.accepted ? "イベント担当の依頼が承諾されました" : "イベント担当の依頼が却下されました"}
       </h1>
       <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin:0 0 20px">
-        <strong style="color:#ffffff">${opts.toAgentName}</strong> さんが代打依頼を
+        <strong style="color:#ffffff">${opts.toAgentName}</strong> さんがこのイベントの担当依頼を
         <strong style="color:${opts.accepted ? "#34d399" : "#f87171"}">${opts.accepted ? "承諾" : "却下"}</strong>
         しました。${opts.accepted ? "このイベントの担当が引き継がれました。" : "担当は引き続きあなたのままです。別のエージェントに依頼し直せます。"}
       </p>

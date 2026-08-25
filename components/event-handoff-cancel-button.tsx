@@ -18,7 +18,7 @@ export function EventHandoffCancelButton({
   const router = useRouter();
 
   const handleCancel = () => {
-    if (!confirm(`${toAgentName}さんへの代打依頼を取り消しますか？`)) return;
+    if (!confirm(`${toAgentName}さんへの、このイベントの担当依頼を取り消しますか？`)) return;
 
     startTransition(async () => {
       setError(null);
@@ -39,8 +39,8 @@ export function EventHandoffCancelButton({
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] p-5 space-y-3">
       <div>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">代打依頼中</p>
-        <p className="text-sm font-black text-white mt-1">{toAgentName}さんへの代打依頼を送信済みです</p>
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">このイベントの担当を依頼中</p>
+        <p className="text-sm font-black text-white mt-1">{toAgentName}さんに、このイベントだけ担当をお願いする依頼を送信済みです</p>
         <p className="text-xs text-slate-500 mt-1">相手の回答があるまでお待ちください。</p>
       </div>
       {error && <p className="text-xs text-red-400">{error}</p>}

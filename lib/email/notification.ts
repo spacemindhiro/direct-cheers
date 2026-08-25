@@ -320,3 +320,59 @@ export async function sendUserReplyEmail(opts: {
     `),
   );
 }
+
+// ================================================================
+// 11. 代打依頼 → 代打先エージェント
+// ================================================================
+export async function sendHandoffRequestEmail(opts: {
+  to: string;
+  eventId: string;
+  eventTitle: string;
+  fromAgentName: string;
+}) {
+  await send(
+    opts.to,
+    `【Direct Cheers】代打の依頼が届いています：${opts.eventTitle}`,
+    layout(`
+      <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">代打の依頼が届いています</h1>
+      <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin:0 0 20px">
+        <strong style="color:#ffffff">${opts.fromAgentName}</strong> さんから、イベント担当の代打を依頼されました。
+        承諾すると、このイベントの担当となり各種サポートを引き受けることになります。
+      </p>
+      ${eventBox(opts.eventTitle, `依頼元：${opts.fromAgentName}`)}
+      ${actionButton(`${SITE_URL}/dashboard/events/${opts.eventId}`, "依頼内容を確認する")}
+    `),
+  );
+}
+
+// ================================================================
+// 12. 代打依頼への回答（承諾 / 却下）→ 依頼元エージェント
+// ================================================================
+export async function sendHandoffResponseEmail(opts: {
+  to: string;
+  eventId: string;
+  eventTitle: string;
+  toAgentName: string;
+  accepted: boolean;
+}) {
+  const subject = opts.accepted
+    ? `【Direct Cheers】代打依頼が承諾されました：${opts.eventTitle}`
+    : `【Direct Cheers】代打依頼が却下されました：${opts.eventTitle}`;
+
+  await send(
+    opts.to,
+    subject,
+    layout(`
+      <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">
+        ${opts.accepted ? "代打依頼が承諾されました" : "代打依頼が却下されました"}
+      </h1>
+      <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin:0 0 20px">
+        <strong style="color:#ffffff">${opts.toAgentName}</strong> さんが代打依頼を
+        <strong style="color:${opts.accepted ? "#34d399" : "#f87171"}">${opts.accepted ? "承諾" : "却下"}</strong>
+        しました。${opts.accepted ? "このイベントの担当が引き継がれました。" : "担当は引き続きあなたのままです。別のエージェントに依頼し直せます。"}
+      </p>
+      ${eventBox(opts.eventTitle)}
+      ${actionButton(`${SITE_URL}/dashboard/events/${opts.eventId}`, "イベントを確認する")}
+    `),
+  );
+}

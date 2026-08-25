@@ -192,6 +192,7 @@ async function DashboardContent() {
     pendingConnectResult,
     evidenceNotifsResult,
     approvalNotifsResult,
+    handoffNotifsResult,
     draftCountResult,
     cancelCountResult,
     lineupResult,
@@ -245,6 +246,10 @@ async function DashboardContent() {
       ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).eq('type', 'approval_requested').eq('is_read', false).order('created_at', { ascending: false }).limit(10)
       : Promise.resolve({ data: null }),
 
+    role === 'agent'
+      ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).eq('type', 'handoff_requested').eq('is_read', false).order('created_at', { ascending: false }).limit(10)
+      : Promise.resolve({ data: null }),
+
     isAgentOrAdmin
       ? (role === 'agent'
           // セルフ主催（自分がorganizerも兼ねる）イベントはagent自身は承認できない
@@ -290,7 +295,10 @@ async function DashboardContent() {
   const approvalNotifs = ((approvalNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
   const notifEventIds = approvalNotifs.map((n) => n.metadata?.event_id).filter(Boolean) as string[];
 
-  const [activeSummariesResult, settledEventsResult, pendingEventsResult] = await Promise.all([
+  const handoffNotifs = ((handoffNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
+  const handoffIds = handoffNotifs.map((n) => n.metadata?.handoff_id).filter(Boolean) as string[];
+
+  const [activeSummariesResult, settledEventsResult, pendingEventsResult, pendingHandoffsResult] = await Promise.all([
     rejectedEventIds.length > 0
       ? admin.from('settlement_summaries').select('event_id').in('event_id', rejectedEventIds).eq('is_approved_for_payout', false)
       : Promise.resolve({ data: [] as { event_id: string }[] }),
@@ -300,6 +308,9 @@ async function DashboardContent() {
     notifEventIds.length > 0
       ? admin.from('events').select('event_id').in('event_id', notifEventIds).eq('lifecycle_status', 'review_requested')
       : Promise.resolve({ data: [] as { event_id: string }[] }),
+    handoffIds.length > 0
+      ? admin.from('event_agent_handoffs').select('handoff_id').in('handoff_id', handoffIds).eq('status', 'pending')
+      : Promise.resolve({ data: [] as { handoff_id: string }[] }),
   ]);
 
   // 結果を整形
@@ -365,6 +376,15 @@ async function DashboardContent() {
     const eid = n.metadata?.event_id;
     if (!eid || !pendingEventIds.has(eid) || seenApproval.has(eid)) return false;
     seenApproval.add(eid);
+    return true;
+  });
+
+  const pendingHandoffIds = new Set(((pendingHandoffsResult.data ?? []) as any[]).map((h) => h.handoff_id));
+  const seenHandoff = new Set<string>();
+  const handoffRequestedNotifications = handoffNotifs.filter((n) => {
+    const hid = n.metadata?.handoff_id;
+    if (!hid || !pendingHandoffIds.has(hid) || seenHandoff.has(hid)) return false;
+    seenHandoff.add(hid);
     return true;
   });
 
@@ -435,6 +455,26 @@ async function DashboardContent() {
                 <p className="text-xs text-slate-400">{n.body}</p>
               </div>
               <span className="text-amber-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">確認 →</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* エージェント向け: 代打依頼通知バナー */}
+      {handoffRequestedNotifications.length > 0 && (
+        <div className="space-y-2">
+          {handoffRequestedNotifications.map((n) => (
+            <Link
+              key={n.notification_id}
+              href={n.metadata?.event_id ? `/dashboard/events/${n.metadata.event_id}` : '/dashboard/events'}
+              className="flex items-start justify-between gap-4 bg-violet-500/10 border border-violet-500/30 hover:border-violet-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest">代打依頼</p>
+                <p className="text-sm font-black text-white">{n.title}</p>
+                <p className="text-xs text-slate-400">{n.body}</p>
+              </div>
+              <span className="text-violet-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">確認 →</span>
             </Link>
           ))}
         </div>

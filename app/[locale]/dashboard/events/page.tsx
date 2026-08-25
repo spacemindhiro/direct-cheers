@@ -14,6 +14,12 @@ const LIFECYCLE_CONFIG: Record<string, { label: string; className: string }> = {
   settled:           { label: "精算済み",   className: "text-slate-600 bg-slate-800/50 border-slate-700/50" },
 };
 
+// ロールではなく「このイベントとの関係」で判定する（[eventId]/page.tsx と同じ考え方）
+const RELATION_CONFIG: Record<"organizer" | "agent", { label: string; className: string }> = {
+  organizer: { label: "主催",     className: "text-sky-400 bg-sky-500/10 border-sky-500/20" },
+  agent:     { label: "エージェント", className: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
+};
+
 async function EventsContent() {
   const supabase = await createClient();
   const user = await getUser();
@@ -31,7 +37,7 @@ async function EventsContent() {
   // artist: 自分が出演するイベント
   let query = supabase
     .from("events")
-    .select("event_id, title, venue, start_at, end_at, lifecycle_status")
+    .select("event_id, title, venue, start_at, end_at, lifecycle_status, organizer_profile_id, agent_id")
     .is("deleted_at", null)
     .order("start_at", { ascending: false });
 
@@ -65,6 +71,9 @@ async function EventsContent() {
         <div className="space-y-3">
           {events.map((ev) => {
             const config = LIFECYCLE_CONFIG[ev.lifecycle_status] ?? LIFECYCLE_CONFIG.draft;
+            const isOrganizer = ev.organizer_profile_id === user.id;
+            const isAgent = ev.agent_id === user.id && !isOrganizer;
+            const relation = isOrganizer ? RELATION_CONFIG.organizer : isAgent ? RELATION_CONFIG.agent : null;
             return (
               <Link
                 key={ev.event_id}
@@ -84,9 +93,16 @@ async function EventsContent() {
                       </span>
                     </div>
                   </div>
-                  <span className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${config.className}`}>
-                    {config.label}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {relation && (
+                      <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${relation.className}`}>
+                        {relation.label}
+                      </span>
+                    )}
+                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${config.className}`}>
+                      {config.label}
+                    </span>
+                  </div>
                 </div>
               </Link>
             );

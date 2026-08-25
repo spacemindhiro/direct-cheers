@@ -21,7 +21,7 @@ export function EventHandoffRespondButtons({
     if (action === "accept") {
       if (!confirm("承認すると、このイベントの担当となり、各種サポートを引き受けることになります。よろしいですか？")) return;
     } else {
-      if (!confirm("この代打依頼を却下しますか？")) return;
+      if (!confirm("このイベントの担当依頼を却下しますか？")) return;
     }
 
     startTransition(async () => {
@@ -43,9 +43,9 @@ export function EventHandoffRespondButtons({
   return (
     <div className="bg-violet-500/10 border border-violet-500/20 rounded-[1.5rem] p-5 space-y-3">
       <div>
-        <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest">代打依頼</p>
-        <p className="text-sm font-black text-white mt-1">{fromAgentName}さんから代打を依頼されています</p>
-        <p className="text-xs text-slate-500 mt-1">承諾すると、このイベントの担当となり各種サポートを引き受けることになります。</p>
+        <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest">このイベントだけ担当を任されています</p>
+        <p className="text-sm font-black text-white mt-1">{fromAgentName}さんから、このイベントだけ担当を任されました</p>
+        <p className="text-xs text-slate-500 mt-1">承諾すると、このイベントの担当となり各種サポートを引き受けることになります。引き継ぎ対象はこのイベントのみです。</p>
       </div>
       {error && <p className="text-xs text-red-400">{error}</p>}
       <div className="flex gap-3">

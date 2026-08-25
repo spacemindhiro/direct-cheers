@@ -19,8 +19,8 @@ export function EventHandoffRequestButton({
   if (candidates.length === 0) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] p-5 space-y-1">
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">代打</p>
-        <p className="text-xs text-slate-500">他にアクティブなエージェントがいないため、代打を依頼できません。</p>
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">このイベントだけ他のエージェントに任せる</p>
+        <p className="text-xs text-slate-500">他にアクティブなエージェントがいないため、今は任せられません。</p>
       </div>
     );
   }
@@ -28,7 +28,7 @@ export function EventHandoffRequestButton({
   const handleRequest = () => {
     const candidate = candidates.find((c) => c.profile_id === selected);
     if (!candidate) return;
-    if (!confirm(`${candidate.name}さんに代打を依頼しますか？`)) return;
+    if (!confirm(`このイベントだけ${candidate.name}さんに担当を任せますか？（引き継ぎ対象はこのイベントのみです）`)) return;
 
     startTransition(async () => {
       setError(null);
@@ -49,8 +49,9 @@ export function EventHandoffRequestButton({
   return (
     <div className="bg-violet-500/10 border border-violet-500/20 rounded-[1.5rem] p-5 space-y-3">
       <div>
-        <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest">代打</p>
-        <p className="text-sm font-black text-white mt-1">別のエージェントに代打を依頼できます</p>
+        <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest">このイベントだけ他のエージェントに任せる</p>
+        <p className="text-sm font-black text-white mt-1">担当を引き継いでもらいたい相手を選んでください</p>
+        <p className="text-xs text-slate-500 mt-1">引き継ぎ対象はこのイベントのみです。</p>
       </div>
       {error && <p className="text-xs text-red-400">{error}</p>}
       <div className="flex gap-3">
@@ -69,7 +70,7 @@ export function EventHandoffRequestButton({
           className="flex items-center gap-2 px-5 py-2.5 bg-violet-500 hover:bg-violet-400 text-white rounded-xl font-black text-xs transition-all disabled:opacity-60 shrink-0"
         >
           {isPending ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />}
-          代打を依頼する
+          このイベントの担当を依頼する
         </button>
       </div>
     </div>

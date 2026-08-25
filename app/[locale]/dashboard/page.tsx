@@ -470,7 +470,7 @@ async function DashboardContent() {
               className="flex items-start justify-between gap-4 bg-violet-500/10 border border-violet-500/30 hover:border-violet-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
             >
               <div className="space-y-0.5">
-                <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest">代打依頼</p>
+                <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest">イベント担当の依頼</p>
                 <p className="text-sm font-black text-white">{n.title}</p>
                 <p className="text-xs text-slate-400">{n.body}</p>
               </div>

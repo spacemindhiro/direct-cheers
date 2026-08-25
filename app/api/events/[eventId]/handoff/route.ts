@@ -42,7 +42,7 @@ export async function POST(
   }
 
   if (!HANDOFF_ELIGIBLE_STATUSES.includes(event.lifecycle_status)) {
-    return NextResponse.json({ error: "このステータスのイベントは代打を依頼できません" }, { status: 400 });
+    return NextResponse.json({ error: "このステータスのイベントは担当の依頼ができません" }, { status: 400 });
   }
 
   if (to_agent_id === user.id) {
@@ -69,7 +69,7 @@ export async function POST(
 
   if (error) {
     if (error.code === "23505") {
-      return NextResponse.json({ error: "このイベントには既に進行中の代打依頼があります" }, { status: 409 });
+      return NextResponse.json({ error: "このイベントには既に進行中の担当依頼があります" }, { status: 409 });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -80,8 +80,8 @@ export async function POST(
     await admin.from("notifications").insert({
       profile_id: to_agent_id,
       type: "handoff_requested",
-      title: "代打の依頼が届きました",
-      body: `${fromAgentName} さんから「${event.title}」の代打を依頼されています。`,
+      title: "イベント担当の依頼が届きました",
+      body: `${fromAgentName} さんから「${event.title}」だけの担当を依頼されています。引き継ぎ対象はこのイベントのみです。`,
       metadata: { event_id: eventId, handoff_id: handoff.handoff_id },
     });
 
@@ -178,10 +178,10 @@ export async function PATCH(
     await admin.from("notifications").insert({
       profile_id: handoff.from_agent_id,
       type: "handoff_response",
-      title: accepted ? "代打依頼が承諾されました" : "代打依頼が却下されました",
+      title: accepted ? "イベント担当の依頼が承諾されました" : "イベント担当の依頼が却下されました",
       body: accepted
-        ? `${toAgentName} さんが「${eventDetail?.title}」の代打を承諾し、担当が引き継がれました。`
-        : `${toAgentName} さんが「${eventDetail?.title}」の代打を却下しました。`,
+        ? `${toAgentName} さんが「${eventDetail?.title}」の担当依頼を承諾し、このイベントの担当が引き継がれました。`
+        : `${toAgentName} さんが「${eventDetail?.title}」の担当依頼を却下しました。`,
       metadata: { event_id: eventId, handoff_id },
     });
 

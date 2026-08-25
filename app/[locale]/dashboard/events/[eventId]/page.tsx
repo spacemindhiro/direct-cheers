@@ -11,6 +11,9 @@ import { EventRequestReviewButton } from "@/components/event-request-review-butt
 import { EventDeleteButton } from "@/components/event-delete-button";
 import { EventCancelButton } from "@/components/event-cancel-button";
 import { EventCancelApproveButton } from "@/components/event-cancel-approve-button";
+import { EventHandoffRequestButton } from "@/components/event-handoff-request-button";
+import { EventHandoffRespondButtons } from "@/components/event-handoff-respond-buttons";
+import { EventHandoffCancelButton } from "@/components/event-handoff-cancel-button";
 import { LiveSalesBoard } from "@/components/live-sales-board";
 import { EventPayPayToggle } from "@/components/event-paypay-toggle";
 import { EventDetailTabs } from "@/components/event-detail-tabs";
@@ -66,7 +69,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     .from("notifications")
     .update({ is_read: true })
     .eq("profile_id", user.id)
-    .in("type", ["event_approved", "event_cancelled", "event_cancel_rejected", "approval_requested"])
+    .in("type", ["event_approved", "event_cancelled", "event_cancel_rejected", "approval_requested", "handoff_requested", "handoff_response"])
     .eq("is_read", false)
     .filter("metadata->>event_id", "eq", eventId);
 
@@ -117,6 +120,38 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     cancellableStatuses.includes(event.lifecycle_status);
   const canApproveCancellation = (isEventAgent || isAdmin) &&
     event.lifecycle_status === "cancellation_requested";
+
+  // 代打（エージェント引き継ぎ）
+  const HANDOFF_ELIGIBLE_STATUSES = ["review_requested", "published", "ongoing"];
+  const { data: pendingHandoff } = await adminClient
+    .from("event_agent_handoffs")
+    .select(`
+      handoff_id, from_agent_id, to_agent_id,
+      to_agent:profiles!to_agent_id(display_name, organizer_name),
+      from_agent:profiles!from_agent_id(display_name, organizer_name)
+    `)
+    .eq("event_id", eventId)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  const isHandoffCandidate = pendingHandoff?.to_agent_id === user.id;
+  const canRequestHandoff = isEventAgent && !isAdmin && !pendingHandoff &&
+    HANDOFF_ELIGIBLE_STATUSES.includes(event.lifecycle_status);
+
+  const { data: candidateAgentRows } = canRequestHandoff
+    ? await adminClient
+        .from("profiles")
+        .select("profile_id, display_name, organizer_name")
+        .eq("role", "agent")
+        .eq("status", "active")
+        .neq("profile_id", user.id)
+        .is("deleted_at", null)
+    : { data: null };
+
+  const candidateAgents = (candidateAgentRows ?? []).map((a: any) => ({
+    profile_id: a.profile_id,
+    name: a.organizer_name ?? a.display_name,
+  }));
 
   const { data: evidences } = await adminClient
     .from("event_evidences")
@@ -293,6 +328,27 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
       {/* エージェント承認ボタン */}
       {canApprove && <EventApproveButton eventId={eventId} />}
+
+      {/* 代打依頼ボタン（現担当エージェント） */}
+      {canRequestHandoff && <EventHandoffRequestButton eventId={eventId} candidates={candidateAgents} />}
+
+      {/* 代打依頼 取消（依頼元エージェント） */}
+      {pendingHandoff && pendingHandoff.from_agent_id === user.id && (
+        <EventHandoffCancelButton
+          eventId={eventId}
+          handoffId={pendingHandoff.handoff_id}
+          toAgentName={(pendingHandoff.to_agent as any)?.organizer_name ?? (pendingHandoff.to_agent as any)?.display_name ?? "エージェント"}
+        />
+      )}
+
+      {/* 代打依頼 承諾/却下（依頼先エージェント） */}
+      {isHandoffCandidate && pendingHandoff && (
+        <EventHandoffRespondButtons
+          eventId={eventId}
+          handoffId={pendingHandoff.handoff_id}
+          fromAgentName={(pendingHandoff.from_agent as any)?.organizer_name ?? (pendingHandoff.from_agent as any)?.display_name ?? "エージェント"}
+        />
+      )}
 
       {/* 中止申請ボタン（オーガナイザー） */}
       {canRequestCancel && <EventCancelButton eventId={eventId} />}

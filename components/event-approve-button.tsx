@@ -10,6 +10,7 @@ export function EventApproveButton({ eventId }: { eventId: string }) {
   const router = useRouter();
 
   const handleApprove = () => {
+    if (!confirm("承認すると、このイベントの担当となり、各種サポートを引き受けることになります。よろしいですか？")) return;
     startTransition(async () => {
       setError(null);
       const res = await fetch(`/api/events/${eventId}/approve`, { method: "POST" });

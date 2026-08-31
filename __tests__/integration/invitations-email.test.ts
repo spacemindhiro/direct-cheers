@@ -8,6 +8,8 @@
  *   C. RESEND_API_KEY 未設定時: 送信を試みず is_sent=false
  *   D. 権限なしロール / 宛先未指定: 403 / 400 でメール送信も走らない
  *   E. 宛先バリデーション: 自己招待・同等以上ロール・実在しないユーザー・再送時の旧pending無効化
+ *   F. 未登録ユーザーへのメール直接招待（target_email）: 正常系・メール本文分岐・形式バリデーション・
+ *      再送時の旧pending無効化・target_profile_idとの同時指定エラー・権限チェック
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { insertProfile, deleteAuthUsers } from "../helpers/seed";
@@ -63,7 +65,7 @@ function mockAs(id: string, role: string, displayName: string) {
   });
 }
 
-function buildRequest(body: { target_role: string; target_profile_id?: string }) {
+function buildRequest(body: { target_role: string; target_profile_id?: string; target_email?: string }) {
   return new Request("http://localhost/api/invitations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -288,5 +290,115 @@ describe("TC-INV-MAIL-E: 宛先ユーザーのバリデーション", () => {
       .eq("invitation_id", second.invitation_id)
       .single();
     expect(secondRow!.status).toBe("pending");
+  });
+});
+
+// ── F. 未登録ユーザーへのメール直接招待 ──────────────────────────────────
+describe("TC-INV-MAIL-F: target_email による未登録ユーザー招待", () => {
+  it("TC-INV-MAIL-F-01: target_emailのみで招待が作成され、target_profile_idはnullのまま", async () => {
+    sendMock.mockResolvedValue({ data: { id: "email_dummy" }, error: null });
+    mockAs(agentId, "agent", AGENT_DISPLAY_NAME);
+    const email = `unregistered-f01-${Date.now()}@test.local`;
+
+    const res = await invitationsPOST(buildRequest({ target_role: "artist", target_email: email }));
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.is_sent).toBe(true);
+    expect(body.target_profile_id).toBeNull();
+    expect(body.target_email).toBe(email);
+    expect(body.target_role).toBe("artist");
+    expect(body.status).toBe("pending");
+    expect(body.target_profile).toBeNull();
+
+    const { data: row } = await testAdmin
+      .from("invitations")
+      .select("is_sent, status, target_profile_id, target_email")
+      .eq("invitation_id", body.invitation_id)
+      .single();
+    expect(row!.is_sent).toBe(true);
+    expect(row!.status).toBe("pending");
+    expect(row!.target_profile_id).toBeNull();
+    expect(row!.target_email).toBe(email);
+  });
+
+  it("TC-INV-MAIL-F-02: メール本文に宛名は入らず、登録導線の文言になる", async () => {
+    sendMock.mockResolvedValue({ data: { id: "email_dummy" }, error: null });
+    mockAs(agentId, "agent", AGENT_DISPLAY_NAME);
+    const email = `unregistered-f02-${Date.now()}@test.local`;
+
+    const res = await invitationsPOST(buildRequest({ target_role: "organizer", target_email: email }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    const sent = sendMock.mock.calls[0][0];
+    expect(sent.to).toBe(email);
+    expect(sent.html).toContain(`/invite/${body.token}`);
+    expect(sent.html).toContain("登録を進めてください");
+    expect(sent.html).not.toContain("招待を受けてください。");
+  });
+
+  it("TC-INV-MAIL-F-03: メールアドレスの形式が不正な場合は400", async () => {
+    sendMock.mockResolvedValue({ data: { id: "email_dummy" }, error: null });
+    mockAs(agentId, "agent", AGENT_DISPLAY_NAME);
+
+    const res = await invitationsPOST(buildRequest({ target_role: "artist", target_email: "not-an-email" }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("メールアドレスの形式が正しくありません");
+    expect(sendMock).toHaveBeenCalledTimes(0);
+  });
+
+  it("TC-INV-MAIL-F-04: 同一メールアドレスへの再発行で旧pending招待がexpiredになる", async () => {
+    sendMock.mockResolvedValue({ data: { id: "email_dummy" }, error: null });
+    mockAs(agentId, "agent", AGENT_DISPLAY_NAME);
+    const email = `unregistered-f04-${Date.now()}@test.local`;
+
+    const res1 = await invitationsPOST(buildRequest({ target_role: "artist", target_email: email }));
+    const first = await res1.json();
+    expect(res1.status).toBe(200);
+
+    const res2 = await invitationsPOST(buildRequest({ target_role: "artist", target_email: email }));
+    const second = await res2.json();
+    expect(res2.status).toBe(200);
+
+    const { data: firstRow } = await testAdmin
+      .from("invitations")
+      .select("status")
+      .eq("invitation_id", first.invitation_id)
+      .single();
+    expect(firstRow!.status).toBe("expired");
+
+    const { data: secondRow } = await testAdmin
+      .from("invitations")
+      .select("status")
+      .eq("invitation_id", second.invitation_id)
+      .single();
+    expect(secondRow!.status).toBe("pending");
+  });
+
+  it("TC-INV-MAIL-F-05: target_profile_idとtarget_emailを同時指定すると400", async () => {
+    sendMock.mockResolvedValue({ data: { id: "email_dummy" }, error: null });
+    mockAs(agentId, "agent", AGENT_DISPLAY_NAME);
+
+    const res = await invitationsPOST(
+      buildRequest({ target_role: "artist", target_profile_id: inviteeUserId, target_email: "both@test.local" }),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("宛先の指定方法はどちらか一方にしてください");
+    expect(sendMock).toHaveBeenCalledTimes(0);
+  });
+
+  it("TC-INV-MAIL-F-06: 権限のないロールへのtarget_email招待は403", async () => {
+    sendMock.mockResolvedValue({ data: { id: "email_dummy" }, error: null });
+    mockAs(artistId, "artist", "権限なしアーティスト");
+
+    const res = await invitationsPOST(
+      buildRequest({ target_role: "artist", target_email: `no-permission-${Date.now()}@test.local` }),
+    );
+    expect(res.status).toBe(403);
+    expect(sendMock).toHaveBeenCalledTimes(0);
   });
 });

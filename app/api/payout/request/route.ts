@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { TRANSFER_FEE, HOLD_DAYS, FEE_WAIVER_DAYS } from "@/lib/payout-config";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-const TRANSFER_FEE = 500; // 振込手数料 ¥500
-const HOLD_DAYS = 14;     // 出金可能になるまでの日数
+
+type PayoutPool = "free" | "fee";
 
 type ReversalRecord = {
   sourceTransferId: string;
@@ -63,18 +64,27 @@ export async function POST(req: Request) {
   if (!profile?.stripe_connect_id)
     return NextResponse.json({ error: "Stripe Connectアカウントが未設定です" }, { status: 400 });
 
-  const { requested_amount, bypass_event_id } = await req.json() as { requested_amount: number; bypass_event_id?: string };
+  const { requested_amount, bypass_event_id, pool: rawPool } = await req.json() as {
+    requested_amount: number;
+    bypass_event_id?: string;
+    pool?: PayoutPool;
+  };
+  // 省略時は従来通り手数料枠（後方互換）
+  const pool: PayoutPool = rawPool === "free" ? "free" : "fee";
 
-  if (!requested_amount || requested_amount <= TRANSFER_FEE)
+  if (pool === "fee" && (!requested_amount || requested_amount <= TRANSFER_FEE))
     return NextResponse.json(
       { error: `出金額は振込手数料 ¥${TRANSFER_FEE} より大きくしてください` },
       { status: 400 }
     );
+  if (pool === "free" && !(requested_amount > 0))
+    return NextResponse.json({ error: "出金額を入力してください" }, { status: 400 });
 
   const isAdmin = profile?.role === "admin";
   const useBypass = !!bypass_event_id && isAdmin;
 
-  const cutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const holdCutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const freeCutoff = new Date(Date.now() - FEE_WAIVER_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: availableDists } = await admin
     .from("transaction_distributions")
@@ -96,11 +106,19 @@ export async function POST(req: Request) {
     .eq("is_frozen", false)
     .is("deleted_at", null);
 
+  // 120日超過分は無料枠、14〜120日は手数料枠。無料枠と手数料枠は別出金として扱い、
+  // 一回の出金申請が両枠にまたがらないようにする（枠ごとにeligibleDistsを絞り込む）。
   const eligibleDists = (availableDists ?? []).filter((d) => {
     const tx = d.transaction as any;
     if (!tx) return false;
-    const skipHold = (d as any).hold_released || (useBypass && (d as any).event_id === bypass_event_id);
-    if (!skipHold && (!tx.created_at || tx.created_at >= cutoff)) return false;
+    const isFree = !!tx.created_at && tx.created_at < freeCutoff;
+    if (pool === "free") {
+      if (!isFree) return false;
+    } else {
+      if (isFree) return false;
+      const skipHold = (d as any).hold_released || (useBypass && (d as any).event_id === bypass_event_id);
+      if (!skipHold && (!tx.created_at || tx.created_at >= holdCutoff)) return false;
+    }
     if (!tx.reconciled_at) return false;
     if (tx.amount_verified === false || (tx.amount_mismatch ?? 0) !== 0) return false;
     return true;
@@ -111,9 +129,14 @@ export async function POST(req: Request) {
   // 出金自体をブロックしない（eligibleDistsの算出時点で既に個別に除外済み）
   const unreconciledCount = (availableDists ?? []).filter((d) => {
     const tx = d.transaction as any;
+    const isFree = !!tx?.created_at && tx.created_at < freeCutoff;
+    if (pool === "free") {
+      return isFree && !tx?.reconciled_at;
+    }
+    if (isFree) return false;
     if ((d as any).hold_released) return false;
     if (useBypass && (d as any).event_id === bypass_event_id) return false;
-    return tx?.created_at && tx.created_at < cutoff && !tx.reconciled_at;
+    return tx?.created_at && tx.created_at < holdCutoff && !tx.reconciled_at;
   }).length;
 
   const availableTotal = eligibleDists.reduce((s, d) => s + (d.actual_amount ?? 0), 0);
@@ -122,13 +145,14 @@ export async function POST(req: Request) {
     const pendingNote = unreconciledCount > 0
       ? `（うち ${unreconciledCount} 件は照合待ちのため対象外です。イベントの開催承認状況をご確認ください）`
       : "";
+    const poolLabel = pool === "free" ? "無料出金可能額" : "出金可能額";
     return NextResponse.json(
-      { error: `出金可能額（¥${availableTotal.toLocaleString()}）を超えています${pendingNote}` },
+      { error: `${poolLabel}（¥${availableTotal.toLocaleString()}）を超えています${pendingNote}` },
       { status: 400 }
     );
   }
 
-  const netPayout = requested_amount - TRANSFER_FEE;
+  const netPayout = pool === "free" ? requested_amount : requested_amount - TRANSFER_FEE;
 
   // Stripe payout（Connect アカウント → 銀行口座）
   let stripeTransferId: string | null = null;
@@ -144,23 +168,25 @@ export async function POST(req: Request) {
 
   // 振込手数料をプラットフォームへ回収（全ロール共通: settle_transfers の Transfer を Reversal）
   // source_transaction Transfer も通常の Transfer も同じ Reversal API で回収できる。
-  const payoutEventIds = [...new Set(
-    (eligibleDists as any[]).map((d: any) => d.event_id).filter(Boolean) as string[]
-  )];
-
+  // 無料枠（120日超過）の出金は手数料自体が発生しないため回収処理を行わない。
   let reversalRecords: ReversalRecord[] = [];
-  try {
-    const { data: trs } = await admin
-      .from("settle_transfers")
-      .select("stripe_transfer_id")
-      .eq("profile_id", user.id)
-      .in("event_id", payoutEventIds)
-      .order("created_at", { ascending: false });
-    const ids = (trs ?? []).map((t) => t.stripe_transfer_id);
-    const result = await collectFeeByReversal(ids, TRANSFER_FEE);
-    reversalRecords = result.reversals;
-  } catch (err: any) {
-    console.error("[payout/request] 振込手数料回収失敗:", err.message);
+  if (pool === "fee") {
+    const payoutEventIds = [...new Set(
+      (eligibleDists as any[]).map((d: any) => d.event_id).filter(Boolean) as string[]
+    )];
+    try {
+      const { data: trs } = await admin
+        .from("settle_transfers")
+        .select("stripe_transfer_id")
+        .eq("profile_id", user.id)
+        .in("event_id", payoutEventIds)
+        .order("created_at", { ascending: false });
+      const ids = (trs ?? []).map((t) => t.stripe_transfer_id);
+      const result = await collectFeeByReversal(ids, TRANSFER_FEE);
+      reversalRecords = result.reversals;
+    } catch (err: any) {
+      console.error("[payout/request] 振込手数料回収失敗:", err.message);
+    }
   }
 
   // payout_requests を作成
@@ -169,7 +195,7 @@ export async function POST(req: Request) {
     .insert({
       profile_id: user.id,
       requested_amount,
-      stripe_fee_deducted: TRANSFER_FEE,
+      stripe_fee_deducted: pool === "free" ? 0 : TRANSFER_FEE,
       net_payout_amount: netPayout,
       status: "completed",
       stripe_transfer_id: stripeTransferId,
@@ -225,7 +251,8 @@ export async function GET(_req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const cutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const holdCutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const freeCutoff = new Date(Date.now() - FEE_WAIVER_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: dists } = await admin
     .from("transaction_distributions")
@@ -245,7 +272,8 @@ export async function GET(_req: Request) {
     .eq("distribution_status", "accrued")
     .is("deleted_at", null);
 
-  let available = 0;
+  let available = 0;     // 手数料枠（14〜120日）
+  let freeAvailable = 0; // 無料枠（120日超過）
   let pending = 0;
   let frozen = 0;
 
@@ -254,15 +282,22 @@ export async function GET(_req: Request) {
     const amt = d.actual_amount ?? 0;
     if (d.is_frozen) {
       frozen += amt;
+      continue;
+    }
+    const reconciled = !!tx?.reconciled_at;
+    const verified = tx?.amount_verified !== false && (tx?.amount_mismatch ?? 0) === 0;
+    if (!reconciled || !verified) {
+      pending += amt;
+      continue;
+    }
+    const isFree = !!tx?.created_at && tx.created_at < freeCutoff;
+    const holdOk = (d as any).hold_released || (tx?.created_at && tx.created_at < holdCutoff);
+    if (isFree) {
+      freeAvailable += amt;
+    } else if (holdOk) {
+      available += amt;
     } else {
-      const holdOk = (d as any).hold_released || (tx?.created_at && tx.created_at < cutoff);
-      const reconciled = !!tx?.reconciled_at;
-      const verified = tx?.amount_verified !== false && (tx?.amount_mismatch ?? 0) === 0;
-      if (holdOk && reconciled && verified) {
-        available += amt;
-      } else {
-        pending += amt;
-      }
+      pending += amt;
     }
   }
 
@@ -275,10 +310,12 @@ export async function GET(_req: Request) {
 
   return NextResponse.json({
     available,
+    free_available: freeAvailable,
     pending,
     frozen,
     transfer_fee: TRANSFER_FEE,
     hold_days: HOLD_DAYS,
+    fee_waiver_days: FEE_WAIVER_DAYS,
     history: history ?? [],
   });
 }

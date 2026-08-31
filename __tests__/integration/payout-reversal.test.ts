@@ -524,6 +524,89 @@ describe("TC-REVERSAL-05: stripe_reversal_id の UNIQUE 制約で二重挿入を
   });
 });
 
+// ── TC-REVERSAL-06: pool=free は reversal を一切呼ばない ──────────────────────
+describe("TC-REVERSAL-06: 120日超過分(pool=free)の出金はreversalを実行しない", () => {
+  const FREE_AMOUNT = 4_000;
+  let profileId: string;
+  let connectId: string;
+
+  beforeAll(async () => {
+    const ts = Date.now();
+    connectId = `acct_mock_r06_${ts}`;
+    profileId = await insertProfile({
+      role: "organizer",
+      displayName: "逆転テスト06(無料枠)",
+      email: `reversal-06-${ts}@test.local`,
+      stripeConnectId: connectId,
+    });
+    cleanup.profileIds.push(profileId);
+
+    const eventId = await insertEvent({ organizerProfileId: profileId });
+    const qrConfigId = await insertQrConfig({ eventId, creatorProfileId: profileId, recipientProfileId: profileId });
+    cleanup.eventIds.push(eventId);
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const txId = await insertTransaction({
+      qrConfigId,
+      grossAmount: FREE_AMOUNT,
+      netAmount: FREE_AMOUNT,
+      stripeFee: 0,
+      platformFee: 0,
+      stripePaymentIntentId: `pi_mock_r06_${ts}`,
+    });
+    cleanup.transactionIds.push(txId);
+    // 130日前(120日超過)にずらす。settle_transfersは意図的に作成しない
+    // （pool=freeの場合はreversal自体を試みないため不要なはず、というのを本テストで確認する）
+    await testAdmin.from("transactions").update({
+      created_at: new Date(Date.now() - 130 * 24 * 60 * 60 * 1000).toISOString(),
+    }).eq("transaction_id", txId);
+
+    const distId = await insertDistribution({
+      transactionId: txId,
+      eventId,
+      profileId,
+      role: "organizer",
+      actualAmount: FREE_AMOUNT,
+      holdReleased: false,
+    });
+    cleanup.distributionIds.push(distId);
+  }, 30_000);
+
+  beforeEach(() => resetMockCtrl());
+
+  it("手数料ゼロで出金成功・reversalログ0件・stripe.transfers.createReversalが呼ばれない", async () => {
+    mockAuth(profileId, connectId);
+    const req = new Request("http://localhost/api/payout/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requested_amount: FREE_AMOUNT, pool: "free" }),
+    });
+
+    const res = await payoutPOST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.net_payout).toBe(FREE_AMOUNT);
+    cleanup.payoutRequestIds.push(data.request_id);
+
+    expect(mockCtrl.captured).toHaveLength(0); // createReversalが一度も呼ばれていない
+
+    const { data: logs } = await testAdmin
+      .from("transfer_fee_reversals")
+      .select("reversal_id")
+      .eq("payout_request_id", data.request_id);
+    expect(logs).toHaveLength(0);
+
+    const { data: pr } = await testAdmin
+      .from("payout_requests")
+      .select("stripe_fee_deducted")
+      .eq("request_id", data.request_id)
+      .single();
+    expect(pr?.stripe_fee_deducted).toBe(0);
+  });
+});
+
 afterAll(async () => {
   await cleanupTestData(cleanup);
   await deleteAuthUsers(cleanup.profileIds);

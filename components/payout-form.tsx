@@ -7,17 +7,19 @@ import { useRouter } from "next/navigation";
 type Props = {
   available: number;
   transferFee: number;
+  pool: "free" | "fee";
 };
 
-export function PayoutForm({ available, transferFee }: Props) {
+export function PayoutForm({ available, transferFee, pool }: Props) {
   const router = useRouter();
   const [amount, setAmount] = useState(available);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
+  const minAmount = pool === "free" ? 1 : transferFee + 1;
   const net = amount - transferFee;
-  const canSubmit = amount > transferFee && amount <= available && !loading;
+  const canSubmit = amount >= minAmount && amount <= available && !loading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +29,7 @@ export function PayoutForm({ available, transferFee }: Props) {
     const res = await fetch("/api/payout/request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requested_amount: amount }),
+      body: JSON.stringify({ requested_amount: amount, pool }),
     });
     const data = await res.json();
 
@@ -60,16 +62,16 @@ export function PayoutForm({ available, transferFee }: Props) {
         </div>
         <input
           type="range"
-          min={transferFee + 1}
+          min={minAmount}
           max={available}
           step={100}
           value={amount}
           onChange={(e) => setAmount(Number(e.target.value))}
           className="w-full accent-pink-500"
-          disabled={available <= transferFee}
+          disabled={available < minAmount}
         />
         <div className="flex justify-between text-[10px] text-slate-600 font-bold">
-          <span>¥{(transferFee + 1).toLocaleString()}〜</span>
+          <span>¥{minAmount.toLocaleString()}〜</span>
           <span>最大 ¥{available.toLocaleString()}</span>
         </div>
       </div>
@@ -81,7 +83,9 @@ export function PayoutForm({ available, transferFee }: Props) {
         </div>
         <div className="flex justify-between text-xs text-slate-400">
           <span>振込手数料</span>
-          <span className="text-red-400 font-bold">-¥{transferFee.toLocaleString()}</span>
+          <span className={transferFee > 0 ? "text-red-400 font-bold" : "text-emerald-400 font-bold"}>
+            {transferFee > 0 ? `-¥${transferFee.toLocaleString()}` : "¥0（無料）"}
+          </span>
         </div>
         <div className="border-t border-slate-700 pt-2 flex justify-between text-sm">
           <span className="font-black text-white">実際の振込額</span>

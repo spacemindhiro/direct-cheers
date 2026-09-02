@@ -40,13 +40,18 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { target_role, target_profile_id } = body as {
+  const { target_role, target_profile_id, target_email: rawTargetEmail } = body as {
     target_role: string;
     target_profile_id?: string;
+    target_email?: string;
   };
+  const target_email = rawTargetEmail?.trim() || undefined;
 
-  if (!target_profile_id) {
-    return NextResponse.json({ error: "宛先ユーザーを選択してください" }, { status: 400 });
+  if (!target_profile_id && !target_email) {
+    return NextResponse.json({ error: "宛先ユーザーを選択するかメールアドレスを入力してください" }, { status: 400 });
+  }
+  if (target_profile_id && target_email) {
+    return NextResponse.json({ error: "宛先の指定方法はどちらか一方にしてください" }, { status: 400 });
   }
 
   // 権限チェック
@@ -55,45 +60,70 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Permission denied" }, { status: 403 });
   }
 
-  if (target_profile_id === user.id) {
-    return NextResponse.json({ error: "自分自身は招待できません" }, { status: 400 });
-  }
-
   const admin = createAdminClient();
 
-  // 宛先ユーザーの実在・現ロール確認
-  const { data: target } = await admin
-    .from("profiles")
-    .select("profile_id, display_name, role, deleted_at")
-    .eq("profile_id", target_profile_id)
-    .maybeSingle();
+  let targetEmail: string;
+  let targetProfileId: string | null = null;
+  let targetDisplayName: string | null = null;
 
-  if (!target || target.deleted_at) {
-    return NextResponse.json({ error: "宛先ユーザーが見つかりません" }, { status: 404 });
+  if (target_profile_id) {
+    if (target_profile_id === user.id) {
+      return NextResponse.json({ error: "自分自身は招待できません" }, { status: 400 });
+    }
+
+    // 宛先ユーザーの実在・現ロール確認
+    const { data: target } = await admin
+      .from("profiles")
+      .select("profile_id, display_name, role, deleted_at")
+      .eq("profile_id", target_profile_id)
+      .maybeSingle();
+
+    if (!target || target.deleted_at) {
+      return NextResponse.json({ error: "宛先ユーザーが見つかりません" }, { status: 404 });
+    }
+
+    // 昇格にならない招待は無意味なため弾く（UI非活性の迂回対策）
+    if (roleRank(target_role) <= roleRank(target.role)) {
+      return NextResponse.json(
+        { error: "このユーザーは既に同等以上のロールを持っています" },
+        { status: 400 },
+      );
+    }
+
+    // 宛先メールアドレスはサーバー側で解決する（クライアントから受け取らない）
+    const { data: authUser, error: authError } = await admin.auth.admin.getUserById(target_profile_id);
+    const resolvedEmail = authUser?.user?.email ?? null;
+    if (authError || !resolvedEmail) {
+      return NextResponse.json({ error: "宛先ユーザーのメールアドレスを取得できませんでした" }, { status: 500 });
+    }
+
+    targetEmail = resolvedEmail;
+    targetProfileId = target_profile_id;
+    targetDisplayName = target.display_name;
+
+    // 同一 invited_by + 宛先ユーザーの pending 招待を期限切れに（再送対応）
+    await admin
+      .from("invitations")
+      .update({ status: "expired" })
+      .eq("invited_by_profile_id", user.id)
+      .eq("target_profile_id", target_profile_id)
+      .eq("status", "pending");
+  } else {
+    // 未登録ユーザー向け：メールアドレス直接指定の招待
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target_email!)) {
+      return NextResponse.json({ error: "メールアドレスの形式が正しくありません" }, { status: 400 });
+    }
+
+    targetEmail = target_email!;
+
+    // 同一 invited_by + target_email の pending 招待を期限切れに（再送対応）
+    await admin
+      .from("invitations")
+      .update({ status: "expired" })
+      .eq("invited_by_profile_id", user.id)
+      .eq("target_email", targetEmail)
+      .eq("status", "pending");
   }
-
-  // 昇格にならない招待は無意味なため弾く（UI非活性の迂回対策）
-  if (roleRank(target_role) <= roleRank(target.role)) {
-    return NextResponse.json(
-      { error: "このユーザーは既に同等以上のロールを持っています" },
-      { status: 400 },
-    );
-  }
-
-  // 宛先メールアドレスはサーバー側で解決する（クライアントから受け取らない）
-  const { data: authUser, error: authError } = await admin.auth.admin.getUserById(target_profile_id);
-  const targetEmail = authUser?.user?.email ?? null;
-  if (authError || !targetEmail) {
-    return NextResponse.json({ error: "宛先ユーザーのメールアドレスを取得できませんでした" }, { status: 500 });
-  }
-
-  // 同一 invited_by + 宛先ユーザーの pending 招待を期限切れに（再送対応）
-  await admin
-    .from("invitations")
-    .update({ status: "expired" })
-    .eq("invited_by_profile_id", user.id)
-    .eq("target_profile_id", target_profile_id)
-    .eq("status", "pending");
 
   // 新しい招待を発行
   const { data: invitation, error } = await admin
@@ -101,7 +131,7 @@ export async function POST(req: Request) {
     .insert({
       invited_by_profile_id: user.id,
       target_role,
-      target_profile_id,
+      target_profile_id: targetProfileId,
       target_email: targetEmail,
     })
     .select("invitation_id, token, target_role, target_email, target_profile_id, status, is_sent, viewed_at, expires_at, created_at")
@@ -119,6 +149,12 @@ export async function POST(req: Request) {
     const inviteUrl = `${SITE_URL}/invite/${invitation.token}`;
     const inviterName = profile.display_name || "Direct Cheers";
     const roleLabel = ROLE_LABELS[target_role] ?? target_role;
+    const greeting = targetDisplayName
+      ? `<p style="color:#64748b;font-size:14px">${targetDisplayName}さん</p>`
+      : "";
+    const actionText = targetProfileId
+      ? "以下のボタンをタップして招待を受けてください。"
+      : "以下のボタンをタップして登録を進めてください。";
     try {
       const resend = new Resend(resendApiKey);
       const { error: sendError } = await resend.emails.send({
@@ -128,14 +164,12 @@ export async function POST(req: Request) {
         html: `
           <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
             <h2 style="color:#ec4899;margin-bottom:8px">Direct Cheersへの招待</h2>
-            <p style="color:#64748b;font-size:14px">
-              ${target.display_name}さん
-            </p>
+            ${greeting}
             <p style="color:#64748b;font-size:14px">
               <strong>${inviterName}</strong>さんから、<strong>${roleLabel}</strong>としてDirect Cheersに参加する招待が届いています。
             </p>
             <p style="color:#64748b;font-size:14px">
-              以下のボタンをタップして招待を受けてください。<br>
+              ${actionText}<br>
               有効期限は<strong>30日間</strong>です。
             </p>
             <a href="${inviteUrl}"
@@ -164,6 +198,6 @@ export async function POST(req: Request) {
     ...invitation,
     is_sent: isSent,
     accepted_by: null,
-    target_profile: { display_name: target.display_name },
+    target_profile: targetDisplayName ? { display_name: targetDisplayName } : null,
   });
 }

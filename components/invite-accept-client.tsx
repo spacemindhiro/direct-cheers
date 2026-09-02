@@ -15,25 +15,61 @@ export function InviteLoginPrompt({
   isMember: boolean;
 }) {
   const emailParam = targetEmail ? `&email=${encodeURIComponent(targetEmail)}` : "";
-  return (
-    <div className="space-y-3">
-      <p className="text-center text-sm text-slate-400">
-        招待を受け取るには{isMember ? "ログイン" : "新規登録"}が必要です
-      </p>
-      {isMember ? (
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  if (isMember) {
+    return (
+      <div className="space-y-3">
+        <p className="text-center text-sm text-slate-400">招待を受け取るにはログインが必要です</p>
         <Link
           href={`/auth/login?redirect=/invite/${token}${emailParam}`}
           className="flex w-full h-16 items-center justify-center gap-3 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)]"
         >
           ログインして受け取る <ArrowRight size={18} />
         </Link>
-      ) : (
-        <Link
-          href={`/auth/login?redirect=/invite/${token}${emailParam}`}
-          className="flex w-full h-16 items-center justify-center gap-3 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)]"
-        >
-          登録して受け取る <ArrowRight size={18} />
-        </Link>
+      </div>
+    );
+  }
+
+  // 未登録者：招待メールのクリック自体を本人確認として扱い、その場で認証まで
+  // 完了させる（追加のマジックリンクメールを待たせない）。失敗時のみ通常の
+  // ログイン導線にフォールバックする。
+  const handleClaim = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = await fetch(`/api/invitations/${token}/claim`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError("自動での受け取りに失敗しました。下記からログインしてお試しください。");
+        return;
+      }
+      router.push(data.redirect);
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-center text-sm text-slate-400">招待を受け取るには登録が必要です</p>
+      <button
+        type="button"
+        onClick={handleClaim}
+        disabled={isPending}
+        className="flex w-full h-16 items-center justify-center gap-3 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {isPending ? <Loader2 size={20} className="animate-spin" /> : <>登録して受け取る <ArrowRight size={18} /></>}
+      </button>
+      {error && (
+        <div className="space-y-2">
+          <p className="text-center text-sm text-red-400 font-bold">{error}</p>
+          <Link
+            href={`/auth/login?redirect=/invite/${token}${emailParam}`}
+            className="flex w-full h-14 items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all"
+          >
+            ログイン画面から受け取る <ArrowRight size={18} />
+          </Link>
+        </div>
       )}
     </div>
   );

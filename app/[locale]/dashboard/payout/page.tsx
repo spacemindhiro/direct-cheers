@@ -9,9 +9,7 @@ import {
   CheckCircle2, RefreshCw, CalendarClock, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
-
-const HOLD_DAYS = 14;
-const TRANSFER_FEE = 500;
+import { HOLD_DAYS, TRANSFER_FEE, FEE_WAIVER_DAYS } from "@/lib/payout-config";
 
 const LIFECYCLE_LABELS: Record<string, string> = {
   draft: "承認待ち", published: "公開済み", ongoing: "開催中",
@@ -37,6 +35,7 @@ async function PayoutContent() {
   }
 
   const cutoff = new Date(Date.now() - HOLD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const freeCutoff = new Date(Date.now() - FEE_WAIVER_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   // 未精算（distributions未作成）の見込み保留額をイベント別に加算するため先に取得
   const { data: myTargets } = await admin
@@ -84,6 +83,7 @@ async function PayoutContent() {
     lifecycle_status: string;
     reconciled_at: string | null;
     available: number;
+    freeAvailable: number;
     pending: number;
     frozen: number;
     latestTxDate: string | null; // pending の中で最も新しい（＝最後に解放される）
@@ -91,6 +91,7 @@ async function PayoutContent() {
   const eventMap = new Map<string, EventRow>();
 
   let available = 0;
+  let freeAvailable = 0;
   let pending = 0;
   let frozen = 0;
 
@@ -112,18 +113,23 @@ async function PayoutContent() {
         title: event?.title ?? "不明なイベント",
         lifecycle_status: event?.lifecycle_status ?? "",
         reconciled_at: event?.reconciled_at ?? null,
-        available: 0, pending: 0, frozen: 0,
+        available: 0, freeAvailable: 0, pending: 0, frozen: 0,
         latestTxDate: null,
       });
     }
     const row = eventMap.get(eventId)!;
 
     const isSettledAndReconciled = event?.lifecycle_status === "settled" && event?.reconciled_at !== null;
+    const isFree = isSettledAndReconciled && !!txDate && txDate < freeCutoff;
+    const holdCleared = (d as any).hold_released || (isSettledAndReconciled && txDate && txDate < cutoff);
 
     if (d.is_frozen) {
       frozen += amt;
       row.frozen += amt;
-    } else if ((d as any).hold_released || (isSettledAndReconciled && txDate && txDate < cutoff)) {
+    } else if (isFree) {
+      freeAvailable += amt;
+      row.freeAvailable += amt;
+    } else if (holdCleared) {
       available += amt;
       row.available += amt;
     } else {
@@ -161,7 +167,7 @@ async function PayoutContent() {
           title: event?.title ?? "不明なイベント",
           lifecycle_status: event?.lifecycle_status ?? "",
           reconciled_at: event?.reconciled_at ?? null,
-          available: 0, pending: 0, frozen: 0,
+          available: 0, freeAvailable: 0, pending: 0, frozen: 0,
           latestTxDate: null,
         });
       }
@@ -184,8 +190,8 @@ async function PayoutContent() {
     .limit(20);
 
   const eventRows = [...eventMap.values()]
-    .filter((r) => r.available + r.pending + r.frozen > 0)
-    .sort((a, b) => (b.available + b.pending) - (a.available + a.pending));
+    .filter((r) => r.available + r.freeAvailable + r.pending + r.frozen > 0)
+    .sort((a, b) => (b.available + b.freeAvailable + b.pending) - (a.available + a.freeAvailable + a.pending));
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
@@ -216,11 +222,18 @@ async function PayoutContent() {
         )}
 
         {/* 残高サマリー */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <Wallet size={14} className="text-sky-400" />
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">無料出金可能</p>
+            </div>
+            <p className="text-xl font-black text-sky-400 italic tracking-tighter">¥{freeAvailable.toLocaleString()}</p>
+          </div>
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
             <div className="flex items-center gap-1.5">
               <Wallet size={14} className="text-emerald-400" />
-              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">出金可能</p>
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">出金可能（手数料あり）</p>
             </div>
             <p className="text-xl font-black text-emerald-400 italic tracking-tighter">¥{available.toLocaleString()}</p>
           </div>
@@ -241,7 +254,8 @@ async function PayoutContent() {
         </div>
 
         <p className="text-[10px] text-slate-600 leading-relaxed">
-          売上は入金から{HOLD_DAYS}日後に出金可能になります。振込手数料 ¥{TRANSFER_FEE.toLocaleString()} が差し引かれます。
+          売上は入金から{HOLD_DAYS}日後に出金可能になります（振込手数料 ¥{TRANSFER_FEE.toLocaleString()}）。
+          入金から{FEE_WAIVER_DAYS}日を超えた分はチャージバックリスクが極小化するため、振込手数料無料で出金できます。
         </p>
 
         {/* イベント別内訳 */}
@@ -291,6 +305,12 @@ async function PayoutContent() {
 
                     {/* 金額内訳 */}
                     <div className="grid grid-cols-3 gap-2 text-center">
+                      {row.freeAvailable > 0 && (
+                        <div className="bg-sky-500/5 border border-sky-500/10 rounded-xl p-2">
+                          <p className="text-[9px] text-slate-500 uppercase tracking-widest">無料出金可能</p>
+                          <p className="text-sm font-black text-sky-400">¥{row.freeAvailable.toLocaleString()}</p>
+                        </div>
+                      )}
                       {row.available > 0 && (
                         <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-2">
                           <p className="text-[9px] text-slate-500 uppercase tracking-widest">出金可能</p>
@@ -337,25 +357,39 @@ async function PayoutContent() {
           </div>
         )}
 
-        {/* 出金フォーム */}
-        {!profile?.balance_frozen && available > TRANSFER_FEE ? (
-          <div className="space-y-3">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">出金申請</p>
-            {!profile?.stripe_connect_id && (
+        {/* 出金フォーム（無料枠・手数料枠は別々に申請） */}
+        {!profile?.balance_frozen && (
+          <div className="space-y-6">
+            {!profile?.stripe_connect_id && (freeAvailable > 0 || available > TRANSFER_FEE) && (
               <p className="text-xs text-amber-400">※ Stripe Connectアカウントの設定が必要です</p>
             )}
-            <PayoutForm available={available} transferFee={TRANSFER_FEE} />
+
+            {freeAvailable > 0 && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest">
+                  無料出金申請（入金から{FEE_WAIVER_DAYS}日超過分・手数料なし）
+                </p>
+                <PayoutForm available={freeAvailable} transferFee={0} pool="free" />
+              </div>
+            )}
+
+            {available > TRANSFER_FEE && (
+              <div className="space-y-3">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">通常出金申請</p>
+                <PayoutForm available={available} transferFee={TRANSFER_FEE} pool="fee" />
+              </div>
+            )}
+
+            {freeAvailable === 0 && available <= TRANSFER_FEE && (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center">
+                <p className="text-slate-600 text-sm font-bold">
+                  {available === 0
+                    ? "出金可能な残高がありません"
+                    : `出金可能額が振込手数料（¥${TRANSFER_FEE.toLocaleString()}）以下です`}
+                </p>
+              </div>
+            )}
           </div>
-        ) : (
-          !profile?.balance_frozen && (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center">
-              <p className="text-slate-600 text-sm font-bold">
-                {available === 0
-                  ? "出金可能な残高がありません"
-                  : `出金可能額が振込手数料（¥${TRANSFER_FEE.toLocaleString()}）以下です`}
-              </p>
-            </div>
-          )
         )}
 
         {/* 出金履歴 */}

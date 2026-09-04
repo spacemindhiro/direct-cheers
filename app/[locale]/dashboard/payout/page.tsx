@@ -9,7 +9,7 @@ import {
   CheckCircle2, RefreshCw, CalendarClock, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
-import { HOLD_DAYS, TRANSFER_FEE, FEE_WAIVER_DAYS } from "@/lib/payout-config";
+import { HOLD_DAYS, TRANSFER_FEE, FEE_WAIVER_DAYS, FREE_POOL_MONTHLY_LIMIT, getJstMonthStartIso } from "@/lib/payout-config";
 
 const LIFECYCLE_LABELS: Record<string, string> = {
   draft: "承認待ち", published: "公開済み", ongoing: "開催中",
@@ -189,6 +189,16 @@ async function PayoutContent() {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // 無料枠（120日超過分）の出金は月1回まで。今月分を使い切っているか判定する
+  const { count: freeCountThisMonth } = await admin
+    .from("payout_requests")
+    .select("request_id", { count: "exact", head: true })
+    .eq("profile_id", user.id)
+    .eq("stripe_fee_deducted", 0)
+    .eq("status", "completed")
+    .gte("created_at", getJstMonthStartIso());
+  const freeUsedThisMonth = (freeCountThisMonth ?? 0) >= FREE_POOL_MONTHLY_LIMIT;
+
   const eventRows = [...eventMap.values()]
     .filter((r) => r.available + r.freeAvailable + r.pending + r.frozen > 0)
     .sort((a, b) => (b.available + b.freeAvailable + b.pending) - (a.available + a.freeAvailable + a.pending));
@@ -367,9 +377,16 @@ async function PayoutContent() {
             {freeAvailable > 0 && (
               <div className="space-y-3">
                 <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest">
-                  無料出金申請（入金から{FEE_WAIVER_DAYS}日超過分・手数料なし）
+                  無料出金申請（入金から{FEE_WAIVER_DAYS}日超過分・手数料なし・月{FREE_POOL_MONTHLY_LIMIT}回まで）
                 </p>
-                <PayoutForm available={freeAvailable} transferFee={0} pool="free" />
+                {freeUsedThisMonth ? (
+                  <div className="bg-sky-500/5 border border-sky-500/10 rounded-2xl p-4 text-center">
+                    <p className="text-xs text-sky-400 font-bold">今月分の無料出金は申請済みです</p>
+                    <p className="text-[10px] text-slate-500 mt-1">来月以降にもう一度お申し込みいただけます</p>
+                  </div>
+                ) : (
+                  <PayoutForm available={freeAvailable} transferFee={0} pool="free" />
+                )}
               </div>
             )}
 

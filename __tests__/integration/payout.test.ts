@@ -477,21 +477,21 @@ describe("TC-PAYOUT-05: 120日経過分の無料出金", () => {
     expect(dist?.distribution_status).toBe("paid");
   });
 
-  it("pool=free: 手数料枠(14〜120日)分は無料枠の残高に含まれない → 超過で400", async () => {
+  it("pool=free: 同一カレンダー月内の2回目は月次上限エラー(400)", async () => {
     mockPayoutAuth(profileId, "organizer", connectId);
     const req = new Request("http://localhost/api/payout/request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requested_amount: FEE_AMOUNT, pool: "free" }),
+      body: JSON.stringify({ requested_amount: 1, pool: "free" }),
     });
     const res = await payoutPOST(req);
     const data = await res.json();
 
     expect(res.status).toBe(400);
-    expect(data.error).toMatch(/無料出金可能額/);
+    expect(data.error).toMatch(/月1回/);
   });
 
-  it("pool=fee: 14〜120日分は従来通り手数料¥500で出金できる", async () => {
+  it("pool=fee: 14〜120日分は従来通り手数料¥500で出金できる（無料枠の月次上限とは無関係）", async () => {
     mockPayoutAuth(profileId, "organizer", connectId);
     const req = new Request("http://localhost/api/payout/request", {
       method: "POST",
@@ -505,6 +505,58 @@ describe("TC-PAYOUT-05: 120日経過分の無料出金", () => {
     expect(data.success).toBe(true);
     expect(data.net_payout).toBe(FEE_AMOUNT - TRANSFER_FEE);
     cleanup.payoutRequestIds.push(data.request_id);
+  });
+});
+
+// ── TC-PAYOUT-06: pool=freeは手数料枠の残高を侵食しない(枠跨ぎ拒否) ─────────
+describe("TC-PAYOUT-06: pool=freeは手数料枠(14〜120日)分を対象にしない", () => {
+  const FEE_AMOUNT = 3_000; // 14〜120日分のみ・無料枠対象の分配は一切なし
+  let profileId: string;
+
+  beforeAll(async () => {
+    const ts = Date.now();
+    profileId = await insertProfile({
+      role: "organizer",
+      displayName: "枠跨ぎ拒否確認用",
+      email: `pool-cross-${ts}@test.local`,
+      stripeConnectId: `acct_fake_cross_${ts}`,
+    });
+    cleanup.profileIds.push(profileId);
+
+    const eventId = await insertEvent({ organizerProfileId: profileId });
+    const qrConfigId = await insertQrConfig({ eventId, creatorProfileId: profileId, recipientProfileId: profileId });
+    cleanup.eventIds.push(eventId);
+    cleanup.qrConfigIds.push(qrConfigId);
+
+    const feeTxId = await insertTransaction({
+      qrConfigId, grossAmount: FEE_AMOUNT, netAmount: FEE_AMOUNT,
+      stripeFee: 0, platformFee: 0,
+      stripePaymentIntentId: `pi_cross_${ts}`,
+      reconciled: true,
+    });
+    cleanup.transactionIds.push(feeTxId);
+    await testAdmin.from("transactions").update({
+      created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30日前(14〜120日)
+    }).eq("transaction_id", feeTxId);
+    const feeDistId = await insertDistribution({
+      transactionId: feeTxId, eventId, profileId, role: "organizer", actualAmount: FEE_AMOUNT,
+      holdReleased: false,
+    });
+    cleanup.distributionIds.push(feeDistId);
+  }, 60_000);
+
+  it("無料枠の残高が0件の状態でpool=freeを申請すると出金可能額超過(400)になる", async () => {
+    mockPayoutAuth(profileId, "organizer", `acct_fake_cross_probe`);
+    const req = new Request("http://localhost/api/payout/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requested_amount: FEE_AMOUNT, pool: "free" }),
+    });
+    const res = await payoutPOST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toMatch(/無料出金可能額/);
   });
 });
 
@@ -538,5 +590,7 @@ describe("TC-PAYOUT-03: GET /api/payout/request — 残高照会", () => {
     expect(data.transfer_fee).toBe(500);
     expect(data.hold_days).toBe(14);
     expect(data.fee_waiver_days).toBe(120);
+    expect(data.free_pool_monthly_limit).toBe(1);
+    expect(data.free_used_this_month).toBe(false);
   });
 });

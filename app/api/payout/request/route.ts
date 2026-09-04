@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { TRANSFER_FEE, HOLD_DAYS, FEE_WAIVER_DAYS } from "@/lib/payout-config";
+import { TRANSFER_FEE, HOLD_DAYS, FEE_WAIVER_DAYS, FREE_POOL_MONTHLY_LIMIT, getJstMonthStartIso } from "@/lib/payout-config";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -79,6 +79,25 @@ export async function POST(req: Request) {
     );
   if (pool === "free" && !(requested_amount > 0))
     return NextResponse.json({ error: "出金額を入力してください" }, { status: 400 });
+
+  // 無料枠（120日超過分）はチャージバックリスクが極小化しているため手数料を免除するが、
+  // 出金自体の実行回数（Stripe payoutの発生回数）はカレンダー月あたり定数回に絞る。
+  if (pool === "free") {
+    const monthStart = getJstMonthStartIso();
+    const { count: freeCountThisMonth } = await admin
+      .from("payout_requests")
+      .select("request_id", { count: "exact", head: true })
+      .eq("profile_id", user.id)
+      .eq("stripe_fee_deducted", 0)
+      .eq("status", "completed")
+      .gte("created_at", monthStart);
+
+    if ((freeCountThisMonth ?? 0) >= FREE_POOL_MONTHLY_LIMIT)
+      return NextResponse.json(
+        { error: "無料枠の出金は月1回までです。来月以降にもう一度お試しください" },
+        { status: 400 }
+      );
+  }
 
   const isAdmin = profile?.role === "admin";
   const useBypass = !!bypass_event_id && isAdmin;
@@ -308,6 +327,15 @@ export async function GET(_req: Request) {
     .order("created_at", { ascending: false })
     .limit(10);
 
+  const monthStart = getJstMonthStartIso();
+  const { count: freeCountThisMonth } = await admin
+    .from("payout_requests")
+    .select("request_id", { count: "exact", head: true })
+    .eq("profile_id", user.id)
+    .eq("stripe_fee_deducted", 0)
+    .eq("status", "completed")
+    .gte("created_at", monthStart);
+
   return NextResponse.json({
     available,
     free_available: freeAvailable,
@@ -316,6 +344,8 @@ export async function GET(_req: Request) {
     transfer_fee: TRANSFER_FEE,
     hold_days: HOLD_DAYS,
     fee_waiver_days: FEE_WAIVER_DAYS,
+    free_pool_monthly_limit: FREE_POOL_MONTHLY_LIMIT,
+    free_used_this_month: (freeCountThisMonth ?? 0) >= FREE_POOL_MONTHLY_LIMIT,
     history: history ?? [],
   });
 }

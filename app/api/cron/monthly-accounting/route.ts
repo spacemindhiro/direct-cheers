@@ -5,12 +5,16 @@
  * 先月度（JST 1日 0:00:00 〜 末日 23:59:59）を対象に集計し、
  * 弥生会計インポート用CSVを生成・DBに保存する。
  *
+ * 集計対象は当月フロー（決済・出金手数料回収・銀行出金）のみ。
+ * 月末預り金残高(B/S)は 20260905000000 で廃止した（集計が二重計上していたため）。
+ * 残高が必要な場合は収支レポートの outstanding_balance を参照すること。
+ *
  * 認証: Authorization: Bearer $CRON_SECRET
  */
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPreviousMonthBounds, getMonthBoundsUtc } from "@/lib/accounting/date-utils";
-import { generateYayoiCsv, buildBalanceSummary, type MonthlySummary } from "@/lib/accounting/yayoi-csv";
+import { generateYayoiCsv, type MonthlySummary } from "@/lib/accounting/yayoi-csv";
 
 export const maxDuration = 60;
 
@@ -82,9 +86,6 @@ export async function GET(req: Request) {
       totalReversalAmount:     d.total_reversal_amount     ?? 0,
       totalReversalTax:        d.total_reversal_tax        ?? 0,
       totalPayoutAmount:       d.total_payout_amount       ?? 0,
-      monthEndBalance:         d.balance_total             ?? 0,
-      monthEndBalancePlatform: d.balance_platform          ?? 0,
-      monthEndBalanceConnect:  d.balance_connect           ?? 0,
     };
 
     // 不変量チェック: gross - stripe_fee - platform_fee === net_amount
@@ -109,14 +110,11 @@ export async function GET(req: Request) {
 
   // CSV 生成
   const csv = generateYayoiCsv(summary);
-  const balanceSummary = buildBalanceSummary(summary);
 
   console.log(`[monthly-accounting] ${label} 集計完了`);
   console.log(`  A: 総決済額 ¥${summary.totalGross.toLocaleString("ja-JP")} / システム利用料 ¥${summary.totalPlatformFee.toLocaleString("ja-JP")}`);
   console.log(`  B: 出金手数料回収 ¥${summary.totalReversalAmount.toLocaleString("ja-JP")}`);
   console.log(`  C: 銀行出金 ¥${summary.totalPayoutAmount.toLocaleString("ja-JP")}`);
-  console.log(`  D: 月末預り金残高 ¥${summary.monthEndBalance.toLocaleString("ja-JP")}`);
-  console.log(balanceSummary);
 
   // DBに保存（CSV全文を含む）
   const { data: report, error: insertErr } = await admin
@@ -132,9 +130,6 @@ export async function GET(req: Request) {
       total_reversal_amount:      summary.totalReversalAmount,
       total_reversal_tax:         summary.totalReversalTax,
       total_payout_amount:        summary.totalPayoutAmount,
-      month_end_balance:             summary.monthEndBalance,
-      month_end_balance_platform:    summary.monthEndBalancePlatform,
-      month_end_balance_connect:     summary.monthEndBalanceConnect,
       csv_content: csv,
       status: "completed",
     })
@@ -157,7 +152,6 @@ export async function GET(req: Request) {
       totalNetAmount:      summary.totalNetAmount,
       totalReversalAmount: summary.totalReversalAmount,
       totalPayoutAmount:   summary.totalPayoutAmount,
-      monthEndBalance:     summary.monthEndBalance,
     },
     csvRows: csv.split("\r\n").length - 2, // ヘッダー+BOMを除いたデータ行数
   });

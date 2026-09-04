@@ -966,7 +966,7 @@ async function DashboardContent() {
               <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-cyan-400 transition-colors">
                 弥生会計 CSV
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">月次集計・月末預り金残高レポート</p>
+              <p className="text-xs text-slate-500 mt-0.5">月次仕訳CSVの生成・ダウンロード</p>
             </div>
           </div>
         </Link>

@@ -12,7 +12,7 @@
  *   8. 月末日の正確なフォーマット
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { generateYayoiCsv, buildBalanceSummary, type MonthlySummary } from "@/lib/accounting/yayoi-csv";
+import { generateYayoiCsv, type MonthlySummary } from "@/lib/accounting/yayoi-csv";
 
 const BASE: MonthlySummary = {
   year: 2026,
@@ -26,9 +26,6 @@ const BASE: MonthlySummary = {
   totalReversalAmount:       5_000, // 10 payouts × 500
   totalReversalTax:            454, // transfer_fee_reversals.tax_amount の SUM（明細確定済み）
   totalPayoutAmount:       850_000, // net payouts
-  monthEndBalance:          50_000,
-  monthEndBalancePlatform:  30_000,
-  monthEndBalanceConnect:   20_000,
 };
 
 // ── ヘルパー ─────────────────────────────────────────────────────────────
@@ -345,22 +342,6 @@ describe("TC-YAYOI-07: ラベルが摘要に含まれる", () => {
   });
 });
 
-// ── TC-YAYOI-08: buildBalanceSummary ─────────────────────────────────
-describe("TC-YAYOI-08: buildBalanceSummary — 月末預り金残高テキスト", () => {
-  it("月末残高・プラットフォーム留保・Connect口座を含む", () => {
-    const text = buildBalanceSummary(BASE);
-    expect(text).toContain("2026年5月度");
-    expect(text).toContain("50,000");
-    expect(text).toContain("30,000");
-    expect(text).toContain("20,000");
-  });
-
-  it("残高0のときも正常にテキストが返る", () => {
-    const text = buildBalanceSummary({ ...BASE, monthEndBalance: 0, monthEndBalancePlatform: 0, monthEndBalanceConnect: 0 });
-    expect(text).toContain("¥0");
-  });
-});
-
 // ── TC-YAYOI-09: 境界値・大金額・単一決済 ───────────────────────────
 describe("TC-YAYOI-09: 境界値テスト", () => {
   it("最小取引: gross=501（振込手数料より大きい最小額）", () => {
@@ -374,7 +355,6 @@ describe("TC-YAYOI-09: 境界値テスト", () => {
       totalReversalAmount: 500,
       totalReversalTax: Math.floor(500 * 10 / 110), // 45
       totalPayoutAmount: 1,
-      monthEndBalance: 0, monthEndBalancePlatform: 0, monthEndBalanceConnect: 0,
     };
     const csv = generateYayoiCsv(summary);
     const rows = getDataRows(csv);
@@ -395,7 +375,6 @@ describe("TC-YAYOI-09: 境界値テスト", () => {
       totalPlatformFee: platformFee, totalNetAmount: netAmount,
       totalPlatformFeeTax: Math.floor(platformFee * 10 / 110), // 909_090
       totalReversalAmount: 0, totalReversalTax: 0, totalPayoutAmount: 0,
-      monthEndBalance: netAmount, monthEndBalancePlatform: netAmount, monthEndBalanceConnect: 0,
     };
     const csv = generateYayoiCsv(summary);
     const rows = getDataRows(csv);

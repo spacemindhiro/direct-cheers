@@ -43,9 +43,6 @@ export type MonthlySummary = {
   /** transfer_fee_reversals.tax_amount の SUM（明細確定済み値。グロス再計算は禁止） */
   totalReversalTax: number;
   totalPayoutAmount: number;
-  monthEndBalance: number;
-  monthEndBalancePlatform: number;
-  monthEndBalanceConnect: number;
 };
 
 // ── 弥生会計 仕訳帳 CSVヘッダー (16列) ─────────────────────────────────
@@ -180,16 +177,4 @@ export function generateYayoiCsv(summary: MonthlySummary): string {
 
   // UTF-8 BOM + CRLF
   return "﻿" + lines.join("\r\n") + "\r\n";
-}
-
-/**
- * 月末預り金残高のサマリーテキスト（CSVファイル名や管理画面表示用）
- */
-export function buildBalanceSummary(summary: MonthlySummary): string {
-  const { label, monthEndBalance, monthEndBalancePlatform, monthEndBalanceConnect } = summary;
-  return [
-    `${label} 月末預り金残高: ¥${monthEndBalance.toLocaleString("ja-JP")}`,
-    `  └ プラットフォーム留保: ¥${monthEndBalancePlatform.toLocaleString("ja-JP")}`,
-    `  └ Connect口座滞留: ¥${monthEndBalanceConnect.toLocaleString("ja-JP")}`,
-  ].join("\n");
 }

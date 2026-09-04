@@ -5,11 +5,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Loader2, CheckCircle2, AlertTriangle, Clock, FileText } from "lucide-react";
 import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import { AccountingRunButton, AccountingDownloadButton } from "@/components/accounting-run-button";
-import { getMonthBoundsUtc } from "@/lib/accounting/date-utils";
-
-function fmt(n: number) {
-  return `¥${n.toLocaleString("ja-JP")}`;
-}
 
 // 直近 13 ヶ月分の year/month リストを生成（最新月が上）
 function recentMonths(n = 13): { year: number; month: number; yearMonth: string; label: string }[] {
@@ -50,23 +45,12 @@ async function AccountingContent() {
     status: string;
     error_message: string | null;
     created_at: string;
-    total_gross: number;
-    total_platform_fee: number;
-    total_reversal_amount: number;
-    total_payout_amount: number;
-    total_platform_fee_tax: number;
-    total_reversal_tax: number;
-    month_end_balance: number;
   };
 
   const months = recentMonths(13);
   const { data: reports } = await admin
     .from("monthly_accounting_reports")
-    .select(
-      "target_year, target_month, status, error_message, created_at, " +
-      "total_gross, total_platform_fee, total_reversal_amount, total_payout_amount, " +
-      "total_platform_fee_tax, total_reversal_tax, month_end_balance"
-    )
+    .select("target_year, target_month, status, error_message, created_at")
     .gte("target_year", months[months.length - 1].year)
     .order("target_year", { ascending: false })
     .order("target_month", { ascending: false });
@@ -81,17 +65,14 @@ async function AccountingContent() {
       <div className="space-y-1">
         <AdminBreadcrumb crumbs={[{ label: "Admin", href: "/dashboard" }, { label: "Accounting" }]} />
         <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">弥生会計 CSV</h1>
-        <p className="text-sm text-slate-500">月初 cron 自動生成 + 手動実行・ダウンロード</p>
+        <p className="text-sm text-slate-500">月次仕訳CSVの生成・ダウンロード（月初 cron 自動生成 + 手動実行）</p>
+        <p className="text-xs text-slate-600">金額の確認は収支レポートで行う。この画面は仕訳CSVの取り出し専用。</p>
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-800">
         {/* ヘッダー行 */}
-        <div className="px-5 py-2 grid grid-cols-[120px_1fr_1fr_1fr_1fr_100px_80px] gap-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">
+        <div className="px-5 py-2 grid grid-cols-[1fr_100px_80px] gap-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">
           <span>対象月</span>
-          <span>総決済</span>
-          <span>利用料(税)</span>
-          <span>出金手数料(税)</span>
-          <span>月末預り金</span>
           <span>状態</span>
           <span>操作</span>
         </div>
@@ -103,35 +84,12 @@ async function AccountingContent() {
           const isPending = !r;
 
           return (
-            <div key={yearMonth} className="px-5 py-3 grid grid-cols-[120px_1fr_1fr_1fr_1fr_100px_80px] gap-4 items-center">
+            <div key={yearMonth} className="px-5 py-3 grid grid-cols-[1fr_100px_80px] gap-4 items-center">
               {/* 対象月 */}
               <div className="flex items-center gap-2">
                 <FileText size={13} className={isCompleted ? "text-indigo-400" : "text-slate-600"} />
                 <span className="text-xs font-black text-white">{label}</span>
               </div>
-
-              {/* 数値列（completed のみ表示） */}
-              {isCompleted ? (
-                <>
-                  <span className="text-xs font-bold text-slate-300">{fmt(r!.total_gross)}</span>
-                  <span className="text-xs font-bold text-slate-300">
-                    {fmt(r!.total_platform_fee)}
-                    <span className="text-[10px] text-slate-500 ml-1">({fmt(r!.total_platform_fee_tax ?? 0)})</span>
-                  </span>
-                  <span className="text-xs font-bold text-slate-300">
-                    {fmt(r!.total_reversal_amount)}
-                    <span className="text-[10px] text-slate-500 ml-1">({fmt(r!.total_reversal_tax ?? 0)})</span>
-                  </span>
-                  <span className="text-xs font-bold text-slate-300">{fmt(r!.month_end_balance)}</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-slate-700 text-xs">—</span>
-                  <span className="text-slate-700 text-xs">—</span>
-                  <span className="text-slate-700 text-xs">—</span>
-                  <span className="text-slate-700 text-xs">—</span>
-                </>
-              )}
 
               {/* ステータス */}
               <div>

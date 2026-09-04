@@ -265,7 +265,7 @@ async function PayoutContent() {
 
         <p className="text-[10px] text-slate-600 leading-relaxed">
           売上は入金から{HOLD_DAYS}日後に出金可能になります（振込手数料 ¥{TRANSFER_FEE.toLocaleString()}）。
-          入金から{FEE_WAIVER_DAYS}日を超えた分はチャージバックリスクが極小化するため、振込手数料無料で出金できます。
+          入金から{FEE_WAIVER_DAYS}日を超えた分はチャージバックリスクが極小化するため、振込手数料無料で出金できます（月{FREE_POOL_MONTHLY_LIMIT}回まで）。
         </p>
 
         {/* イベント別内訳 */}

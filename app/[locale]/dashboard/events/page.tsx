@@ -2,7 +2,7 @@ import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
-import { Loader2, Plus, Calendar, MapPin } from "lucide-react";
+import { Loader2, Plus, Calendar, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 const LIFECYCLE_CONFIG: Record<string, { label: string; className: string }> = {
@@ -22,21 +22,36 @@ const RELATION_CONFIG: Record<"organizer" | "agent", { label: string; className:
   agent:     { label: "エージェント", className: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
 };
 
-// 「終了」に送るのは、もう何もすることが残っていないイベントだけ。
-// 日程が過ぎていても精算が済んでいなければ「これから・対応中」に残す
-// （過去タブに埋もれて精算漏れが起きるのを防ぐため）。
-const CLOSED_STATUSES = new Set(["settled", "cancelled"]);
+// 終端状態。もう何も起きないので常に「終了」タブ。
+const CLOSED_STATUSES = ["settled", "cancelled"] as const;
+
+// api/cron/auto-cancel-unsettled の AUTH_EXPIRE_DAYS と同じ日数にすること。
+// 決済があるイベントは開催日+7日であのバッチが必ず cancelled にするため、
+// 7日を超えてなお終端状態でないものは「作ったが結局使われなかったイベント」
+// （下書きのまま放置・公開したが決済ゼロ）に限られる。これを「終了」に送る。
+// 精算待ちの7日間は「これから・対応中」に残るので精算漏れは起きない。
+const SETTLEMENT_GRACE_DAYS = 7;
+
+const PAGE_SIZE = 50;
+
+const EVENT_COLUMNS =
+  "event_id, title, venue, start_at, end_at, lifecycle_status, organizer_profile_id, agent_id";
 
 type Tab = "upcoming" | "past";
 
-async function EventsContent({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+async function EventsContent({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; page?: string }>;
+}) {
   const supabase = await createClient();
   const user = await getUser();
 
   if (!user) redirect("/auth/login");
 
-  const { tab: tabParam } = await searchParams;
+  const { tab: tabParam, page: pageParam } = await searchParams;
   const tab: Tab = tabParam === "past" ? "past" : "upcoming";
+  const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -44,31 +59,68 @@ async function EventsContent({ searchParams }: { searchParams: Promise<{ tab?: s
     .eq("profile_id", user.id)
     .single();
 
-  // organizer: 自分が主催するイベント
-  // agent: 自分が担当するイベント
-  // artist: 自分が出演するイベント
-  const { data: events } = await supabase
+  const cutoff = new Date(Date.now() - SETTLEMENT_GRACE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const closedList = `(${CLOSED_STATUSES.join(",")})`;
+
+  // upcoming と past は互いの補集合。片方を直したらもう片方も必ず直すこと。
+  //   past     = 終端状態 or 開催終了から7日超
+  //   upcoming = 終端状態でない and 開催終了から7日以内
+  const PAST_FILTER = `lifecycle_status.in.${closedList},end_at.lt."${cutoff}"`;
+
+  const from = (page - 1) * PAGE_SIZE;
+  const otherTab: Tab = tab === "past" ? "upcoming" : "past";
+
+  // organizer: 自分が主催するイベント / agent: 自分が担当するイベント
+  // artist: 自分が出演するイベント / admin: 全件（events_select ポリシー）
+  // 全件取得すると PostgREST の 1000件上限で古いものが黙って切り捨てられるため、
+  // 必ず .range() でページングする（cron/reconcile と同じ理由）。
+  const listQuery = supabase
     .from("events")
-    .select("event_id, title, venue, start_at, end_at, lifecycle_status, organizer_profile_id, agent_id")
-    .is("deleted_at", null)
-    .order("start_at", { ascending: false });
+    .select(EVENT_COLUMNS, { count: "exact" })
+    .is("deleted_at", null);
+  const otherCountQuery = supabase
+    .from("events")
+    .select("event_id", { count: "exact", head: true })
+    .is("deleted_at", null);
 
-  const all = events ?? [];
-  // これから・対応中: 開催が近い順（日程超過の未精算が先頭に来て対応を促す）
-  const upcoming = all
-    .filter((ev) => !CLOSED_STATUSES.has(ev.lifecycle_status))
-    .sort((a, b) => a.start_at.localeCompare(b.start_at));
-  // 終了: 直近に開催したものが先頭
-  const past = all.filter((ev) => CLOSED_STATUSES.has(ev.lifecycle_status));
+  const [{ data: events, count: shownCount }, { count: otherCount }] = await Promise.all([
+    (tab === "past"
+      ? listQuery.or(PAST_FILTER)
+      : listQuery.not("lifecycle_status", "in", closedList).gte("end_at", cutoff)
+    )
+      // これから: 開催が近い順（日程超過の未精算が先頭に来て対応を促す）
+      // 終了:     直近に開催したものが先頭
+      .order("start_at", { ascending: tab === "upcoming" })
+      // start_at は一意でない（同日開催が普通にある）。タイブレーカーを付けないと
+      // ページ間で同じ行が重複したり抜け落ちたりするため event_id で順序を確定させる。
+      .order("event_id", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1),
+    tab === "past"
+      ? otherCountQuery.not("lifecycle_status", "in", closedList).gte("end_at", cutoff)
+      : otherCountQuery.or(PAST_FILTER),
+  ]);
 
-  const shown = tab === "past" ? past : upcoming;
+  const total = shownCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const counts: Record<Tab, number> = {
+    [tab]: total,
+    [otherTab]: otherCount ?? 0,
+  } as Record<Tab, number>;
 
   // ロールは上位互換（agent/adminはorganizerの業務も行える）のため、organizer以上を許可
   const canCreate = ["organizer", "agent", "admin"].includes(profile?.role ?? "");
 
-  const TABS: { key: Tab; label: string; href: string; count: number }[] = [
-    { key: "upcoming", label: "これから・対応中", href: "/dashboard/events",          count: upcoming.length },
-    { key: "past",     label: "終了",             href: "/dashboard/events?tab=past", count: past.length },
+  const hrefFor = (t: Tab, p: number) => {
+    const params = new URLSearchParams();
+    if (t === "past") params.set("tab", "past");
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return qs ? `/dashboard/events?${qs}` : "/dashboard/events";
+  };
+
+  const TABS: { key: Tab; label: string }[] = [
+    { key: "upcoming", label: "これから・対応中" },
+    { key: "past",     label: "終了" },
   ];
 
   return (
@@ -92,7 +144,7 @@ async function EventsContent({ searchParams }: { searchParams: Promise<{ tab?: s
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={t.href}
+            href={hrefFor(t.key, 1)}
             scroll={false}
             className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-widest border-b-2 transition-colors ${
               tab === t.key
@@ -104,13 +156,13 @@ async function EventsContent({ searchParams }: { searchParams: Promise<{ tab?: s
             <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${
               tab === t.key ? "bg-pink-500/20 text-pink-300" : "bg-slate-800 text-slate-500"
             }`}>
-              {t.count}
+              {counts[t.key]}
             </span>
           </Link>
         ))}
       </div>
 
-      {shown.length === 0 ? (
+      {!events || events.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 text-center">
           <p className="text-slate-600 text-sm font-bold italic uppercase tracking-wider">
             {tab === "past" ? "No finished events." : "No events yet."}
@@ -118,7 +170,7 @@ async function EventsContent({ searchParams }: { searchParams: Promise<{ tab?: s
         </div>
       ) : (
         <div className="space-y-3">
-          {shown.map((ev) => {
+          {events.map((ev) => {
             const config = LIFECYCLE_CONFIG[ev.lifecycle_status] ?? LIFECYCLE_CONFIG.draft;
             const isOrganizer = ev.organizer_profile_id === user.id;
             const isAgent = ev.agent_id === user.id && !isOrganizer;
@@ -158,11 +210,48 @@ async function EventsContent({ searchParams }: { searchParams: Promise<{ tab?: s
           })}
         </div>
       )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <PagerLink href={hrefFor(tab, page - 1)} disabled={page <= 1}>
+            <ChevronLeft size={14} /> 前へ
+          </PagerLink>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+            {page} / {totalPages}
+          </span>
+          <PagerLink href={hrefFor(tab, page + 1)} disabled={page >= totalPages}>
+            次へ <ChevronRight size={14} />
+          </PagerLink>
+        </div>
+      )}
     </div>
   );
 }
 
-export default function EventsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+function PagerLink({
+  href, disabled, children,
+}: {
+  href: string; disabled: boolean; children: React.ReactNode;
+}) {
+  const className =
+    "flex items-center gap-1.5 px-4 py-2.5 rounded-xl border text-xs font-black uppercase tracking-widest transition-all";
+  if (disabled) {
+    return (
+      <span className={`${className} border-slate-900 text-slate-700 cursor-default`}>{children}</span>
+    );
+  }
+  return (
+    <Link href={href} scroll={false} className={`${className} border-slate-800 text-slate-300 hover:border-pink-500/40 hover:text-white`}>
+      {children}
+    </Link>
+  );
+}
+
+export default function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; page?: string }>;
+}) {
   return (
     <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-slate-600" size={32} /></div>}>
       <EventsContent searchParams={searchParams} />

@@ -17,6 +17,7 @@ import { EventHandoffCancelButton } from "@/components/event-handoff-cancel-butt
 import { LiveSalesBoard } from "@/components/live-sales-board";
 import { EventPayPayToggle } from "@/components/event-paypay-toggle";
 import { EventDetailTabs } from "@/components/event-detail-tabs";
+import { EventAgentContact } from "@/components/event-agent-contact";
 
 // QR一覧の商品タイプ表示ラベル（type + entrance/customのpayment_type）
 const CUSTOM_SUBTYPE_LABELS: Record<string, string> = {
@@ -51,7 +52,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     .from("events")
     .select(`
       event_id, title, venue, start_at, end_at, lifecycle_status, agent_id, paypay_enabled, organizer_profile_id,
-      agent:profiles!agent_id(display_name),
+      agent:profiles!agent_id(display_name, avatar_url),
       event_artists(
         artist_profile_id,
         status,
@@ -153,6 +154,10 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     name: a.organizer_name ?? a.display_name,
   }));
 
+  // 担当エージェントの連絡先（メール）を取得
+  const { data: { user: agentAuthUser } } = await adminClient.auth.admin.getUserById(event.agent_id);
+  const agentEmail = agentAuthUser?.email ?? null;
+
   const { data: evidences } = await adminClient
     .from("event_evidences")
     .select("evidence_id")
@@ -208,10 +213,15 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             </Link>
           )}
         </div>
-        {["draft", "review_requested"].includes(event.lifecycle_status) && (event.agent as any)?.display_name && (
-          <p className="text-[11px] text-slate-500 font-bold">
-            担当エージェント: <span className="text-slate-300">{(event.agent as any).display_name}</span>
-          </p>
+        {(event.agent as any)?.display_name && (
+          <div className="flex items-center gap-1.5 pt-1">
+            <span className="text-[11px] text-slate-500 font-bold">担当エージェント:</span>
+            <EventAgentContact
+              displayName={(event.agent as any).display_name}
+              avatarUrl={(event.agent as any).avatar_url ?? null}
+              email={agentEmail}
+            />
+          </div>
         )}
       </div>
 

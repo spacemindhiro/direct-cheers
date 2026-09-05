@@ -211,6 +211,10 @@ export async function POST(req: Request) {
     payment_intent_data: {
       ...(useOnBehalfOf ? { on_behalf_of: organizerConnectId! } : {}),
       ...(statementDescriptorSuffix ? { statement_descriptor_suffix: statementDescriptorSuffix } : {}),
+      // カード/Linkで支払ったカードをCustomerに保存し、同じメールで再訪した際に
+      // Stripeの画面側で選択肢として出せるようにする（2回目以降の再入力を省略）。
+      // PayPayは非対応のため対象外。
+      ...(payment_method !== "paypay" ? { setup_future_usage: "off_session" as const } : {}),
     },
     line_items: [
       {

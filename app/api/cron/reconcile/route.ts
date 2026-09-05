@@ -3,39 +3,9 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 import { acquirePiLock, releasePiLock } from "@/lib/reconcile-lock";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
-// SupabaseAdmin相当の型（admin.from(table)が返すPostgrestQueryBuilderにrange()を呼べれば良い）
-type AdminClient = ReturnType<typeof createAdminClient>;
-
-/**
- * PostgREST（Supabase）は .select() に .limit()/.range() を指定しない場合、
- * デフォルトで最大1000件しか返さない。settled状態のイベントは reconciled_at が
- * 更新されない限り恒久的にDBへ残るため、運用が続けば1000件を超える日が来る
- * （超えた瞬間、超過分のイベントの照合がサイレントに無視される）。
- * .range() でページングしながら全件を取得する。
- */
-async function fetchAllPages<T>(
-  admin: AdminClient,
-  table: string,
-  columns: string,
-  applyFilters: (q: any) => any,
-  pageSize = 1000,
-): Promise<T[]> {
-  const rows: T[] = [];
-  let from = 0;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { data, error } = await applyFilters(admin.from(table).select(columns))
-      .range(from, from + pageSize - 1);
-    if (error) throw error;
-    rows.push(...((data ?? []) as T[]));
-    if (!data || data.length < pageSize) break;
-    from += pageSize;
-  }
-  return rows;
-}
 
 // Vercel Cron から呼ばれる。Authorization ヘッダーで保護。
 export async function GET(req: Request) {

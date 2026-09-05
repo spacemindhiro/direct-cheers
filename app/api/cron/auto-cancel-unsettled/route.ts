@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
+import { fetchAllPages } from "@/lib/fetch-all-pages";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -19,10 +20,33 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   const now = new Date();
 
-  const { data: events } = await admin
-    .from("events")
-    .select("event_id, title, start_at, organizer_profile_id, agent_id")
-    .in("lifecycle_status", ["published", "ongoing", "ended"]);
+  // 締切: 開催日 + AUTH_EXPIRE_DAYS。now >= 締切 ⇔ start_at <= now - AUTH_EXPIRE_DAYS。
+  // 以前は全イベントを取得してJS側で now < deadline を判定していたが、
+  //   1) .range() が無いため PostgREST の1000件上限で古いイベントが黙って落ち、
+  //      オーソリが取り消されないまま放置される
+  //   2) 締切前のイベントまで毎日全件取得していた
+  // という2点があったため、締切をSQL側の条件に移したうえでページングする。
+  const cutoffIso = new Date(
+    now.getTime() - AUTH_EXPIRE_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  type TargetEvent = {
+    event_id: string;
+    title: string;
+    start_at: string;
+    organizer_profile_id: string | null;
+    agent_id: string | null;
+  };
+
+  const events = await fetchAllPages<TargetEvent>(
+    admin,
+    "events",
+    "event_id, title, start_at, organizer_profile_id, agent_id",
+    (q) =>
+      q
+        .in("lifecycle_status", ["published", "ongoing", "ended"])
+        .lte("start_at", cutoffIso),
+  );
 
   let cancelledEvents = 0;
   let cancelledTx = 0;
@@ -30,25 +54,33 @@ export async function GET(req: Request) {
   let debtRecorded = 0;
   const failures: FailureDetail[] = [];
 
-  for (const event of events ?? []) {
-    const deadline = new Date(new Date(event.start_at).getTime() + AUTH_EXPIRE_DAYS * 24 * 60 * 60 * 1000);
-    if (now < deadline) continue; // まだ締切前
+  for (const event of events) {
+    // 締切判定は上のSQL条件(start_at <= cutoffIso)で済んでいる
 
-    const { data: qrConfigs } = await admin
-      .from("qr_configs")
-      .select("qr_config_id")
-      .eq("event_id", event.event_id)
-      .is("deleted_at", null);
-    const qrIds = (qrConfigs ?? []).map((q) => q.qr_config_id);
+    const qrConfigs = await fetchAllPages<{ qr_config_id: string }>(
+      admin,
+      "qr_configs",
+      "qr_config_id",
+      (q) => q.eq("event_id", event.event_id).is("deleted_at", null),
+    );
+    const qrIds = qrConfigs.map((q) => q.qr_config_id);
     if (qrIds.length === 0) continue;
 
-    const { data: txs } = await admin
-      .from("transactions")
-      .select("transaction_id, stripe_payment_intent_id, total_gross_amount, stripe_fee")
-      .in("qr_config_id", qrIds)
-      .eq("status", "completed");
+    // 大規模イベントでは1イベントの決済が1000件を超えうる。ページングしないと
+    // 超過分のオーソリが取り消されないまま残る。
+    const txs = await fetchAllPages<{
+      transaction_id: string;
+      stripe_payment_intent_id: string | null;
+      total_gross_amount: number | null;
+      stripe_fee: number | null;
+    }>(
+      admin,
+      "transactions",
+      "transaction_id, stripe_payment_intent_id, total_gross_amount, stripe_fee",
+      (q) => q.in("qr_config_id", qrIds).eq("status", "completed"),
+    );
 
-    if (!txs || txs.length === 0) continue; // 決済が無いイベントは対象外(静かに終わっただけ)
+    if (txs.length === 0) continue; // 決済が無いイベントは対象外(静かに終わっただけ)
 
     let eventErrors = 0;
 

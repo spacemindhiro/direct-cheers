@@ -6,11 +6,22 @@ import { Loader2, Ticket, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { DigitalTicket } from "@/components/digital-ticket";
 import { WelcomeCheerPicker } from "@/components/welcome-cheer-picker";
+import { ListPager } from "@/components/list-pager";
 
-async function TicketsContent() {
+const PAGE_SIZE = 20;
+
+async function TicketsContent({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const supabase = await createClient();
   const user = await getUser();
   if (!user) redirect("/auth/login?redirect=/tickets");
+
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
+  const from = (page - 1) * PAGE_SIZE;
 
   const admin = createAdminClient();
   const selectQuery = `
@@ -25,29 +36,35 @@ async function TicketsContent() {
     )
   `;
 
-  const [byProfile, byEmail] = await Promise.all([
-    admin.from("tickets").select(selectQuery)
-      .eq("holder_profile_id", user.id)
-      .order("created_at", { ascending: false }).limit(50),
-    user.email
-      ? admin.from("tickets").select(selectQuery)
-          .eq("email", user.email)
-          .is("holder_profile_id", null)
-          .order("created_at", { ascending: false }).limit(50)
-      : Promise.resolve({ data: [] }),
-  ]);
+  // 持ち主の条件が2本立てなのは、ゲスト購入時に holder_profile_id が NULL のまま
+  // 発行されるため。あとから同じメアドで登録しても tickets を埋め直す処理は無く
+  // （埋めるのは TouchPay の card_fingerprint 経由のRPCのみ）、登録前に買った
+  // チケットは email 側でしか拾えない。
+  // 以前は2本のクエリを連結していたが、それぞれ独立にソートされるだけで全体の
+  // 並びが保証されず、かつ件数が増えると .limit() で黙って切り捨てられていた。
+  // 1本の or にまとめてDB側で並べ替え・ページングする。
+  const ownership = user.email
+    ? `holder_profile_id.eq.${user.id},and(email.eq."${user.email}",holder_profile_id.is.null)`
+    : `holder_profile_id.eq.${user.id}`;
 
-  const seen = new Set<string>();
-  const list = [...(byProfile.data ?? []), ...(byEmail.data ?? [])].filter((t: any) => {
-    if (seen.has(t.ticket_id)) return false;
-    seen.add(t.ticket_id);
-    return true;
-  });
+  const { data: list, count } = await admin
+    .from("tickets")
+    .select(selectQuery, { count: "exact" })
+    .or(ownership)
+    // チケットが要るのは購入日ではなく開催日。開催が新しい順に並べる。
+    // （order の event(...) は select に event の埋め込みがあることが前提）
+    .order("event(start_at)", { ascending: false })
+    // start_at は一意でない（同日開催が普通にある）。タイブレーカーを付けないと
+    // ページ間で同じ行が重複したり抜け落ちたりする。
+    .order("ticket_id", { ascending: true })
+    .range(from, from + PAGE_SIZE - 1);
+
+  const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
   // ウェルカムチア（2階transaction）: 同一PIのstripe_pi_sequence=1行をバッチ取得し、
   // 「本体+ウェルカムチア」の内訳表示に使う。無ければ従来通りのシンプル表示。
   const piIds = [...new Set(
-    list.map((t: any) => t.transaction?.stripe_payment_intent_id).filter((id): id is string => !!id)
+    (list ?? []).map((t: any) => t.transaction?.stripe_payment_intent_id).filter((id): id is string => !!id)
   )];
   const welcomeCheerByPi = new Map<string, number>();
   if (piIds.length > 0) {
@@ -77,7 +94,7 @@ async function TicketsContent() {
         <p className="text-sm text-slate-500">購入済みチケット一覧</p>
       </div>
 
-      {list.length === 0 ? (
+      {!list || list.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-12 text-center space-y-3">
           <div className="w-12 h-12 mx-auto bg-slate-800 rounded-2xl flex items-center justify-center">
             <Ticket size={20} className="text-slate-600" />
@@ -126,6 +143,12 @@ async function TicketsContent() {
         </div>
       )}
 
+      <ListPager
+        page={page}
+        totalPages={totalPages}
+        hrefFor={(p) => (p > 1 ? `/tickets?page=${p}` : "/tickets")}
+      />
+
       {/* フッター：ダッシュボードに戻る */}
       <div className="pt-4 border-t border-slate-800">
         <Link
@@ -139,14 +162,18 @@ async function TicketsContent() {
   );
 }
 
-export default function TicketsPage() {
+export default function TicketsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center py-20">
         <Loader2 size={28} className="text-indigo-400 animate-spin" />
       </div>
     }>
-      <TicketsContent />
+      <TicketsContent searchParams={searchParams} />
     </Suspense>
   );
 }

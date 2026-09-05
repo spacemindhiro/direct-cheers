@@ -2,8 +2,9 @@ import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
-import { Loader2, Plus, Calendar, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Plus, Calendar, MapPin } from "lucide-react";
 import Link from "next/link";
+import { ListPager } from "@/components/list-pager";
 
 const LIFECYCLE_CONFIG: Record<string, { label: string; className: string }> = {
   draft:                  { label: "下書き",      className: "text-slate-400 bg-slate-800 border-slate-700" },
@@ -211,39 +212,8 @@ async function EventsContent({
         </div>
       )}
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <PagerLink href={hrefFor(tab, page - 1)} disabled={page <= 1}>
-            <ChevronLeft size={14} /> 前へ
-          </PagerLink>
-          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-            {page} / {totalPages}
-          </span>
-          <PagerLink href={hrefFor(tab, page + 1)} disabled={page >= totalPages}>
-            次へ <ChevronRight size={14} />
-          </PagerLink>
-        </div>
-      )}
+      <ListPager page={page} totalPages={totalPages} hrefFor={(p) => hrefFor(tab, p)} />
     </div>
-  );
-}
-
-function PagerLink({
-  href, disabled, children,
-}: {
-  href: string; disabled: boolean; children: React.ReactNode;
-}) {
-  const className =
-    "flex items-center gap-1.5 px-4 py-2.5 rounded-xl border text-xs font-black uppercase tracking-widest transition-all";
-  if (disabled) {
-    return (
-      <span className={`${className} border-slate-900 text-slate-700 cursor-default`}>{children}</span>
-    );
-  }
-  return (
-    <Link href={href} scroll={false} className={`${className} border-slate-800 text-slate-300 hover:border-pink-500/40 hover:text-white`}>
-      {children}
-    </Link>
   );
 }
 

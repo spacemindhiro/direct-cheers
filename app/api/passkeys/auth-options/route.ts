@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
 import type { AuthenticatorTransportFuture } from "@simplewebauthn/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findAuthUserIdByEmail } from "@/lib/resolve-profile";
 
 export async function POST(req: Request) {
   const RP_ID = req.headers.get("host")?.split(":")[0] ?? "localhost";
@@ -24,9 +25,7 @@ export async function POST(req: Request) {
     // provisional に profile_id がない場合は auth users から直接解決
     if (!profileId) {
       try {
-        const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        const authUser = users.find((u) => u.email === email);
-        profileId = authUser?.id ?? null;
+        profileId = await findAuthUserIdByEmail(admin, email);
       } catch {
         // ignore
       }

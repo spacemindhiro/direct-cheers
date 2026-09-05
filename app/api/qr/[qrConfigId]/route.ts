@@ -73,6 +73,7 @@ export async function PATCH(
     quantity_selectable,
     bulk_pricing,
     auto_checkin,
+    bypass_validity,
   } = await req.json() as {
     label?: string;
     image_url?: string | null;
@@ -94,6 +95,7 @@ export async function PATCH(
     quantity_selectable?: boolean;
     bulk_pricing?: { min_quantity: number; unit_price: number }[] | null;
     auto_checkin?: boolean;
+    bypass_validity?: boolean;
   };
 
   const hasProductUpdates =
@@ -110,6 +112,10 @@ export async function PATCH(
     if (label !== undefined || recipient_profile_id !== undefined || recipient_name_context !== undefined || targets !== undefined || hasProductUpdates) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+  }
+  // 有効期間バイパスはadmin限定
+  if (bypass_validity !== undefined && !isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // 商品情報の取得（商品項目の更新・デフォルト金額・タッチ決済の検証で共用）
@@ -263,6 +269,7 @@ export async function PATCH(
   if (amount_step !== undefined) configUpdates.amount_step = amount_step;
   if (default_amount !== undefined) configUpdates.default_amount = default_amount;
   if (touchpay_enabled !== undefined) configUpdates.touchpay_enabled = touchpay_enabled;
+  if (bypass_validity !== undefined) configUpdates.bypass_validity = bypass_validity;
 
   // 金額レンジが変わり、既存のデフォルト金額が範囲外になる場合はクランプする
   if ((min_amount !== undefined || max_amount !== undefined) && default_amount === undefined) {

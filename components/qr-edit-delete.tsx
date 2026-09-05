@@ -58,6 +58,8 @@ export function QREditDelete({
   soldCount = 0,
   serialScopeLabel = "イベント通し",
   serialScopeInherited = false,
+  userRole = "",
+  currentBypassValidity = false,
 }: {
   qrConfigId: string;
   eventId: string;
@@ -95,6 +97,8 @@ export function QREditDelete({
   soldCount?: number;
   serialScopeLabel?: string;
   serialScopeInherited?: boolean;
+  userRole?: string;
+  currentBypassValidity?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -114,6 +118,9 @@ export function QREditDelete({
   const [amountStep, setAmountStep] = useState<100 | 500 | 1000>(currentAmountStep);
   const [defaultAmount, setDefaultAmount] = useState(currentDefaultAmount ?? minAmount);
   const [touchpayEnabled, setTouchpayEnabled] = useState(currentTouchpayEnabled);
+  // テスト用有効期間バイパス（admin限定）
+  const [bypassValidity, setBypassValidity] = useState(currentBypassValidity);
+  const isAdmin = userRole === "admin";
 
   // 商品項目（商品情報があるQRのみ編集可）
   const [prodName, setProdName] = useState(productName);
@@ -267,6 +274,7 @@ export function QREditDelete({
         if (isRange) body.default_amount = Math.min(Math.max(defaultAmount, newMin), newMax);
       }
       if (touchpayEligible) body.touchpay_enabled = touchpayEnabled;
+      if (isAdmin) body.bypass_validity = bypassValidity;
       if (productTypeLabel) {
         body.product_name = prodName.trim();
         body.min_amount = newMin;
@@ -309,6 +317,7 @@ export function QREditDelete({
     setRecipientRole(currentRecipientRole);
     setDefaultAmount(currentDefaultAmount ?? minAmount);
     setTouchpayEnabled(currentTouchpayEnabled);
+    setBypassValidity(currentBypassValidity);
     setProdName(productName);
     setEditMin(String(minAmount));
     setEditMax(String(maxAmount));
@@ -711,6 +720,25 @@ export function QREditDelete({
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${touchpayEnabled ? "bg-indigo-500" : "bg-slate-700"}`}
               >
                 <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${touchpayEnabled ? "translate-x-5" : "translate-x-1"}`} />
+              </button>
+            </div>
+          )}
+
+          {/* テスト用バイパス（admin限定） */}
+          {isAdmin && (
+            <div className="flex items-center justify-between bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3">
+              <div>
+                <p className="text-xs font-black text-amber-400">テスト用：有効期間バイパス</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">ONにするとイベント時間外でも決済可能になります</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={bypassValidity}
+                onClick={() => setBypassValidity((v) => !v)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${bypassValidity ? "bg-amber-500" : "bg-slate-700"}`}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${bypassValidity ? "translate-x-5" : "translate-x-1"}`} />
               </button>
             </div>
           )}

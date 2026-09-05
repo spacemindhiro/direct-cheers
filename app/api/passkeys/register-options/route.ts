@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findAuthUserIdByEmail } from "@/lib/resolve-profile";
 
 const RP_NAME = "Direct Cheers";
 
@@ -28,12 +29,11 @@ export async function POST(req: Request) {
   // provisional_users にいない場合は auth ユーザーから profile_id を解決
   let resolvedProfileId: string | null = provisional?.profile_id ?? null;
   if (!resolvedProfileId) {
-    const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const authUser = users.find(u => u.email === email);
-    if (!authUser && !provisional) {
+    const authUserId = await findAuthUserIdByEmail(admin, email);
+    if (!authUserId && !provisional) {
       return NextResponse.json({ error: "Email not found" }, { status: 404 });
     }
-    resolvedProfileId = authUser?.id ?? null;
+    resolvedProfileId = authUserId;
   }
 
   // 既存クレデンシャルを除外リストに

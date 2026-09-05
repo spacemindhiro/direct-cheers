@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findAuthUserIdByEmail } from "@/lib/resolve-profile";
 
 function getRpIdAndOrigin(req: Request): { rpId: string; origin: string } {
   const host = req.headers.get("host") ?? "localhost";
@@ -54,12 +55,11 @@ export async function POST(req: Request) {
   // provisional_users にいない場合は auth から直接解決
   let resolvedProfileId: string | null = provisional?.profile_id ?? null;
   if (!resolvedProfileId) {
-    const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    const authUser = users.find(u => u.email === email);
-    if (!authUser && !provisional) {
+    const resolvedAuthUserId = await findAuthUserIdByEmail(admin, email);
+    if (!resolvedAuthUserId && !provisional) {
       return NextResponse.json({ error: "Email not found" }, { status: 404 });
     }
-    resolvedProfileId = authUser?.id ?? null;
+    resolvedProfileId = resolvedAuthUserId;
   }
 
   // WebAuthn 検証
@@ -119,12 +119,11 @@ export async function POST(req: Request) {
 
     if (createErr) {
       // すでに auth ユーザーが存在する場合は検索して使用
-      const { data: { users } } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      const existingUser = users.find(u => u.email === email);
-      if (!existingUser) {
+      const existingUserId = await findAuthUserIdByEmail(admin, email);
+      if (!existingUserId) {
         return NextResponse.json({ error: createErr.message }, { status: 500 });
       }
-      authUserId = existingUser.id;
+      authUserId = existingUserId;
     } else if (!newUser.user) {
       return NextResponse.json({ error: "User creation failed" }, { status: 500 });
     } else {

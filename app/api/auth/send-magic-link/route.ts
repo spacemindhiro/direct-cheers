@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findAuthUserIdByEmail } from "@/lib/resolve-profile";
 
 /**
  * マジックリンク送信。クライアントから直接 supabase.auth.signInWithOtp() を
@@ -26,17 +27,10 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  // 既存ユーザーを検索（admin API に email フィルタが無いため一覧から探す）
-  let existingUserId: string | null = null;
-  let page = 1;
-  while (true) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-    if (error) break;
-    const found = data.users.find((u) => u.email === email);
-    if (found) { existingUserId = found.id; break; }
-    if (data.users.length < 1000) break;
-    page++;
-  }
+  // 既存ユーザーを検索。admin API に email フィルタが無いため以前は listUsers を
+  // ページングで舐めていたが、1通あたり最大 N/1000 回のAPI呼び出しになるため
+  // auth.users を直接1件引くRPCに寄せた。
+  const existingUserId = await findAuthUserIdByEmail(admin, email);
 
   if (existingUserId) {
     const { data: full } = await admin.auth.admin.getUserById(existingUserId);

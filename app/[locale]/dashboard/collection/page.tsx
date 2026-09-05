@@ -7,65 +7,59 @@ import { CheersCard } from "@/components/cheers-card";
 import { FollowButton } from "@/components/follow-button";
 import { resolveCheerCardIdentity } from "@/lib/statement-descriptor";
 import { Loader2, Layers } from "lucide-react";
+import { ListPager } from "@/components/list-pager";
 
-async function CollectionContent() {
+const PAGE_SIZE = 20;
+
+async function CollectionContent({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const supabase = await createClient();
   const user = await getUser();
   if (!user) redirect("/auth/login");
 
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
+  const from = (page - 1) * PAGE_SIZE;
+
   const admin = createAdminClient();
   const userEmail = user.email!;
 
+  // products を !inner にしているのは、商品種別の除外をJS側ではなくDB側で効かせるため。
+  // JS側で絞るとページごとの件数が不揃いになり、総件数も正しく出せない。
   const query = `
     transaction_id, total_gross_amount, created_at, sequence_number_in_event, sender_name, sender_comment,
     stripe_pi_sequence, welcome_cheer_locked_at,
-    product:products!product_id(name, type, artist_id),
+    product:products!product_id!inner(name, type, artist_id),
     qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, recipient_name_context, event:events!event_id(title, organizer_profile_id))
   `;
 
-  const [{ data: byProfile }, { data: byEmail }] = await Promise.all([
-    admin
-      .from("transactions")
-      .select(query)
-      .eq("sender_profile_id", user.id)
-      .eq("status", "completed")
-      .neq("transaction_type", "invitation")
-      .order("created_at", { ascending: false })
-      .limit(100),
-    admin
-      .from("transactions")
-      .select(query)
-      .eq("sender_email", userEmail)
-      .eq("status", "completed")
-      .neq("transaction_type", "invitation")
-      .order("created_at", { ascending: false })
-      .limit(100),
-  ]);
+  // 以前は sender_profile_id と sender_email で2本引いてJS側で重複排除・絞り込み・
+  // 再ソートしていた。1本の or にまとめてDB側で完結させる（重複排除も不要になる）。
+  // 2つ目の or はウェルカムチア（2階、stripe_pi_sequence=1）の未確定分の除外。
+  // 購入者が演者を確定するまで出さない。確定前に出すとデフォルト（主催者）宛の
+  // 状態が見えてしまい「後で選べる」という設計意図が崩れる。
+  // stripe_pi_sequence は NOT NULL DEFAULT 0 なので neq.1 で取りこぼしは出ない。
+  const { data: cards, count } = await admin
+    .from("transactions")
+    .select(query, { count: "exact" })
+    .eq("status", "completed")
+    .neq("transaction_type", "invitation")
+    .or(`sender_profile_id.eq.${user.id},sender_email.eq."${userEmail}"`)
+    .not("product.type", "in", "(entrance,custom)")
+    .or("stripe_pi_sequence.neq.1,welcome_cheer_locked_at.not.is.null")
+    .order("created_at", { ascending: false })
+    // created_at は一意でないためタイブレーカーを付けてページ間の重複・欠落を防ぐ
+    .order("transaction_id", { ascending: true })
+    .range(from, from + PAGE_SIZE - 1);
 
-  // 重複排除してマージ
-  const seen = new Set<string>();
-  const cards: any[] = [];
-  for (const tx of [...(byProfile ?? []), ...(byEmail ?? [])]) {
-    // ウェルカムチア（2階、stripe_pi_sequence=1）は購入者が演者を確定するまでは
-    // 非表示。確定前にコレクションへ出すと、まだデフォルト（主催者）宛の状態が
-    // 見えてしまい「後で選べる」という設計意図が崩れる。
-    const isUnconfirmedWelcomeCheer = (tx as any).stripe_pi_sequence === 1 && !(tx as any).welcome_cheer_locked_at;
-    if (
-      !seen.has(tx.transaction_id) &&
-      (tx.product as any)?.type !== "entrance" &&
-      (tx.product as any)?.type !== "custom" &&
-      !isUnconfirmedWelcomeCheer
-    ) {
-      seen.add(tx.transaction_id);
-      cards.push(tx);
-    }
-  }
-  cards.sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
+  const cardList: any[] = cards ?? [];
 
   // qr_config_thanks を一括取得
-  const qrConfigIds = [...new Set(cards.map((c) => c.qr_config?.qr_config_id).filter(Boolean))];
+  const qrConfigIds = [...new Set(cardList.map((c: any) => c.qr_config?.qr_config_id).filter(Boolean))];
   const { data: thanksRows } = qrConfigIds.length > 0
     ? await admin.from("qr_config_thanks")
         .select("qr_config_id, thanks_message, thanks_link_url, thanks_media_url, published_at")
@@ -78,9 +72,9 @@ async function CollectionContent() {
   );
 
   // 宛先・アーティスト・オーガナイザーを一括取得
-  const recipientIds  = [...new Set(cards.map((c) => c.qr_config?.recipient_profile_id).filter(Boolean))];
-  const artistIds     = [...new Set(cards.map((c) => (c.product as any)?.artist_id).filter(Boolean))];
-  const organizerIds  = [...new Set(cards.map((c) => (c.qr_config?.event as any)?.organizer_profile_id).filter(Boolean))];
+  const recipientIds  = [...new Set(cardList.map((c: any) => c.qr_config?.recipient_profile_id).filter(Boolean))];
+  const artistIds     = [...new Set(cardList.map((c: any) => (c.product as any)?.artist_id).filter(Boolean))];
+  const organizerIds  = [...new Set(cardList.map((c: any) => (c.qr_config?.event as any)?.organizer_profile_id).filter(Boolean))];
   const allProfileIds = [...new Set([...recipientIds, ...artistIds, ...organizerIds])];
   const { data: profileRows } = allProfileIds.length > 0
     ? await admin.from("profiles")
@@ -98,10 +92,10 @@ async function CollectionContent() {
         <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter">
           My Cards
         </h1>
-        <p className="text-sm text-slate-500">{cards.length} 枚のCheers カード</p>
+        <p className="text-sm text-slate-500">{count ?? 0} 枚のCheers カード</p>
       </div>
 
-      {cards.length === 0 ? (
+      {cardList.length === 0 ? (
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-12 text-center space-y-3">
           <div className="w-12 h-12 mx-auto bg-slate-800 rounded-2xl flex items-center justify-center">
             <Layers size={20} className="text-slate-600" />
@@ -115,7 +109,7 @@ async function CollectionContent() {
         </div>
       ) : (
         <div className="space-y-8">
-          {cards.map((tx: any) => {
+          {cardList.map((tx: any) => {
             const qrConfigId       = tx.qr_config?.qr_config_id;
             const thanks           = thanksMap.get(qrConfigId) ?? null;
             const recipientId      = tx.qr_config?.recipient_profile_id as string | undefined;
@@ -244,11 +238,21 @@ async function CollectionContent() {
           })}
         </div>
       )}
+
+      <ListPager
+        page={page}
+        totalPages={totalPages}
+        hrefFor={(p) => (p > 1 ? `/dashboard/collection?page=${p}` : "/dashboard/collection")}
+      />
     </div>
   );
 }
 
-export default function CollectionPage() {
+export default function CollectionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   return (
     <Suspense
       fallback={
@@ -257,7 +261,7 @@ export default function CollectionPage() {
         </div>
       }
     >
-      <CollectionContent />
+      <CollectionContent searchParams={searchParams} />
     </Suspense>
   );
 }

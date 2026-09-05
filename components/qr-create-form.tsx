@@ -1206,8 +1206,8 @@ export function QRCreateForm({
           )}
         </div>
 
-        {/* テスト用バイパス（organizer は使用不可） */}
-        {userRole !== "organizer" && <div className="flex items-center justify-between bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3">
+        {/* テスト用バイパス（admin限定） */}
+        {userRole === "admin" && <div className="flex items-center justify-between bg-amber-500/5 border border-amber-500/20 rounded-2xl px-4 py-3">
           <div>
             <p className="text-xs font-black text-amber-400">テスト用：有効期間バイパス</p>
             <p className="text-[10px] text-slate-500 mt-0.5">ONにするとイベント時間外でも決済可能になります</p>

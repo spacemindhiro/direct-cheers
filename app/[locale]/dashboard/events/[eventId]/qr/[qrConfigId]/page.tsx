@@ -342,6 +342,8 @@ async function QRDetailContent({
           soldCount={productInfo?.soldCount ?? 0}
           serialScopeLabel={serialScopeLabel}
           serialScopeInherited={serialScopeInherited}
+          userRole={profile?.role ?? ""}
+          currentBypassValidity={(qr as any).bypass_validity ?? false}
         />
       )}
 

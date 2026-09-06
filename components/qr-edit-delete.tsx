@@ -14,9 +14,9 @@ type DistTarget = { profile_id: string; ratio: string };
 type BulkTierInput = { min_quantity: string; unit_price: string };
 
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
-  A: "Aタイプ：5日前確定",
-  B: "Bタイプ：即時確定",
-  C: "Cタイプ：当日決済",
+  A: "前売事後確定タイプ：5日前確定",
+  B: "前売即時確定タイプ：即時確定",
+  C: "当日決済タイプ",
   V: "バウチャー（引換券）",
   D: "ドリンクチケット",
 };

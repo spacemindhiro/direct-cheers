@@ -11,9 +11,9 @@ import { CheersCard } from "@/components/cheers-card";
 import { WalletTicketPreview } from "@/components/wallet-ticket-preview";
 
 const PAYMENT_TYPE_INFO = {
-  A: { label: "Aタイプ：5日前確定", desc: "予約→カード保存、5日前に自動決済" },
-  B: { label: "Bタイプ：即時確定",  desc: "予約時に即時決済" },
-  C: { label: "Cタイプ：当日決済",  desc: "事前予約なし。当日タッチ決済またはQR自己決済のみ" },
+  A: { label: "前売事後確定タイプ：5日前確定", desc: "予約→カード保存、5日前に自動決済" },
+  B: { label: "前売即時確定タイプ：即時確定",  desc: "予約時に即時決済" },
+  C: { label: "当日決済タイプ",  desc: "事前予約なし。当日タッチ決済またはQR自己決済のみ" },
 };
 
 const CUSTOM_SUBTYPE_INFO = {
@@ -266,7 +266,7 @@ export function QRCreateForm({
     if (Math.abs(totalRatio - 100) > 0.1) { setError("配分比率の合計を100%にしてください"); return; }
     if (productType === "entrance" && (paymentType === "A" || paymentType === "B")) {
       if (!salesStartAt || !salesEndAt) {
-        setError("前売り（A/Bタイプ）は販売開始・終了日時を入力してください");
+        setError("前売り（前売事後確定／前売即時確定タイプ）は販売開始・終了日時を入力してください");
         return;
       }
       if (salesEndAt <= salesStartAt) {
@@ -275,7 +275,7 @@ export function QRCreateForm({
       }
     }
     if (!typeBBalanceOk) {
-      setError(`タイプBを利用するには残高が ¥${typeBReserveRequired.toLocaleString()} 以上必要です（現在: ¥${organizerBalance.toLocaleString()}）`);
+      setError(`前売即時確定タイプを利用するには残高が ¥${typeBReserveRequired.toLocaleString()} 以上必要です（現在: ¥${organizerBalance.toLocaleString()}）`);
       return;
     }
     if (productType === "entrance" && paymentType === "C" && welcomeCheerEnabled) {
@@ -877,7 +877,7 @@ export function QRCreateForm({
                     className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-indigo-500 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                   {paymentType === "B" && (
-                    <p className="text-[10px] text-slate-500">タイプBは手数料リスク算出のため販売上限数が必須です</p>
+                    <p className="text-[10px] text-slate-500">前売即時確定タイプは手数料リスク算出のため販売上限数が必須です</p>
                   )}
                 </div>
 
@@ -892,7 +892,7 @@ export function QRCreateForm({
                     </p>
                     {!typeBBalanceOk && (
                       <p className="text-[10px] text-red-400 mt-1">
-                        残高不足のためタイプBは利用できません。残高を増やしてから再試行してください。
+                        残高不足のため前売即時確定タイプは利用できません。残高を増やしてから再試行してください。
                       </p>
                     )}
                   </div>
@@ -907,7 +907,7 @@ export function QRCreateForm({
                       onChange={(e) => setTrackInventoryC(e.target.checked)}
                       className="w-4 h-4 rounded accent-indigo-500"
                     />
-                    <span className="text-xs text-slate-300 font-bold">Cタイプでも在庫管理する</span>
+                    <span className="text-xs text-slate-300 font-bold">当日決済タイプでも在庫管理する</span>
                   </label>
                 )}
 

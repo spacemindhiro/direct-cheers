@@ -216,6 +216,14 @@ export async function POST(req: Request) {
       // PayPayは非対応のため対象外。
       ...(payment_method !== "paypay" ? { setup_future_usage: "off_session" as const } : {}),
     },
+    // setup_future_usageだけではCheckoutの次回表示フィルタ(allow_redisplay: 'always'
+    // のみ表示、デフォルト)に引っかからず保存カードが選択肢に出ない。お客様に
+    // 「保存する」の同意チェックボックスを見せ、明示的に同意された場合のみ
+    // allow_redisplay: 'always'で保存されるようにする(チェックはStripe側の仕様で
+    // 常に未チェックがデフォルト。事前チェックを付けるAPIは提供されていない)。
+    ...(payment_method !== "paypay" ? {
+      saved_payment_method_options: { payment_method_save: "enabled" as const },
+    } : {}),
     line_items: [
       {
         price_data: {

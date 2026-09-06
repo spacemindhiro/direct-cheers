@@ -332,7 +332,7 @@ export function DigitalTicket({
                 onClick={() => setShowConfirm(true)}
                 className="w-full h-10 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-bold rounded-2xl transition-colors"
               >
-                予約をキャンセル
+キャンセルする
               </button>
             )}
           </div>

@@ -1,10 +1,4 @@
-export const TERMS_VERSIONS = {
-  base: '2026-06-27',
-  organizer: '2026-05-24',
-  agent: '2026-05-24',
-} as const;
-
-export type TermsType = keyof typeof TERMS_VERSIONS;
+export type TermsType = 'base' | 'organizer' | 'agent';
 
 export function getRequiredTermsTypes(role: string): TermsType[] {
   switch (role) {
@@ -21,7 +15,12 @@ export type TermsSection = {
   paragraphs: (string | string[])[];
 };
 
-export const TERMS_BASE: TermsSection[] = [
+type TermsVersionEntry = {
+  version: string;
+  sections: TermsSection[];
+};
+
+const TERMS_BASE_2026_06_27: TermsSection[] = [
   {
     article: '第1条',
     title: '本約款の目的',
@@ -91,7 +90,7 @@ export const TERMS_BASE: TermsSection[] = [
   },
 ];
 
-export const TERMS_ORGANIZER: TermsSection[] = [
+const TERMS_ORGANIZER_2026_05_24: TermsSection[] = [
   {
     article: '第9条',
     title: '循環決済・自作自演の厳禁',
@@ -135,7 +134,9 @@ export const TERMS_ORGANIZER: TermsSection[] = [
   },
 ];
 
-export const TERMS_AGENT: TermsSection[] = [
+// 2026-09-06改定より前の版。terms_agreements / signed_documents に
+// version: '2026-05-24' で紐づく既存の署名記録は、この内容を表示する。
+const TERMS_AGENT_2026_05_24: TermsSection[] = [
   {
     article: '第14条',
     title: 'オーガナイザー業務の包括的代理権と連帯責任',
@@ -162,10 +163,104 @@ export const TERMS_AGENT: TermsSection[] = [
   },
 ];
 
+const TERMS_AGENT_2026_09_06: TermsSection[] = [
+  {
+    article: '第14条',
+    title: 'オーガナイザー業務の包括的代理権と連帯責任',
+    paragraphs: [
+      'エージェントは、自身が担当する興行において、オーガナイザーの業務（QR作成、開催実績の提出、紛争対応等）を包括的に代理できるものとする。',
+      '代理業務において発生した一切の不備・不正（架空イベント、エビデンス未提出等）については、エージェントがオーガナイザーと連帯して、当プラットフォームに対しその全責任（返金および手数料負担）を負うものとする。',
+    ],
+  },
+  {
+    article: '第15条',
+    title: 'エージェント報酬の性質',
+    paragraphs: [
+      '当プラットフォームより再配分される所定の手数料（エージェント報酬）は、担当するオーガナイザーおよびアーティストの「教育」「管理」「不正防止」に対する広域ガバナンス維持義務、ならびに第17条に定める迅速なサポート対応義務の履行に対する対価である。',
+    ],
+  },
+  {
+    article: '第16条',
+    title: '広域ガバナンスの維持義務',
+    paragraphs: [
+      'エージェントは、自身が勧誘・オンボーディングした利用者が本約款を遵守するよう指導する義務を負う。',
+    ],
+  },
+  {
+    article: '第17条',
+    title: 'エージェントのサポート対応義務',
+    paragraphs: [
+      'エージェントは、自身が担当するオーガナイザーおよびイベントに対し、十分かつ迅速なサポート、ガバナンスならびに一次対応（問い合わせ対応、トラブル対応、進行管理その他プラットフォームの運営上必要な対応をいう。以下本条において同じ。）を提供する義務を負う。',
+      'エージェントは、過密なスケジュール、傷病その他自己の事情により前項の対応を適切に行うことが困難であるにもかかわらず、エージェント報酬を得る目的でこれを怠り、当プラットフォームが提供するサービスの品質を低下させる行為をしてはならない。',
+    ],
+  },
+  {
+    article: '第18条',
+    title: '対応困難時の辞退・引き継ぎおよび報酬受給権の帰属',
+    paragraphs: [
+      '前条の対応を自ら行うことが困難となったエージェントは、速やかに、当該オーガナイザーまたはイベントの担当を誠実に辞退するか、対応可能な別のエージェントへ担当を引き継がなければならない。',
+      '前項の辞退または引き継ぎが行われた場合、当該期間または当該イベントに係るエージェント報酬受給権は原担当エージェントについて消滅し、現に対応を行った代替エージェントに帰属する。',
+      'エージェントが前条の義務を怠り、かつ前項の辞退・引き継ぎも行わなかったと当プラットフォームが認めた場合、当プラットフォームは、当該エージェントに対するエージェント報酬の全部または一部を支払わないことができる。',
+    ],
+  },
+  {
+    article: '第19条',
+    title: '会場側エージェント権の優先',
+    paragraphs: [
+      'クラブ、ライブハウスその他特定の会場において開催されるイベントについて、当該会場（店舗・ハウス側）にエージェント権限が設定されている場合、当該会場側のエージェント権限は、個人のエージェント権限に優先する。',
+      '前項の場合、当該イベントの紐付けおよびエージェント報酬の配分は、当プラットフォームが定める基準に従い、会場側のエージェント権限を優先して取り扱うことがある。',
+    ],
+  },
+  {
+    article: '第20条',
+    title: 'エージェント報酬の算定および支払い',
+    paragraphs: [
+      'エージェントが担当するイベントにおいて発生したプラットフォーム利用料（第10条に定めるシステム利用手数料）のうち、当プラットフォームが定める割合をエージェント報酬として配分する。当該割合は、原則としてシステム利用手数料の50%（二分の一）とするが、事業フェーズ、施策その他当プラットフォームの合理的判断により変更されることがある。',
+      '前項の割合その他エージェント報酬の配分条件を変更する場合、当プラットフォームは、変更内容を事前に通知し、または管理画面上に掲載する方法により周知する。',
+      '前項の変更の効力が及ぶ範囲（進行中のイベントへの適用の要否を含む。）は、当プラットフォームが変更時に別途定めるところによる。',
+      '報酬の配分は、イベント終了後に当プラットフォームが実施する照合・精算手続きの完了をもって確定し、その後速やかに当該エージェントの登録口座へ送金する。',
+      '照合の結果、チャージバックの発生、架空イベントの認定、または開催実績の未提出等により当該イベントの売上が取り消された場合、エージェント報酬も同様に取り消される。すでに送金済みの場合は返還義務を負う。',
+    ],
+  },
+];
+
+// 条文本文の版履歴。改定時は必ず新しいエントリを「追加」し、既存エントリは書き換えない。
+// 過去にサインされた文書（terms_agreements.version / signed_documents.terms_versions）は
+// ここに残る当時のバージョンの本文を指し示し続けることで、後からの規約改定によって
+// 過去の署名内容が書き換わって見えることを防ぐ。
+export const TERMS_HISTORY: Record<TermsType, TermsVersionEntry[]> = {
+  base: [
+    { version: '2026-06-27', sections: TERMS_BASE_2026_06_27 },
+  ],
+  organizer: [
+    { version: '2026-05-24', sections: TERMS_ORGANIZER_2026_05_24 },
+  ],
+  agent: [
+    { version: '2026-05-24', sections: TERMS_AGENT_2026_05_24 },
+    { version: '2026-09-06', sections: TERMS_AGENT_2026_09_06 },
+  ],
+};
+
+export const TERMS_VERSIONS: Record<TermsType, string> = {
+  base: TERMS_HISTORY.base[TERMS_HISTORY.base.length - 1].version,
+  organizer: TERMS_HISTORY.organizer[TERMS_HISTORY.organizer.length - 1].version,
+  agent: TERMS_HISTORY.agent[TERMS_HISTORY.agent.length - 1].version,
+};
+
+// 指定バージョンの条文本文を返す。該当バージョンが履歴に無い場合（削除された旧バージョン等）は
+// 最新版にフォールバックする。
+export function getTermsSections(type: TermsType, version: string): TermsSection[] {
+  const history = TERMS_HISTORY[type];
+  const entry = history.find((e) => e.version === version);
+  return (entry ?? history[history.length - 1]).sections;
+}
+
+// 現行版（=これから同意/署名する内容）を表示する用途専用。
+// 過去に署名済みの文書を表示する場合は使わず、getTermsSections(type, 保存されたversion) を使うこと。
 export const TERMS_CONTENT: Record<TermsType, TermsSection[]> = {
-  base: TERMS_BASE,
-  organizer: TERMS_ORGANIZER,
-  agent: TERMS_AGENT,
+  base: getTermsSections('base', TERMS_VERSIONS.base),
+  organizer: getTermsSections('organizer', TERMS_VERSIONS.organizer),
+  agent: getTermsSections('agent', TERMS_VERSIONS.agent),
 };
 
 export const TERMS_LABELS: Record<TermsType, string> = {

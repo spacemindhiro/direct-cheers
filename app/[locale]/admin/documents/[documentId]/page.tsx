@@ -7,7 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { AdminBreadcrumb } from '@/components/admin-breadcrumb';
 import {
   TERMS_LABELS,
-  TERMS_CONTENT,
+  getTermsSections,
   type TermsType,
 } from '@/lib/terms';
 
@@ -20,15 +20,15 @@ const ROLE_LABELS: Record<string, string> = {
   admin:     '管理者',
 };
 
-function TermsText({ types }: { types: TermsType[] }) {
+function TermsText({ types, versions }: { types: TermsType[]; versions: Record<string, string> }) {
   return (
     <div className="space-y-12">
       {types.map((t) => (
         <div key={t} className="space-y-6">
           <p className="text-base font-black text-indigo-400 uppercase tracking-[0.3em]">
-            {TERMS_LABELS[t]}
+            {TERMS_LABELS[t]}　<span className="text-slate-500 tracking-normal normal-case">v{versions[t]}</span>
           </p>
-          {TERMS_CONTENT[t].map((section) => (
+          {getTermsSections(t, versions[t]).map((section) => (
             <div key={section.article} className="space-y-2">
               <p className="text-base font-black text-white">
                 {section.article}　{section.title}
@@ -61,7 +61,7 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
 
   const { data: doc } = await admin
     .from('signed_documents')
-    .select('id, signed_at, terms_types, terms_version, admin_signature_path, subject_signature_path, profile_id, signed_by')
+    .select('id, signed_at, terms_types, terms_versions, admin_signature_path, subject_signature_path, profile_id, signed_by')
     .eq('id', documentId)
     .single();
 
@@ -78,6 +78,7 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
   const signer     = signerResult.data;
   const signedAt   = new Date(doc.signed_at);
   const termsTypes = doc.terms_types as TermsType[];
+  const termsVersions = doc.terms_versions as Record<string, string>;
 
   const dateLabel = signedAt.toLocaleDateString('ja-JP', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', ...JST,
@@ -141,7 +142,9 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
           </div>
           <div className="flex items-start justify-between gap-4">
             <dt className="text-[10px] font-black text-slate-500 uppercase tracking-wider shrink-0">バージョン</dt>
-            <dd className="text-sm text-slate-300 text-right">{doc.terms_version}</dd>
+            <dd className="text-sm text-slate-300 text-right">
+              {termsTypes.map((t) => `${TERMS_LABELS[t] ?? t}: ${termsVersions[t] ?? '—'}`).join(' / ')}
+            </dd>
           </div>
           <div className="flex items-start justify-between gap-4">
             <dt className="text-[10px] font-black text-slate-500 uppercase tracking-wider shrink-0">文書ID</dt>
@@ -150,7 +153,7 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
         </dl>
 
         {/* 規約全文 */}
-        <TermsText types={termsTypes} />
+        <TermsText types={termsTypes} versions={termsVersions} />
 
         {/* 署名 */}
         <div className="space-y-6 pt-4 border-t border-slate-800">

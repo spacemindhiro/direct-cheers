@@ -72,7 +72,7 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
   // 署名済み書類を取得（最新1件）
   const { data: signedDoc } = await admin
     .from("signed_documents")
-    .select("id, signed_at, terms_types, terms_version")
+    .select("id, signed_at, terms_types")
     .eq("profile_id", profileId)
     .order("signed_at", { ascending: false })
     .limit(1)

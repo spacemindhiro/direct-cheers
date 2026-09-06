@@ -15,7 +15,7 @@ export async function GET(
 
   const { data: doc } = await admin
     .from('signed_documents')
-    .select('id, signed_at, terms_types, terms_version, admin_signature_path, subject_signature_path, profile_id, signed_by')
+    .select('id, signed_at, terms_types, terms_versions, admin_signature_path, subject_signature_path, profile_id, signed_by')
     .eq('id', documentId)
     .eq('profile_id', user.id)
     .single();
@@ -32,7 +32,7 @@ export async function GET(
     id:                   doc.id,
     signed_at:            doc.signed_at,
     terms_types:          doc.terms_types,
-    terms_version:        doc.terms_version,
+    terms_versions:       doc.terms_versions,
     admin_signature_url:  adminSig.data?.signedUrl ?? null,
     subject_signature_url: subjectSig.data?.signedUrl ?? null,
     signed_by_name:       signerResult.data?.display_name ?? null,

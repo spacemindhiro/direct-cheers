@@ -24,7 +24,7 @@ async function DocumentsContent() {
 
   const { data: rawDocs } = await admin
     .from('signed_documents')
-    .select('id, signed_at, terms_types, terms_version, profile_id, signed_by')
+    .select('id, signed_at, terms_types, profile_id, signed_by')
     .order('signed_at', { ascending: false });
 
   // profile_id と signed_by を一括で取得（同一テーブルへの二重 JOIN を回避）

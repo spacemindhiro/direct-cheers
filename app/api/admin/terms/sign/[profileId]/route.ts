@@ -54,13 +54,15 @@ export async function POST(
     return NextResponse.json({ error: 'Storage upload failed' }, { status: 500 });
   }
 
-  // signed_documents に記録
+  // signed_documents に記録（署名対象の各規約種別ごとに、署名時点のバージョンを個別に記録する）
+  const termsVersions = Object.fromEntries(termsTypes.map((t) => [t, TERMS_VERSIONS[t]]));
+
   const { error: docError } = await admin.from('signed_documents').insert({
     id: documentId,
     profile_id: profileId,
     signed_by: user.id,
     terms_types: termsTypes,
-    terms_version: TERMS_VERSIONS.base,
+    terms_versions: termsVersions,
     admin_signature_path: adminPath,
     subject_signature_path: subjectPath,
     signed_at: now,

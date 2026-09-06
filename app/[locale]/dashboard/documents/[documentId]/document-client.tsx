@@ -4,27 +4,27 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { TERMS_LABELS, TERMS_CONTENT, type TermsType } from '@/lib/terms';
+import { TERMS_LABELS, getTermsSections, type TermsType } from '@/lib/terms';
 
 type DocData = {
   id: string;
   signed_at: string;
   terms_types: TermsType[];
-  terms_version: string;
+  terms_versions: Record<string, string>;
   admin_signature_url: string | null;
   subject_signature_url: string | null;
   signed_by_name: string | null;
 };
 
-function TermsText({ types }: { types: TermsType[] }) {
+function TermsText({ types, versions }: { types: TermsType[]; versions: Record<string, string> }) {
   return (
     <div className="space-y-12">
       {types.map((t) => (
         <div key={t} className="space-y-6">
           <p className="text-base font-black text-indigo-400 uppercase tracking-[0.3em]">
-            {TERMS_LABELS[t]}
+            {TERMS_LABELS[t]}　<span className="text-slate-500 tracking-normal normal-case">v{versions[t]}</span>
           </p>
-          {TERMS_CONTENT[t].map((section) => (
+          {getTermsSections(t, versions[t]).map((section) => (
             <div key={section.article} className="space-y-2">
               <p className="text-base font-black text-white">
                 {section.article}　{section.title}
@@ -127,12 +127,14 @@ export function DocumentClient({ documentId }: { documentId: string }) {
           </div>
           <div className="flex items-start justify-between gap-4">
             <dt className="text-[10px] font-black text-slate-500 uppercase tracking-wider shrink-0">バージョン</dt>
-            <dd className="text-sm text-slate-300 text-right">{doc.terms_version}</dd>
+            <dd className="text-sm text-slate-300 text-right">
+              {doc.terms_types.map((t) => `${TERMS_LABELS[t] ?? t}: ${doc.terms_versions[t] ?? '—'}`).join(' / ')}
+            </dd>
           </div>
         </dl>
 
         {/* 規約全文 */}
-        <TermsText types={doc.terms_types} />
+        <TermsText types={doc.terms_types} versions={doc.terms_versions} />
 
         {/* 署名 */}
         <div className="space-y-6 pt-4 border-t border-slate-800">

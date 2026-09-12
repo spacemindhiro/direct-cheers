@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // GET /api/messages — ログインユーザーの会話一覧（最新メッセージ付き）
 export async function GET() {
@@ -29,8 +30,9 @@ export async function GET() {
   const conversationIds = (rows ?? []).map((r) => r.conversation_id);
   if (conversationIds.length === 0) return NextResponse.json([]);
 
-  // 各会話の相手参加者を取得
-  const { data: others } = await supabase
+  // 各会話の相手参加者を取得（他人のprofilesはRLSで見えないためadmin client）
+  const admin = createAdminClient();
+  const { data: others } = await admin
     .from("conversation_participants")
     .select("conversation_id, profile_id, profile:profiles!profile_id(display_name, avatar_url)")
     .in("conversation_id", conversationIds)

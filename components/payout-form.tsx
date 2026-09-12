@@ -13,6 +13,7 @@ type Props = {
 export function PayoutForm({ available, transferFee, pool }: Props) {
   const router = useRouter();
   const [amount, setAmount] = useState(available);
+  const [amountInput, setAmountInput] = useState(String(available));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -20,6 +21,24 @@ export function PayoutForm({ available, transferFee, pool }: Props) {
   const minAmount = pool === "free" ? 1 : transferFee + 1;
   const net = amount - transferFee;
   const canSubmit = amount >= minAmount && amount <= available && !loading;
+
+  const applyAmount = (value: number) => {
+    setAmount(value);
+    setAmountInput(String(value));
+  };
+
+  const handleAmountInputChange = (raw: string) => {
+    setAmountInput(raw);
+    const parsed = Number(raw.replace(/[^0-9]/g, ""));
+    if (raw.trim() !== "" && Number.isFinite(parsed)) {
+      setAmount(parsed);
+    }
+  };
+
+  const handleAmountInputBlur = () => {
+    const clamped = Math.min(Math.max(amount, minAmount), Math.max(available, minAmount));
+    applyAmount(clamped);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,11 +73,20 @@ export function PayoutForm({ available, transferFee, pool }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
-        <div className="flex justify-between items-baseline">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">出金額</p>
-          <p className="text-3xl font-black text-white italic tracking-tighter">
-            ¥{amount.toLocaleString()}
-          </p>
+        <div className="flex justify-between items-center gap-3">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0">出金額</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-black text-white">¥</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={amountInput}
+              onChange={(e) => handleAmountInputChange(e.target.value)}
+              onBlur={handleAmountInputBlur}
+              disabled={available < minAmount}
+              className="w-32 bg-transparent text-3xl font-black text-white italic tracking-tighter text-right focus:outline-none focus:ring-2 focus:ring-pink-500/50 rounded-lg disabled:opacity-40"
+            />
+          </div>
         </div>
         <input
           type="range"
@@ -66,7 +94,7 @@ export function PayoutForm({ available, transferFee, pool }: Props) {
           max={available}
           step={100}
           value={amount}
-          onChange={(e) => setAmount(Number(e.target.value))}
+          onChange={(e) => applyAmount(Number(e.target.value))}
           className="w-full accent-pink-500"
           disabled={available < minAmount}
         />

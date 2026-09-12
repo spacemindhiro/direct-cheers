@@ -77,6 +77,9 @@ export function ConversationThread({ conversationId }: { conversationId: string 
       const data: ThreadData = await res.json();
       setThread(data);
       setLoading(false);
+      // ヘッダーの未読バッジはサーバーコンポーネントで計算されているため、
+      // 既読更新(GET /api/messages/[id])後に明示的に再取得させる
+      router.refresh();
 
       const channel = supabase
         .channel(`messages:${conversationId}`)

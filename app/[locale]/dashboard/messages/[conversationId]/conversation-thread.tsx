@@ -124,6 +124,7 @@ export function ConversationThread({ conversationId }: { conversationId: string 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body }),
       });
+      router.refresh();
     } finally {
       setSending(false);
       inputRef.current?.focus();

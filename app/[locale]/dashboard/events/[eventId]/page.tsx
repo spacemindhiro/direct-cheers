@@ -158,6 +158,16 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const { data: { user: agentAuthUser } } = await adminClient.auth.admin.getUserById(event.agent_id);
   const agentEmail = agentAuthUser?.email ?? null;
 
+  // オーガナイザー↔エージェントの会話（あれば）
+  const { data: agentConversation } = isSelfOrganized
+    ? { data: null }
+    : await adminClient
+        .from("conversations")
+        .select("conversation_id")
+        .eq("event_id", eventId)
+        .eq("type", "agent")
+        .maybeSingle();
+
   const { data: evidences } = await adminClient
     .from("event_evidences")
     .select("evidence_id")
@@ -220,6 +230,9 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
               displayName={(event.agent as any).display_name}
               avatarUrl={(event.agent as any).avatar_url ?? null}
               email={agentEmail}
+              eventId={eventId}
+              conversationId={agentConversation?.conversation_id ?? null}
+              canMessage={!isSelfOrganized && (isEventOrganizer || isEventAgent || isAdmin)}
             />
           </div>
         )}

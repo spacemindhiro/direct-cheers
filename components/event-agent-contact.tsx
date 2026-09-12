@@ -1,6 +1,8 @@
 "use client";
 
-import { Mail } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Mail, MessageCircle, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,11 +13,38 @@ export function EventAgentContact({
   displayName,
   avatarUrl,
   email,
+  eventId,
+  conversationId,
+  canMessage,
 }: {
   displayName: string;
   avatarUrl: string | null;
   email: string | null;
+  eventId?: string;
+  conversationId?: string | null;
+  canMessage?: boolean;
 }) {
+  const router = useRouter();
+  const [opening, setOpening] = useState(false);
+
+  const handleMessageClick = async () => {
+    if (conversationId) {
+      router.push(`/dashboard/messages/${conversationId}`);
+      return;
+    }
+    if (!eventId) return;
+    setOpening(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/agent-conversation`, { method: "POST" });
+      if (res.ok) {
+        const { conversation_id } = await res.json();
+        router.push(`/dashboard/messages/${conversation_id}`);
+      }
+    } finally {
+      setOpening(false);
+    }
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -61,6 +90,17 @@ export function EventAgentContact({
             <p className="text-sm font-bold text-white">{displayName}</p>
           </div>
         </div>
+        {canMessage && (
+          <button
+            type="button"
+            onClick={handleMessageClick}
+            disabled={opening}
+            className="flex items-center gap-2 text-xs text-slate-300 hover:text-pink-400 transition-colors w-full mb-2 disabled:opacity-50"
+          >
+            {opening ? <Loader2 size={12} className="shrink-0 animate-spin" /> : <MessageCircle size={12} className="shrink-0" />}
+            メッセージを送る
+          </button>
+        )}
         {email ? (
           <a
             href={`mailto:${email}`}

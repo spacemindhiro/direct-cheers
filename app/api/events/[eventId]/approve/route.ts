@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEventApprovedEmail } from "@/lib/email/notification";
+import { ensureAgentConversation } from "@/lib/messaging/ensure-agent-conversation";
 
 export async function POST(
   _req: Request,
@@ -67,30 +68,9 @@ export async function POST(
   const admin = createAdminClient();
 
   // オーガナイザーと担当エージェントの会話を用意（本人が自分の担当の場合は不要）
-  if (event.agent_id && event.agent_id !== eventDetail.organizer_profile_id) {
-    try {
-      const { data: existingConv } = await admin
-        .from("conversations")
-        .select("conversation_id")
-        .eq("event_id", eventId)
-        .eq("type", "agent")
-        .maybeSingle();
-
-      if (!existingConv) {
-        const { data: conv } = await admin
-          .from("conversations")
-          .insert({ type: "agent", event_id: eventId })
-          .select("conversation_id")
-          .single();
-        if (conv) {
-          await admin.from("conversation_participants").insert([
-            { conversation_id: conv.conversation_id, profile_id: eventDetail.organizer_profile_id },
-            { conversation_id: conv.conversation_id, profile_id: event.agent_id },
-          ]);
-        }
-      }
-    } catch { /* メッセージング失敗は非致死的 */ }
-  }
+  try {
+    await ensureAgentConversation(eventId, eventDetail.organizer_profile_id, event.agent_id);
+  } catch { /* メッセージング失敗は非致死的 */ }
 
   // オーガナイザーへ承認通知 + メール
   try {

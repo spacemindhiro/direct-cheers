@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MessageCircle, Loader2, ChevronRight } from 'lucide-react';
+import { MessageCircle, Loader2, ChevronRight, CheckCheck } from 'lucide-react';
 
 type Conversation = {
   conversation_id: string;
@@ -45,8 +46,10 @@ function fmtTime(iso: string) {
 }
 
 export default function MessagesPage() {
+  const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
 
   useEffect(() => {
     fetch('/api/messages')
@@ -54,6 +57,21 @@ export default function MessagesPage() {
       .then(data => setConversations(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false));
   }, []);
+
+  const unreadTotal = conversations.filter(c => c.unread_count > 0).length;
+
+  const markAllRead = async () => {
+    setMarkingAllRead(true);
+    try {
+      const res = await fetch('/api/messages/read-all', { method: 'POST' });
+      if (res.ok) {
+        setConversations(prev => prev.map(c => ({ ...c, unread_count: 0 })));
+        router.refresh();
+      }
+    } finally {
+      setMarkingAllRead(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -65,9 +83,22 @@ export default function MessagesPage() {
 
   return (
     <div className="max-w-lg mx-auto space-y-5 pb-20">
-      <div>
-        <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Messages</p>
-        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">メッセージ</h1>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Messages</p>
+          <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">メッセージ</h1>
+        </div>
+        {unreadTotal > 0 && (
+          <button
+            type="button"
+            onClick={markAllRead}
+            disabled={markingAllRead}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700 rounded-full px-3 py-1.5 transition-colors disabled:opacity-50 shrink-0"
+          >
+            <CheckCheck size={14} />
+            すべて既読にする
+          </button>
+        )}
       </div>
 
       {conversations.length === 0 ? (

@@ -75,7 +75,7 @@ export function PayoutForm({ available, transferFee, pool }: Props) {
       <div className="space-y-2">
         <div className="flex justify-between items-center gap-3">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0">出金額</p>
-          <div className="flex items-baseline gap-1">
+          <div className="flex items-baseline gap-1 bg-slate-800/60 border border-slate-700 focus-within:border-pink-500/60 rounded-xl px-3 py-1.5">
             <span className="text-xl font-black text-white">¥</span>
             <input
               type="text"
@@ -84,7 +84,7 @@ export function PayoutForm({ available, transferFee, pool }: Props) {
               onChange={(e) => handleAmountInputChange(e.target.value)}
               onBlur={handleAmountInputBlur}
               disabled={available < minAmount}
-              className="w-32 bg-transparent text-3xl font-black text-white italic tracking-tighter text-right focus:outline-none focus:ring-2 focus:ring-pink-500/50 rounded-lg disabled:opacity-40"
+              className="w-28 bg-transparent text-3xl font-black text-white italic tracking-tighter text-right focus:outline-none disabled:opacity-40"
             />
           </div>
         </div>

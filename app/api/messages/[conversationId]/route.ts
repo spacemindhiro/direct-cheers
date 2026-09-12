@@ -61,18 +61,28 @@ export async function GET(_req: Request, { params }: Params) {
     .from("conversations")
     .select(`
       type,
+      event_id,
       event_artist:event_artists!event_artist_id(
         status,
         event_id,
         event:events!event_id(title, venue, start_at)
-      )
+      ),
+      event:events!event_id(title, venue, start_at)
     `)
     .eq("conversation_id", conversationId)
     .single();
 
+  const directEvent = Array.isArray(conv?.event) ? conv.event[0] : conv?.event;
+
   return NextResponse.json({
     conversation_id: conversationId,
-    context: conv,
+    context: conv
+      ? {
+          type: conv.type,
+          event_artist: conv.event_artist,
+          event: conv.event_artist ? null : (directEvent ? { event_id: conv.event_id, ...directEvent } : null),
+        }
+      : null,
     other_profile: otherProfile,
     messages: messages ?? [],
   });

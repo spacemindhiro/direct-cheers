@@ -158,6 +158,30 @@ export async function PATCH(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     eventDetail = data;
+
+    // オーガナイザー↔エージェントの会話の参加者を新エージェントに差し替える
+    try {
+      const { data: conv } = await admin
+        .from("conversations")
+        .select("conversation_id")
+        .eq("event_id", eventId)
+        .eq("type", "agent")
+        .maybeSingle();
+
+      if (conv) {
+        await admin
+          .from("conversation_participants")
+          .delete()
+          .eq("conversation_id", conv.conversation_id)
+          .eq("profile_id", handoff.from_agent_id);
+        await admin
+          .from("conversation_participants")
+          .upsert(
+            { conversation_id: conv.conversation_id, profile_id: user.id },
+            { onConflict: "conversation_id,profile_id" },
+          );
+      }
+    } catch { /* メッセージング失敗は非致死的 */ }
   } else {
     const { data } = await admin
       .from("events")

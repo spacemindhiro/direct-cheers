@@ -24,6 +24,7 @@ type ThreadData = {
       event_id: string;
       event: { title: string; venue: string | null; start_at: string | null } | null;
     } | null;
+    event: { event_id: string; title: string; venue: string | null; start_at: string | null } | null;
   } | null;
   other_profile: {
     profile_id: string;
@@ -148,8 +149,8 @@ export function ConversationThread({ conversationId }: { conversationId: string 
   if (!thread) return null;
 
   const other = thread.other_profile;
-  const eventInfo = thread.context?.event_artist?.event;
-  const eventId = thread.context?.event_artist?.event_id;
+  const eventInfo = thread.context?.event_artist?.event ?? thread.context?.event;
+  const eventId = thread.context?.event_artist?.event_id ?? thread.context?.event?.event_id;
 
   const grouped: { date: string; messages: Message[] }[] = [];
   for (const m of thread.messages) {

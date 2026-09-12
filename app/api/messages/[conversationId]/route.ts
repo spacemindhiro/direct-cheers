@@ -121,5 +121,13 @@ export async function POST(req: Request, { params }: Params) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // 送信した本人は当然その内容まで既読なので、自分のlast_read_atも進める
+  // （更新しないとヘッダーの未読バッジが自分の送信分で誤って点灯し続ける）
+  await supabase
+    .from("conversation_participants")
+    .update({ last_read_at: msg.created_at })
+    .eq("conversation_id", conversationId)
+    .eq("profile_id", user.id);
+
   return NextResponse.json(msg);
 }

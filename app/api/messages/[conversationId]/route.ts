@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type Params = { params: Promise<{ conversationId: string }> };
 
@@ -36,8 +37,9 @@ export async function GET(_req: Request, { params }: Params) {
     .eq("conversation_id", conversationId)
     .eq("profile_id", user.id);
 
-  // 相手プロフィール
-  const { data: others } = await supabase
+  // 相手プロフィール（他人のprofilesはRLSで見えないためadmin client）
+  const admin = createAdminClient();
+  const { data: others } = await admin
     .from("conversation_participants")
     .select("profile_id, profile:profiles!profile_id(display_name, avatar_url)")
     .eq("conversation_id", conversationId)

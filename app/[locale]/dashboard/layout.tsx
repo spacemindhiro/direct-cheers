@@ -7,7 +7,7 @@ import { LogoutButton } from '@/components/logout-button';
 import { Loader2, UserCircle, MessageCircle, BarChart2, HelpCircle } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
-import { getRequiredTermsTypes, TERMS_VERSIONS, type TermsType } from '@/lib/terms';
+import { getPendingDigitalTermsTypes } from '@/lib/terms-server';
 
 const STEP_UP_ROLES = ['artist', 'organizer', 'agent', 'admin'] as const;
 const STEP_UP_TTL_MS = 1440 * 60 * 1000; // 24時間
@@ -56,32 +56,21 @@ async function DashboardNav() {
   // ログイン自体はstep-up済みスタッフが生成したQRからのみ可能なため許容する。
   const isNativeApp = (headersList.get('user-agent') ?? '').includes('DirectCheersTouchpayApp');
   // currentPathには /ja 等のロケールプレフィックスが含まれるためstartsWithは不可
-  // (実際に無限リダイレクトを起こした。isDisplayPathと同様includesで判定する)
-  // 【2026-09-13 一時停止】/dashboard/termsへの強制リダイレクトがループを
-  // 起こしたため緊急停止。原因未特定のまま再度有効化しないこと。
-  // 経緯: isTermsPathをstartsWith→includesに直したが解消せず、STGで
-  // ループ継続を確認。原因調査中はこのブロックをコメントアウトで無効化する。
-  //
-  // const isTermsPath = currentPath.includes('/dashboard/terms');
-  // if (!isDisplayPath && !isNativeApp && !isTermsPath) {
-  //   const requiredTerms = getRequiredTermsTypes(profile.role);
-  //   if (requiredTerms.length > 0) {
-  //     const { data: termsAgreements } = await supabase
-  //       .from('terms_agreements')
-  //       .select('terms_type, version, agreed_at')
-  //       .eq('profile_id', user.id)
-  //       .in('terms_type', requiredTerms);
-  //     const digitallySignedTypes = new Set(
-  //       (termsAgreements ?? [])
-  //         .filter((a) => a.agreed_at && a.version === TERMS_VERSIONS[a.terms_type as TermsType])
-  //         .map((a) => a.terms_type)
-  //     );
-  //     const hasPendingTerms = requiredTerms.some((t) => !digitallySignedTypes.has(t));
-  //     if (hasPendingTerms) {
-  //       redirect(`/dashboard/terms?next=${encodeURIComponent(currentPath)}`);
-  //     }
-  //   }
-  // }
+  // (実際に無限リダイレクトを起こした原因の一つ。isDisplayPathと同様includesで判定する)
+  const isTermsPath = currentPath.includes('/dashboard/terms');
+
+  // 【2026-09-13 原因判明・再修正】以前はここでuser権限クライアントを使って
+  // terms_agreementsを読んでいたが、/dashboard/terms側(/api/terms/status)は
+  // admin clientで読んでおり、両者の判定が食い違うと「同意済みのはずが
+  // ここでは未同意に見える」→ /dashboard/termsへ戻す→「もう同意済みだから」
+  // で元のページへ戻す、を繰り返す無限ループになっていた。
+  // 同じadmin clientベースの判定(lib/terms-server.ts)に一本化して解消する。
+  if (!isDisplayPath && !isNativeApp && !isTermsPath) {
+    const pendingTerms = await getPendingDigitalTermsTypes(user.id, profile.role);
+    if (pendingTerms.length > 0) {
+      redirect(`/dashboard/terms?next=${encodeURIComponent(currentPath)}`);
+    }
+  }
 
   if (!isDisplayPath && !isNativeApp && STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
     const cookieStore = await cookies();

@@ -7,7 +7,7 @@ import { LogoutButton } from '@/components/logout-button';
 import { Loader2, UserCircle, MessageCircle, BarChart2, HelpCircle } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
-// import { getPendingDigitalTermsTypes } from '@/lib/terms-server'; // 2026-09-13 一時停止中
+import { getPendingDigitalTermsTypes } from '@/lib/terms-server';
 
 const STEP_UP_ROLES = ['artist', 'organizer', 'agent', 'admin'] as const;
 const STEP_UP_TTL_MS = 1440 * 60 * 1000; // 24時間
@@ -57,24 +57,14 @@ async function DashboardNav() {
   const isNativeApp = (headersList.get('user-agent') ?? '').includes('DirectCheersTouchpayApp');
   // currentPathには /ja 等のロケールプレフィックスが含まれるためstartsWithは不可
   // (実際に無限リダイレクトを起こした原因の一つ。isDisplayPathと同様includesで判定する)
-  // const isTermsPath = currentPath.includes('/dashboard/terms'); // 2026-09-13 一時停止中
-
-  // 【2026-09-13 原因判明・再修正】以前はここでuser権限クライアントを使って
-  // terms_agreementsを読んでいたが、/dashboard/terms側(/api/terms/status)は
-  // admin clientで読んでおり、両者の判定が食い違うと「同意済みのはずが
-  // ここでは未同意に見える」→ /dashboard/termsへ戻す→「もう同意済みだから」
-  // で元のページへ戻す、を繰り返す無限ループになっていた。
-  // 同じadmin clientベースの判定(lib/terms-server.ts)に一本化して解消する。
-  // 【2026-09-13 再度緊急停止】admin client統一後もループ再現との報告あり。
-  // 2回連続で憶測修正が外れたため、原因を実測(実際のURL遷移)できるまで
-  // 再度無効化する。次に有効化する時は必ず実URLの遷移ログを確認してから。
-  //
-  // if (!isDisplayPath && !isNativeApp && !isTermsPath) {
-  //   const pendingTerms = await getPendingDigitalTermsTypes(user.id, profile.role);
-  //   if (pendingTerms.length > 0) {
-  //     redirect(`/dashboard/terms?next=${encodeURIComponent(currentPath)}`);
-  //   }
-  // }
+  // 【2026-09-13 デバッグ用に一時再有効化・Playwrightで実測中】
+  const isTermsPath = currentPath.includes('/dashboard/terms');
+  if (!isDisplayPath && !isNativeApp && !isTermsPath) {
+    const pendingTerms = await getPendingDigitalTermsTypes(user.id, profile.role);
+    if (pendingTerms.length > 0) {
+      redirect(`/dashboard/terms?next=${encodeURIComponent(currentPath)}`);
+    }
+  }
 
   if (!isDisplayPath && !isNativeApp && STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
     const cookieStore = await cookies();

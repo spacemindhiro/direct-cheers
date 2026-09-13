@@ -793,7 +793,10 @@ async function DashboardContent() {
 
 
       {/* イベント */}
-      {['organizer', 'agent', 'admin'].includes(profile?.role ?? '') && (
+      {/* artistは自分が出演するイベント一覧、organizer/agent/adminは管理画面として/dashboard/eventsへ導線を出す。
+          過去出演イベントしか無いartistは他に/dashboard/eventsへ到達する手段が無く、
+          ここが無いと自分の過去イベントに一切たどり着けない重大な導線漏れだった。 */}
+      {['artist', 'organizer', 'agent', 'admin'].includes(profile?.role ?? '') && (
         <Link
           href="/dashboard/events"
           className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
@@ -805,7 +808,7 @@ async function DashboardContent() {
             <div>
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Events</p>
               <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-indigo-400 transition-colors">
-                イベント管理
+                {profile?.role === 'artist' ? '出演イベント一覧' : 'イベント管理'}
               </p>
             </div>
           </div>

@@ -41,6 +41,22 @@ export async function GET() {
     });
   }
 
+  // 過去に(現行と異なるバージョンで)同意した記録があるか。
+  // 「新規登録」ではなく「規約改定による再同意」であることを画面に
+  // 伝えるための判定材料。
+  const hasAnyPastAgreement = (agreements ?? []).some((a) => !!a.agreed_at);
+
+  // 型ごとに、現行版より前に同意した最新バージョン(あれば)を拾う。
+  // 画面側で新旧を突き合わせ、改定箇所だけを示すために使う。
+  const previousVersionByType = new Map<TermsType, string>();
+  for (const a of agreements ?? []) {
+    if (!a.agreed_at) continue;
+    const t = a.terms_type as TermsType;
+    if (a.version === TERMS_VERSIONS[t]) continue; // 現行版そのものは「過去」ではない
+    const current = previousVersionByType.get(t);
+    if (!current || a.version > current) previousVersionByType.set(t, a.version);
+  }
+
   const status: Record<TermsType, {
     required: boolean;
     digitallySigned: boolean;
@@ -48,6 +64,7 @@ export async function GET() {
     agreed: boolean;  // 完了条件を満たしているか
     needsConfirmation: boolean;
     version: string;
+    previousVersion: string | null;
   }> = {} as never;
 
   for (const t of ['base', 'organizer', 'agent'] as TermsType[]) {
@@ -64,10 +81,11 @@ export async function GET() {
       agreed,
       needsConfirmation,
       version: TERMS_VERSIONS[t],
+      previousVersion: previousVersionByType.get(t) ?? null,
     };
   }
 
   const allAgreed = required.every((t) => status[t].agreed);
 
-  return NextResponse.json({ role, status, allAgreed });
+  return NextResponse.json({ role, status, allAgreed, hasAnyPastAgreement });
 }

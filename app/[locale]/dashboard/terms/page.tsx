@@ -2,11 +2,12 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, CheckCircle2, ScrollText, ChevronDown, Clock, ShieldCheck } from 'lucide-react';
+import { Loader2, CheckCircle2, ScrollText, ChevronDown, Clock, ShieldCheck, Sparkles, ChevronRight } from 'lucide-react';
 import {
   TERMS_CONTENT,
   TERMS_LABELS,
   getRequiredTermsTypes,
+  getTermsSections,
   type TermsType,
   type TermsSection,
 } from '@/lib/terms';
@@ -18,18 +19,34 @@ type TermsStatusItem = {
   agreed: boolean;
   needsConfirmation: boolean;
   version: string;
+  previousVersion: string | null;
 };
 
 type StatusData = {
   role: string;
   status: Record<TermsType, TermsStatusItem>;
   allAgreed: boolean;
+  hasAnyPastAgreement: boolean;
 };
 
-function TermsArticle({ section }: { section: TermsSection }) {
+function TermsArticle({ section, diffState }: { section: TermsSection; diffState?: 'new' | 'changed' }) {
   return (
-    <div className="space-y-2">
-      <p className="text-xs font-black text-indigo-400 uppercase tracking-widest">{section.article}</p>
+    <div className={`space-y-2 ${diffState ? 'rounded-2xl border p-4 -mx-1' : ''} ${
+      diffState === 'new' ? 'border-pink-500/40 bg-pink-500/5' : diffState === 'changed' ? 'border-amber-500/40 bg-amber-500/5' : ''
+    }`}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <p className="text-xs font-black text-indigo-400 uppercase tracking-widest">{section.article}</p>
+        {diffState === 'new' && (
+          <span className="flex items-center gap-1 text-[10px] font-black text-pink-400 bg-pink-500/10 border border-pink-500/30 rounded-full px-2 py-0.5">
+            <Sparkles size={10} /> 新設
+          </span>
+        )}
+        {diffState === 'changed' && (
+          <span className="text-[10px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-full px-2 py-0.5">
+            変更あり
+          </span>
+        )}
+      </div>
       <p className="text-sm font-black text-white">{section.title}</p>
       <div className="space-y-2 text-[13px] text-slate-400 leading-relaxed">
         {section.paragraphs.map((p, i) => (
@@ -40,7 +57,24 @@ function TermsArticle({ section }: { section: TermsSection }) {
   );
 }
 
-function TermsBlock({ type, label, sections }: { type: TermsType; label: string; sections: TermsSection[] }) {
+function TermsBlock({ type, label, sections, previousVersion }: { type: TermsType; label: string; sections: TermsSection[]; previousVersion: string | null }) {
+  const [showUnchanged, setShowUnchanged] = useState(!previousVersion);
+
+  const oldSections = previousVersion ? getTermsSections(type, previousVersion) : null;
+  const oldByArticle = new Map((oldSections ?? []).map((s) => [s.article, s]));
+
+  const diffOf = (s: TermsSection): 'new' | 'changed' | undefined => {
+    if (!oldSections) return undefined;
+    const old = oldByArticle.get(s.article);
+    if (!old) return 'new';
+    if (JSON.stringify(old.paragraphs) !== JSON.stringify(s.paragraphs) || old.title !== s.title) return 'changed';
+    return undefined;
+  };
+
+  const changedSections = sections.filter((s) => diffOf(s));
+  const unchangedSections = sections.filter((s) => !diffOf(s));
+  const hasDiff = oldSections && changedSections.length > 0;
+
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-800">
@@ -48,11 +82,43 @@ function TermsBlock({ type, label, sections }: { type: TermsType; label: string;
           {type === 'base' ? 'General' : type === 'organizer' ? 'Organizer' : 'Agent'} Terms
         </p>
         <p className="text-sm font-black text-white mt-0.5">{label}</p>
+        {hasDiff && (
+          <p className="text-[10px] text-slate-500 mt-1">
+            前回同意版（{previousVersion}）からの変更点のみ強調表示しています
+          </p>
+        )}
       </div>
       <div className="px-6 py-5 space-y-6">
-        {sections.map((s) => (
-          <TermsArticle key={s.article} section={s} />
-        ))}
+        {hasDiff ? (
+          <>
+            {changedSections.map((s) => (
+              <TermsArticle key={s.article} section={s} diffState={diffOf(s)} />
+            ))}
+            {unchangedSections.length > 0 && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowUnchanged((v) => !v)}
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  <ChevronRight size={12} className={`transition-transform ${showUnchanged ? 'rotate-90' : ''}`} />
+                  変更のない条項を{showUnchanged ? '隠す' : `表示する（${unchangedSections.length}件）`}
+                </button>
+                {showUnchanged && (
+                  <div className="space-y-6 mt-4">
+                    {unchangedSections.map((s) => (
+                      <TermsArticle key={s.article} section={s} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          sections.map((s) => (
+            <TermsArticle key={s.article} section={s} diffState={diffOf(s)} />
+          ))
+        )}
       </div>
     </div>
   );
@@ -131,14 +197,30 @@ function TermsContent() {
   const pendingTypes = required.filter((t) => !statusData.status[t].digitallySigned);
 
   const hasAnythingToSign = pendingTypes.length > 0;
+  // 既存ユーザーの再同意か、新規の初回同意か（ボタン文言・案内文の出し分けに使う）
+  const isReconsent = statusData.hasAnyPastAgreement;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-20">
       <div className="space-y-1">
         <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Terms</p>
-        <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">利用規約への同意</h1>
+        <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
+          {isReconsent ? '利用規約が更新されました' : '利用規約への同意'}
+        </h1>
         <p className="text-sm text-slate-500">本サービスのご利用には、以下の規約への同意が必要です。必ずお読みください。</p>
       </div>
+
+      {isReconsent && (
+        <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-5 space-y-2">
+          <p className="text-xs font-black text-indigo-300">なぜこの画面が出ているのですか？</p>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            アカウントや権限に問題が起きたわけではありません。サービス内容の変更に伴い規約を改定したため、
+            すでにご利用中の方にも改めて同意をお願いしています。この画面は規約改定のたびにのみ表示される、
+            頻繁には起きないものです。変更箇所には目印を付けていますので、そこだけでもご確認ください。
+            同意いただくまでの間、既存のご利用には影響ありません。
+          </p>
+        </div>
+      )}
 
       {/* 完了済み */}
       {doneTypes.map((t) => (
@@ -174,7 +256,13 @@ function TermsContent() {
 
           <div className="space-y-6">
             {pendingTypes.map((t) => (
-              <TermsBlock key={t} type={t} label={TERMS_LABELS[t]} sections={TERMS_CONTENT[t]} />
+              <TermsBlock
+                key={t}
+                type={t}
+                label={TERMS_LABELS[t]}
+                sections={TERMS_CONTENT[t]}
+                previousVersion={statusData.status[t].previousVersion}
+              />
             ))}
           </div>
 
@@ -197,7 +285,7 @@ function TermsContent() {
             ) : (
               <>
                 <CheckCircle2 size={16} />
-                同意して口座登録へ進む
+                {isReconsent ? '同意して次へ進む' : '同意して口座登録へ進む'}
               </>
             )}
           </button>

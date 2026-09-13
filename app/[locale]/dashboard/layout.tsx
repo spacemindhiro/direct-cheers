@@ -7,7 +7,7 @@ import { LogoutButton } from '@/components/logout-button';
 import { Loader2, UserCircle, MessageCircle, BarChart2, HelpCircle } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
-import { getPendingDigitalTermsTypes } from '@/lib/terms-server';
+import { TermsGate } from '@/components/terms-gate';
 
 const STEP_UP_ROLES = ['artist', 'organizer', 'agent', 'admin'] as const;
 const STEP_UP_TTL_MS = 1440 * 60 * 1000; // 24時間
@@ -55,16 +55,10 @@ async function DashboardNav() {
   // 付与した識別子でこのアプリからのアクセスと判定し対象外にする。
   // ログイン自体はstep-up済みスタッフが生成したQRからのみ可能なため許容する。
   const isNativeApp = (headersList.get('user-agent') ?? '').includes('DirectCheersTouchpayApp');
-  // currentPathには /ja 等のロケールプレフィックスが含まれるためstartsWithは不可
-  // (実際に無限リダイレクトを起こした原因の一つ。isDisplayPathと同様includesで判定する)
-  // 【2026-09-13 デバッグ用に一時再有効化・Playwrightで実測中】
-  const isTermsPath = currentPath.includes('/dashboard/terms');
-  if (!isDisplayPath && !isNativeApp && !isTermsPath) {
-    const pendingTerms = await getPendingDigitalTermsTypes(user.id, profile.role);
-    if (pendingTerms.length > 0) {
-      redirect(`/dashboard/terms?next=${encodeURIComponent(currentPath)}`);
-    }
-  }
+  // 規約再同意の強制はTermsGate(クライアントコンポーネント)に委ねる。
+  // Suspense配下でredirect()するとNext.jsがmeta refreshによる疑似リダイレクトを
+  // 行い、リダイレクト先ページでx-pathnameが正しく再取得できず自己ループする
+  // ことを実測で確認したため、サーバー側では行わない。
 
   if (!isDisplayPath && !isNativeApp && STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
     const cookieStore = await cookies();
@@ -218,6 +212,7 @@ export default function DashboardLayout({
       <Suspense fallback={null}>
         <DashboardBreadcrumb />
       </Suspense>
+      <TermsGate />
       <main className="max-w-5xl mx-auto px-6 py-10">
         {children}
       </main>

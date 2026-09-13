@@ -212,7 +212,9 @@ export default function DashboardLayout({
       <Suspense fallback={null}>
         <DashboardBreadcrumb />
       </Suspense>
-      <TermsGate />
+      <Suspense fallback={null}>
+        <TermsGate />
+      </Suspense>
       <main className="max-w-5xl mx-auto px-6 py-10">
         {children}
       </main>

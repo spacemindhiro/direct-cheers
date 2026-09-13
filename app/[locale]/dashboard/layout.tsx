@@ -19,15 +19,27 @@ async function DashboardNav() {
 
   const [{ data: profile }, { data: convParticipants }] = await Promise.all([
     supabase.from('profiles').select('display_name, role, stripe_restricted, stripe_connect_id, avatar_url').eq('profile_id', user.id).maybeSingle(),
-    supabase.from('conversation_participants').select('last_read_at, conversations!inner(updated_at)').eq('profile_id', user.id),
+    supabase.from('conversation_participants').select('conversation_id, last_read_at').eq('profile_id', user.id),
   ]);
 
-  const unreadCount = (convParticipants ?? []).filter((cp) => {
-    const updatedAt = (cp.conversations as unknown as { updated_at: string } | null)?.updated_at;
-    if (!updatedAt) return false;
-    if (!cp.last_read_at) return true;
-    return new Date(updatedAt) > new Date(cp.last_read_at);
-  }).length;
+  const conversationIds = (convParticipants ?? []).map((cp) => cp.conversation_id);
+  // 未読は「相手からの実メッセージが自分のlast_read_at以降にあるか」で判定する。
+  // conversations.updated_at基準だと、無言招待などメッセージが1件も無い会話まで
+  // 未読扱いになってしまう（会話作成時にもupdated_atが立つため）。
+  const { data: otherMessages } = conversationIds.length > 0
+    ? await supabase
+        .from('messages')
+        .select('conversation_id, created_at')
+        .in('conversation_id', conversationIds)
+        .neq('sender_profile_id', user.id)
+    : { data: [] };
+
+  const unreadCount = (convParticipants ?? []).filter((cp) =>
+    (otherMessages ?? []).some((m) =>
+      m.conversation_id === cp.conversation_id &&
+      (!cp.last_read_at || new Date(m.created_at) > new Date(cp.last_read_at))
+    )
+  ).length;
 
   if (!profile) redirect('/onboarding/profile');
 

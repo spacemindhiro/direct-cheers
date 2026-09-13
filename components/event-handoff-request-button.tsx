@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, Loader2 } from "lucide-react";
+import { UserPlus, Loader2, Plus, Minus } from "lucide-react";
 
 export function EventHandoffRequestButton({
   eventId,
@@ -14,6 +14,7 @@ export function EventHandoffRequestButton({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState(candidates[0]?.profile_id ?? "");
+  const [expanded, setExpanded] = useState(false);
   const router = useRouter();
 
   if (candidates.length === 0) {
@@ -46,13 +47,33 @@ export function EventHandoffRequestButton({
     });
   };
 
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="w-full flex items-center justify-between gap-3 bg-slate-900 border border-slate-800 hover:border-violet-500/40 rounded-[1.5rem] p-5 transition-colors text-left"
+      >
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">このイベントだけ他のエージェントに任せる</p>
+        <Plus size={16} className="text-slate-500 shrink-0" />
+      </button>
+    );
+  }
+
   return (
     <div className="bg-violet-500/10 border border-violet-500/20 rounded-[1.5rem] p-5 space-y-3">
-      <div>
-        <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest">このイベントだけ他のエージェントに任せる</p>
-        <p className="text-sm font-black text-white mt-1">担当を引き継いでもらいたい相手を選んでください</p>
-        <p className="text-xs text-slate-500 mt-1">引き継ぎ対象はこのイベントのみです。</p>
-      </div>
+      <button
+        type="button"
+        onClick={() => setExpanded(false)}
+        className="w-full flex items-center justify-between gap-3 text-left"
+      >
+        <div>
+          <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest">このイベントだけ他のエージェントに任せる</p>
+          <p className="text-sm font-black text-white mt-1">担当を引き継いでもらいたい相手を選んでください</p>
+          <p className="text-xs text-slate-500 mt-1">引き継ぎ対象はこのイベントのみです。</p>
+        </div>
+        <Minus size={16} className="text-violet-400 shrink-0" />
+      </button>
       {error && <p className="text-xs text-red-400">{error}</p>}
       <div className="flex gap-3">
         <select

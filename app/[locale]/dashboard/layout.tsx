@@ -55,7 +55,9 @@ async function DashboardNav() {
   // 付与した識別子でこのアプリからのアクセスと判定し対象外にする。
   // ログイン自体はstep-up済みスタッフが生成したQRからのみ可能なため許容する。
   const isNativeApp = (headersList.get('user-agent') ?? '').includes('DirectCheersTouchpayApp');
-  const isTermsPath = currentPath.startsWith('/dashboard/terms');
+  // currentPathには /ja 等のロケールプレフィックスが含まれるためstartsWithは不可
+  // (実際に無限リダイレクトを起こした。isDisplayPathと同様includesで判定する)
+  const isTermsPath = currentPath.includes('/dashboard/terms');
 
   // 規約バージョンが上がった際、デジタル同意(チェックボックス)が済んで
   // いないロールを/dashboard/termsへ誘導する。admin確認(対面調印式、現在

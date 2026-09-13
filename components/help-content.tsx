@@ -23,6 +23,7 @@ import {
   BarChart2,
   XCircle,
   Zap,
+  ListChecks,
 } from "lucide-react";
 
 export type HelpRole = "user" | "organizer" | "artist";
@@ -58,6 +59,18 @@ function Section({
       <div className="text-xs text-slate-300 leading-relaxed space-y-2 pl-12">
         {children}
       </div>
+    </div>
+  );
+}
+
+// 当日オペレーションの時系列ブロック。ラベル（前日まで／開場前…）と箇条書きをひとまとまりにする
+function Phase({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="inline-block text-[10px] font-black tracking-widest text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full px-2.5 py-0.5">
+        {label}
+      </p>
+      <ul className="list-disc pl-4 space-y-1">{children}</ul>
     </div>
   );
 }
@@ -372,8 +385,51 @@ function OrganizerGuide() {
       </Section>
 
       <Section
+        icon={<ListChecks size={16} className="text-pink-500" />}
+        title="④ 当日オペレーション（時系列）"
+        subtitle="Day-of Checklist"
+      >
+        <p>当日スタッフが手元で見る前提の、時間順のチェックリストです。③の機能説明とあわせてご覧ください。</p>
+
+        <Phase label="前日まで">
+          <li><b>口座登録が「審査完了 — 受取可能」になっているか確認</b>。未完了だと当日のすべての決済がエラーになります（⑥参照）</li>
+          <li>QR詳細画面の「印刷する」から掲示用QRを印刷。汚れ・紛失に備えて予備を数枚</li>
+          <li>子機タブレットを使う場合：親機パネルでタイムテーブルを登録し、子機にはダッシュボードの「別端末でログイン」のQRでログインさせておく（子機にパスキーは登録しない）</li>
+          <li>タッチ決済を使う場合：<b>カードリーダーのファームウェア更新を前日までに済ませる</b>。初回接続時に必須更新が自動で走り、数分〜10分以上かかります。更新中は電源を切らず、Wi-Fiの安定した場所で行ってください。当日現地で初めて接続するのは避けてください</li>
+          <li>開催証跡用に<b>「当日写真を撮る担当」を決める</b>。写真がないとイベント終了後の精算に進めません（⑤参照）</li>
+        </Phase>
+
+        <Phase label="開場前（現地）">
+          <li>QRをテーブル・壁・受付に掲示。電波の弱い会場では、入口付近でスタッフのスマホから1回テスト決済して、決済画面が開くか確認</li>
+          <li>子機：表示を確認し、画面の自動ロックをOFF、充電を確保</li>
+          <li>タッチ決済：Touch Pay画面の「カードリーダーに接続」で接続。接続中に端末側でペア設定のダイアログが出たら<b>すぐ承認</b>してください（放置すると接続に失敗します）。子機が起動していないとサインアップQRを出せないので、先に子機を起動</li>
+          <li>入場スキャナ：受付スタッフのスマホでイベント詳細の「入場スキャナを起動」を開き、カメラの使用を許可</li>
+        </Phase>
+
+        <Phase label="開場中">
+          <li>入場：お客様のチケットQRを読み取り、結果で対応を分けます。<b>「入場OK」</b>→通す／<b>「入場済みです」</b>→すでに入場済み。本人確認のうえ判断／<b>「無効なチケット」</b>→キャンセル済みや失効。決済し直してもらう</li>
+          <li>当日券（タッチ決済）：商品と人数を選ぶ →「カードをタッチしてください」でお客様にカードやスマホをかざしてもらう → 完了。<b>初めてのお客様には子機のサインアップQRを読み取ってもらい</b>、cheers!カードを受け取れるようにします</li>
+          <li>売上はイベント詳細の「売上・決済」タブでリアルタイムに確認できます</li>
+          <li>誤販売はその場で「売上・決済」タブから取消（精算前ならオーガナイザー自身で可能。③参照）</li>
+        </Phase>
+
+        <Phase label="トラブル時">
+          <li>お客様「Apple Payのボタンが出ない」→ LINEなどアプリ内ブラウザで開いています。メニューの「他のブラウザで開く」からSafari／Chromeで開き直してもらう</li>
+          <li>お客様「メールが届かない」→ 迷惑メールフォルダを確認。なければログイン画面から再送</li>
+          <li>親機・子機がログアウトした → ダッシュボードの「別端末でログイン」のQRを読ませて再ログイン</li>
+          <li>カードリーダーが見つからない（30秒待っても接続しない）→ リーダーの電源を入れ直して「カードリーダーに接続」をやり直す。復旧しなければ<b>QR自己決済に切り替えて続行</b>（機材なしで運用できます）</li>
+          <li>会場の電波が弱い → QR自己決済はお客様自身の回線で動くので影響を受けにくい。回線が必要なのはスタッフ側（子機・親機・入場スキャナ・タッチ決済）だけです</li>
+        </Phase>
+
+        <Phase label="終了後（その場で）">
+          <li>撮った写真と動員数を、できればその日のうちに「開催証跡を提出して承認依頼する」から提出</li>
+          <li><b>開催から7日以内に精算が完了しないと、決済がすべて自動取消されイベントは中止扱いになります</b>（⑤参照）。提出を後回しにしないでください</li>
+        </Phase>
+      </Section>
+
+      <Section
         icon={<FileCheck2 size={16} className="text-pink-500" />}
-        title="④ エビデンス提出"
+        title="⑤ エビデンス提出"
         subtitle="Evidence"
       >
         <p>イベント終了後、「開催証跡を提出して承認依頼する」から、写真（最大10枚）・動員数・コメント（任意）を提出します。</p>
@@ -393,7 +449,7 @@ function OrganizerGuide() {
 
       <Section
         icon={<Landmark size={16} className="text-pink-500" />}
-        title="⑤ 口座登録"
+        title="⑥ 口座登録"
         subtitle="Bank Setup"
       >
         <p>「プロフィール」の口座登録から、Stripe Connectでの本人確認・口座登録に進みます（種別選択→氏名→生年月日・電話→住所→事業情報の5ステップ）。</p>
@@ -408,7 +464,7 @@ function OrganizerGuide() {
 
       <Section
         icon={<Wallet size={16} className="text-pink-500" />}
-        title="⑥ 出金"
+        title="⑦ 出金"
         subtitle="Payout"
       >
         <p>「出金管理」で「出金可能」「保留中」「凍結中」の残高を確認できます。売上は決済が行われてから2週間（14日）後に出金可能になり、振込手数料¥500が差し引かれます。</p>
@@ -418,7 +474,7 @@ function OrganizerGuide() {
 
       <Section
         icon={<TrendingUp size={16} className="text-pink-500" />}
-        title="⑦ 売上・精算の確認"
+        title="⑧ 売上・精算の確認"
         subtitle="Statistics / Income / Settlement"
       >
         <ul className="list-disc pl-4 space-y-1">
@@ -430,7 +486,7 @@ function OrganizerGuide() {
 
       <Section
         icon={<UserPlus size={16} className="text-pink-500" />}
-        title="⑧ 出演依頼"
+        title="⑨ 出演依頼"
         subtitle="Lineup Invitations"
       >
         <p>すでにDirect Cheersに登録済みのアーティストをイベントに呼ぶための機能です。</p>
@@ -443,7 +499,7 @@ function OrganizerGuide() {
 
       <Section
         icon={<UserPlus size={16} className="text-indigo-400" />}
-        title="⑨ 会員招待"
+        title="⑩ 会員招待"
         subtitle="Invitations（招待管理）"
       >
         <p>まだ「アーティスト」ロールを持っていない人を、新規にアーティストとして招待するための、出演依頼とは別の機能です。招待には2つのやり方があります。</p>
@@ -451,13 +507,13 @@ function OrganizerGuide() {
           <li><b>すでにDirect Cheersに登録済みの人を招待する場合</b>: 名前で検索して選ぶと、その人のアカウントに招待が届きます（一般ユーザーとして使っていた人をアーティストに切り替える場合など）</li>
           <li><b>まだDirect Cheersに登録していない人を招待する場合</b>: 相手のメールアドレスを直接入力して招待リンクを発行します（有効期限30日、メールも自動送信されます。まれに失敗した場合は招待リンクを手動で共有してください）。リンクを踏むとその場でアカウントが作成され、アーティストとして登録されます</li>
           <li>いずれの場合も、招待を承諾した時点でロールが「アーティスト」に切り替わります（すでにより上位のロールを持っている人には影響しません）</li>
-          <li>先にアーティストを招待して登録してもらってから、上記「⑧ 出演依頼」で個別のイベントに呼ぶ、という順序で使います</li>
+          <li>先にアーティストを招待して登録してもらってから、上記「⑨ 出演依頼」で個別のイベントに呼ぶ、という順序で使います</li>
         </ul>
       </Section>
 
       <Section
         icon={<XCircle size={16} className="text-red-400" />}
-        title="⑩ イベントの中止"
+        title="⑪ イベントの中止"
         subtitle="Cancellation"
       >
         <p>イベント詳細ページの「中止申請」から中止の手続きができます。</p>

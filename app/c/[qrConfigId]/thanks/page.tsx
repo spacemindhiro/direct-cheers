@@ -516,6 +516,7 @@ function ThanksContent() {
                   {PasskeySetup && <PasskeySetup
                     email={email}
                     mode="register"
+                    showTermsNotice
                     deviceName={getDeviceLabel()}
                     onSuccess={() => {
                     setPasskeyDone(true);

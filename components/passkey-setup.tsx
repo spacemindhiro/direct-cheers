@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser";
 import { createBrowserClient } from "@supabase/ssr";
 import { Fingerprint, Loader2, CheckCircle2, ChevronRight } from "lucide-react";
@@ -11,6 +12,11 @@ type Props = {
   deviceName?: string;
   buttonLabel?: string;
   onSuccess?: () => void;
+  // このパスキー登録が「新規アカウント作成そのもの」である場合のみtrueにする
+  // (決済後の新規顧客登録など、sign-up-form.tsx等で事前に規約提示済みで
+  // ないケース)。既存アカウントへのデバイス追加やアカウント復旧では
+  // 新規登録ではないため表示しない。
+  showTermsNotice?: boolean;
 };
 
 // stepup系API（getUser()必須）は、放置端末で裏のセッションが切れていると
@@ -36,7 +42,7 @@ function getDeviceLabel(): string {
   return "";
 }
 
-export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }: Props) {
+export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess, showTermsNotice }: Props) {
   const resolvedDeviceName = deviceName || getDeviceLabel() || undefined;
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -239,6 +245,15 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess }
 
   return (
     <div className="space-y-3">
+      {mode === "register" && showTermsNotice && (
+        <p className="text-[10px] text-slate-600 leading-relaxed text-center">
+          登録することで
+          <Link href="/terms" className="text-slate-500 hover:text-pink-500 transition-colors">利用規約</Link>
+          および
+          <Link href="/privacy" className="text-slate-500 hover:text-pink-500 transition-colors">プライバシーポリシー</Link>
+          に同意したものとみなします
+        </p>
+      )}
       <button
         type="button"
         disabled={status === "loading" || (mode === "register" && !email) || (mode === "stepup" && !email)}

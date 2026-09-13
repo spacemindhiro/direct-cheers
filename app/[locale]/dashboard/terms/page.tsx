@@ -137,7 +137,7 @@ function TermsContent() {
       <div className="space-y-1">
         <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Terms</p>
         <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">利用規約への同意</h1>
-        <p className="text-sm text-slate-500">口座登録（オンボーディング）の前に、以下の規約を必ずお読みください。</p>
+        <p className="text-sm text-slate-500">本サービスのご利用には、以下の規約への同意が必要です。必ずお読みください。</p>
       </div>
 
       {/* 完了済み */}

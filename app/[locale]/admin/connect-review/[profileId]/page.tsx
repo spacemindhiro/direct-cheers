@@ -8,7 +8,7 @@ import Link from "next/link";
 import Stripe from "stripe";
 import { AdminConnectReview } from "@/components/admin-connect-review";
 import { AdminMessagesPanel } from "@/components/admin-messages-panel";
-import { getRequiredTermsTypes } from "@/lib/terms";
+import { getRequiredTermsTypes, CEREMONY_REQUIRED_TYPES } from "@/lib/terms";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -87,9 +87,10 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
 
   const inviter = (invitation?.inviter as unknown as { display_name: string | null; role: string }) ?? null;
 
-  // 調印式（対面面談・admin確認）が必要なのはorganizer/agentのみ。
-  // artistはbase規約のデジタル同意のみで完了するため対象外。
-  const requiresSigning = getRequiredTermsTypes(profile.role).some((t) => t === "organizer" || t === "agent");
+  // 調印式（対面面談・admin確認）が必要なのはagentのみ(2026-09-13〜)。
+  // organizerは対面確認が実運用上機能しなかったため撤廃し、baseと同じく
+  // デジタル同意のみで完結する(/dashboard/termsでの自己同意)。
+  const requiresSigning = getRequiredTermsTypes(profile.role).some((t) => CEREMONY_REQUIRED_TYPES.includes(t));
 
   const socialLinks = (profile.social_links as Record<string, string> | null) ?? {};
   const dob = profile.dob_year && profile.dob_month && profile.dob_day

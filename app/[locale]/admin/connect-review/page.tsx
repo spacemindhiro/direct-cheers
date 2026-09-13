@@ -7,7 +7,7 @@ import { ShieldCheck, Loader2, Clock, FileSignature, ChevronRight } from "lucide
 import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import { AdminConnectReview } from "@/components/admin-connect-review";
 import { AdminRetryPendingTransferButton } from "@/components/admin-retry-pending-transfer-button";
-import { getRequiredTermsTypes } from "@/lib/terms";
+import { getRequiredTermsTypes, CEREMONY_REQUIRED_TYPES } from "@/lib/terms";
 
 const ROLE_LABELS: Record<string, string> = {
   agent: "エージェント",
@@ -39,7 +39,8 @@ async function ConnectReviewContent() {
     .eq("verification_status", "pending")
     .order("created_at", { ascending: true });
 
-  // 口座承認は完了済みだが、organizer/agentに必須の調印式（対面確認）がまだの人。
+  // 口座承認は完了済みだが、agentに必須の調印式（対面確認）がまだの人
+  // (2026-09-13〜、organizerは対面確認撤廃のため対象外)。
   // 口座承認と調印式は独立した手続きで、調印式を後回しにして口座だけ先に
   // 有効化したいケース（例: オーガナイザー登録したが最初はアーティストとして
   // 使う）があるため、承認後もここに残して忘れないようにする。
@@ -64,8 +65,11 @@ async function ConnectReviewContent() {
     for (const t of d.terms_types ?? []) set.add(t);
     signedTypesByProfile.set(d.profile_id, set);
   }
+  // 調印式が必要なのはagentのみ(2026-09-13〜)。organizerはデジタル同意のみで
+  // 完結するためここでは対象外(/dashboard/termsでの自己同意状況はterms_agreements側で管理)。
   const needsSigning = (verifiedOrganizersAndAgents ?? []).filter((u) => {
-    const required = getRequiredTermsTypes(u.role);
+    const required = getRequiredTermsTypes(u.role).filter((t) => CEREMONY_REQUIRED_TYPES.includes(t));
+    if (required.length === 0) return false;
     const signedTypes = signedTypesByProfile.get(u.profile_id) ?? new Set<string>();
     return !required.every((t) => signedTypes.has(t));
   });

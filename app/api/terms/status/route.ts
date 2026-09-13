@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { TERMS_VERSIONS, getRequiredTermsTypes, type TermsType } from '@/lib/terms';
+import { TERMS_VERSIONS, getRequiredTermsTypes, CEREMONY_REQUIRED_TYPES, type TermsType } from '@/lib/terms';
 
-// base は デジタル同意だけで完了
-// organizer / agent は デジタル同意 + admin確認の両方が必要
-const REQUIRES_CONFIRMATION: TermsType[] = ['organizer', 'agent'];
+// base / organizer は デジタル同意だけで完了
+// agent は デジタル同意 + admin確認(対面調印式)の両方が必要
+const REQUIRES_CONFIRMATION = CEREMONY_REQUIRED_TYPES;
 
 export async function GET() {
   const supabase = await createClient();

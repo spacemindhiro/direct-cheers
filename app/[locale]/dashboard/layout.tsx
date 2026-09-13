@@ -7,6 +7,7 @@ import { LogoutButton } from '@/components/logout-button';
 import { Loader2, UserCircle, MessageCircle, BarChart2, HelpCircle } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
+import { getRequiredTermsTypes, TERMS_VERSIONS, type TermsType } from '@/lib/terms';
 
 const STEP_UP_ROLES = ['artist', 'organizer', 'agent', 'admin'] as const;
 const STEP_UP_TTL_MS = 1440 * 60 * 1000; // 24時間
@@ -54,6 +55,32 @@ async function DashboardNav() {
   // 付与した識別子でこのアプリからのアクセスと判定し対象外にする。
   // ログイン自体はstep-up済みスタッフが生成したQRからのみ可能なため許容する。
   const isNativeApp = (headersList.get('user-agent') ?? '').includes('DirectCheersTouchpayApp');
+  const isTermsPath = currentPath.startsWith('/dashboard/terms');
+
+  // 規約バージョンが上がった際、デジタル同意(チェックボックス)が済んで
+  // いないロールを/dashboard/termsへ誘導する。admin確認(対面調印式、現在
+  // agentのみ必須)が未了なだけの場合はここでは止めない(digitallySignedの
+  // 判定はterms/status同様agreed_atのみを見る。confirmed_atが要る型は
+  // 別途/dashboard/termsが「面談待ち」として案内する)。
+  if (!isDisplayPath && !isNativeApp && !isTermsPath) {
+    const requiredTerms = getRequiredTermsTypes(profile.role);
+    if (requiredTerms.length > 0) {
+      const { data: termsAgreements } = await supabase
+        .from('terms_agreements')
+        .select('terms_type, version, agreed_at')
+        .eq('profile_id', user.id)
+        .in('terms_type', requiredTerms);
+      const digitallySignedTypes = new Set(
+        (termsAgreements ?? [])
+          .filter((a) => a.agreed_at && a.version === TERMS_VERSIONS[a.terms_type as TermsType])
+          .map((a) => a.terms_type)
+      );
+      const hasPendingTerms = requiredTerms.some((t) => !digitallySignedTypes.has(t));
+      if (hasPendingTerms) {
+        redirect(`/dashboard/terms?next=${encodeURIComponent(currentPath)}`);
+      }
+    }
+  }
 
   if (!isDisplayPath && !isNativeApp && STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
     const cookieStore = await cookies();

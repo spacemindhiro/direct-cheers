@@ -57,32 +57,31 @@ async function DashboardNav() {
   const isNativeApp = (headersList.get('user-agent') ?? '').includes('DirectCheersTouchpayApp');
   // currentPathには /ja 等のロケールプレフィックスが含まれるためstartsWithは不可
   // (実際に無限リダイレクトを起こした。isDisplayPathと同様includesで判定する)
-  const isTermsPath = currentPath.includes('/dashboard/terms');
-
-  // 規約バージョンが上がった際、デジタル同意(チェックボックス)が済んで
-  // いないロールを/dashboard/termsへ誘導する。admin確認(対面調印式、現在
-  // agentのみ必須)が未了なだけの場合はここでは止めない(digitallySignedの
-  // 判定はterms/status同様agreed_atのみを見る。confirmed_atが要る型は
-  // 別途/dashboard/termsが「面談待ち」として案内する)。
-  if (!isDisplayPath && !isNativeApp && !isTermsPath) {
-    const requiredTerms = getRequiredTermsTypes(profile.role);
-    if (requiredTerms.length > 0) {
-      const { data: termsAgreements } = await supabase
-        .from('terms_agreements')
-        .select('terms_type, version, agreed_at')
-        .eq('profile_id', user.id)
-        .in('terms_type', requiredTerms);
-      const digitallySignedTypes = new Set(
-        (termsAgreements ?? [])
-          .filter((a) => a.agreed_at && a.version === TERMS_VERSIONS[a.terms_type as TermsType])
-          .map((a) => a.terms_type)
-      );
-      const hasPendingTerms = requiredTerms.some((t) => !digitallySignedTypes.has(t));
-      if (hasPendingTerms) {
-        redirect(`/dashboard/terms?next=${encodeURIComponent(currentPath)}`);
-      }
-    }
-  }
+  // 【2026-09-13 一時停止】/dashboard/termsへの強制リダイレクトがループを
+  // 起こしたため緊急停止。原因未特定のまま再度有効化しないこと。
+  // 経緯: isTermsPathをstartsWith→includesに直したが解消せず、STGで
+  // ループ継続を確認。原因調査中はこのブロックをコメントアウトで無効化する。
+  //
+  // const isTermsPath = currentPath.includes('/dashboard/terms');
+  // if (!isDisplayPath && !isNativeApp && !isTermsPath) {
+  //   const requiredTerms = getRequiredTermsTypes(profile.role);
+  //   if (requiredTerms.length > 0) {
+  //     const { data: termsAgreements } = await supabase
+  //       .from('terms_agreements')
+  //       .select('terms_type, version, agreed_at')
+  //       .eq('profile_id', user.id)
+  //       .in('terms_type', requiredTerms);
+  //     const digitallySignedTypes = new Set(
+  //       (termsAgreements ?? [])
+  //         .filter((a) => a.agreed_at && a.version === TERMS_VERSIONS[a.terms_type as TermsType])
+  //         .map((a) => a.terms_type)
+  //     );
+  //     const hasPendingTerms = requiredTerms.some((t) => !digitallySignedTypes.has(t));
+  //     if (hasPendingTerms) {
+  //       redirect(`/dashboard/terms?next=${encodeURIComponent(currentPath)}`);
+  //     }
+  //   }
+  // }
 
   if (!isDisplayPath && !isNativeApp && STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
     const cookieStore = await cookies();

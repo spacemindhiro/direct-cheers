@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendHandoffRequestEmail, sendHandoffResponseEmail } from "@/lib/email/notification";
+import { ensureAgentConversation } from "@/lib/messaging/ensure-agent-conversation";
 
 const HANDOFF_ELIGIBLE_STATUSES = ["review_requested", "published", "ongoing"];
 
@@ -159,28 +160,10 @@ export async function PATCH(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     eventDetail = data;
 
-    // オーガナイザー↔エージェントの会話の参加者を新エージェントに差し替える
+    // 新エージェント用に別の会話を用意する（旧エージェントとの会話履歴を
+    // 新エージェントに見せないよう、参加者の差し替えではなく新規作成にする）
     try {
-      const { data: conv } = await admin
-        .from("conversations")
-        .select("conversation_id")
-        .eq("event_id", eventId)
-        .eq("type", "agent")
-        .maybeSingle();
-
-      if (conv) {
-        await admin
-          .from("conversation_participants")
-          .delete()
-          .eq("conversation_id", conv.conversation_id)
-          .eq("profile_id", handoff.from_agent_id);
-        await admin
-          .from("conversation_participants")
-          .upsert(
-            { conversation_id: conv.conversation_id, profile_id: user.id },
-            { onConflict: "conversation_id,profile_id" },
-          );
-      }
+      await ensureAgentConversation(eventId, eventDetail.organizer_profile_id, user.id);
     } catch { /* メッセージング失敗は非致死的 */ }
   } else {
     const { data } = await admin

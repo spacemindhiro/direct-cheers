@@ -158,7 +158,8 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const { data: { user: agentAuthUser } } = await adminClient.auth.admin.getUserById(event.agent_id);
   const agentEmail = agentAuthUser?.email ?? null;
 
-  // オーガナイザー↔エージェントの会話（あれば）
+  // オーガナイザー↔現担当エージェントの会話（あれば）。担当交代前の
+  // 会話とは別物として扱う（agent_profile_idで現エージェント分のみ取得）
   const { data: agentConversation } = isSelfOrganized
     ? { data: null }
     : await adminClient
@@ -166,6 +167,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         .select("conversation_id")
         .eq("event_id", eventId)
         .eq("type", "agent")
+        .eq("agent_profile_id", event.agent_id)
         .maybeSingle();
 
   const { data: evidences } = await adminClient

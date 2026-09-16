@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Heart, Loader2, Mail, CreditCard, CheckCircle, AlertCircle } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
@@ -8,7 +8,6 @@ import { Elements, CardElement, useStripe, useElements } from "@stripe/react-str
 import { resolveDrinkUnitPrice, type DrinkBulkTier } from "@/lib/drink-ticket-pricing";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-const CUSTOMER_EMAIL_COOKIE = "dc_ce";
 
 type Product = {
   product_id: string;
@@ -22,10 +21,6 @@ type Product = {
   quantity_selectable?: boolean;
   bulk_pricing?: DrinkBulkTier[] | null;
 };
-
-function saveEmailCookie(email: string) {
-  document.cookie = `${CUSTOMER_EMAIL_COOKIE}=${encodeURIComponent(email)};max-age=${60 * 60 * 24 * 365};path=/;SameSite=Lax`;
-}
 
 // タイプA: SetupIntent（または5日以内はPaymentIntentオーソリ）でカード入力
 function EntranceTypeACardForm({
@@ -176,14 +171,6 @@ export function CheersPaymentForm({
   } | null>(null);
   const [entranceDone, setEntranceDone] = useState(false);
 
-  useEffect(() => {
-    if (lockedEmail) return; // サーバーから既に値が来ている（ログイン済みまたはCookie認識済み）
-    const match = document.cookie.match(new RegExp(`${CUSTOMER_EMAIL_COOKIE}=([^;]+)`));
-    if (match) {
-      setEmail(decodeURIComponent(match[1])); // 入力の手間を省く事前入力。ロックはしない
-    }
-  }, [lockedEmail]);
-
   // タイプA: SetupIntentフロー
   const proceedEntranceTypeA = (confirmedEmail: string) => {
     startTransition(async () => {
@@ -240,7 +227,7 @@ export function CheersPaymentForm({
 
   const handleEmailConfirm = () => {
     if (!email || !pendingMethod) return;
-    saveEmailCookie(email);
+    // 簡易ログイン用Cookie(dc_ce)はhttpOnlyのため、ここではなく決済開始API側でセットされる
     const method = pendingMethod;
     setPendingMethod(null);
     if (isTypeA) { proceedEntranceTypeA(email); return; }

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/supabase/server";
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
+import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
@@ -49,7 +51,13 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
 
   // profile_id をメールから1回だけ解決 — provisional_users 優先、auth.users フォールバック
-  const senderProfileId = await resolveProfileIdByEmail(admin, email ?? null);
+  const [senderProfileId, loggedInUser] = await Promise.all([
+    resolveProfileIdByEmail(admin, email ?? null),
+    getUser(),
+  ]);
+  // サンクス画面の「アカウント」欄の出し分け用。既存会員でもログインしていなければ
+  // パスキー追加登録（本人セッション必須）は通らないので、ログイン導線に切り替える。
+  const isLoggedInSender = !!loggedInUser?.id && loggedInUser.id === senderProfileId;
 
   // 既存 transaction チェック（冪等性）
   // stripe_pi_sequence=0 は1階（アンカー行）。ウェルカムチアの2階行が同一PIに
@@ -89,6 +97,7 @@ export async function POST(req: Request) {
       product,
       qrcInfo,
       !!senderProfileId,
+      isLoggedInSender,
       hasPasskey,
       existingTicketId,
       existingTicketCode,
@@ -308,6 +317,7 @@ export async function POST(req: Request) {
     product,
     qrcInfo,
     !!senderProfileId,
+    isLoggedInSender,
     hasPasskey,
     ticketId,
     ticketCode,
@@ -317,12 +327,7 @@ export async function POST(req: Request) {
   );
 
   if (email) {
-    (response as NextResponse).cookies.set("dc_ce", email, {
-      maxAge: 60 * 60 * 24 * 365,
-      path: "/",
-      sameSite: "lax",
-      httpOnly: false,
-    });
+    setCustomerEmailCookie(response, email);
 
     // receipt_sent_at が NULL の行だけ UPDATE → 成功した側だけ送信（重複防止）
     const { data: claimed } = await admin
@@ -439,6 +444,7 @@ function buildResponse(
   product: Record<string, unknown>,
   qrcInfo: QrConfigInfo,
   isMember: boolean,
+  isLoggedIn: boolean,
   hasPasskey: boolean = false,
   ticketId: string | null = null,
   ticketCode: string | null = null,
@@ -461,6 +467,7 @@ function buildResponse(
     recipient_name: qrcInfo.recipientName,
     recipient_avatar: qrcInfo.recipientAvatar,
     is_member: isMember,
+    is_logged_in: isLoggedIn,
     has_passkey: hasPasskey,
     ...product,
   });

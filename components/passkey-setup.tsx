@@ -23,10 +23,15 @@ type Props = {
 // 401 Unauthorizedを返す。パスキー自体は成功していても素っ気ないエラーが
 // 出るだけで「パスキーが壊れている」ように誤解されるため、この場合だけは
 // エラー表示せず再ログインへ誘導する。
-function redirectToLoginIfUnauthorized(message: string): boolean {
+// register系も、既存アカウントへの追加登録は本人セッション必須のため、
+// 未ログインで既存会員のemailを渡した場合に同じ401が返る（メールの旧リンク
+// /auth/passkey-setup?email=… を既存会員が踏んだ場合など）。emailが分かって
+// いればログイン画面に事前入力させる。
+function redirectToLoginIfUnauthorized(message: string, email?: string): boolean {
   if (message !== "Unauthorized") return false;
   const redirectTo = window.location.pathname + window.location.search;
-  window.location.href = `/auth/login?redirect=${encodeURIComponent(redirectTo)}`;
+  const emailParam = email ? `&email=${encodeURIComponent(email)}` : "";
+  window.location.href = `/auth/login?redirect=${encodeURIComponent(redirectTo)}${emailParam}`;
   return true;
 }
 
@@ -98,6 +103,7 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess, 
         setStatus("error");
         return;
       }
+      if (redirectToLoginIfUnauthorized(err.message, email)) return;
       setErrorMsg(err.message ?? "エラーが発生しました");
       setStatus("error");
     }

@@ -3,6 +3,7 @@ import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserIdByEmail } from "@/lib/resolve-profile";
+import { isSessionOwnerOf } from "@/lib/passkey-owner-guard";
 
 function getRpIdAndOrigin(req: Request): { rpId: string; origin: string } {
   const host = req.headers.get("host") ?? "localhost";
@@ -62,6 +63,13 @@ export async function POST(req: Request) {
     resolvedProfileId = resolvedAuthUserId;
   }
 
+  // 既存アカウントへの追加登録は本人のセッション必須（register-options と同じ理由）。
+  // options 側で弾いていても、verify を直接叩かれると鍵の紐付けとログイントークン
+  // 発行まで通ってしまうため、こちらでも独立して検査する。
+  if (resolvedProfileId && !(await isSessionOwnerOf(resolvedProfileId))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   // WebAuthn 検証
   let verification;
   try {
@@ -118,10 +126,15 @@ export async function POST(req: Request) {
     });
 
     if (createErr) {
-      // すでに auth ユーザーが存在する場合は検索して使用
+      // すでに auth ユーザーが存在する場合は検索して使用。
+      // ただし冒頭の解決で見つからず、ここで初めて既存ユーザーに当たった場合も
+      // 「既存アカウントへの追加」なので本人セッションを必須にする。
       const existingUserId = await findAuthUserIdByEmail(admin, email);
       if (!existingUserId) {
         return NextResponse.json({ error: createErr.message }, { status: 500 });
+      }
+      if (!(await isSessionOwnerOf(existingUserId))) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       authUserId = existingUserId;
     } else if (!newUser.user) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserIdByEmail } from "@/lib/resolve-profile";
+import { isSessionOwnerOf } from "@/lib/passkey-owner-guard";
 
 const RP_NAME = "Direct Cheers";
 
@@ -34,6 +35,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email not found" }, { status: 404 });
     }
     resolvedProfileId = authUserId;
+  }
+
+  // 既存アカウント（auth.users に行がある）への追加登録は、そのアカウントで
+  // ログイン中の本人にしか許可しない。クライアント指定のemailだけで相手を
+  // 決めると、他人のメールを送るだけでその人のアカウントに自分の端末の鍵を
+  // 追加でき、register-verify が返すログイントークンでそのままなりすませる。
+  // 新規（provisional_users のみで auth.users 未作成）は決済後オンボーディングの
+  // ため従来通り通す。
+  if (resolvedProfileId && !(await isSessionOwnerOf(resolvedProfileId))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // 既存クレデンシャルを除外リストに

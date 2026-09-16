@@ -10,6 +10,7 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { buildEntrancePaymentParams, EntranceAccountIncompleteError } from "@/lib/entrance-payment";
+import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -35,6 +36,14 @@ export async function POST(req: Request) {
   // ログイン済みの場合はそのメールで上書き（フォーム入力ミスを排除）
   const loggedInUser = await getUser();
   if (loggedInUser?.email) customer_email = loggedInUser.email;
+
+  // 成功レスポンス共通: 簡易ログイン用Cookie（httpOnly）をサーバー側でセットする。
+  // 以前はフォーム側が document.cookie で書いていた分の置き換え。
+  const ok = (payload: Record<string, unknown>) => {
+    const response = NextResponse.json(payload);
+    setCustomerEmailCookie(response, customer_email);
+    return response;
+  };
 
   // 商品情報取得
   const { data: product } = await admin
@@ -141,7 +150,7 @@ export async function POST(req: Request) {
         ticket_channel: "advance_purchase_onsite_admission",
       },
     });
-    return NextResponse.json({ type: "B", url: session.url });
+    return ok({ type: "B", url: session.url });
   }
 
   // ----- タイプA/C: カード入力（SetupIntent or 5日以内はPaymentIntent直接オーソリ） -----
@@ -239,7 +248,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: resErr.message }, { status: 500 });
     }
 
-    return NextResponse.json({
+    return ok({
       type: paymentType,
       is_auth: true,
       client_secret: paymentIntent.client_secret,
@@ -301,7 +310,7 @@ export async function POST(req: Request) {
     .select("ticket_id, ticket_code")
     .single();
 
-  return NextResponse.json({
+  return ok({
     type: paymentType,
     is_auth: false,
     client_secret: setupIntent.client_secret,

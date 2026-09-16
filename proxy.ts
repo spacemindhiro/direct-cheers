@@ -2,6 +2,7 @@ import createMiddleware from "next-intl/middleware";
 import { routing } from "@/i18n/routing";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { CUSTOMER_EMAIL_COOKIE, setCustomerEmailCookie } from "@/lib/customer-email-cookie";
 
 const intlMiddleware = createMiddleware(routing);
 
@@ -59,14 +60,9 @@ export async function proxy(request: NextRequest) {
     // 簡易ログイン（dc_ce Cookie）は、認識が行われるたびに有効期限を
     // スライドさせる。決済しなくても定期的にQRを読むだけで途切れずに
     // 済むようにするため（長期のテストでも都度メール再入力を防ぐ）。
-    const dcCe = request.cookies.get("dc_ce")?.value;
+    const dcCe = request.cookies.get(CUSTOMER_EMAIL_COOKIE)?.value;
     if (dcCe) {
-      response.cookies.set("dc_ce", dcCe, {
-        maxAge: 60 * 60 * 24 * 365,
-        path: "/",
-        sameSite: "lax",
-        httpOnly: false,
-      });
+      setCustomerEmailCookie(response, dcCe);
     }
     return response;
   }

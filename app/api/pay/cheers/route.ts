@@ -5,6 +5,7 @@ import { getUser } from "@/lib/supabase/server";
 import { checkConnectCapabilities } from "@/lib/stripe-check";
 import { buildStatementDescriptorSuffixes } from "@/lib/statement-descriptor";
 import { resolveDrinkUnitPrice } from "@/lib/drink-ticket-pricing";
+import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -286,7 +287,12 @@ export async function POST(req: Request) {
 
   try {
     const session = await stripe.checkout.sessions.create(sessionParams);
-    return NextResponse.json({ url: session.url });
+    const response = NextResponse.json({ url: session.url });
+    // 簡易ログイン用Cookie（httpOnly）はここでサーバー側からセットする。
+    // 以前はフォーム側が document.cookie で書いていたが、ブラウザから
+    // 書き換え不能にしたため、決済開始が確定したこの時点で発行する。
+    if (emailForCustomer) setCustomerEmailCookie(response, emailForCustomer);
+    return response;
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

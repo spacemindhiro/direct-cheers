@@ -74,7 +74,6 @@ import Link from "next/link";
 import { WelcomeCheerPicker } from "@/components/welcome-cheer-picker";
 
 const DEVICE_TOKEN_KEY = "dc_dt";
-const CUSTOMER_EMAIL_COOKIE = "dc_ce";
 
 type PaymentResult = {
   transaction_id: string;
@@ -99,6 +98,7 @@ type PaymentResult = {
   recipient_name: string | null;
   recipient_avatar: string | null;
   is_member: boolean;
+  is_logged_in: boolean;
   has_passkey: boolean;
 };
 
@@ -107,12 +107,6 @@ type ThanksData = {
   thanks_link_url: string | null;
   thanks_media_url: string | null;
 };
-
-function emailFromCookie(): string {
-  if (typeof document === "undefined") return "";
-  const match = document.cookie.match(new RegExp(`${CUSTOMER_EMAIL_COOKIE}=([^;]+)`));
-  return match ? decodeURIComponent(match[1]) : "";
-}
 
 function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
@@ -193,7 +187,7 @@ function ThanksContent() {
           }
         }
 
-        const email = data.email ?? emailFromCookie();
+        const email: string | null = data.email;
         if (!email) return;
 
         // LocalStorage デバイストークンを発行・保存
@@ -243,7 +237,7 @@ function ThanksContent() {
     );
   }
 
-  const email = result.email ?? emailFromCookie();
+  const email = result.email;
   const isVoucher = result.product_type === "custom" && result.payment_type === "V";
   const isDrinkTicket = result.product_type === "custom" && result.payment_type === "D";
   const isPurchase = result.product_type === "entrance" || isVoucher || isDrinkTicket;
@@ -505,6 +499,25 @@ function ThanksContent() {
                     パスワードでログイン
                   </Link>
                 </>
+              ) : result.is_member && !result.is_logged_in ? (
+                // 既存会員だがパスキー未登録かつ未ログイン。既存アカウントへの
+                // パスキー追加は本人セッション必須（/api/passkeys/register-*）のため、
+                // ここで登録ボタンを出しても通らない。通常のログイン導線へ送る。
+                <>
+                  <div>
+                    <p className="text-sm font-black text-white">ログインしてコレクションを確認</p>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      {email} でアカウントが登録されています。ログインして{isPurchase ? "購入" : "応援"}履歴を確認できます。
+                    </p>
+                  </div>
+                  <Link
+                    href={`/auth/login?email=${encodeURIComponent(email)}&redirect=/dashboard/collection`}
+                    className="flex items-center justify-center gap-2 w-full h-11 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-xl font-black text-sm hover:brightness-110 transition-all"
+                  >
+                    <LayoutDashboard size={15} />
+                    ログインする
+                  </Link>
+                </>
               ) : (
                 <>
                   <div>
@@ -525,7 +538,7 @@ function ThanksContent() {
                       router.push("/dashboard?pwa=1");
                     }
                   }}
-                    buttonLabel="パスキーでアカウント作成"
+                    buttonLabel={result.is_member ? "パスキーを登録" : "パスキーでアカウント作成"}
                   />}
                 </>
               )}

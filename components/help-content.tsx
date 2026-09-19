@@ -300,7 +300,7 @@ function ArtistGuide() {
         title="⑦ 統計"
         subtitle="Statistics"
       >
-        <p>ヘッダーの統計アイコンから、これまで送ったチアの累計に加えて、これまで受け取ったチアの件数・総流通額・手数料控除後の受取額（概算）を確認できます。</p>
+        <p>「プロフィール」の「統計」タブから、これまで送ったチアの累計に加えて、これまで受け取ったチアの件数・総流通額・手数料控除後の受取額（概算）を確認できます。</p>
       </Section>
 
       <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">

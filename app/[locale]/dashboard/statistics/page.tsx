@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { Heart, Zap, TrendingUp, BarChart2 } from "lucide-react";
 import Link from "next/link";
+import { ProfileTabs } from "@/components/profile-tabs";
 
 const yen = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
 
@@ -94,6 +95,7 @@ async function StatisticsContent() {
 
   return (
     <div className="space-y-8 max-w-lg">
+      <ProfileTabs />
       {/* ヘッダー */}
       <div>
         <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Statistics</p>

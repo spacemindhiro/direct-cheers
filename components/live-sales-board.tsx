@@ -94,6 +94,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
   const [logPage, setLogPage] = useState(1);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const logPageRef = useRef(1);
+  const hasFetchedRef = useRef(false);
   const prevCountRef = useRef<number>(0);
   const prevTxIdsRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -109,7 +110,11 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
       setIsConnected(true);
       setLastFetched(new Date());
 
-      if (prevCountRef.current > 0 && data.transaction_count > prevCountRef.current) {
+      // prevCountRef.current > 0（初回は必ず0）でマウント直後の初期取得を新着扱いしない
+      // つもりだったが、この条件だと「イベント開始後、初めての1件目の決済」（0件→1件）まで
+      // 一緒に弾いてしまい、一番盛り上がるはずの最初のチアでチャリーントーストが出ない
+      // UXバグになっていた。「まだ一度もフェッチしていないか」は専用フラグで見る。
+      if (hasFetchedRef.current && data.transaction_count > prevCountRef.current) {
         setFlashNew(true);
         setTimeout(() => setFlashNew(false), 1500);
         // 新着が来たらページ1に戻す
@@ -126,6 +131,7 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
           setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2500);
         }
       }
+      hasFetchedRef.current = true;
       prevCountRef.current = data.transaction_count;
       prevTxIdsRef.current = new Set(data.recent_transactions.map((t) => t.transaction_id));
     } catch {

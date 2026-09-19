@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { EventCreateForm } from "@/components/event-create-form";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -21,8 +22,10 @@ async function EventCreateContent() {
   if (!["organizer", "agent", "admin"].includes(profile?.role ?? "")) redirect("/dashboard");
   if (profile?.status !== "active") redirect("/dashboard");
 
-  // コネクション済みアーティストを取得
-  const { data: connections } = await supabase
+  // コネクション済みアーティストを取得。相手の profiles はユーザー権限では読めない（自分の行のみ）ため、
+  // 編集ページ（events/[eventId]/edit）と同じく admin クライアントで取得し、本人の organizer_profile_id で絞る
+  const admin = createAdminClient();
+  const { data: connections } = await admin
     .from("connections")
     .select("artist_profile_id, artist:profiles!artist_profile_id(display_name, artist_name)")
     .eq("organizer_profile_id", user.id)

@@ -25,6 +25,7 @@ import {
   Zap,
   ListChecks,
   Printer,
+  Plus,
 } from "lucide-react";
 import { TutorialVideoButton } from "./tutorial-video-button";
 
@@ -63,21 +64,38 @@ function Section({
   videoId?: string;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20 shrink-0">
-          {icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-black text-white">{title}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>
-        </div>
-        <TutorialVideoButton youtubeId={videoId} />
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex-1 flex items-center gap-3 min-w-0 text-left"
+        >
+          <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20 shrink-0">
+            {icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-black text-white">{title}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>
+          </div>
+        </button>
+        <TutorialVideoButton youtubeId={videoId} label={`動画で見る：${title}`} compact />
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? "閉じる" : "開く"}
+          className="shrink-0 w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-300"
+        >
+          <Plus size={16} className={`transition-transform ${open ? "rotate-45" : ""}`} />
+        </button>
       </div>
-      <div className="text-xs text-slate-300 leading-relaxed space-y-2 pl-12">
-        {children}
-      </div>
+      {open && (
+        <div className="text-xs text-slate-300 leading-relaxed space-y-2 pl-12">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

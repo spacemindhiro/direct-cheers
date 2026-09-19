@@ -9,13 +9,38 @@ import { Play, X } from "lucide-react";
 export function TutorialVideoButton({
   youtubeId,
   label,
+  compact = false,
 }: {
   youtubeId?: string;
   label?: string;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
   if (!youtubeId) return null;
+
+  if (compact) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={label ?? "動画で見る"}
+          className="relative w-10 h-7 rounded-md overflow-hidden shrink-0 border border-slate-700 bg-slate-900 group"
+        >
+          <img
+            src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+          <span className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors">
+            <Play size={10} className="text-white fill-white" />
+          </span>
+        </button>
+        {open && <TutorialVideoModal youtubeId={youtubeId} onClose={() => setOpen(false)} />}
+      </>
+    );
+  }
 
   return (
     <>

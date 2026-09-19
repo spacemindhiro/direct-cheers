@@ -24,7 +24,24 @@ import {
   XCircle,
   Zap,
   ListChecks,
+  Printer,
+  Plus,
 } from "lucide-react";
+import { TutorialVideoButton } from "./tutorial-video-button";
+
+// YouTube動画ID。オーガナイザー向け操作解説動画（O系列）。
+// 未アップロードの間は空文字にしておく（TutorialVideoButtonが自動で非表示にする）
+const ORGANIZER_TUTORIAL_VIDEOS: Record<string, string> = {
+  bankSetup: "IBTSbNuLdUI", // O-02 口座を登録する
+  createEvent: "xvSKe1glbWI", // O-03 イベントを作成する
+  inviteArtist: "CQtz2qYJdh8", // O-04 出演者を呼ぶ
+  inviteUnregistered: "C4iDi28qNTo", // O-05 未登録の出演者を招待する
+  requestApproval: "sZjv600qFCo", // O-06 公開の承認を依頼する
+  createQr: "aJJmY8dCP2U", // O-07 QRを作成する
+  printQr: "eV4xs72wvMg", // O-08 QRを印刷する
+  venueOps: "QzqoMJa6FWM", // O-09 売上を見る・決済を取り消す
+  submitEvidence: "v1Imf_hNj6Q", // O-10 開催証跡を提出する
+};
 
 export type HelpRole = "user" | "organizer" | "artist";
 
@@ -38,27 +55,47 @@ function Section({
   icon,
   title,
   subtitle,
+  videoId,
   children,
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
+  videoId?: string;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20 shrink-0">
-          {icon}
-        </div>
-        <div>
-          <p className="text-sm font-black text-white">{title}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>
-        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex-1 flex items-center gap-3 min-w-0 text-left"
+        >
+          <div className="w-9 h-9 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20 shrink-0">
+            {icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-black text-white">{title}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>
+          </div>
+        </button>
+        <TutorialVideoButton youtubeId={videoId} label={`動画で見る：${title}`} compact />
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? "閉じる" : "開く"}
+          className="shrink-0 w-7 h-7 flex items-center justify-center text-slate-500 hover:text-slate-300"
+        >
+          <Plus size={16} className={`transition-transform ${open ? "rotate-45" : ""}`} />
+        </button>
       </div>
-      <div className="text-xs text-slate-300 leading-relaxed space-y-2 pl-12">
-        {children}
-      </div>
+      {open && (
+        <div className="text-xs text-slate-300 leading-relaxed space-y-2 pl-12">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -333,23 +370,81 @@ function OrganizerGuide() {
   return (
     <div className="space-y-4">
       <Section
+        icon={<Landmark size={16} className="text-pink-500" />}
+        title="① 口座登録"
+        subtitle="Bank Setup"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.bankSetup}
+      >
+        <p>「プロフィール」の口座登録から、Stripe Connectでの本人確認・口座登録に進みます（種別選択→氏名→生年月日・電話→住所→事業情報の5ステップ）。</p>
+        <p>Stripe側の手続き完了後は「口座開設審査中」となり、運営（オーナー）による最終承認をお待ちいただきます。承認されると受け取りが可能になります。</p>
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mt-2">
+          <p className="text-[11px] font-black text-amber-400">⚠ 口座登録が未完了だとQRの決済が失敗します</p>
+          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+            決済はオーガナイザーのStripe Connectアカウントを経由するため、QR自体は口座登録前でも作成できますが、口座登録・審査が完了していないとそのイベントのすべての決済がエラーになり受け付けられません。イベントを公開する前に、必ず口座登録を完了させてください。
+          </p>
+        </div>
+      </Section>
+
+      <Section
         icon={<CalendarPlus size={16} className="text-pink-500" />}
-        title="① イベント作成〜公開申請"
+        title="② イベントを作成する"
         subtitle="Events"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.createEvent}
       >
         <p>「新規イベント作成」からタイトル・会場・開始/終了日時・出演アーティストを入力して作成します（作成直後は「下書き」状態です）。</p>
         <ul className="list-disc pl-4 space-y-1">
-          <li>出演アーティストは、コネクション済みのアーティストから選ぶか、「+ 新規アーティストに依頼」で検索して依頼メッセージを添えて招待できます</li>
-          <li>公開するには、イベント詳細ページの「エージェントに承認依頼を送る」を押します（「承認待ち」状態になります）</li>
+          <li>出演アーティストは、コネクション済みのアーティストから選ぶか、「+ 新規アーティストに依頼」で検索して依頼メッセージを添えて招待できます（詳しくは「③ 出演依頼」参照）</li>
+          <li>「下書き」の間は、作成者本人がイベントを削除できます</li>
+        </ul>
+      </Section>
+
+      <Section
+        icon={<UserPlus size={16} className="text-pink-500" />}
+        title="③ 出演依頼"
+        subtitle="Lineup Invitations"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.inviteArtist}
+      >
+        <p>すでにDirect Cheersに登録済みのアーティストをイベントに呼ぶための機能です。</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>イベントの作成・編集画面の中で行います。コネクション済みのアーティストから選ぶか、名前検索して依頼メッセージを添えて送ります</li>
+          <li>依頼を受けたアーティストのダッシュボードに「出演依頼」として通知され、承諾されると「出演確定」になります</li>
+          <li>出演依頼をきっかけに、アーティストとのメッセージ画面（DM）が自動的に作られます</li>
+        </ul>
+      </Section>
+
+      <Section
+        icon={<UserPlus size={16} className="text-indigo-400" />}
+        title="④ 会員招待"
+        subtitle="Invitations（招待管理）"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.inviteUnregistered}
+      >
+        <p>まだ「アーティスト」ロールを持っていない人を、新規にアーティストとして招待するための、出演依頼とは別の機能です。招待には2つのやり方があります。</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li><b>すでにDirect Cheersに登録済みの人を招待する場合</b>: 名前で検索して選ぶと、その人のアカウントに招待が届きます（一般ユーザーとして使っていた人をアーティストに切り替える場合など）</li>
+          <li><b>まだDirect Cheersに登録していない人を招待する場合</b>: 相手のメールアドレスを直接入力して招待リンクを発行します（有効期限30日、メールも自動送信されます。まれに失敗した場合は招待リンクを手動で共有してください）。リンクを踏むとその場でアカウントが作成され、アーティストとして登録されます</li>
+          <li>いずれの場合も、招待を承諾した時点でロールが「アーティスト」に切り替わります（すでにより上位のロールを持っている人には影響しません）</li>
+          <li>先にアーティストを招待して登録してもらってから、上記「③ 出演依頼」で個別のイベントに呼ぶ、という順序で使います</li>
+        </ul>
+      </Section>
+
+      <Section
+        icon={<CheckCircle2 size={16} className="text-pink-500" />}
+        title="⑤ 公開の承認を依頼する"
+        subtitle="Publish Approval"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.requestApproval}
+      >
+        <p>イベント詳細ページの「エージェントに承認依頼を送る」を押すと、公開の承認を依頼できます（「承認待ち」状態になります）。</p>
+        <ul className="list-disc pl-4 space-y-1">
           <li>担当エージェント／運営が承認すると「公開済み」になります。自分がエージェントを兼ねる場合は自己承認できず、運営の承認が必要です</li>
-          <li>「下書き」「承認待ち」の間だけ、作成者本人がイベントを削除できます</li>
+          <li>「承認待ち」の間も、作成者本人がイベントを削除できます</li>
         </ul>
       </Section>
 
       <Section
         icon={<QrCode size={16} className="text-pink-500" />}
-        title="② QRコード・商品の設計"
+        title="⑥ QRを作成する"
         subtitle="QR Config"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.createQr}
       >
         <p>イベント詳細ページの「QR 作成」から、チア／チケット用のQRコードを商品タイプ別に発行します。</p>
         <ul className="list-disc pl-4 space-y-1">
@@ -357,14 +452,23 @@ function OrganizerGuide() {
           <li>価格は「ワンプライス」または「レンジ」（スライダーで金額幅・単位を指定）から選べます</li>
           <li>配分設定で、受け取り先（主催者名義／演者名義）ごとに比率（%）を割り当てます（合計100%が必須）</li>
           <li>エントランス（入場チケット）は3タイプあります: <b>前売事後確定タイプ（5日前確定）</b>は予約時にカードを保存し5日前に自動決済、<b>前売即時確定タイプ（即時確定）</b>は予約時に即時決済（中止時の返金手数料リスクはオーガナイザー負担）、<b>当日決済タイプ</b>は事前予約なしで当日のタッチ決済またはQR自己決済のみです</li>
-          <li>QR詳細画面の「印刷する」から、会場掲示用の高解像度QRを印刷できます</li>
         </ul>
       </Section>
 
       <Section
+        icon={<Printer size={16} className="text-pink-500" />}
+        title="⑦ QRを印刷する"
+        subtitle="Print QR"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.printQr}
+      >
+        <p>QR詳細画面の「印刷する」から、会場掲示用の高解像度QRを印刷できます。</p>
+      </Section>
+
+      <Section
         icon={<ScanLine size={16} className="text-pink-500" />}
-        title="③ 当日の会場運営"
+        title="⑧ 当日の会場運営"
         subtitle="Check-in & Touch Pay"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.venueOps}
       >
         <ul className="list-disc pl-4 space-y-1">
           <li>
@@ -386,17 +490,17 @@ function OrganizerGuide() {
 
       <Section
         icon={<ListChecks size={16} className="text-pink-500" />}
-        title="④ 当日オペレーション（時系列）"
+        title="⑨ 当日オペレーション（時系列）"
         subtitle="Day-of Checklist"
       >
-        <p>当日スタッフが手元で見る前提の、時間順のチェックリストです。③の機能説明とあわせてご覧ください。</p>
+        <p>当日スタッフが手元で見る前提の、時間順のチェックリストです。⑧の機能説明とあわせてご覧ください。</p>
 
         <Phase label="前日まで">
-          <li><b>口座登録が「審査完了 — 受取可能」になっているか確認</b>。未完了だと当日のすべての決済がエラーになります（⑥参照）</li>
+          <li><b>口座登録が「審査完了 — 受取可能」になっているか確認</b>。未完了だと当日のすべての決済がエラーになります（①参照）</li>
           <li>QR詳細画面の「印刷する」から掲示用QRを印刷。汚れ・紛失に備えて予備を数枚</li>
           <li>子機タブレットを使う場合：親機パネルでタイムテーブルを登録し、子機にはダッシュボードの「別端末でログイン」のQRでログインさせておく（子機にパスキーは登録しない）</li>
           <li>タッチ決済を使う場合：<b>カードリーダーのファームウェア更新を前日までに済ませる</b>。初回接続時に必須更新が自動で走り、数分〜10分以上かかります。更新中は電源を切らず、Wi-Fiの安定した場所で行ってください。当日現地で初めて接続するのは避けてください</li>
-          <li>開催証跡用に<b>「当日写真を撮る担当」を決める</b>。写真がないとイベント終了後の精算に進めません（⑤参照）</li>
+          <li>開催証跡用に<b>「当日写真を撮る担当」を決める</b>。写真がないとイベント終了後の精算に進めません（⑩参照）</li>
         </Phase>
 
         <Phase label="開場前（現地）">
@@ -410,7 +514,7 @@ function OrganizerGuide() {
           <li>入場：お客様のチケットQRを読み取り、結果で対応を分けます。<b>「入場OK」</b>→通す／<b>「入場済みです」</b>→すでに入場済み。本人確認のうえ判断／<b>「無効なチケット」</b>→キャンセル済みや失効。決済し直してもらう</li>
           <li>当日券（タッチ決済）：商品と人数を選ぶ →「カードをタッチしてください」でお客様にカードやスマホをかざしてもらう → 完了。<b>初めてのお客様には子機のサインアップQRを読み取ってもらい</b>、cheers!カードを受け取れるようにします</li>
           <li>売上はイベント詳細の「売上・決済」タブでリアルタイムに確認できます</li>
-          <li>誤販売はその場で「売上・決済」タブから取消（精算前ならオーガナイザー自身で可能。③参照）</li>
+          <li>誤販売はその場で「売上・決済」タブから取消（精算前ならオーガナイザー自身で可能。⑧参照）</li>
         </Phase>
 
         <Phase label="トラブル時">
@@ -423,14 +527,15 @@ function OrganizerGuide() {
 
         <Phase label="終了後（その場で）">
           <li>撮った写真と動員数を、できればその日のうちに「開催証跡を提出して承認依頼する」から提出</li>
-          <li><b>開催から7日以内に精算が完了しないと、決済がすべて自動取消されイベントは中止扱いになります</b>（⑤参照）。提出を後回しにしないでください</li>
+          <li><b>開催から7日以内に精算が完了しないと、決済がすべて自動取消されイベントは中止扱いになります</b>（⑩参照）。提出を後回しにしないでください</li>
         </Phase>
       </Section>
 
       <Section
         icon={<FileCheck2 size={16} className="text-pink-500" />}
-        title="⑤ エビデンス提出"
+        title="⑩ エビデンス提出"
         subtitle="Evidence"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.submitEvidence}
       >
         <p>イベント終了後、「開催証跡を提出して承認依頼する」から、写真（最大10枚）・動員数・コメント（任意）を提出します。</p>
         <ul className="list-disc pl-4 space-y-1">
@@ -448,33 +553,8 @@ function OrganizerGuide() {
       </Section>
 
       <Section
-        icon={<Landmark size={16} className="text-pink-500" />}
-        title="⑥ 口座登録"
-        subtitle="Bank Setup"
-      >
-        <p>「プロフィール」の口座登録から、Stripe Connectでの本人確認・口座登録に進みます（種別選択→氏名→生年月日・電話→住所→事業情報の5ステップ）。</p>
-        <p>Stripe側の手続き完了後は「口座開設審査中」となり、運営（オーナー）による最終承認をお待ちいただきます。承認されると受け取りが可能になります。</p>
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mt-2">
-          <p className="text-[11px] font-black text-amber-400">⚠ 口座登録が未完了だとQRの決済が失敗します</p>
-          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-            決済はオーガナイザーのStripe Connectアカウントを経由するため、QR自体は口座登録前でも作成できますが、口座登録・審査が完了していないとそのイベントのすべての決済がエラーになり受け付けられません。イベントを公開する前に、必ず口座登録を完了させてください。
-          </p>
-        </div>
-      </Section>
-
-      <Section
-        icon={<Wallet size={16} className="text-pink-500" />}
-        title="⑦ 出金"
-        subtitle="Payout"
-      >
-        <p>「出金管理」で「出金可能」「保留中」「凍結中」の残高を確認できます。売上は決済が行われてから2週間（14日）後に出金可能になり、振込手数料¥500が差し引かれます。</p>
-        <p>決済から120日を超えた分は、月1回に限り振込手数料無料で出金できます。対象の残高がある場合は出金画面に無料枠として案内されます。</p>
-        <p>チャージバックが発生すると該当額が「凍結中」に区分され、出金が一時停止されます。</p>
-      </Section>
-
-      <Section
         icon={<TrendingUp size={16} className="text-pink-500" />}
-        title="⑧ 売上・精算の確認"
+        title="⑪ 売上・精算の確認"
         subtitle="Statistics / Income / Settlement"
       >
         <ul className="list-disc pl-4 space-y-1">
@@ -485,35 +565,18 @@ function OrganizerGuide() {
       </Section>
 
       <Section
-        icon={<UserPlus size={16} className="text-pink-500" />}
-        title="⑨ 出演依頼"
-        subtitle="Lineup Invitations"
+        icon={<Wallet size={16} className="text-pink-500" />}
+        title="⑫ 出金"
+        subtitle="Payout"
       >
-        <p>すでにDirect Cheersに登録済みのアーティストをイベントに呼ぶための機能です。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>イベントの作成・編集画面の中で行います。コネクション済みのアーティストから選ぶか、名前検索して依頼メッセージを添えて送ります</li>
-          <li>依頼を受けたアーティストのダッシュボードに「出演依頼」として通知され、承諾されると「出演確定」になります</li>
-          <li>出演依頼をきっかけに、アーティストとのメッセージ画面（DM）が自動的に作られます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<UserPlus size={16} className="text-indigo-400" />}
-        title="⑩ 会員招待"
-        subtitle="Invitations（招待管理）"
-      >
-        <p>まだ「アーティスト」ロールを持っていない人を、新規にアーティストとして招待するための、出演依頼とは別の機能です。招待には2つのやり方があります。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li><b>すでにDirect Cheersに登録済みの人を招待する場合</b>: 名前で検索して選ぶと、その人のアカウントに招待が届きます（一般ユーザーとして使っていた人をアーティストに切り替える場合など）</li>
-          <li><b>まだDirect Cheersに登録していない人を招待する場合</b>: 相手のメールアドレスを直接入力して招待リンクを発行します（有効期限30日、メールも自動送信されます。まれに失敗した場合は招待リンクを手動で共有してください）。リンクを踏むとその場でアカウントが作成され、アーティストとして登録されます</li>
-          <li>いずれの場合も、招待を承諾した時点でロールが「アーティスト」に切り替わります（すでにより上位のロールを持っている人には影響しません）</li>
-          <li>先にアーティストを招待して登録してもらってから、上記「⑨ 出演依頼」で個別のイベントに呼ぶ、という順序で使います</li>
-        </ul>
+        <p>「出金管理」で「出金可能」「保留中」「凍結中」の残高を確認できます。売上は決済が行われてから2週間（14日）後に出金可能になり、振込手数料¥500が差し引かれます。</p>
+        <p>決済から120日を超えた分は、月1回に限り振込手数料無料で出金できます。対象の残高がある場合は出金画面に無料枠として案内されます。</p>
+        <p>チャージバックが発生すると該当額が「凍結中」に区分され、出金が一時停止されます。</p>
       </Section>
 
       <Section
         icon={<XCircle size={16} className="text-red-400" />}
-        title="⑪ イベントの中止"
+        title="⑬ イベントの中止"
         subtitle="Cancellation"
       >
         <p>イベント詳細ページの「中止申請」から中止の手続きができます。</p>

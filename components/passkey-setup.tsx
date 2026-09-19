@@ -191,7 +191,11 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess, 
       setStatus("success");
       onSuccess?.();
     } catch (err: any) {
-      if (err.name === "NotAllowedError") { setStatus("idle"); return; }
+      if (err.name === "NotAllowedError") {
+        setErrorMsg("この端末でパスキーを登録できませんでした。アプリ内ブラウザ（LINEやFacebook、Googleアプリ等から開いた場合）だと失敗することがあります。SafariやChromeを直接開いてお試しください。");
+        setStatus("error");
+        return;
+      }
       if (redirectToLoginIfUnauthorized(err.message)) return;
       setErrorMsg(err.message ?? "エラーが発生しました");
       setStatus("error");
@@ -224,7 +228,11 @@ export function PasskeySetup({ email, mode, deviceName, buttonLabel, onSuccess, 
       setStatus("success");
       onSuccess?.();
     } catch (err: any) {
-      if (err.name === "NotAllowedError") { setStatus("idle"); return; }
+      if (err.name === "NotAllowedError") {
+        setErrorMsg("この端末で使えるパスキーが見つかりませんでした。アプリ内ブラウザ（LINEやFacebook、Googleアプリ等から開いた場合）だと見つからないことがあります。SafariやChromeを直接開いてお試しください。");
+        setStatus("error");
+        return;
+      }
       if (redirectToLoginIfUnauthorized(err.message)) return;
       setErrorMsg(err.message ?? "エラーが発生しました");
       setStatus("error");

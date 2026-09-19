@@ -2,6 +2,7 @@
 
 import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useEffect, useState, useTransition } from 'react';
+import { ProfileTabs } from '@/components/profile-tabs';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -267,6 +268,7 @@ export default function ProfileEditPage() {
   return (
     <>
     <div className="max-w-lg mx-auto space-y-8 pb-20">
+      <ProfileTabs />
 
       {/* ヘッダー */}
       <div className="flex items-center gap-4">

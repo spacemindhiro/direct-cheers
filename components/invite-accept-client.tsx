@@ -4,6 +4,10 @@ import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
+import { TutorialVideoButton } from "./tutorial-video-button";
+
+// O-01「招待リンクから登録する」。YouTubeアップロード後にIDを埋める
+const INVITE_REGISTER_VIDEO_ID = "0hKqRaW4xmU";
 
 export function InviteLoginPrompt({
   token,
@@ -52,6 +56,9 @@ export function InviteLoginPrompt({
   return (
     <div className="space-y-3">
       <p className="text-center text-sm text-slate-400">招待を受け取るには登録が必要です</p>
+      <div className="flex justify-center">
+        <TutorialVideoButton youtubeId={INVITE_REGISTER_VIDEO_ID} label="動画で見る：招待リンクから登録する" />
+      </div>
       <button
         type="button"
         onClick={handleClaim}

@@ -190,8 +190,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, session_token: null });
   }
 
-  return NextResponse.json({
+  // 今まさにこの端末で生体認証（パスキー登録）を済ませたばかりなので、
+  // 直後に organizer 等の管理画面へ進んだ際に再度ステップアップを求めるのは
+  // 二度手間でしかない。auth-verify・stepup-register-verify と同じ理屈で
+  // dc_stepup もここでセットしておく。
+  const response = NextResponse.json({
     success: true,
     session_token: linkData.properties.hashed_token,
   });
+  response.cookies.set("dc_stepup", Date.now().toString(), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 1440 * 60, // 24時間
+    path: "/",
+  });
+  return response;
 }

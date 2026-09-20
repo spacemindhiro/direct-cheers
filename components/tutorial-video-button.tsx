@@ -101,9 +101,9 @@ function TutorialVideoModal({
           type="button"
           onClick={onClose}
           aria-label="閉じる"
-          className="absolute -top-10 right-0 landscape:top-2 landscape:right-2 landscape:z-10 text-white/80 hover:text-white"
+          className="absolute -top-14 right-0 w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 landscape:top-2 landscape:right-2 landscape:z-10 text-white transition-colors"
         >
-          <X size={28} />
+          <X size={22} />
         </button>
         <div className="aspect-video landscape:aspect-auto landscape:w-screen landscape:h-screen">
           <iframe

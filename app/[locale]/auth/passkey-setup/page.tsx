@@ -31,13 +31,18 @@ function PasskeySetupContent() {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       if (data.user?.email) {
-        // ログイン済み（新規ユーザーがマジックリンク後にここへ来る）
+        // ログイン済み（マジックリンク・決済後の /auth/claim 経由でここへ来る）
         setEmail(data.user.email);
-      } else {
-        // 未ログイン: URLパラメータのメールを使用
-        setEmail(emailParam || null);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+      // 未ログイン: パスキー登録は本人セッション必須（/api/passkeys/register-*）
+      // なので、この画面に留めても登録できない。以前のレシートメールに載せていた
+      // /auth/passkey-setup?email=… の旧リンクから来た場合はメールを事前入力して
+      // ログイン画面へ送り、ログイン後にここへ戻す。
+      const returnTo = `/auth/passkey-setup?redirect=${encodeURIComponent(redirect)}`;
+      const emailQuery = emailParam ? `&email=${encodeURIComponent(emailParam)}` : "";
+      router.replace(`/auth/login?redirect=${encodeURIComponent(returnTo)}${emailQuery}`);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emailParam]);

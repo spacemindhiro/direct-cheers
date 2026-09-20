@@ -8,6 +8,10 @@
  *
  * resendをモックし、実際にメールプロバイダへ送られるパラメータ（subject/html）を
  * キャプチャして検証する。
+ *
+ * TC-RECEIPT-03: ボタンのリンクは呼び出し元が発行した claimUrl（/auth/claim/<token>）
+ * そのもので、以前の /auth/passkey-setup?email=… のような平文メール入りリンクが
+ * 復活していないことを検証する。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -20,6 +24,8 @@ vi.mock("resend", () => ({
 }));
 
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
+
+const CLAIM_URL = "http://localhost:3000/auth/claim/0123456789abcdef0123456789abcdef";
 
 beforeEach(() => {
   sendMock.mockClear();
@@ -36,6 +42,7 @@ describe("TC-RECEIPT-01: チアカード購入メール（organizer/artist名義
       recipientName,
       eventTitle,
       transactionId: "tx_receipt_organizer",
+      claimUrl: CLAIM_URL,
     });
 
     expect(sendMock).toHaveBeenCalledTimes(1);
@@ -57,6 +64,7 @@ describe("TC-RECEIPT-01: チアカード購入メール（organizer/artist名義
       recipientName,
       eventTitle: null,
       transactionId: "tx_receipt_artist",
+      claimUrl: CLAIM_URL,
     });
 
     const params = sendMock.mock.calls[0][0];
@@ -73,6 +81,7 @@ describe("TC-RECEIPT-01: チアカード購入メール（organizer/artist名義
       recipientName: null,
       eventTitle: null,
       transactionId: "tx_receipt_null",
+      claimUrl: CLAIM_URL,
     });
 
     const params = sendMock.mock.calls[0][0];
@@ -93,11 +102,39 @@ describe("TC-RECEIPT-02: 入場券購入メール（イベント名のみ、宛�
       eventTitle,
       transactionId: "tx_receipt_entrance",
       productType: "entrance",
+      claimUrl: CLAIM_URL,
     });
 
     const params = sendMock.mock.calls[0][0];
     expect(params.subject).toBe("【Direct Cheers】チケット購入が完了しました");
     expect(params.html).toContain(`>${eventTitle}<`);
     expect(params.html).not.toContain("SPACE BBQ運営委員会");
+  });
+});
+
+describe("TC-RECEIPT-03: アカウント作成リンクは claimUrl のみ（平文メール入りリンクを載せない）", () => {
+  it.each([
+    ["チアカード", { productType: null as string | null }],
+    ["入場券", { productType: "entrance" as string | null }],
+  ])("%s: href が claimUrl と完全一致し、?email= リンクが無く、規約同意の注記が付く", async (_label, { productType }) => {
+    const to = "fan5@test.local";
+    await sendPurchaseReceipt({
+      to,
+      amount: 1000,
+      recipientName: "DJ HIRO",
+      eventTitle: null,
+      transactionId: "tx_receipt_claim",
+      productType,
+      claimUrl: CLAIM_URL,
+    });
+
+    const params = sendMock.mock.calls[0][0];
+    expect(params.to).toBe(to);
+    expect(params.html).toContain(`href="${CLAIM_URL}"`);
+    expect(params.html).not.toContain("/auth/passkey-setup");
+    expect(params.html).not.toContain(`email=${encodeURIComponent(to)}`);
+    expect(params.html).toContain("利用規約");
+    expect(params.html).toContain("プライバシーポリシー");
+    expect(params.html).toContain("30日間・1回のみ有効");
   });
 });

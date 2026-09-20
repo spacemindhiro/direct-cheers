@@ -262,7 +262,8 @@ __tests__/
     │
     │  ── 管理・認証・手数料 ───────────────────────────────────
     ├── admin-ops.test.ts        TC-ADMIN-OPS  connect-review/force-payout/capture-all/cron
-    ├── passkeys.test.ts         TC-PASSKEYS   認証スモークテスト
+    ├── passkeys.test.ts         TC-PASSKEYS   認証スモークテスト（パスキー登録は本人セッション必須）
+    ├── purchase-claim.test.ts   TC-CLAIM      決済後アカウント作成のメール所有証明（/auth/claim/[token]・claim-resend）
     ├── idempotency.test.ts      TC-IDEM       二重課金防止・webhook冪等性
     ├── tax.test.ts              TC-TAX        手数料計算（純ロジック、Stripe/DB不要）
     ├── tax-matrix.test.ts       TC-TAX-MTX    境界値×レート×分配率（test.each）
@@ -544,6 +545,31 @@ customers.create / setupIntents.create / paymentIntents.create / checkout.sessio
 ```
 
 ---
+
+### TC-CLAIM — 決済後アカウント作成のメール所有証明（`purchase-claim.test.ts`）
+
+> 「アカウントは、そのメールに届いたリンクを踏んだ人しか作れない」。レシートメールに
+> 自前トークン（`purchase_claim_tokens`・30日・1回のみ）入りリンク `/auth/claim/<token>` を
+> 載せ、クリック時にサーバー内で Supabase の短命リンクを generateLink → verifyOtp と
+> 連続実行してセッションを張る（TC-INV-CLAIM と同じ仕組み）。
+> 以前サンクス画面が行っていた `createUser({ email_confirm: true })` によるメール未確認の
+> 新規作成は廃止（TC-PASSKEYS-A-06 / D-04 が 401 を検証）。
+
+| ID | タイトル | アサーション |
+|----|----------|-------------|
+| TC-CLAIM-A-01 | 新規客がリンクを踏む | auth ユーザー（email_confirmed_at 非null）＋ profiles(role=user, status=active, display_name=email) 作成、provisional_users.profile_id 昇格、used_at 付与、`/auth/passkey-setup?redirect=…` へ 307 |
+| TC-CLAIM-A-02 | 同じトークンを二度踏む | 2回目は `/auth/error?error=claim_used`、auth ユーザーは増えない |
+| TC-CLAIM-A-03 | provisional_users 無し（webhook 先行） | 作成できる。redirect_path 既定は `/dashboard/collection` |
+| TC-CLAIM-B-01 | 既存会員・パスキー無し | 本人IDのまま新規作成されず、profiles 不変、passkey-setup へ |
+| TC-CLAIM-B-02 | 既存会員・パスキー有り | passkey-setup を挟まず redirect_path へ直行 |
+| TC-CLAIM-B-03 | そのアカウントでログイン中 | verifyOtp を経ずトークン消費して redirect_path へ |
+| TC-CLAIM-C-01〜03 | 存在しない／期限切れ／使用済み | それぞれ `claim_invalid` / `claim_expired` / `claim_used`。auth ユーザー作成なし、期限切れは used_at も付かない |
+| TC-CLAIM-D | redirect_path が絶対URL／プロトコル相対 | 無視して `/dashboard/collection` |
+| TC-CLAIM-E-01 | claim-resend 必須欠損 | 400・送信なし |
+| TC-CLAIM-E-02 | 決済行の sender_email と不一致 | 404・送信なし・トークン発行なし（他人の決済IDで任意宛先に送れない） |
+| TC-CLAIM-E-03 | 一致（大文字小文字無視） | トークン1件発行（used_at null）、宛先＝sender_email、本文に `/auth/claim/<token>` と規約注記。60秒以内の再送は 429（retry_after=60） |
+| TC-CLAIM-F-01 | issuePurchaseClaimUrl | 行の email/transaction_id/redirect_path、expires_at≒30日、URL=`${SITE_URL}/auth/claim/<token>` |
+| TC-CLAIM-F-02 | claimRedirectPathFor | entrance→`/tickets`、それ以外→`/dashboard/collection` |
 
 ### TC-IDEM — 冪等性・二重課金防止（`idempotency.test.ts`）
 

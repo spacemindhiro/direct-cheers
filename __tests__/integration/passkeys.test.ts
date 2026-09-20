@@ -4,10 +4,11 @@
  * WebAuthn のフルフロー（実デバイス）はテスト環境では再現不可のため、
  * 以下を検証する:
  *   A. register-options — バリデーション・既存ユーザーでのオプション生成
- *      （既存アカウントへの追加登録は本人セッション必須）
+ *      （登録は auth.users に行がある本人のセッション必須。auth 未作成の
+ *      新規客は /auth/claim 経由でしかアカウントを作れないので 401）
  *   B. auth-options — 未登録ユーザーで適切なエラー
  *   C. credentials GET — 権限チェック
- *   D. register-verify — 既存アカウントへの追加登録は本人セッション必須
+ *   D. register-verify — 本人セッション必須・auth 未作成は新規作成せず 401
  *      （WebAuthn検証の手前でガードが効くことを確認）
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -37,6 +38,14 @@ let otherProfileId: string;
 let provisionalOnlyEmail: string;
 
 const cleanup = { profileIds: [] as string[], provisionalEmails: [] as string[] };
+
+async function countRegistrationChallenges(): Promise<number> {
+  const { count } = await testAdmin
+    .from("passkey_challenges")
+    .select("*", { count: "exact", head: true })
+    .eq("purpose", "registration");
+  return count ?? 0;
+}
 
 function mockAuth(id: string | null) {
   (createClient as any).mockResolvedValue({
@@ -160,8 +169,9 @@ describe("TC-PASSKEYS-A: register-options — 登録オプション生成", () =
     expect(data.error).toBe("Unauthorized");
   });
 
-  it("TC-PASSKEYS-A-06: provisional_users のみ（auth未作成）のメール＋セッション無し → 200（決済後の新規登録は従来通り）", async () => {
+  it("TC-PASSKEYS-A-06: provisional_users のみ（auth未作成）のメール＋セッション無し → 401（新規作成は /auth/claim 経由のみ・challenge も発行しない）", async () => {
     mockAuth(null);
+    const before = await countRegistrationChallenges();
     const req = new Request("http://localhost/api/passkeys/register-options", {
       method: "POST",
       headers: { "Content-Type": "application/json", host: "localhost" },
@@ -169,10 +179,38 @@ describe("TC-PASSKEYS-A: register-options — 登録オプション生成", () =
     });
     const res = await registerOptionsPOST(req);
     const data = await res.json();
-    expect(res.status).toBe(200);
-    expect(data.options?.challenge).toBeTruthy();
-    expect(data.has_account).toBe(false);
-    expect(data.email).toBe(provisionalOnlyEmail);
+    expect(res.status).toBe(401);
+    expect(data.error).toBe("Unauthorized");
+    expect(data.options).toBeUndefined();
+    expect(await countRegistrationChallenges()).toBe(before);
+  });
+
+  it("TC-PASSKEYS-A-07: 既存ユーザーのメール＋本人セッション → excludeCredentials に登録済み鍵が入る", async () => {
+    mockAuth(profileId);
+    const credentialId = `tc-a-07-cred-${Date.now()}`;
+    const { error } = await testAdmin.from("passkey_credentials").insert({
+      credential_id: credentialId,
+      profile_id: profileId,
+      public_key: "\\x00",
+      counter: 0,
+      device_type: "singleDevice",
+      backed_up: false,
+      transports: [],
+    });
+    if (error) throw new Error(`credential 挿入失敗: ${error.message}`);
+    try {
+      const req = new Request("http://localhost/api/passkeys/register-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", host: "localhost" },
+        body: JSON.stringify({ email: testEmail }),
+      });
+      const res = await registerOptionsPOST(req);
+      const data = await res.json();
+      expect(res.status).toBe(200);
+      expect(data.options.excludeCredentials.map((c: { id: string }) => c.id)).toEqual([credentialId]);
+    } finally {
+      await testAdmin.from("passkey_credentials").delete().eq("credential_id", credentialId);
+    }
   });
 });
 
@@ -246,14 +284,33 @@ describe("TC-PASSKEYS-D: register-verify — 既存アカウントへの追加�
     expect(data.error).not.toBe("Unauthorized");
   });
 
-  it("TC-PASSKEYS-D-04: provisional_users のみ（auth未作成）のメール＋セッション無し → ガード通過（400、401ではない）", async () => {
+  it("TC-PASSKEYS-D-04: provisional_users のみ（auth未作成）のメール＋セッション無し → 401（auth ユーザーを作らない）", async () => {
     mockAuth(null);
     const challenge = `tc-d-04-${Date.now()}`;
     await insertChallenge(challenge);
     const res = await registerVerifyPOST(await buildVerifyRequest(provisionalOnlyEmail, challenge));
     const data = await res.json();
-    expect(res.status).toBe(400);
-    expect(data.error).not.toBe("Unauthorized");
+    expect(res.status).toBe(401);
+    expect(data.error).toBe("Unauthorized");
+    expect(data.session_token).toBeUndefined();
+    // 以前はここで createUser({ email_confirm: true }) が走っていた。auth.users が増えていないこと
+    const { data: authUserId } = await testAdmin.rpc("find_auth_user_id_by_email", { p_email: provisionalOnlyEmail });
+    expect(authUserId).toBeNull();
+    // provisional_users も昇格されていないこと
+    const { data: prov } = await testAdmin
+      .from("provisional_users").select("profile_id, converted_at").eq("email", provisionalOnlyEmail).single();
+    expect(prov?.profile_id).toBeNull();
+    expect(prov?.converted_at).toBeNull();
+  });
+
+  it("TC-PASSKEYS-D-05: どこにも無いメール＋セッション無し → 404（401より前に Email not found）", async () => {
+    mockAuth(null);
+    const challenge = `tc-d-05-${Date.now()}`;
+    await insertChallenge(challenge);
+    const res = await registerVerifyPOST(await buildVerifyRequest(`nobody-${Date.now()}@test.local`, challenge));
+    const data = await res.json();
+    expect(res.status).toBe(404);
+    expect(data.error).toBe("Email not found");
   });
 });
 

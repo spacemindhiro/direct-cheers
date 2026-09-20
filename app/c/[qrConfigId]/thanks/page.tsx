@@ -131,6 +131,9 @@ function ThanksContent() {
   const [msgSent, setMsgSent] = useState(false);
   const [msgSending, setMsgSending] = useState(false);
   const [PasskeySetup, setPasskeySetup] = useState<typeof PasskeySetupType | null>(null);
+  // 新規客向け「確認メールを再送」の状態
+  const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [resendError, setResendError] = useState("");
 
   useEffect(() => {
     import("@/components/passkey-setup")
@@ -518,18 +521,18 @@ function ThanksContent() {
                     ログインする
                   </Link>
                 </>
-              ) : (
+              ) : result.is_member ? (
+                // 既存会員・ログイン中・パスキー未登録: この端末のパスキーをその場で追加
                 <>
                   <div>
-                    <p className="text-sm font-black text-white">{isPurchase ? "購入" : "応援"}履歴をアカウントに保存</p>
+                    <p className="text-sm font-black text-white">この端末にパスキーを登録</p>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      顔認証・指紋認証でアカウントを作成し、{isPurchase ? "購入" : "応援"}コレクションをいつでも確認できます。
+                      顔認証・指紋認証を登録すると、次回から1タップでログインできます。
                     </p>
                   </div>
                   {PasskeySetup && <PasskeySetup
                     email={email}
                     mode="register"
-                    showTermsNotice
                     deviceName={getDeviceLabel()}
                     onSuccess={() => {
                     setPasskeyDone(true);
@@ -539,8 +542,56 @@ function ThanksContent() {
                       router.push("/dashboard?pwa=1");
                     }
                   }}
-                    buttonLabel={result.is_member ? "パスキーを登録" : "パスキーでアカウント作成"}
+                    buttonLabel="パスキーを登録"
                   />}
+                </>
+              ) : (
+                // 新規客: アカウントはメールに届いたリンクを踏んだ人しか作れない
+                // （メール所有の証明）。この場でパスキー登録させる導線は置かない。
+                // 会場で今すぐ作る必要はなく、30日以内に家でメールを開けばよい。
+                <>
+                  <div>
+                    <p className="text-sm font-black text-white">{isPurchase ? "購入" : "応援"}履歴をアカウントに保存</p>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      <span className="text-pink-400 font-bold break-all">{email}</span> に確認メールをお送りしました。
+                      メール内のボタンからアカウントを作成すると、{isPurchase ? "購入" : "応援"}コレクションをいつでも確認できます（顔認証・指紋認証の登録は1タップ）。
+                    </p>
+                  </div>
+                  {resendStatus === "sent" ? (
+                    <p className="text-xs text-green-400 text-center font-bold">確認メールを再送しました</p>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={resendStatus === "sending"}
+                      onClick={async () => {
+                        setResendStatus("sending");
+                        setResendError("");
+                        try {
+                          const res = await fetch("/api/account/claim-resend", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ transaction_id: result.transaction_id, email }),
+                          });
+                          if (res.status === 429) {
+                            setResendError("送信直後です。1分ほど待ってからもう一度お試しください。");
+                            setResendStatus("error");
+                            return;
+                          }
+                          if (!res.ok) throw new Error();
+                          setResendStatus("sent");
+                        } catch {
+                          setResendError("再送に失敗しました。しばらく待ってからお試しください。");
+                          setResendStatus("error");
+                        }
+                      }}
+                      className="w-full h-11 text-xs text-slate-500 hover:text-slate-300 font-bold transition-colors disabled:opacity-60"
+                    >
+                      {resendStatus === "sending" ? "送信中..." : "メールが届かない場合は再送する"}
+                    </button>
+                  )}
+                  {resendStatus === "error" && (
+                    <p className="text-xs text-red-400 text-center">{resendError}</p>
+                  )}
                 </>
               )}
             </div>

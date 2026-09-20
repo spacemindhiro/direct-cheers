@@ -138,6 +138,7 @@ export async function PATCH(
           artist_profile_id: a.profile_id,
           performance_order: (currentArtists?.length ?? 0) + i + 1,
           status: "pending",
+          invite_message: a.invite_message ?? null,
         }));
         const { data, error: insertError } = await supabase
           .from("event_artists")

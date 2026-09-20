@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
+import { issuePurchaseClaimUrl, claimRedirectPathFor } from "@/lib/purchase-claim";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 import { retryPendingTransfersForProfile } from "@/lib/pending-transfers";
@@ -516,6 +517,11 @@ export async function POST(req: Request) {
               .is("receipt_sent_at", null)
               .select("transaction_id");
             if (claimed && claimed.length > 0) {
+              const claimUrl = await issuePurchaseClaimUrl(admin, {
+                email,
+                transactionId: newTxId,
+                redirectPath: claimRedirectPathFor(productType),
+              });
               await sendPurchaseReceipt({
                 to: email,
                 amount: gross,
@@ -523,6 +529,7 @@ export async function POST(req: Request) {
                 eventTitle,
                 transactionId: newTxId,
                 productType,
+                claimUrl,
               });
             }
           })().catch((err) => console.error("[webhook] メール送信失敗:", err));

@@ -1,6 +1,5 @@
 import { Resend } from "resend";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+import { claimTermsNoticeHtml } from "@/lib/purchase-claim";
 
 type PurchaseReceiptParams = {
   to: string;
@@ -10,14 +9,18 @@ type PurchaseReceiptParams = {
   transactionId: string;
   productType?: string | null;
   ticketId?: string | null;
+  // 決済後アカウント作成リンク（/auth/claim/<token>）。呼び出し元が
+  // lib/purchase-claim.ts の issuePurchaseClaimUrl で発行して渡す。
+  // メールの所有を証明できるのはこのリンクを踏んだ人だけなので、
+  // 以前のように /auth/passkey-setup?email=… と平文メールを載せてはならない。
+  claimUrl: string;
 };
 
 export async function sendPurchaseReceipt(params: PurchaseReceiptParams): Promise<void> {
-  const { to, amount, recipientName, eventTitle, transactionId, productType } = params;
+  const { to, amount, recipientName, eventTitle, transactionId, productType, claimUrl } = params;
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   if (productType === "entrance") {
-    const ticketUrl = `${SITE_URL}/auth/passkey-setup?email=${encodeURIComponent(to)}&redirect=/tickets`;
     const eventLine = eventTitle
       ? `<p style="color:#cbd5e1;font-size:14px;font-weight:700;margin:0 0 8px">${eventTitle}</p>`
       : "";
@@ -39,17 +42,19 @@ export async function sendPurchaseReceipt(params: PurchaseReceiptParams): Promis
 
           <p style="color:#64748b;font-size:13px;line-height:1.8;margin:0 0 20px">
             このたびは Direct Cheers のチケットをご購入いただきありがとうございます。<br>
-            マイチケット画面からチケットをご確認ください。<br>
-            ログインすると即座にチケット画面が開きます。
+            下のボタンからチケットをご確認ください。<br>
+            はじめての方はこのボタンからアカウントを作成できます（顔認証・指紋認証の登録は1タップ）。
           </p>
 
-          <a href="${ticketUrl}"
+          <a href="${claimUrl}"
             style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;text-decoration:none;border-radius:12px;font-weight:900;font-size:14px">
             チケットを確認する
           </a>
+          ${claimTermsNoticeHtml()}
 
           <p style="color:#334155;font-size:11px;margin:24px 0 0">
             取引ID：${transactionId}<br>
+            ボタンのリンクは30日間・1回のみ有効です。<br>
             このメールに心当たりがない場合はお手数ですがご連絡ください。
           </p>
         </div>
@@ -59,7 +64,6 @@ export async function sendPurchaseReceipt(params: PurchaseReceiptParams): Promis
   }
 
   // チアカード購入メール
-  const collectionUrl = `${SITE_URL}/auth/passkey-setup?email=${encodeURIComponent(to)}&redirect=/dashboard/collection`;
   const toLine = recipientName ? `<strong>${recipientName}</strong> への` : "";
   const eventLine = eventTitle
     ? `<p style="color:#64748b;font-size:13px;margin:0">イベント：${eventTitle}</p>`
@@ -84,16 +88,19 @@ export async function sendPurchaseReceipt(params: PurchaseReceiptParams): Promis
         <p style="color:#64748b;font-size:13px;line-height:1.8;margin:0 0 20px">
           このたびは Direct Cheers をご利用いただきありがとうございます。<br>
           あなたのCheersはアーティストに届いています。<br>
-          決済完了後、コレクション画面でチアーズカードを確認できます。
+          下のボタンからコレクション画面でチアーズカードを確認できます。<br>
+          はじめての方はこのボタンからアカウントを作成できます（顔認証・指紋認証の登録は1タップ）。
         </p>
 
-        <a href="${collectionUrl}"
+        <a href="${claimUrl}"
           style="display:inline-block;padding:14px 28px;background:#ec4899;color:#fff;text-decoration:none;border-radius:12px;font-weight:900;font-size:14px">
           コレクションを見る
         </a>
+        ${claimTermsNoticeHtml()}
 
         <p style="color:#334155;font-size:11px;margin:24px 0 0">
           取引ID：${transactionId}<br>
+          ボタンのリンクは30日間・1回のみ有効です。<br>
           このメールに心当たりがない場合はお手数ですがご連絡ください。
         </p>
       </div>

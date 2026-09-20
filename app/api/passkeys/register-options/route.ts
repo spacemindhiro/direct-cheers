@@ -37,13 +37,16 @@ export async function POST(req: Request) {
     resolvedProfileId = authUserId;
   }
 
-  // 既存アカウント（auth.users に行がある）への追加登録は、そのアカウントで
-  // ログイン中の本人にしか許可しない。クライアント指定のemailだけで相手を
-  // 決めると、他人のメールを送るだけでその人のアカウントに自分の端末の鍵を
-  // 追加でき、register-verify が返すログイントークンでそのままなりすませる。
-  // 新規（provisional_users のみで auth.users 未作成）は決済後オンボーディングの
-  // ため従来通り通す。
-  if (resolvedProfileId && !(await isSessionOwnerOf(resolvedProfileId))) {
+  // パスキー登録は「auth.users に行がある本人がログイン中」の場合だけ許可する。
+  // クライアント指定のemailだけで相手を決めると、他人のメールを送るだけで
+  // その人のアカウントに自分の端末の鍵を追加でき、register-verify が返す
+  // ログイントークンでそのままなりすませる。
+  // 新規（provisional_users のみで auth.users 未作成）も以前はここで通して
+  // register-verify がメール未確認のまま auth ユーザーを作っていたが、新規作成は
+  // レシートメールのリンク（/auth/claim/<token>・メール所有の証明）経由に限定した。
+  // 401 を返すとクライアント（components/passkey-setup.tsx）がメール事前入力で
+  // ログイン画面へ送る。
+  if (!resolvedProfileId || !(await isSessionOwnerOf(resolvedProfileId))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -72,6 +75,9 @@ export async function POST(req: Request) {
       residentKey: "required",
       userVerification: "required",
     },
+    // 同じ端末の鍵を二重登録させない（stepup-register-options と同じ）。
+    // 以前は計算だけして渡し忘れていた。
+    excludeCredentials,
   });
 
   // profiles に実レコードがある場合のみ profile_id を使う（FK制約対策）

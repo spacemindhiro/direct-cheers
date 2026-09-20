@@ -63,10 +63,13 @@ export async function POST(req: Request) {
     resolvedProfileId = resolvedAuthUserId;
   }
 
-  // 既存アカウントへの追加登録は本人のセッション必須（register-options と同じ理由）。
+  // 登録は「auth.users に行がある本人のセッション」必須（register-options と同じ理由）。
   // options 側で弾いていても、verify を直接叩かれると鍵の紐付けとログイントークン
   // 発行まで通ってしまうため、こちらでも独立して検査する。
-  if (resolvedProfileId && !(await isSessionOwnerOf(resolvedProfileId))) {
+  // 以前はここで auth 未作成のメールに対して createUser({ email_confirm: true }) で
+  // メール未確認のままアカウントを作っていた。新規作成はレシートメールのリンク
+  // （/auth/claim/<token>）経由に限定したので、その経路は廃止。
+  if (!resolvedProfileId || !(await isSessionOwnerOf(resolvedProfileId))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -96,70 +99,33 @@ export async function POST(req: Request) {
     .delete()
     .eq("challenge_id", challengeRow.challenge_id);
 
-  // Supabase auth ユーザーを作成 or 既存取得
-  let authUserId: string;
-  if (resolvedProfileId) {
-    authUserId = resolvedProfileId;
-    // auth.users にはいるが profiles がない場合（onboarding 前の passkey 登録）は profile を作成
-    const { data: existingProfile } = await admin
-      .from("profiles")
-      .select("profile_id")
-      .eq("profile_id", authUserId)
-      .maybeSingle();
-    if (!existingProfile) {
-      const { error: profileErr } = await admin.from("profiles").insert({
-        profile_id: authUserId,
-        display_name: email,
-        role: "user",
-        status: "pending_onboarding",
-      });
-      if (profileErr) {
-        return NextResponse.json({ error: `profile insert failed: ${profileErr.message}` }, { status: 500 });
-      }
-    }
-  } else {
-    // 新規 auth ユーザーを作成（既存の場合は既存ユーザーを使用）
-    const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: { source: "passkey_registration" },
+  const authUserId = resolvedProfileId;
+
+  // auth.users にはいるが profiles がない場合（onboarding 前の passkey 登録）は profile を作成
+  const { data: existingProfile } = await admin
+    .from("profiles")
+    .select("profile_id")
+    .eq("profile_id", authUserId)
+    .maybeSingle();
+  if (!existingProfile) {
+    const { error: profileErr } = await admin.from("profiles").insert({
+      profile_id: authUserId,
+      display_name: email,
+      role: "user",
+      status: "pending_onboarding",
     });
-
-    if (createErr) {
-      // すでに auth ユーザーが存在する場合は検索して使用。
-      // ただし冒頭の解決で見つからず、ここで初めて既存ユーザーに当たった場合も
-      // 「既存アカウントへの追加」なので本人セッションを必須にする。
-      const existingUserId = await findAuthUserIdByEmail(admin, email);
-      if (!existingUserId) {
-        return NextResponse.json({ error: createErr.message }, { status: 500 });
-      }
-      if (!(await isSessionOwnerOf(existingUserId))) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      authUserId = existingUserId;
-    } else if (!newUser.user) {
-      return NextResponse.json({ error: "User creation failed" }, { status: 500 });
-    } else {
-      authUserId = newUser.user.id;
-
-      const { error: profileErr } = await admin.from("profiles").insert({
-        profile_id: authUserId,
-        display_name: email,
-        role: "user",
-        status: "active",
-      });
-      if (profileErr) {
-        return NextResponse.json({ error: profileErr.message }, { status: 500 });
-      }
+    if (profileErr) {
+      return NextResponse.json({ error: `profile insert failed: ${profileErr.message}` }, { status: 500 });
     }
+  }
 
-    // provisional_user を本登録に昇格（存在する場合のみ）
-    if (provisional) {
-      await admin
-        .from("provisional_users")
-        .update({ profile_id: authUserId, converted_at: new Date().toISOString() })
-        .eq("provisional_id", provisional.provisional_id);
-    }
+  // 決済で作られた provisional_user がまだ本登録に紐づいていなければ昇格
+  // （決済後に通常のマジックリンクでログインしてからパスキー登録した場合）
+  if (provisional && !provisional.profile_id) {
+    await admin
+      .from("provisional_users")
+      .update({ profile_id: authUserId, converted_at: new Date().toISOString() })
+      .eq("provisional_id", provisional.provisional_id);
   }
 
   // passkey_credentials に保存（同じクレデンシャルの再登録はupsert）

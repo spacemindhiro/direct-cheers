@@ -197,8 +197,12 @@ function TermsContent() {
   const pendingTypes = required.filter((t) => !statusData.status[t].digitallySigned);
 
   const hasAnythingToSign = pendingTypes.length > 0;
-  // 既存ユーザーの再同意か、新規の初回同意か（ボタン文言・案内文の出し分けに使う）
+  // 既存ユーザーの再同意か、新規の初回同意か（案内文の出し分けに使う）
   const isReconsent = statusData.hasAnyPastAgreement;
+  // ボタン文言は再同意/初回同意ではなく、実際の遷移先で出し分ける。
+  // TermsGateは全ロール・全ダッシュボードページで未同意を検知するため、
+  // 初回同意でも next は bank-setup とは限らない（例: 招待受諾直後の /dashboard）。
+  const goingToBankSetup = nextUrl.startsWith('/dashboard/profile/bank-setup');
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-20">
@@ -286,7 +290,7 @@ function TermsContent() {
             ) : (
               <>
                 <CheckCircle2 size={16} />
-                {isReconsent ? '同意して次へ進む' : '同意して口座登録へ進む'}
+                {goingToBankSetup ? '同意して口座登録へ進む' : '同意して次へ進む'}
               </>
             )}
           </button>

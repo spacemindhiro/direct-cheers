@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     .from("tickets")
     .select(`
       ticket_id, ticket_code, status, email, event_id, product_id, quantity,
-      reservation_id, transaction_id,
+      reservation_id, transaction_id, checked_in_at,
       product:products(name, type, payment_type, min_amount),
       event:events(title, venue, organizer_profile_id, agent_id)
     `)
@@ -103,6 +103,8 @@ export async function POST(req: Request) {
       product_name: prod?.name ?? "",
       email: ticket.email,
       quantity: ticket.quantity,
+      // 更新前（今回のスキャンより前）の入場時刻。フロント側で「再入場」の目安表示に使う
+      ticket: { checked_in_at: ticket.checked_in_at },
     });
   }
   if (ticket.status === "cancelled") {

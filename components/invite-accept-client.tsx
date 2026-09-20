@@ -6,8 +6,8 @@ import Link from "next/link";
 import { ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 import { TutorialVideoButton } from "./tutorial-video-button";
 
-// O-01「招待リンクから登録する」。YouTubeアップロード後にIDを埋める
-const INVITE_REGISTER_VIDEO_ID = "0hKqRaW4xmU";
+// O-01「招待リンクから登録する」
+const INVITE_REGISTER_VIDEO_ID = "yv2hWQ3dfSg";
 
 export function InviteLoginPrompt({
   token,

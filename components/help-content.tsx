@@ -43,6 +43,17 @@ const ORGANIZER_TUTORIAL_VIDEOS: Record<string, string> = {
   submitEvidence: "v1Imf_hNj6Q", // O-10 開催証跡を提出する
 };
 
+// YouTube動画ID。当日運用向け操作解説動画（D系列）
+const DAY_OF_TUTORIAL_VIDEOS: Record<string, string> = {
+  printOnly: "KjD1HOLPH0I", // D-01 印刷したQRだけで運用する
+  scanner: "SQZHar-WqRE", // D-02 入場スキャナで検札する
+};
+
+const ORGANIZER_GROUPS: { id: "prep" | "dayof"; label: string }[] = [
+  { id: "prep", label: "準備・機能" },
+  { id: "dayof", label: "当日の運用" },
+];
+
 export type HelpRole = "user" | "organizer" | "artist";
 
 const TABS: { id: HelpRole; label: string }[] = [
@@ -366,7 +377,7 @@ function ArtistGuide() {
   );
 }
 
-function OrganizerGuide() {
+function OrganizerPrepGuide() {
   return (
     <div className="space-y-4">
       <Section
@@ -466,74 +477,20 @@ function OrganizerGuide() {
 
       <Section
         icon={<ScanLine size={16} className="text-pink-500" />}
-        title="⑧ 当日の会場運営"
-        subtitle="Check-in & Touch Pay"
+        title="⑧ 売上を見る・決済を取り消す"
+        subtitle="Sales & Cancellation"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.venueOps}
       >
+        <p>誤操作・誤販売があった場合は、イベント詳細の「売上・決済」タブ（決済ログ）から自分のイベントの決済を取り消せます。売上自体もこのタブでリアルタイムに確認できます。</p>
         <ul className="list-disc pl-4 space-y-1">
-          <li>
-            <b>表示用タブレット（子機）を用意できない場合は、印刷したQRコードを会場に掲示するだけで運用できます。</b>
-            QR詳細画面の「印刷する」から会場掲示用の高解像度QRを出力し、テーブルや壁に貼っておけば、お客様がご自身のスマートフォンで読み取って直接決済できます。子機や親機パネルの設置は不要です。
-            タイムテーブルに合わせてQR表示を自動切替したい場合は子機用タブレットが必要になりますが、
-            <span className="text-indigo-300">表示用タブレットのレンタルも承っています</span>
-            。ご希望の場合は
-            <a href="mailto:support@direct-cheers.com" className="text-indigo-300 underline">support@direct-cheers.com</a>
-            または担当エージェントまでご相談ください
-          </li>
-          <li>スタッフが対応できる場合は「入場スキャナを起動」からカメラでお客様のチケットQRを読み取り、「入場OK」「入場済みです」「無効なチケット」等を即座に判定できます</li>
-          <li>「対面タッチ決済」（Touch Pay、タッチ決済用アプリが必要）は、Bluetoothカードリーダーを接続し、対象商品（QR作成時に「対面タッチ決済を許可する」をONにしたもの）をその場で決済できます。決済完了後、初めてのお客様には子機のQRコードを読み取ってもらいます。専用機材（カードリーダー）のレンタルとエージェントの現地帯同が必要になるため、利用したい場合は事前にご相談ください</li>
-          <li>「親機パネル」では接続中の子機（タブレット等の表示端末）にタイムテーブルでQRを自動配信でき、「子機モード」はその表示専用のキオスク画面です</li>
-          <li>「ダッシュボード」の「別端末でログイン」機能は、スタッフ用タブレットなど別端末にQRでログインさせるためのもので、入場スキャナとは別機能です</li>
-          <li>誤操作・誤販売があった場合は、イベント詳細の「売上・決済」タブ（決済ログ）から自分のイベントの決済を取り消せます。ほとんどのカード決済はオーソリ取消（資金移動なし）で済みますが、前売即時確定タイプ（即時確定）の入場チケットなど既にキャプチャ済みのものは返金となり決済手数料はオーガナイザー負担です。この取消はイベントが「精算済み」になる前のみ可能で、精算後の返金は運営（admin）のみが対応します</li>
+          <li>ほとんどのカード決済はオーソリ取消（資金移動なし）で済みますが、前売即時確定タイプ（即時確定）の入場チケットなど既にキャプチャ済みのものは返金となり決済手数料はオーガナイザー負担です</li>
+          <li>この取消はイベントが「精算済み」になる前のみ可能で、精算後の返金は運営（admin）のみが対応します</li>
         </ul>
       </Section>
 
       <Section
-        icon={<ListChecks size={16} className="text-pink-500" />}
-        title="⑨ 当日オペレーション（時系列）"
-        subtitle="Day-of Checklist"
-      >
-        <p>当日スタッフが手元で見る前提の、時間順のチェックリストです。⑧の機能説明とあわせてご覧ください。</p>
-
-        <Phase label="前日まで">
-          <li><b>口座登録が「審査完了 — 受取可能」になっているか確認</b>。未完了だと当日のすべての決済がエラーになります（①参照）</li>
-          <li>QR詳細画面の「印刷する」から掲示用QRを印刷。汚れ・紛失に備えて予備を数枚</li>
-          <li>子機タブレットを使う場合：親機パネルでタイムテーブルを登録し、子機にはダッシュボードの「別端末でログイン」のQRでログインさせておく（子機にパスキーは登録しない）</li>
-          <li>タッチ決済を使う場合：<b>カードリーダーのファームウェア更新を前日までに済ませる</b>。初回接続時に必須更新が自動で走り、数分〜10分以上かかります。更新中は電源を切らず、Wi-Fiの安定した場所で行ってください。当日現地で初めて接続するのは避けてください</li>
-          <li>開催証跡用に<b>「当日写真を撮る担当」を決める</b>。写真がないとイベント終了後の精算に進めません（⑩参照）</li>
-        </Phase>
-
-        <Phase label="開場前（現地）">
-          <li>QRをテーブル・壁・受付に掲示。電波の弱い会場では、入口付近でスタッフのスマホから1回テスト決済して、決済画面が開くか確認</li>
-          <li>子機：表示を確認し、画面の自動ロックをOFF、充電を確保</li>
-          <li>タッチ決済：Touch Pay画面の「カードリーダーに接続」で接続。接続中に端末側でペア設定のダイアログが出たら<b>すぐ承認</b>してください（放置すると接続に失敗します）。子機が起動していないとサインアップQRを出せないので、先に子機を起動</li>
-          <li>入場スキャナ：受付スタッフのスマホでイベント詳細の「入場スキャナを起動」を開き、カメラの使用を許可</li>
-        </Phase>
-
-        <Phase label="開場中">
-          <li>入場：お客様のチケットQRを読み取り、結果で対応を分けます。<b>「入場OK」</b>→通す／<b>「入場済みです」</b>→すでに入場済み。本人確認のうえ判断／<b>「無効なチケット」</b>→キャンセル済みや失効。決済し直してもらう</li>
-          <li>当日券（タッチ決済）：商品と人数を選ぶ →「カードをタッチしてください」でお客様にカードやスマホをかざしてもらう → 完了。<b>初めてのお客様には子機のサインアップQRを読み取ってもらい</b>、cheers!カードを受け取れるようにします</li>
-          <li>売上はイベント詳細の「売上・決済」タブでリアルタイムに確認できます</li>
-          <li>誤販売はその場で「売上・決済」タブから取消（精算前ならオーガナイザー自身で可能。⑧参照）</li>
-        </Phase>
-
-        <Phase label="トラブル時">
-          <li>お客様「Apple Payのボタンが出ない」→ LINEなどアプリ内ブラウザで開いています。メニューの「他のブラウザで開く」からSafari／Chromeで開き直してもらう</li>
-          <li>お客様「メールが届かない」→ 迷惑メールフォルダを確認。なければログイン画面から再送</li>
-          <li>親機・子機がログアウトした → ダッシュボードの「別端末でログイン」のQRを読ませて再ログイン</li>
-          <li>カードリーダーが見つからない（30秒待っても接続しない）→ リーダーの電源を入れ直して「カードリーダーに接続」をやり直す。復旧しなければ<b>QR自己決済に切り替えて続行</b>（機材なしで運用できます）</li>
-          <li>会場の電波が弱い → QR自己決済はお客様自身の回線で動くので影響を受けにくい。回線が必要なのはスタッフ側（子機・親機・入場スキャナ・タッチ決済）だけです</li>
-        </Phase>
-
-        <Phase label="終了後（その場で）">
-          <li>撮った写真と動員数を、できればその日のうちに「開催証跡を提出して承認依頼する」から提出</li>
-          <li><b>開催から7日以内に精算が完了しないと、決済がすべて自動取消されイベントは中止扱いになります</b>（⑩参照）。提出を後回しにしないでください</li>
-        </Phase>
-      </Section>
-
-      <Section
         icon={<FileCheck2 size={16} className="text-pink-500" />}
-        title="⑩ エビデンス提出"
+        title="⑨ エビデンス提出"
         subtitle="Evidence"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.submitEvidence}
       >
@@ -554,7 +511,7 @@ function OrganizerGuide() {
 
       <Section
         icon={<TrendingUp size={16} className="text-pink-500" />}
-        title="⑪ 売上・精算の確認"
+        title="⑩ 売上・精算の確認"
         subtitle="Statistics / Income / Settlement"
       >
         <ul className="list-disc pl-4 space-y-1">
@@ -566,7 +523,7 @@ function OrganizerGuide() {
 
       <Section
         icon={<Wallet size={16} className="text-pink-500" />}
-        title="⑫ 出金"
+        title="⑪ 出金"
         subtitle="Payout"
       >
         <p>「出金管理」で「出金可能」「保留中」「凍結中」の残高を確認できます。売上は決済が行われてから2週間（14日）後に出金可能になり、振込手数料¥500が差し引かれます。</p>
@@ -576,7 +533,7 @@ function OrganizerGuide() {
 
       <Section
         icon={<XCircle size={16} className="text-red-400" />}
-        title="⑬ イベントの中止"
+        title="⑫ イベントの中止"
         subtitle="Cancellation"
       >
         <p>イベント詳細ページの「中止申請」から中止の手続きができます。</p>
@@ -587,6 +544,120 @@ function OrganizerGuide() {
           <li>前売即時確定タイプ（即時確定）の入場チケットなど、既にキャプチャ済みで決済が完了しているものは自動では取り消されないため、イベント詳細の「売上・決済」タブ（決済ログ）から個別に取消（返金）が必要です</li>
         </ul>
       </Section>
+    </div>
+  );
+}
+
+function OrganizerDayOfGuide() {
+  return (
+    <div className="space-y-4">
+      <Section
+        icon={<Printer size={16} className="text-pink-500" />}
+        title="① 印刷したQRだけで運用する"
+        subtitle="Print-Only Setup"
+        videoId={DAY_OF_TUTORIAL_VIDEOS.printOnly}
+      >
+        <p>表示用タブレット（子機）を用意できない場合は、印刷したQRコードを会場に掲示するだけで運用できます。</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>QR詳細画面の「印刷する」から会場掲示用の高解像度QRを出力し、テーブルや壁に貼っておけば、お客様がご自身のスマートフォンで読み取って直接決済できます。子機や親機パネルの設置は不要です</li>
+          <li>
+            タイムテーブルに合わせてQR表示を自動切替したい場合は子機用タブレットが必要になりますが、
+            <span className="text-indigo-300">表示用タブレットのレンタルも承っています</span>
+            。ご希望の場合は
+            <a href="mailto:support@direct-cheers.com" className="text-indigo-300 underline">support@direct-cheers.com</a>
+            または担当エージェントまでご相談ください
+          </li>
+        </ul>
+      </Section>
+
+      <Section
+        icon={<ScanLine size={16} className="text-pink-500" />}
+        title="② 入場スキャナで検札する"
+        subtitle="Check-in Scanner"
+        videoId={DAY_OF_TUTORIAL_VIDEOS.scanner}
+      >
+        <p>スタッフが対応できる場合は「入場スキャナを起動」からカメラでお客様のチケットQRを読み取り、「入場OK」「入場済みです」「無効なチケット」等を即座に判定できます。</p>
+      </Section>
+
+      <Section
+        icon={<Zap size={16} className="text-pink-500" />}
+        title="③ タッチ決済・子機/親機を使う"
+        subtitle="Touch Pay & Devices"
+      >
+        <ul className="list-disc pl-4 space-y-1">
+          <li>「対面タッチ決済」（Touch Pay、タッチ決済用アプリが必要）は、Bluetoothカードリーダーを接続し、対象商品（QR作成時に「対面タッチ決済を許可する」をONにしたもの）をその場で決済できます。決済完了後、初めてのお客様には子機のQRコードを読み取ってもらいます。専用機材（カードリーダー）のレンタルとエージェントの現地帯同が必要になるため、利用したい場合は事前にご相談ください</li>
+          <li>「親機パネル」では接続中の子機（タブレット等の表示端末）にタイムテーブルでQRを自動配信でき、「子機モード」はその表示専用のキオスク画面です</li>
+          <li>「ダッシュボード」の「別端末でログイン」機能は、スタッフ用タブレットなど別端末にQRでログインさせるためのもので、入場スキャナとは別機能です</li>
+        </ul>
+      </Section>
+
+      <Section
+        icon={<ListChecks size={16} className="text-pink-500" />}
+        title="④ 当日オペレーション（時系列）"
+        subtitle="Day-of Checklist"
+      >
+        <p>当日スタッフが手元で見る前提の、時間順のチェックリストです。①〜③の機能説明とあわせてご覧ください。</p>
+
+        <Phase label="前日まで">
+          <li><b>口座登録が「審査完了 — 受取可能」になっているか確認</b>。未完了だと当日のすべての決済がエラーになります（準備・機能グループの①参照）</li>
+          <li>QR詳細画面の「印刷する」から掲示用QRを印刷。汚れ・紛失に備えて予備を数枚</li>
+          <li>子機タブレットを使う場合：親機パネルでタイムテーブルを登録し、子機にはダッシュボードの「別端末でログイン」のQRでログインさせておく（子機にパスキーは登録しない）</li>
+          <li>タッチ決済を使う場合：<b>カードリーダーのファームウェア更新を前日までに済ませる</b>。初回接続時に必須更新が自動で走り、数分〜10分以上かかります。更新中は電源を切らず、Wi-Fiの安定した場所で行ってください。当日現地で初めて接続するのは避けてください</li>
+          <li>開催証跡用に<b>「当日写真を撮る担当」を決める</b>。写真がないとイベント終了後の精算に進めません（準備・機能グループの⑨参照）</li>
+        </Phase>
+
+        <Phase label="開場前（現地）">
+          <li>QRをテーブル・壁・受付に掲示。電波の弱い会場では、入口付近でスタッフのスマホから1回テスト決済して、決済画面が開くか確認</li>
+          <li>子機：表示を確認し、画面の自動ロックをOFF、充電を確保</li>
+          <li>タッチ決済：Touch Pay画面の「カードリーダーに接続」で接続。接続中に端末側でペア設定のダイアログが出たら<b>すぐ承認</b>してください（放置すると接続に失敗します）。子機が起動していないとサインアップQRを出せないので、先に子機を起動</li>
+          <li>入場スキャナ：受付スタッフのスマホでイベント詳細の「入場スキャナを起動」を開き、カメラの使用を許可</li>
+        </Phase>
+
+        <Phase label="開場中">
+          <li>入場：お客様のチケットQRを読み取り、結果で対応を分けます。<b>「入場OK」</b>→通す／<b>「入場済みです」</b>→すでに入場済み。本人確認のうえ判断／<b>「無効なチケット」</b>→キャンセル済みや失効。決済し直してもらう</li>
+          <li>当日券（タッチ決済）：商品と人数を選ぶ →「カードをタッチしてください」でお客様にカードやスマホをかざしてもらう → 完了。<b>初めてのお客様には子機のサインアップQRを読み取ってもらい</b>、cheers!カードを受け取れるようにします</li>
+          <li>売上はイベント詳細の「売上・決済」タブでリアルタイムに確認できます</li>
+          <li>誤販売はその場で「売上・決済」タブから取消（精算前ならオーガナイザー自身で可能。準備・機能グループの⑧参照）</li>
+        </Phase>
+
+        <Phase label="トラブル時">
+          <li>お客様「Apple Payのボタンが出ない」→ LINEなどアプリ内ブラウザで開いています。メニューの「他のブラウザで開く」からSafari／Chromeで開き直してもらう</li>
+          <li>お客様「メールが届かない」→ 迷惑メールフォルダを確認。なければログイン画面から再送</li>
+          <li>親機・子機がログアウトした → ダッシュボードの「別端末でログイン」のQRを読ませて再ログイン</li>
+          <li>カードリーダーが見つからない（30秒待っても接続しない）→ リーダーの電源を入れ直して「カードリーダーに接続」をやり直す。復旧しなければ<b>QR自己決済に切り替えて続行</b>（機材なしで運用できます）</li>
+          <li>会場の電波が弱い → QR自己決済はお客様自身の回線で動くので影響を受けにくい。回線が必要なのはスタッフ側（子機・親機・入場スキャナ・タッチ決済）だけです</li>
+        </Phase>
+
+        <Phase label="終了後（その場で）">
+          <li>撮った写真と動員数を、できればその日のうちに「開催証跡を提出して承認依頼する」から提出</li>
+          <li><b>開催から7日以内に精算が完了しないと、決済がすべて自動取消されイベントは中止扱いになります</b>（準備・機能グループの⑨参照）。提出を後回しにしないでください</li>
+        </Phase>
+      </Section>
+    </div>
+  );
+}
+
+function OrganizerGuide() {
+  const [group, setGroup] = useState<"prep" | "dayof">("prep");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 bg-slate-900 border border-slate-800 rounded-2xl p-1">
+        {ORGANIZER_GROUPS.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            onClick={() => setGroup(g.id)}
+            className={`flex-1 text-[11px] font-bold rounded-xl py-2 transition-colors ${
+              group === g.id ? "bg-pink-500 text-white" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {g.label}
+          </button>
+        ))}
+      </div>
+
+      {group === "prep" ? <OrganizerPrepGuide /> : <OrganizerDayOfGuide />}
 
       <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">
         <div className="flex items-center gap-3">

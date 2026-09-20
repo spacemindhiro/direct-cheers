@@ -19,6 +19,25 @@ function getErrorInfo(error: string | undefined): ErrorInfo {
       action: { label: "サインアップページへ", href: "/auth/sign-up" },
     };
   }
+  // 決済後アカウント作成リンク（/auth/claim/<token>）
+  if (error === "claim_used") {
+    return {
+      icon: <Clock size={32} className="text-amber-400" />,
+      title: "このリンクは使用済みです",
+      description:
+        "アカウント作成リンクは1回のみ有効です。すでにアカウントが作成されていますので、ログイン画面からメールアドレスでログインしてください。",
+      action: { label: "ログインページへ", href: "/auth/login?redirect=/dashboard/collection" },
+    };
+  }
+  if (error === "claim_expired" || error === "claim_invalid" || error === "claim_failed") {
+    return {
+      icon: <Clock size={32} className="text-amber-400" />,
+      title: "リンクの有効期限切れ",
+      description:
+        "アカウント作成リンクの有効期限が切れているか、無効なリンクです。ログイン画面で決済時のメールアドレスを入力すると、新しいログインリンクをお送りします。",
+      action: { label: "ログインページへ", href: "/auth/login?redirect=/dashboard/collection" },
+    };
+  }
   if (error && (error.includes("PKCE") || error.includes("code verifier"))) {
     return {
       icon: <MonitorSmartphone size={32} className="text-violet-400" />,

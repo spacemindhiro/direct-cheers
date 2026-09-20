@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
+import { issuePurchaseClaimUrl, claimRedirectPathFor } from "@/lib/purchase-claim";
 import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
@@ -337,15 +338,25 @@ export async function POST(req: Request) {
       .is("receipt_sent_at", null)
       .select("transaction_id");
     if (claimed && claimed.length > 0) {
-      sendPurchaseReceipt({
-        to: email,
-        amount: session.amount_total ?? 0,
-        recipientName: qrcInfo.recipientName,
-        eventTitle: product.event_title as string | null,
-        transactionId: transactionId,
-        productType: product.product_type as string | null,
-        ticketId,
-      }).catch((err) => console.error("[pay/complete] メール送信失敗:", err));
+      const productType = product.product_type as string | null;
+      issuePurchaseClaimUrl(admin, {
+        email,
+        transactionId,
+        redirectPath: claimRedirectPathFor(productType),
+      })
+        .then((claimUrl) =>
+          sendPurchaseReceipt({
+            to: email,
+            amount: session.amount_total ?? 0,
+            recipientName: qrcInfo.recipientName,
+            eventTitle: product.event_title as string | null,
+            transactionId: transactionId,
+            productType,
+            ticketId,
+            claimUrl,
+          }),
+        )
+        .catch((err) => console.error("[pay/complete] メール送信失敗:", err));
     }
   }
 

@@ -281,6 +281,28 @@ describe("TC-EVENTS-DETAIL-E: events/[eventId] PATCH — 出演者の削除→�
     expect(rows?.[0].status).toBe("pending");
     expect(rows?.[0].deleted_at).toBe(null);
   });
+
+  it("TC-EVENTS-DETAIL-E-03: artists[] で invite_message 付き新規追加 → event_artists.invite_message に保存される", async () => {
+    const eventId = await insertEvent({ organizerProfileId, agentId: agentProfileId, title: "TC-EVENTS-DETAIL-E-03" });
+    cleanup.eventIds.push(eventId);
+    mockAs(organizerProfileId, "organizer");
+
+    const req = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artists: [{ profile_id: artistProfileId, invite_message: "深夜枠でお願いできますか？" }] }),
+    });
+    const res = await eventPATCH(req, { params: Promise.resolve({ eventId }) });
+    expect(res.status).toBe(200);
+
+    const { data: rows } = await testAdmin
+      .from("event_artists")
+      .select("invite_message")
+      .eq("event_id", eventId)
+      .eq("artist_profile_id", artistProfileId);
+    expect(rows?.length).toBe(1);
+    expect(rows?.[0].invite_message).toBe("深夜枠でお願いできますか？");
+  });
 });
 
 // ── TC-EVENTS-DETAIL-C: invite — 招待コード生成 ─────────────────────────

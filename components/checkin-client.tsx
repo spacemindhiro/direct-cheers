@@ -14,6 +14,7 @@ type CheckinResult = {
   email?: string;
   is_voucher?: boolean;
   quantity?: number;
+  re_entry?: boolean;
   ticket?: { checked_in_at?: string | null };
 };
 
@@ -68,7 +69,9 @@ export function CheckinClient() {
         body: JSON.stringify({ ticket_code: code }),
       });
       const data: CheckinResult = await res.json();
-      const status = data.ok ? "success" : data.error === "ALREADY_USED" ? "warn" : "error";
+      // re_entry（QRを維持したまま二度目以降の入場）は成功応答(ok:true)だが、
+      // スタッフが「初回入場」と区別できるよう入場済み系の警告表示に回す
+      const status = data.ok ? (data.re_entry ? "warn" : "success") : data.error === "ALREADY_USED" ? "warn" : "error";
       showOverlay(status, data);
       setLog((prev) => [{
         id: `${Date.now()}-${Math.random()}`,
@@ -177,7 +180,9 @@ export function CheckinClient() {
                       ? `【引換成功】${latestEntry.result.product_name ?? ""}`
                       : "入場OK"
                     : latestEntry.status === "warn"
-                      ? latestEntry.result.is_voucher ? "引き換え済みです" : "入場済みです"
+                      ? latestEntry.result.is_voucher
+                        ? "引き換え済みです"
+                        : latestEntry.result.re_entry ? "再入場" : "入場済みです"
                     : errorMessage(latestEntry.result.error)}
                 </p>
                 {latestEntry.result.ok && (
@@ -185,6 +190,11 @@ export function CheckinClient() {
                     {latestEntry.result.product_name && <p>{latestEntry.result.product_name}</p>}
                     {!!latestEntry.result.quantity && latestEntry.result.quantity > 1 && (
                       <p className="text-indigo-400 font-black">{latestEntry.result.quantity}名分</p>
+                    )}
+                    {latestEntry.result.re_entry && latestEntry.result.ticket?.checked_in_at && (
+                      <p className="text-amber-500/70">
+                        前回入場: {new Date(latestEntry.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}
+                      </p>
                     )}
                     {latestEntry.result.email && <p className="text-slate-500">{latestEntry.result.email}</p>}
                   </div>
@@ -234,7 +244,9 @@ export function CheckinClient() {
                         : overlay.status === "warn"
                           ? overlay.result.is_voucher
                             ? `引き換え済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
-                            : `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
+                            : overlay.result.re_entry
+                              ? `再入場${overlay.result.ticket?.checked_in_at ? `（前回 ${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
+                              : `入場済み${overlay.result.ticket?.checked_in_at ? `（${new Date(overlay.result.ticket.checked_in_at).toLocaleTimeString("ja-JP", { timeZone: DISPLAY_TZ, hour: "2-digit", minute: "2-digit" })}）` : ""}`
                           : errorMessage(overlay.result.error)}
                     </p>
                     {!!overlay.result.quantity && overlay.result.quantity > 1 && (
@@ -301,7 +313,7 @@ export function CheckinClient() {
                     entry.status === "success" ? "text-green-400" :
                     entry.status === "warn"    ? "text-amber-400" : "text-red-400"
                   }`}>
-                    {entry.status === "success" ? "OK" : entry.status === "warn" ? "入場済" : errorMessage(entry.result.error)}
+                    {entry.status === "success" ? "OK" : entry.status === "warn" ? (entry.result.re_entry ? "再入場" : "入場済") : errorMessage(entry.result.error)}
                   </span>
                   {!!entry.result.quantity && entry.result.quantity > 1 && (
                     <span className="text-indigo-400 font-black shrink-0">{entry.result.quantity}名</span>

@@ -15,10 +15,12 @@ export async function InviteAcceptSection({
   token,
   targetEmail,
   targetProfileId,
+  targetRole,
 }: {
   token: string;
   targetEmail?: string;
   targetProfileId?: string;
+  targetRole?: string;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -30,7 +32,14 @@ export async function InviteAcceptSection({
       : targetEmail
         ? await checkIsMember(targetEmail)
         : false;
-    return <InviteLoginPrompt token={token} targetEmail={targetEmail} isMember={isMember} />;
+    return (
+      <InviteLoginPrompt
+        token={token}
+        targetEmail={targetEmail}
+        isMember={isMember}
+        targetRole={targetRole}
+      />
+    );
   }
 
   // onboarding 未完了（profiles なし）の場合は onboarding に誘導

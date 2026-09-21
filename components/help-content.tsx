@@ -32,6 +32,8 @@ import { TutorialVideoButton } from "./tutorial-video-button";
 // YouTube動画ID。オーガナイザー向け操作解説動画（O系列）。
 // 未アップロードの間は空文字にしておく（TutorialVideoButtonが自動で非表示にする）
 const ORGANIZER_TUTORIAL_VIDEOS: Record<string, string> = {
+  inviteRegister: "NUekyDjROuo", // O-01 招待リンクから登録する
+  profileSetup: "_ze_P_gijyc", // O-02-1 プロフィールを設定する（オーガナイザー）
   bankSetup: "IBTSbNuLdUI", // O-02 口座を登録する
   createEvent: "xvSKe1glbWI", // O-03 イベントを作成する
   inviteArtist: "CQtz2qYJdh8", // O-04 出演者を呼ぶ
@@ -47,6 +49,20 @@ const ORGANIZER_TUTORIAL_VIDEOS: Record<string, string> = {
 const DAY_OF_TUTORIAL_VIDEOS: Record<string, string> = {
   printOnly: "KjD1HOLPH0I", // D-01 印刷したQRだけで運用する
   scanner: "SQZHar-WqRE", // D-02 入場スキャナで検札する
+};
+
+// YouTube動画ID。一般ユーザー向け操作解説動画（U系列）
+const USER_TUTORIAL_VIDEOS: Record<string, string> = {
+  scanAndCheer: "ULsvaPueffs", // U-01 QRを読んで応援する
+};
+
+// YouTube動画ID。アーティスト向け操作解説動画（A系列）
+// 未アップロードの間は空文字にしておく（TutorialVideoButtonが自動で非表示にする）
+const ARTIST_TUTORIAL_VIDEOS: Record<string, string> = {
+  inviteRegister: "JvbFdwyf4lo", // A-01 招待リンクから登録する
+  profileSetup: "_tF8-GIZr10", // A-02 プロフィールを設定する
+  bankSetup: "68bSogaaGjw", // A-03 口座を登録する
+  lineupApprove: "EGid2xExtN0", // A-04 出演依頼を承認する
 };
 
 const ORGANIZER_GROUPS: { id: "prep" | "dayof"; label: string }[] = [
@@ -182,6 +198,7 @@ function UserGuide() {
         icon={<Heart size={16} className="text-pink-500" />}
         title="③ チアを送る・チケットを購入する"
         subtitle="Send Cheers"
+        videoId={USER_TUTORIAL_VIDEOS.scanAndCheer}
       >
         <p>会場に掲示されているQRコードを読み取ると、アーティストやイベントの専用ページが開きます。</p>
         <ul className="list-disc pl-4 space-y-1">
@@ -263,9 +280,20 @@ function ArtistGuide() {
   return (
     <div className="space-y-4">
       <Section
+        icon={<UserPlus size={16} className="text-pink-500" />}
+        title="① 招待リンクから登録する"
+        subtitle="Invite Registration"
+        videoId={ARTIST_TUTORIAL_VIDEOS.inviteRegister}
+      >
+        <p>オーガナイザーから招待リンクが届いた場合、リンクを開いて「登録して受け取る」を押すだけで、追加のメール確認なしにその場でアカウント作成からログインまで完了します。</p>
+        <p>すでにDirect Cheersに登録済みの場合は、ログインするだけで招待を受け取れます。</p>
+      </Section>
+
+      <Section
         icon={<Mic2 size={16} className="text-pink-500" />}
-        title="① プロフィール設定"
+        title="② プロフィール設定"
         subtitle="Profile"
+        videoId={ARTIST_TUTORIAL_VIDEOS.profileSetup}
       >
         <p>「プロフィール」の基本情報（表示名・アバター）に加えて、アーティスト専用の項目を設定できます。</p>
         <ul className="list-disc pl-4 space-y-1">
@@ -278,9 +306,24 @@ function ArtistGuide() {
       </Section>
 
       <Section
+        icon={<Landmark size={16} className="text-pink-500" />}
+        title="③ 口座登録"
+        subtitle="Bank Setup"
+        videoId={ARTIST_TUTORIAL_VIDEOS.bankSetup}
+      >
+        <p>「プロフィール」の「口座登録・本人確認を始める」から、Stripe Connectでの本人確認・口座登録に進めます。</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>種別選択・氏名・生年月日・住所・事業情報の5ステップに沿って入力し、最後に「Stripeで口座登録」からStripe側の画面で本人確認と口座登録を行います</li>
+          <li>Stripe側の手続き完了後は「口座開設審査中」と表示され、オーナー（運営）による最終承認をお待ちいただく形になります。承認されると「審査完了 — 受取可能」に変わります</li>
+          <li>口座登録が未完了の間にイベントの精算が行われても、あなたへの送金が失われることはありません。口座登録が完了するまで送金がいったん保留され、審査完了後に自動的に送金されます</li>
+        </ul>
+      </Section>
+
+      <Section
         icon={<CheckCircle2 size={16} className="text-pink-500" />}
-        title="② 出演依頼を受ける"
+        title="④ 出演依頼を受ける"
         subtitle="Lineup Invitations"
+        videoId={ARTIST_TUTORIAL_VIDEOS.lineupApprove}
       >
         <p>オーガナイザーからイベントへの出演依頼が届くと、ダッシュボードホームに「出演（依頼 N件）」のカードが表示されます。</p>
         <ul className="list-disc pl-4 space-y-1">
@@ -293,7 +336,7 @@ function ArtistGuide() {
 
       <Section
         icon={<Heart size={16} className="text-pink-500" />}
-        title="③ チアの受け取り方"
+        title="⑤ チアの受け取り方"
         subtitle="Cheers Card"
       >
         <p>アーティスト個人が常時使える「マイQR」はありません。チア用のQRコードは、出演するイベントごとにオーガナイザーが発行し、そこに配分先の1人としてあなたが登録される仕組みです。</p>
@@ -305,7 +348,7 @@ function ArtistGuide() {
 
       <Section
         icon={<TrendingUp size={16} className="text-pink-500" />}
-        title="④ 収益確認"
+        title="⑥ 収益確認"
         subtitle="Income"
       >
         <p>「収支レポート」（Income）で、確定申告・青色申告記帳用の月次内訳を確認できます。</p>
@@ -318,7 +361,7 @@ function ArtistGuide() {
 
       <Section
         icon={<Wallet size={16} className="text-pink-500" />}
-        title="⑤ 出金"
+        title="⑦ 出金"
         subtitle="Payout"
       >
         <p>「出金管理」（Payout）で、残高を「出金可能」「保留中」「凍結中」の3区分で確認し、出金申請ができます。</p>
@@ -331,21 +374,8 @@ function ArtistGuide() {
       </Section>
 
       <Section
-        icon={<Landmark size={16} className="text-pink-500" />}
-        title="⑥ 口座登録"
-        subtitle="Bank Setup"
-      >
-        <p>「プロフィール」の「口座登録・本人確認を始める」から、Stripe Connectでの本人確認・口座登録に進めます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>種別選択・氏名・生年月日・住所・事業情報の5ステップに沿って入力し、最後に「Stripeで口座登録」からStripe側の画面で本人確認と口座登録を行います</li>
-          <li>Stripe側の手続き完了後は「口座開設審査中」と表示され、オーナー（運営）による最終承認をお待ちいただく形になります。承認されると「審査完了 — 受取可能」に変わります</li>
-          <li>口座登録が未完了の間にイベントの精算が行われても、あなたへの送金が失われることはありません。口座登録が完了するまで送金がいったん保留され、審査完了後に自動的に送金されます</li>
-        </ul>
-      </Section>
-
-      <Section
         icon={<BarChart2 size={16} className="text-pink-500" />}
-        title="⑦ 統計"
+        title="⑧ 統計"
         subtitle="Statistics"
       >
         <p>「プロフィール」の「統計」タブから、これまで送ったチアの累計に加えて、これまで受け取ったチアの件数・総流通額・手数料控除後の受取額（概算）を確認できます。</p>
@@ -381,8 +411,31 @@ function OrganizerPrepGuide() {
   return (
     <div className="space-y-4">
       <Section
+        icon={<UserPlus size={16} className="text-pink-500" />}
+        title="① 招待リンクから登録する"
+        subtitle="Invite Registration"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.inviteRegister}
+      >
+        <p>エージェント／運営やほかのオーガナイザーから招待リンクが届いた場合、リンクを開いて「登録して受け取る」を押すだけで、追加のメール確認なしにその場でアカウント作成からログインまで完了します。</p>
+        <p>すでにDirect Cheersに登録済みの場合は、ログインするだけで招待を受け取れます。</p>
+      </Section>
+
+      <Section
+        icon={<UserCog size={16} className="text-pink-500" />}
+        title="② プロフィールを設定する"
+        subtitle="Organizer Profile"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.profileSetup}
+      >
+        <p>「プロフィール」で、主催者名・主催者用画像・活動団体名・紹介文・海外カード明細用の英字表記を設定できます。イベントやQR、お客様のカード利用明細に表示される情報です。</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>DJなどとして自分自身も出演する（オーガナイザー兼アーティスト）場合は、「DJとして出演する場合」でアーティスト名・アーティスト用画像・英字表記を別途設定できます（紹介文は主催者情報と共通です）</li>
+          <li>入力後は「保存する」を押してください</li>
+        </ul>
+      </Section>
+
+      <Section
         icon={<Landmark size={16} className="text-pink-500" />}
-        title="① 口座登録"
+        title="③ 口座登録"
         subtitle="Bank Setup"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.bankSetup}
       >
@@ -398,20 +451,20 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<CalendarPlus size={16} className="text-pink-500" />}
-        title="② イベントを作成する"
+        title="④ イベントを作成する"
         subtitle="Events"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.createEvent}
       >
         <p>「新規イベント作成」からタイトル・会場・開始/終了日時・出演アーティストを入力して作成します（作成直後は「下書き」状態です）。</p>
         <ul className="list-disc pl-4 space-y-1">
-          <li>出演アーティストは、コネクション済みのアーティストから選ぶか、「+ 新規アーティストに依頼」で検索して依頼メッセージを添えて招待できます（詳しくは「③ 出演依頼」参照）</li>
+          <li>出演アーティストは、コネクション済みのアーティストから選ぶか、「+ 新規アーティストに依頼」で検索して依頼メッセージを添えて招待できます（詳しくは「⑤ 出演依頼」参照）</li>
           <li>「下書き」の間は、作成者本人がイベントを削除できます</li>
         </ul>
       </Section>
 
       <Section
         icon={<UserPlus size={16} className="text-pink-500" />}
-        title="③ 出演依頼"
+        title="⑤ 出演依頼"
         subtitle="Lineup Invitations"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.inviteArtist}
       >
@@ -425,7 +478,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<UserPlus size={16} className="text-indigo-400" />}
-        title="④ 会員招待"
+        title="⑥ 会員招待"
         subtitle="Invitations（招待管理）"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.inviteUnregistered}
       >
@@ -434,13 +487,13 @@ function OrganizerPrepGuide() {
           <li><b>すでにDirect Cheersに登録済みの人を招待する場合</b>: 名前で検索して選ぶと、その人のアカウントに招待が届きます（一般ユーザーとして使っていた人をアーティストに切り替える場合など）</li>
           <li><b>まだDirect Cheersに登録していない人を招待する場合</b>: 相手のメールアドレスを直接入力して招待リンクを発行します（有効期限30日、メールも自動送信されます。まれに失敗した場合は招待リンクを手動で共有してください）。リンクを踏むとその場でアカウントが作成され、アーティストとして登録されます</li>
           <li>いずれの場合も、招待を承諾した時点でロールが「アーティスト」に切り替わります（すでにより上位のロールを持っている人には影響しません）</li>
-          <li>先にアーティストを招待して登録してもらってから、上記「③ 出演依頼」で個別のイベントに呼ぶ、という順序で使います</li>
+          <li>先にアーティストを招待して登録してもらってから、上記「⑤ 出演依頼」で個別のイベントに呼ぶ、という順序で使います</li>
         </ul>
       </Section>
 
       <Section
         icon={<CheckCircle2 size={16} className="text-pink-500" />}
-        title="⑤ 公開の承認を依頼する"
+        title="⑦ 公開の承認を依頼する"
         subtitle="Publish Approval"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.requestApproval}
       >
@@ -453,7 +506,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<QrCode size={16} className="text-pink-500" />}
-        title="⑥ QRを作成する"
+        title="⑧ QRを作成する"
         subtitle="QR Config"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.createQr}
       >
@@ -468,7 +521,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<Printer size={16} className="text-pink-500" />}
-        title="⑦ QRを印刷する"
+        title="⑨ QRを印刷する"
         subtitle="Print QR"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.printQr}
       >
@@ -477,7 +530,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<ScanLine size={16} className="text-pink-500" />}
-        title="⑧ 売上を見る・決済を取り消す"
+        title="⑩ 売上を見る・決済を取り消す"
         subtitle="Sales & Cancellation"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.venueOps}
       >
@@ -490,7 +543,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<FileCheck2 size={16} className="text-pink-500" />}
-        title="⑨ エビデンス提出"
+        title="⑪ エビデンス提出"
         subtitle="Evidence"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.submitEvidence}
       >
@@ -511,7 +564,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<TrendingUp size={16} className="text-pink-500" />}
-        title="⑩ 売上・精算の確認"
+        title="⑫ 売上・精算の確認"
         subtitle="Statistics / Income / Settlement"
       >
         <ul className="list-disc pl-4 space-y-1">
@@ -523,7 +576,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<Wallet size={16} className="text-pink-500" />}
-        title="⑪ 出金"
+        title="⑬ 出金"
         subtitle="Payout"
       >
         <p>「出金管理」で「出金可能」「保留中」「凍結中」の残高を確認できます。売上は決済が行われてから2週間（14日）後に出金可能になり、振込手数料¥500が差し引かれます。</p>
@@ -533,7 +586,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<XCircle size={16} className="text-red-400" />}
-        title="⑫ イベントの中止"
+        title="⑭ イベントの中止"
         subtitle="Cancellation"
       >
         <p>イベント詳細ページの「中止申請」から中止の手続きができます。</p>
@@ -599,11 +652,11 @@ function OrganizerDayOfGuide() {
         <p>当日スタッフが手元で見る前提の、時間順のチェックリストです。①〜③の機能説明とあわせてご覧ください。</p>
 
         <Phase label="前日まで">
-          <li><b>口座登録が「審査完了 — 受取可能」になっているか確認</b>。未完了だと当日のすべての決済がエラーになります（準備・機能グループの①参照）</li>
+          <li><b>口座登録が「審査完了 — 受取可能」になっているか確認</b>。未完了だと当日のすべての決済がエラーになります（準備・機能グループの③参照）</li>
           <li>QR詳細画面の「印刷する」から掲示用QRを印刷。汚れ・紛失に備えて予備を数枚</li>
           <li>子機タブレットを使う場合：親機パネルでタイムテーブルを登録し、子機にはダッシュボードの「別端末でログイン」のQRでログインさせておく（子機にパスキーは登録しない）</li>
           <li>タッチ決済を使う場合：<b>カードリーダーのファームウェア更新を前日までに済ませる</b>。初回接続時に必須更新が自動で走り、数分〜10分以上かかります。更新中は電源を切らず、Wi-Fiの安定した場所で行ってください。当日現地で初めて接続するのは避けてください</li>
-          <li>開催証跡用に<b>「当日写真を撮る担当」を決める</b>。写真がないとイベント終了後の精算に進めません（準備・機能グループの⑨参照）</li>
+          <li>開催証跡用に<b>「当日写真を撮る担当」を決める</b>。写真がないとイベント終了後の精算に進めません（準備・機能グループの⑪参照）</li>
         </Phase>
 
         <Phase label="開場前（現地）">
@@ -617,7 +670,7 @@ function OrganizerDayOfGuide() {
           <li>入場：お客様のチケットQRを読み取り、結果で対応を分けます。<b>「入場OK」</b>→通す／<b>「入場済みです」</b>→すでに入場済み。本人確認のうえ判断／<b>「無効なチケット」</b>→キャンセル済みや失効。決済し直してもらう</li>
           <li>当日券（タッチ決済）：商品と人数を選ぶ →「カードをタッチしてください」でお客様にカードやスマホをかざしてもらう → 完了。<b>初めてのお客様には子機のサインアップQRを読み取ってもらい</b>、cheers!カードを受け取れるようにします</li>
           <li>売上はイベント詳細の「売上・決済」タブでリアルタイムに確認できます</li>
-          <li>誤販売はその場で「売上・決済」タブから取消（精算前ならオーガナイザー自身で可能。準備・機能グループの⑧参照）</li>
+          <li>誤販売はその場で「売上・決済」タブから取消（精算前ならオーガナイザー自身で可能。準備・機能グループの⑩参照）</li>
         </Phase>
 
         <Phase label="トラブル時">
@@ -630,7 +683,7 @@ function OrganizerDayOfGuide() {
 
         <Phase label="終了後（その場で）">
           <li>撮った写真と動員数を、できればその日のうちに「開催証跡を提出して承認依頼する」から提出</li>
-          <li><b>開催から7日以内に精算が完了しないと、決済がすべて自動取消されイベントは中止扱いになります</b>（準備・機能グループの⑨参照）。提出を後回しにしないでください</li>
+          <li><b>開催から7日以内に精算が完了しないと、決済がすべて自動取消されイベントは中止扱いになります</b>（準備・機能グループの⑪参照）。提出を後回しにしないでください</li>
         </Phase>
       </Section>
     </div>

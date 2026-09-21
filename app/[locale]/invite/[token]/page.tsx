@@ -179,6 +179,7 @@ async function InviteContent({
               token={token}
               targetEmail={invitation.target_email ?? undefined}
               targetProfileId={invitation.target_profile_id ?? undefined}
+              targetRole={invitation.target_role}
             />
           </Suspense>
         </div>

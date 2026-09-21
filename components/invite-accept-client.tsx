@@ -6,18 +6,25 @@ import Link from "next/link";
 import { ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 import { TutorialVideoButton } from "./tutorial-video-button";
 
-// O-01「招待リンクから登録する」
-const INVITE_REGISTER_VIDEO_ID = "yv2hWQ3dfSg";
+// 「招待リンクから登録する」。ロールごとに別撮りしている（O-01/A-01）
+const INVITE_REGISTER_VIDEO_IDS: Record<string, string> = {
+  organizer: "NUekyDjROuo", // O-01
+  artist: "JvbFdwyf4lo", // A-01
+};
 
 export function InviteLoginPrompt({
   token,
   targetEmail,
   isMember,
+  targetRole,
 }: {
   token: string;
   targetEmail?: string;
   isMember: boolean;
+  targetRole?: string;
 }) {
+  const inviteVideoId =
+    (targetRole && INVITE_REGISTER_VIDEO_IDS[targetRole]) || INVITE_REGISTER_VIDEO_IDS.organizer;
   const emailParam = targetEmail ? `&email=${encodeURIComponent(targetEmail)}` : "";
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +64,7 @@ export function InviteLoginPrompt({
     <div className="space-y-3">
       <p className="text-center text-sm text-slate-400">招待を受け取るには登録が必要です</p>
       <div className="flex justify-center">
-        <TutorialVideoButton youtubeId={INVITE_REGISTER_VIDEO_ID} label="動画で見る：招待リンクから登録する" />
+        <TutorialVideoButton youtubeId={inviteVideoId} label="チュートリアル動画：招待リンクから登録する" />
       </div>
       <button
         type="button"

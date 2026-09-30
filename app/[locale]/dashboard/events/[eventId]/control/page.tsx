@@ -45,7 +45,7 @@ async function ControlContent({ params }: { params: Promise<{ eventId: string }>
     .from("qr_configs")
     .select(`
       qr_config_id, label, image_url, strip_image_url, bg_color,
-      product:products(name, type, artist_id, artist:profiles!artist_id(display_name))
+      product:products(name, type, artist_id, artist:profiles!artist_id(display_name, artist_name))
     `)
     .eq("event_id", eventId)
     .is("deleted_at", null)

@@ -45,7 +45,7 @@ export async function GET(
 
   const { data: products } = await admin
     .from("products")
-    .select("product_id, name, artist_id, artist:profiles!artist_id(display_name, avatar_url)")
+    .select("product_id, name, artist_id, artist:profiles!artist_id(display_name, artist_name, avatar_url)")
     .eq("event_id", eventId)
     .eq("type", "standard")
     .eq("min_amount", amount)
@@ -57,7 +57,8 @@ export async function GET(
   const candidates = (products ?? []).map((p: any) => ({
     product_id: p.product_id,
     name: p.name,
-    artist_name: p.artist?.display_name ?? null,
+    // アーティスト名（DJ名）が設定されていればそれを使い、未設定なら表示名にフォールバック
+    artist_name: p.artist?.artist_name ?? p.artist?.display_name ?? null,
     artist_avatar: p.artist?.avatar_url ?? null,
   }));
 

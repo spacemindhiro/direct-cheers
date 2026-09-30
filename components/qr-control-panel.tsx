@@ -28,7 +28,7 @@ type QRConfig = {
   product: {
     name: string;
     type: string;
-    artist: { display_name: string } | null;
+    artist: { display_name: string; artist_name: string | null } | null;
   } | null;
 };
 
@@ -36,7 +36,7 @@ type QrGroupMember = {
   qr_config_id: string;
   label: string | null;
   image_url: string | null;
-  product: { name: string; type: string; artist: { display_name: string } | null } | null;
+  product: { name: string; type: string; artist: { display_name: string; artist_name: string | null } | null } | null;
 };
 
 // 名前付きQRグループ。トラックのデフォルト・タイムテーブルのスロット・強制表示の
@@ -58,7 +58,7 @@ type DisplaySchedule = {
   qr_config: {
     qr_config_id: string;
     label: string | null;
-    product: { name: string; artist: { display_name: string } | null } | null;
+    product: { name: string; artist: { display_name: string; artist_name: string | null } | null } | null;
   } | null;
   qr_group: QrGroup | null;
 };
@@ -73,7 +73,7 @@ type DisplayTrack = {
     qr_config_id: string;
     label: string | null;
     image_url: string | null;
-    product: { name: string; type: string; artist: { display_name: string } | null } | null;
+    product: { name: string; type: string; artist: { display_name: string; artist_name: string | null } | null } | null;
   } | null;
   default_qr_group: QrGroup | null;
 };
@@ -427,7 +427,7 @@ export function QRControlPanel({
           qr_url: `${siteUrl}/c/${config.qr_config_id}`,
           product_name: config.product?.name ?? "",
           label: config.label || config.product?.name || "",
-          artist_name: config.product?.artist?.display_name ?? "",
+          artist_name: config.product?.artist?.artist_name ?? config.product?.artist?.display_name ?? "",
         },
       });
       if (result === "ok") {
@@ -461,7 +461,7 @@ export function QRControlPanel({
             qr_url: `${siteUrl}/c/${qc.qr_config_id}`,
             product_name: qc.product?.name ?? "",
             label: qc.label || qc.product?.name || "",
-            artist_name: qc.product?.artist?.display_name ?? "",
+            artist_name: qc.product?.artist?.artist_name ?? qc.product?.artist?.display_name ?? "",
             image_url: qc.image_url,
           })),
         },

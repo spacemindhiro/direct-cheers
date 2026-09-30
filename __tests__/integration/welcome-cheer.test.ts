@@ -841,3 +841,87 @@ describe("TC-WC-C: 確定API — 演者選択の正常系・異常系", () => {
     expect(data.locked).toBe(true);
   });
 });
+
+/**
+ * TC-WC-F: ウェルカムチアの演者候補に出る名前。
+ *
+ * 背景（2026-10-01 O-11の収録中に発覚）: cheer-products API が
+ * `artist_name` というキーに profiles.display_name を詰めて返していた。
+ * そのため主催者のQR作成画面で、アーティスト名（DJ名）を設定している演者が
+ * 本名やアカウント名で候補に並んでいた。
+ * 同じ誤りは pay/complete（PR #133 で修正済み）・親機パネル→子機配信・
+ * Cheers History にもあり、本PRでまとめて修正した。
+ */
+describe("TC-WC-F: cheer-products 候補の artist_name はアーティスト名を優先する", () => {
+  let namedArtistProfileId: string;
+  let unnamedArtistProfileId: string;
+
+  beforeAll(async () => {
+    const ts = Date.now();
+    namedArtistProfileId = await insertProfile({
+      role: "artist", displayName: "本名タロウ（WC-F）", email: `wcf-named-${ts}@test.local`,
+    });
+    unnamedArtistProfileId = await insertProfile({
+      role: "artist", displayName: "名無しジロウ（WC-F）", email: `wcf-unnamed-${ts}@test.local`,
+    });
+    cleanup.profileIds.push(namedArtistProfileId, unnamedArtistProfileId);
+    await testAdmin.from("profiles").update({ artist_name: "LUNA ORBIT" }).eq("profile_id", namedArtistProfileId);
+    await testAdmin.from("profiles").update({ artist_name: null }).eq("profile_id", unnamedArtistProfileId);
+
+    // 候補になる条件: standard・ワンプライス・金額完全一致・is_welcome_cheer_default=false
+    const namedProductId = await insertProduct({
+      eventId, type: "standard", name: "WC-F 名前あり演者のチア", minAmount: 1234, maxAmount: 1234, artistId: namedArtistProfileId,
+    });
+    cleanup.productIds.push(namedProductId);
+    const unnamedProductId = await insertProduct({
+      eventId, type: "standard", name: "WC-F 名前なし演者のチア", minAmount: 1234, maxAmount: 1234, artistId: unnamedArtistProfileId,
+    });
+    cleanup.productIds.push(unnamedProductId);
+  }, 30_000);
+
+  it("TC-WC-F-01: artist_name 設定あり → display_name ではなく artist_name が候補名になる", async () => {
+    mockOrganizerAuth();
+    const res = await cheerProductsGET(
+      new Request(`http://localhost/api/events/${eventId}/cheer-products?amount=1234`),
+      { params: Promise.resolve({ eventId }) },
+    );
+    const data = await res.json();
+    expect(res.status).toBe(200);
+
+    const { data: prof } = await testAdmin
+      .from("profiles").select("artist_name, display_name").eq("profile_id", namedArtistProfileId).single();
+    const c = data.candidates.find((x: any) => x.name === "WC-F 名前あり演者のチア");
+    expect(c.artist_name).toBe(prof!.artist_name);
+    expect(c.artist_name).toBe("LUNA ORBIT");
+    expect(c.artist_name).not.toBe(prof!.display_name);
+  });
+
+  it("TC-WC-F-02: artist_name 未設定 → display_name にフォールバックする", async () => {
+    mockOrganizerAuth();
+    const res = await cheerProductsGET(
+      new Request(`http://localhost/api/events/${eventId}/cheer-products?amount=1234`),
+      { params: Promise.resolve({ eventId }) },
+    );
+    const data = await res.json();
+    expect(res.status).toBe(200);
+
+    const { data: prof } = await testAdmin
+      .from("profiles").select("artist_name, display_name").eq("profile_id", unnamedArtistProfileId).single();
+    expect(prof!.artist_name).toBe(null);
+    const c = data.candidates.find((x: any) => x.name === "WC-F 名前なし演者のチア");
+    expect(c.artist_name).toBe(prof!.display_name);
+    expect(c.artist_name).toBe("名無しジロウ（WC-F）");
+  });
+
+  it("TC-WC-F-03: 金額が1円でも違う商品は候補に出ない（候補条件は完全一致）", async () => {
+    mockOrganizerAuth();
+    const res = await cheerProductsGET(
+      new Request(`http://localhost/api/events/${eventId}/cheer-products?amount=1233`),
+      { params: Promise.resolve({ eventId }) },
+    );
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.candidates.some((x: any) => x.name === "WC-F 名前あり演者のチア")).toBe(false);
+    expect(data.candidates.some((x: any) => x.name === "WC-F 名前なし演者のチア")).toBe(false);
+  });
+});

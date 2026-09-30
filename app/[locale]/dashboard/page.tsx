@@ -208,7 +208,7 @@ async function DashboardContent() {
       ? admin.from('transactions').select(`
           transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
           payment_method, wallet_type,
-          product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+          product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name, artist_name)),
           qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
         `).eq('sender_profile_id', user!.id).eq('status', 'completed').neq('transaction_type', 'invitation').order('created_at', { ascending: false }).limit(50)
       : Promise.resolve({ data: null }),
@@ -217,7 +217,7 @@ async function DashboardContent() {
       ? admin.from('transactions').select(`
           transaction_id, total_gross_amount, created_at, sender_comment, sender_name, sender_email,
           payment_method, wallet_type,
-          product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name)),
+          product:products!product_id(name, artist_id, artist:profiles!artist_id(display_name, artist_name)),
           qr_config:qr_configs!qr_config_id(event_id, event:events!event_id(title))
         `).eq('sender_email', userEmail).eq('status', 'completed').neq('transaction_type', 'invitation').order('created_at', { ascending: false }).limit(50)
       : Promise.resolve({ data: null }),
@@ -700,7 +700,7 @@ async function DashboardContent() {
                         {tx.qr_config?.event?.title ?? tx.product?.name ?? '—'}
                       </p>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        {tx.product?.artist?.display_name && <span className="mr-2">{tx.product.artist.display_name}</span>}
+                        {(tx.product?.artist?.artist_name ?? tx.product?.artist?.display_name) && <span className="mr-2">{tx.product.artist.artist_name ?? tx.product.artist.display_name}</span>}
                         {fmtDate(tx.created_at)}
                       </p>
                       {tx.sender_comment && (

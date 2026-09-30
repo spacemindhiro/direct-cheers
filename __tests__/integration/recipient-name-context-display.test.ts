@@ -69,6 +69,12 @@ let eventId: string;
 let cheersProductId: string;
 let qrOrganizerConfigId: string;
 let qrArtistConfigId: string;
+// TC-RNC-02 用：products.artist_id に紐づくプロフィール（メッセージ欄・フォロー欄の名前の出どころ）
+let artistWithNameProfileId: string;
+let artistNoNameProfileId: string;
+let productArtistNamedId: string;
+let productArtistUnnamedId: string;
+let productNoArtistId: string;
 
 const cleanup = {
   profileIds: [] as string[],
@@ -111,6 +117,32 @@ beforeAll(async () => {
   });
   await testAdmin.from("qr_configs").update({ recipient_name_context: "artist" }).eq("qr_config_id", qrArtistConfigId);
   cleanup.qrConfigIds.push(qrArtistConfigId);
+
+  // --- TC-RNC-02: products.artist_id 経由の artist_name 解決 ---
+  // artist_name を設定したアーティスト
+  artistWithNameProfileId = await insertProfile({
+    role: "artist",
+    displayName: "本名タロウ（RNCテスト）",
+    email: `artist-named-rnc-${ts}@test.local`,
+  });
+  cleanup.profileIds.push(artistWithNameProfileId);
+  await testAdmin.from("profiles").update({ artist_name: "LUNA ORBIT" }).eq("profile_id", artistWithNameProfileId);
+
+  // artist_name 未設定のアーティスト（display_name へフォールバックする想定）
+  artistNoNameProfileId = await insertProfile({
+    role: "artist",
+    displayName: "名無しジロウ（RNCテスト）",
+    email: `artist-unnamed-rnc-${ts}@test.local`,
+  });
+  cleanup.profileIds.push(artistNoNameProfileId);
+  await testAdmin.from("profiles").update({ artist_name: null }).eq("profile_id", artistNoNameProfileId);
+
+  productArtistNamedId = await insertProduct({ eventId, type: "message", paymentType: "B", name: "TC-RNC メッセージ（名前あり）", artistId: artistWithNameProfileId });
+  cleanup.productIds.push(productArtistNamedId);
+  productArtistUnnamedId = await insertProduct({ eventId, type: "message", paymentType: "B", name: "TC-RNC メッセージ（名前なし）", artistId: artistNoNameProfileId });
+  cleanup.productIds.push(productArtistUnnamedId);
+  productNoArtistId = await insertProduct({ eventId, type: "message", paymentType: "B", name: "TC-RNC メッセージ（紐付けなし）", artistId: null });
+  cleanup.productIds.push(productNoArtistId);
 }, 30_000);
 
 afterAll(async () => {
@@ -156,5 +188,85 @@ describe("TC-RNC-01: 同じprofile_idでも、recipient_name_contextに応じて
 
     expect(data.recipient_name).toBe("DJ HIRO");
     expect(data.recipient_avatar).toBe("https://example.com/artist.webp");
+  });
+});
+
+/**
+ * TC-RNC-02: 決済完了画面のメッセージ欄・フォロー欄に出る artist_name。
+ *
+ * 背景（2026-09-30 の収録中に発覚）: getProductInfo の select が display_name しか
+ * 取得しておらず、artist_name というキーに display_name を詰めて返していた。
+ * cheers!カード側は recipient_name を先に見るため正しいアーティスト名が出るのに、
+ * メッセージ欄（「◯◯ へ一言添えることができます」）とフォロー欄だけが
+ * アカウントの表示名になり、同じ画面で名前が食い違っていた。
+ */
+describe("TC-RNC-02: products.artist_id の artist_name が完了画面に返る", () => {
+  it("artist_name 設定あり → display_name ではなく artist_name（LUNA ORBIT）が返る", async () => {
+    captured.fakePiId = `pi_rnc_an_named_${Date.now()}`;
+    captured.fakeMetadata = { product_id: productArtistNamedId, qr_config_id: qrArtistConfigId };
+
+    const res = await completePOST(makeReq());
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    cleanup.transactionIds.push(data.transaction_id);
+
+    const { data: prof } = await testAdmin
+      .from("profiles")
+      .select("artist_name, display_name")
+      .eq("profile_id", artistWithNameProfileId)
+      .single();
+    expect(data.artist_name).toBe(prof!.artist_name);
+    expect(data.artist_name).toBe("LUNA ORBIT");
+    expect(data.artist_name).not.toBe(prof!.display_name);
+  });
+
+  it("artist_name 未設定 → display_name にフォールバックする", async () => {
+    captured.fakePiId = `pi_rnc_an_unnamed_${Date.now()}`;
+    captured.fakeMetadata = { product_id: productArtistUnnamedId, qr_config_id: qrArtistConfigId };
+
+    const res = await completePOST(makeReq());
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    cleanup.transactionIds.push(data.transaction_id);
+
+    const { data: prof } = await testAdmin
+      .from("profiles")
+      .select("artist_name, display_name")
+      .eq("profile_id", artistNoNameProfileId)
+      .single();
+    expect(prof!.artist_name).toBe(null);
+    expect(data.artist_name).toBe(prof!.display_name);
+    expect(data.artist_name).toBe("名無しジロウ（RNCテスト）");
+  });
+
+  it("artist_id 紐付けなし → artist_name は null（フォロー欄自体が出ない条件）", async () => {
+    captured.fakePiId = `pi_rnc_an_noartist_${Date.now()}`;
+    captured.fakeMetadata = { product_id: productNoArtistId, qr_config_id: qrArtistConfigId };
+
+    const res = await completePOST(makeReq());
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    cleanup.transactionIds.push(data.transaction_id);
+
+    expect(data.artist_id).toBe(null);
+    expect(data.artist_name).toBe(null);
+  });
+
+  it("同じ画面の recipient_name と artist_name が食い違わない（カードとメッセージ欄の一致）", async () => {
+    captured.fakePiId = `pi_rnc_an_consistent_${Date.now()}`;
+    captured.fakeMetadata = { product_id: productArtistNamedId, qr_config_id: qrArtistConfigId };
+
+    const res = await completePOST(makeReq());
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    cleanup.transactionIds.push(data.transaction_id);
+
+    // qrArtistConfigId の受取人は organizerProfileId（artist_name = DJ HIRO）なので
+    // カード側は DJ HIRO、メッセージ欄は商品のアーティスト LUNA ORBIT。
+    // どちらも display_name（本名）ではないことを固定する
+    expect(data.recipient_name).toBe("DJ HIRO");
+    expect(data.artist_name).toBe("LUNA ORBIT");
+    expect(data.recipient_name).not.toBe("兼任オーガナイザー（RNCテスト）");
+    expect(data.artist_name).not.toBe("本名タロウ（RNCテスト）");
   });
 });

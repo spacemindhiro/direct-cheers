@@ -492,12 +492,17 @@ async function getProductInfo(
   if (!productId) return { artist_id: null, artist_name: null, event_title: null, artist_avatar: null, product_name: null, product_type: null, payment_type: null, auto_checkin: false };
   const { data } = await admin
     .from("products")
-    .select("name, type, payment_type, artist_id, auto_checkin, artist:profiles!artist_id(display_name, avatar_url), event:events!event_id(title)")
+    .select("name, type, payment_type, artist_id, auto_checkin, artist:profiles!artist_id(display_name, artist_name, avatar_url), event:events!event_id(title)")
     .eq("product_id", productId)
     .single();
   return {
     artist_id: (data as any)?.artist_id ?? null,
-    artist_name: (data?.artist as any)?.display_name ?? null,
+    // アーティスト名（DJ名）が設定されていればそれを使い、未設定なら表示名にフォールバックする。
+    // プロフィール画面の「未入力なら表示名を使用」と同じ順序。
+    // 以前は display_name しか取得しておらず、決済完了画面のメッセージ欄・フォロー欄に
+    // アーティスト名ではなくアカウントの表示名が出ていた（cheers!カード側は recipient_name を
+    // 先に見るため正しく、同じ画面で名前が食い違っていた）。
+    artist_name: (data?.artist as any)?.artist_name ?? (data?.artist as any)?.display_name ?? null,
     event_title: (data?.event as any)?.title ?? null,
     artist_avatar: (data?.artist as any)?.avatar_url ?? null,
     product_name: data?.name ?? null,

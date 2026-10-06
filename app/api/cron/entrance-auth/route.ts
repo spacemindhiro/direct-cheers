@@ -15,6 +15,7 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { sendCardSuspendedEmail } from "@/lib/email/notification";
+import { issueCardUpdateUrl } from "@/lib/entrance-card-update";
 import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 import { buildEntrancePaymentParams } from "@/lib/entrance-payment";
@@ -190,13 +191,18 @@ export async function GET(req: Request) {
       if (tkt?.ticket_id) pushWalletUpdateBySerial(tkt.ticket_id).catch(() => {});
 
       if (rsv.email) {
-        sendCardSuspendedEmail({
-          to: rsv.email,
-          eventTitle: (rsv.event as any)?.title ?? "",
-          productName: (rsv.product as any)?.name ?? "",
-          reservationId: rsv.reservation_id,
-          reason: "card_error",
-        }).catch(() => {});
+        try {
+          const updateCardUrl = await issueCardUpdateUrl(admin, rsv.reservation_id);
+          sendCardSuspendedEmail({
+            to: rsv.email,
+            eventTitle: (rsv.event as any)?.title ?? "",
+            productName: (rsv.product as any)?.name ?? "",
+            updateCardUrl,
+            reason: "card_error",
+          }).catch(() => {});
+        } catch (e) {
+          console.error(`[entrance-auth] カード無効メール未送信 reservation=${rsv.reservation_id}:`, e);
+        }
       }
     }
   }

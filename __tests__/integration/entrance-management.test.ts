@@ -2,11 +2,13 @@
  * TC-ENT-MGMT: 入場チケット予約管理テスト
  *
  * カバレッジ:
- *   A. entrance/reservations GET — メール・予約ID検索
+ *   A. 旧メール検索API（entrance/reservations GET）が廃止されたままであること
  *   B. entrance/reservations/[id]/cancel — 予約キャンセル権限・状態チェック
  *   C. entrance/product/[productId] — 商品情報取得
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { existsSync } from "fs";
+import path from "path";
 import { insertProfile, deleteAuthUsers, insertEvent, insertProduct, insertTicket, insertReservation } from "../helpers/seed";
 import { testAdmin } from "../helpers/db-reset";
 
@@ -20,7 +22,6 @@ vi.mock("next/headers", () => ({
 }));
 
 import { createClient } from "@/lib/supabase/server";
-import { GET as reservationsGET } from "@/app/api/entrance/reservations/route";
 import { POST as cancelPOST } from "@/app/api/entrance/reservations/[reservationId]/cancel/route";
 import { GET as productGET } from "@/app/api/entrance/product/[productId]/route";
 
@@ -78,46 +79,17 @@ afterAll(async () => {
   await deleteAuthUsers(cleanup.profileIds);
 });
 
-// ── TC-ENT-MGMT-A: reservations GET ─────────────────────────────────────
-describe("TC-ENT-MGMT-A: entrance/reservations GET", () => {
-  it("TC-ENT-MGMT-A-01: email なし → reservations=[] (空)", async () => {
-    const req = new Request("http://localhost/api/entrance/reservations");
-    const res = await reservationsGET(req);
-    const data = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(Array.isArray(data.reservations)).toBe(true);
-    expect(data.reservations).toHaveLength(0);
+// ── TC-ENT-MGMT-A: メール検索APIの廃止 ───────────────────────────────────
+// 旧 GET /api/entrance/reservations?email= はメールアドレスだけで他人の予約
+// （イベント・会場・金額・カードエラー内容・予約ID）を返していたため廃止した。
+// カード再登録はメールのワンタイムトークン経由（TC-TYPEA-C/G）に一本化。
+describe("TC-ENT-MGMT-A: メールアドレスで予約を引く公開APIが存在しない", () => {
+  it("TC-ENT-MGMT-A-01: app/api/entrance/reservations/route.ts が無い", () => {
+    expect(existsSync(path.resolve(__dirname, "../../app/api/entrance/reservations/route.ts"))).toBe(false);
   });
 
-  it("TC-ENT-MGMT-A-02: 存在しないメール → reservations=[]", async () => {
-    const req = new Request(`http://localhost/api/entrance/reservations?email=nonexistent-${Date.now()}@test.local`);
-    const res = await reservationsGET(req);
-    const data = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(data.reservations).toHaveLength(0);
-  });
-
-  it("TC-ENT-MGMT-A-03: 既存メール → 予約一覧が返る", async () => {
-    const reservationId = await insertReservation({
-      productId,
-      eventId,
-      stripeCustomerId: `cus_mgmt_${Date.now()}`,
-      email: testEmail,
-      chargeAmount: 3000,
-      status: "reserved",
-    });
-    cleanup.reservationIds.push(reservationId);
-
-    const req = new Request(`http://localhost/api/entrance/reservations?email=${encodeURIComponent(testEmail)}`);
-    const res = await reservationsGET(req);
-    const data = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(data.reservations.length).toBeGreaterThanOrEqual(1);
-    const found = data.reservations.find((r: any) => r.reservation_id === reservationId);
-    expect(found).toBeDefined();
+  it("TC-ENT-MGMT-A-02: 旧画面 app/[locale]/reservations が無い", () => {
+    expect(existsSync(path.resolve(__dirname, "../../app/[locale]/reservations"))).toBe(false);
   });
 });
 

@@ -94,6 +94,9 @@ export async function POST(req: Request) {
         stripe_payment_method_id: paymentMethodId,
         card_error_message: null,
         card_error_code: null,
+        // カード再登録が済んだらメールのリンクは無効にする
+        card_update_token: null,
+        card_update_token_issued_at: null,
       })
       .eq("reservation_id", reservation.reservation_id);
 
@@ -244,6 +247,12 @@ async function handleTypeAAuth(
   if (rpcError) {
     return NextResponse.json({ error: rpcError.message }, { status: 500 });
   }
+
+  // カード再登録が済んだらメールのリンクは無効にする
+  await admin
+    .from("entrance_reservations")
+    .update({ card_update_token: null, card_update_token_issued_at: null })
+    .eq("reservation_id", reservationId);
 
   const row = (rpcRows as any[])[0];
   // ticket_code を取得

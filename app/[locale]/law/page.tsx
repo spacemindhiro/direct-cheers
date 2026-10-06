@@ -59,7 +59,7 @@ export default function LawPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-pink-500/30">
-      <nav className="p-6 border-b border-slate-800 backdrop-blur-md bg-slate-950/80 sticky top-0 z-50">
+      <nav className="p-6 pt-[calc(1.5rem_+_env(safe-area-inset-top))] border-b border-slate-800 backdrop-blur-md bg-slate-950/80 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 text-sm font-bold hover:text-pink-500 transition-colors group">
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> BACK TO TOP

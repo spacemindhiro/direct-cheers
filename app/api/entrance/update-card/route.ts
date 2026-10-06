@@ -8,22 +8,30 @@
  *
  * フロントはこのレスポンスの is_auth フラグで処理を分岐し、
  * カード入力後に /api/entrance/complete を呼ぶ。
+ *
+ * 本人確認はカード無効メールに載せたワンタイムトークン（card_update_token）で行う。
+ * 以前はメールアドレスの一致だけで通していたため、他人のメールを知っていれば
+ * その人の予約を pending に戻せてしまっていた。
  */
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildEntrancePaymentParams, EntranceAccountIncompleteError } from "@/lib/entrance-payment";
+import { isUuid } from "@/lib/entrance-card-update";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
-  const { reservation_id, email } = await req.json() as {
+  const { reservation_id, token } = await req.json() as {
     reservation_id: string;
-    email: string;
+    token: string;
   };
 
-  if (!reservation_id || !email) {
+  if (!reservation_id || !token) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+  }
+  if (!isUuid(reservation_id) || !isUuid(token)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const admin = createAdminClient();
@@ -32,18 +40,27 @@ export async function POST(req: Request) {
     .from("entrance_reservations")
     .select(`
       reservation_id, status, email, stripe_customer_id, product_id, event_id, charge_amount,
+      stripe_payment_intent_id,
       event:events(start_at)
     `)
     .eq("reservation_id", reservation_id)
-    .eq("email", email)
+    .eq("card_update_token", token)
     .maybeSingle();
 
   if (!reservation) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (!["reserved", "card_error"].includes(reservation.status)) {
+  // pending = このAPIで一度カード入力を始めて完了しなかった状態（入力途中の離脱・カード拒否）。
+  // トークンはサスペンド時にしか発行されないため、初回予約の pending はここに来ない。
+  if (!["reserved", "card_error", "pending"].includes(reservation.status)) {
     return NextResponse.json({ error: "Cannot update card for this reservation" }, { status: 409 });
+  }
+
+  // 前回の試行で作った PaymentIntent（5日以内パス）が残っていれば取り消す。
+  // オーソリまで通って complete に失敗していた場合、与信枠を握ったままになるため。
+  if (reservation.status === "pending" && reservation.stripe_payment_intent_id) {
+    await stripe.paymentIntents.cancel(reservation.stripe_payment_intent_id).catch(() => {});
   }
 
   // チケットがキャンセル済み（オーガナイザー操作等）なら復活不可

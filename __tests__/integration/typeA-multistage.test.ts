@@ -33,6 +33,7 @@ vi.mock("next/headers", () => ({
 const mockStripe = {
   retrieveResult: "ok" as "ok" | "expired" | "error",
   authResult: "ok" as "ok" | "fail",
+  cancelledPiIds: [] as string[],
 };
 
 vi.mock("stripe", async (importOriginal) => {
@@ -80,6 +81,17 @@ vi.mock("stripe", async (importOriginal) => {
         };
       };
 
+      // PI retrieve（complete の5日以内パスから呼ばれる）：カード入力でオーソリ済みの状態を返す
+      (this.paymentIntents as any).retrieve = async (id: string) => ({
+        id, status: "requires_capture", object: "payment_intent",
+      });
+
+      // PI cancel（update-card の再試行時に前回の PI を取り消す）
+      (this.paymentIntents as any).cancel = async (id: string) => {
+        mockStripe.cancelledPiIds.push(id);
+        return { id, status: "canceled", object: "payment_intent" };
+      };
+
       // Setup Intent create（update-card）
       (this.setupIntents as any).create = async (params: any) => ({
         id: `seti_mock_${Date.now()}`,
@@ -108,6 +120,7 @@ import { GET as cronCardCheckGET } from "@/app/api/cron/entrance-card-check/rout
 import { POST as updateCardPOST } from "@/app/api/entrance/update-card/route";
 import { POST as completePOST } from "@/app/api/entrance/complete/route";
 import { POST as checkinPOST } from "@/app/api/entrance/checkin/route";
+import { POST as cardUpdateLinkPOST } from "@/app/api/entrance/reservations/[reservationId]/card-update-link/route";
 
 const CRON_SECRET = process.env.CRON_SECRET ?? "test_cron_secret";
 const ORIGINAL_CRON_SECRET = process.env.CRON_SECRET;
@@ -178,6 +191,30 @@ async function setupReservation(params: {
   cleanup.ticketIds.push(ticketId);
 
   return { reservationId, ticketId };
+}
+
+/** カード無効メールのリンクと同じトークンを予約に発行して返す */
+async function issueToken(reservationId: string): Promise<string> {
+  const token = crypto.randomUUID();
+  await testAdmin.from("entrance_reservations")
+    .update({ card_update_token: token, card_update_token_issued_at: new Date().toISOString() })
+    .eq("reservation_id", reservationId);
+  return token;
+}
+
+function updateCardReq(body: Record<string, unknown>) {
+  return new Request("http://localhost", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function readCardUpdateToken(reservationId: string) {
+  const { data } = await testAdmin.from("entrance_reservations")
+    .select("status, card_update_token, card_update_token_issued_at")
+    .eq("reservation_id", reservationId).single();
+  return data as { status: string; card_update_token: string | null; card_update_token_issued_at: string | null };
 }
 
 beforeAll(async () => {
@@ -288,6 +325,11 @@ describe("TC-TYPEA-A: cron/entrance-auth — 5日前自動オーソリ", () => {
       .select("status").eq("ticket_id", ticketId).single();
     expect(tkt?.status).toBe("suspended");
 
+    // カード無効メールのリンク用トークンが発行されている
+    const issued = await readCardUpdateToken(reservationId);
+    expect(issued.card_update_token).toMatch(/^[0-9a-f-]{36}$/);
+    expect(issued.card_update_token_issued_at).not.toBeNull();
+
     mockStripe.authResult = "ok"; // reset
   }, 30_000);
 
@@ -342,6 +384,11 @@ describe("TC-TYPEA-B: cron/entrance-card-check — 日次カード状態確認",
     const { data: tkt } = await testAdmin.from("tickets")
       .select("status").eq("ticket_id", ticketId).single();
     expect(tkt?.status).toBe("suspended");
+
+    // カード無効メールのリンク用トークンが発行されている
+    const issued = await readCardUpdateToken(reservationId);
+    expect(issued.card_update_token).toMatch(/^[0-9a-f-]{36}$/);
+    expect(issued.card_update_token_issued_at).not.toBeNull();
 
     mockStripe.retrieveResult = "ok";
   }, 30_000);
@@ -400,30 +447,8 @@ describe("TC-TYPEA-C: update-card — リカバリ時の5日分岐・状態ガ�
       status: "card_error",
     });
 
-    const req = new Request("http://localhost", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        reservation_id: reservationId,
-        email: "ta-test@test.local",
-      }),
-    });
-    const res = await updateCardPOST(req);
-    const data = await res.json();
-
-    // 失敗するケースもある（emailが一致しないため）
-    // reservationのemailとリクエストのemailが一致しないので404になる可能性
-    // → このテストは emailマッチングを通すためemail固定が必要
-    // 実際のemailで確認
-    const { data: rsv } = await testAdmin.from("entrance_reservations")
-      .select("email").eq("reservation_id", reservationId).single();
-
-    const req2 = new Request("http://localhost", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reservation_id: reservationId, email: rsv?.email }),
-    });
-    const res2 = await updateCardPOST(req2);
+    const token = await issueToken(reservationId);
+    const res2 = await updateCardPOST(updateCardReq({ reservation_id: reservationId, token }));
     const data2 = await res2.json();
 
     expect(res2.status).toBe(200);
@@ -437,13 +462,12 @@ describe("TC-TYPEA-C: update-card — リカバリ時の5日分岐・状態ガ�
       status: "card_error",
     });
 
-    const { data: rsv } = await testAdmin.from("entrance_reservations")
-      .select("email").eq("reservation_id", reservationId).single();
+    const token = await issueToken(reservationId);
 
     const req = new Request("http://localhost", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reservation_id: reservationId, email: rsv?.email }),
+      body: JSON.stringify({ reservation_id: reservationId, token }),
     });
     const res = await updateCardPOST(req);
     const data = await res.json();
@@ -460,13 +484,12 @@ describe("TC-TYPEA-C: update-card — リカバリ時の5日分岐・状態ガ�
       stripePaymentIntentId: `pi_charged_${Date.now()}`,
     });
 
-    const { data: rsv } = await testAdmin.from("entrance_reservations")
-      .select("email").eq("reservation_id", reservationId).single();
+    const token = await issueToken(reservationId);
 
     const req = new Request("http://localhost", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reservation_id: reservationId, email: rsv?.email }),
+      body: JSON.stringify({ reservation_id: reservationId, token }),
     });
     const res = await updateCardPOST(req);
     expect(res.status).toBe(409);
@@ -479,18 +502,161 @@ describe("TC-TYPEA-C: update-card — リカバリ時の5日分岐・状態ガ�
       ticketStatus: "cancelled",
     });
 
-    const { data: rsv } = await testAdmin.from("entrance_reservations")
-      .select("email").eq("reservation_id", reservationId).single();
+    const token = await issueToken(reservationId);
 
     const req = new Request("http://localhost", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reservation_id: reservationId, email: rsv?.email }),
+      body: JSON.stringify({ reservation_id: reservationId, token }),
     });
     const res = await updateCardPOST(req);
     expect(res.status).toBe(409);
     const data = await res.json();
     expect(data.error).toMatch(/無効/);
+  }, 30_000);
+
+  // ── 本人確認（メールのワンタイムトークン）──
+  it("C-05: トークン不一致 → 404・予約は card_error のまま", async () => {
+    const { reservationId } = await setupReservation({ eventId: eventIdFar, status: "card_error" });
+    const token = await issueToken(reservationId);
+    const wrong = crypto.randomUUID();
+    expect(wrong).not.toBe(token);
+
+    const res = await updateCardPOST(updateCardReq({ reservation_id: reservationId, token: wrong }));
+    expect(res.status).toBe(404);
+    const after = await readCardUpdateToken(reservationId);
+    expect(after.status).toBe("card_error");
+    expect(after.card_update_token).toBe(token);
+  }, 30_000);
+
+  it("C-06: 旧形式（メールアドレスのみ）→ 400・予約は card_error のまま", async () => {
+    const { reservationId } = await setupReservation({ eventId: eventIdFar, status: "card_error" });
+    await issueToken(reservationId);
+    const { data: rsv } = await testAdmin.from("entrance_reservations")
+      .select("email").eq("reservation_id", reservationId).single();
+
+    const res = await updateCardPOST(updateCardReq({ reservation_id: reservationId, email: rsv!.email }));
+    expect(res.status).toBe(400);
+    expect((await readCardUpdateToken(reservationId)).status).toBe("card_error");
+  }, 30_000);
+
+  it("C-07: 別予約のトークン → 404・どちらの予約も動かない", async () => {
+    const victim = await setupReservation({ eventId: eventIdFar, status: "card_error" });
+    const other = await setupReservation({ eventId: eventIdFar, status: "card_error" });
+    await issueToken(victim.reservationId);
+    const otherToken = await issueToken(other.reservationId);
+
+    const res = await updateCardPOST(updateCardReq({ reservation_id: victim.reservationId, token: otherToken }));
+    expect(res.status).toBe(404);
+    expect((await readCardUpdateToken(victim.reservationId)).status).toBe("card_error");
+    expect((await readCardUpdateToken(other.reservationId)).status).toBe("card_error");
+  }, 30_000);
+
+  it("C-08: トークン未発行（初回予約の pending）→ 404", async () => {
+    const { reservationId } = await setupReservation({ eventId: eventIdFar, status: "pending" });
+    const res = await updateCardPOST(updateCardReq({ reservation_id: reservationId, token: crypto.randomUUID() }));
+    expect(res.status).toBe(404);
+    expect((await readCardUpdateToken(reservationId)).status).toBe("pending");
+  }, 30_000);
+
+  it("C-09: UUID形式でない値 → 404（DBに問い合わせない）", async () => {
+    const { reservationId } = await setupReservation({ eventId: eventIdFar, status: "card_error" });
+    await issueToken(reservationId);
+    const res1 = await updateCardPOST(updateCardReq({ reservation_id: reservationId, token: "' or 1=1 --" }));
+    expect(res1.status).toBe(404);
+    const res2 = await updateCardPOST(updateCardReq({ reservation_id: "not-a-uuid", token: crypto.randomUUID() }));
+    expect(res2.status).toBe(404);
+    expect((await readCardUpdateToken(reservationId)).status).toBe("card_error");
+  }, 30_000);
+
+  it("C-10: 入力途中で離脱（pending）→ 同じリンクで再試行でき、前回のPIは取り消される", async () => {
+    const { reservationId } = await setupReservation({ eventId: eventId5days, status: "card_error" });
+    const token = await issueToken(reservationId);
+
+    const first = await updateCardPOST(updateCardReq({ reservation_id: reservationId, token }));
+    expect(first.status).toBe(200);
+    const { data: p1 } = await testAdmin.from("entrance_reservations")
+      .select("status, stripe_payment_intent_id").eq("reservation_id", reservationId).single();
+    expect(p1!.status).toBe("pending");
+    const firstPi = p1!.stripe_payment_intent_id as string;
+
+    mockStripe.cancelledPiIds = [];
+    await new Promise((r) => setTimeout(r, 5)); // モックPIのIDは Date.now() 由来のため重複回避
+    const second = await updateCardPOST(updateCardReq({ reservation_id: reservationId, token }));
+    expect(second.status).toBe(200);
+    expect((await second.json()).is_auth).toBe(true);
+    expect(mockStripe.cancelledPiIds).toEqual([firstPi]);
+
+    const { data: p2 } = await testAdmin.from("entrance_reservations")
+      .select("status, stripe_payment_intent_id").eq("reservation_id", reservationId).single();
+    expect(p2!.status).toBe("pending");
+    expect(p2!.stripe_payment_intent_id).not.toBe(firstPi);
+  }, 30_000);
+});
+
+// ── G. カード再登録リンクの再送 ─────────────────────────────────────────────
+describe("TC-TYPEA-G: card-update-link — リンク再送", () => {
+  function resendReq(reservationId: string) {
+    return cardUpdateLinkPOST(
+      new Request("http://localhost", { method: "POST" }),
+      { params: Promise.resolve({ reservationId }) },
+    );
+  }
+
+  it("G-01: card_error・トークン未発行（旧メールの404リンクから来た人）→ 新トークン発行", async () => {
+    const { reservationId } = await setupReservation({ eventId: eventIdFar, status: "card_error" });
+    const res = await resendReq(reservationId);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    const after = await readCardUpdateToken(reservationId);
+    expect(after.card_update_token).toMatch(/^[0-9a-f-]{36}$/);
+    expect(after.card_update_token_issued_at).not.toBeNull();
+  }, 30_000);
+
+  it("G-02: 60秒以内の再送 → トークンは振り直さない（連打抑止）", async () => {
+    const { reservationId } = await setupReservation({ eventId: eventIdFar, status: "card_error" });
+    const token = await issueToken(reservationId);
+    const res = await resendReq(reservationId);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect((await readCardUpdateToken(reservationId)).card_update_token).toBe(token);
+  }, 30_000);
+
+  it("G-03: 60秒経過後の再送 → トークンが振り直され、古いリンクは無効", async () => {
+    const { reservationId } = await setupReservation({ eventId: eventIdFar, status: "card_error" });
+    const oldToken = await issueToken(reservationId);
+    await testAdmin.from("entrance_reservations")
+      .update({ card_update_token_issued_at: new Date(Date.now() - 61_000).toISOString() })
+      .eq("reservation_id", reservationId);
+
+    await resendReq(reservationId);
+    const newToken = (await readCardUpdateToken(reservationId)).card_update_token;
+    expect(newToken).toMatch(/^[0-9a-f-]{36}$/);
+    expect(newToken).not.toBe(oldToken);
+
+    const res = await updateCardPOST(updateCardReq({ reservation_id: reservationId, token: oldToken }));
+    expect(res.status).toBe(404);
+  }, 30_000);
+
+  it("G-04: 再登録不要（reserved）・チケット取消済み・初回pending → 発行しないが応答は同じ", async () => {
+    const reserved = await setupReservation({ eventId: eventIdFar, status: "reserved" });
+    const cancelled = await setupReservation({ eventId: eventIdFar, status: "card_error", ticketStatus: "cancelled" });
+    const initialPending = await setupReservation({ eventId: eventIdFar, status: "pending" });
+
+    for (const { reservationId } of [reserved, cancelled, initialPending]) {
+      const res = await resendReq(reservationId);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+      expect((await readCardUpdateToken(reservationId)).card_update_token).toBeNull();
+    }
+  }, 30_000);
+
+  it("G-05: 存在しない予約ID・UUIDでない値 → 応答は同じ", async () => {
+    for (const id of [crypto.randomUUID(), "not-a-uuid"]) {
+      const res = await resendReq(id);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+    }
   }, 30_000);
 });
 
@@ -504,12 +670,11 @@ describe("TC-TYPEA-D: complete — suspended チケット復活", () => {
     });
 
     // complete は pending 状態を要求するため、update-card で pending に戻してから呼ぶ
-    const { data: rsvEmail } = await testAdmin.from("entrance_reservations")
-      .select("email").eq("reservation_id", reservationId).single();
+    const token = await issueToken(reservationId);
     const updateRes = await updateCardPOST(new Request("http://localhost", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reservation_id: reservationId, email: rsvEmail?.email }),
+      body: JSON.stringify({ reservation_id: reservationId, token }),
     }));
     expect(updateRes.status).toBe(200); // update-card 成功（SetupIntentパス）
 
@@ -539,6 +704,44 @@ describe("TC-TYPEA-D: complete — suspended チケット復活", () => {
       .eq("reservation_id", reservationId).single();
     expect(rsv?.status).toBe("reserved");
     expect(rsv?.card_error_message).toBeNull();
+
+    // カード再登録完了でメールのリンクは無効になる
+    expect((await readCardUpdateToken(reservationId)).card_update_token).toBeNull();
+  }, 30_000);
+
+  it("D-02: 5日以内パス（PIオーソリ）でcomplete → charged・トークン無効化", async () => {
+    const { reservationId, ticketId } = await setupReservation({
+      eventId: eventId5days,
+      status: "card_error",
+      ticketStatus: "suspended",
+    });
+    const token = await issueToken(reservationId);
+
+    const updateRes = await updateCardPOST(updateCardReq({ reservation_id: reservationId, token }));
+    const updateData = await updateRes.json();
+    expect(updateRes.status).toBe(200);
+    expect(updateData.is_auth).toBe(true);
+
+    const { data: pending } = await testAdmin.from("entrance_reservations")
+      .select("status, stripe_payment_intent_id").eq("reservation_id", reservationId).single();
+    expect(pending!.status).toBe("pending");
+    const piId = pending!.stripe_payment_intent_id as string;
+    expect(piId).toMatch(/^pi_typea_mock_/);
+
+    const res = await completePOST(updateCardReq({ reservation_id: reservationId, payment_intent_id: piId }));
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.ok).toBe(true);
+    expect(data.ticket_id).toBe(ticketId);
+
+    const { data: tkt } = await testAdmin.from("tickets")
+      .select("status").eq("ticket_id", ticketId).single();
+    expect(tkt?.status).toBe("valid");
+
+    const after = await readCardUpdateToken(reservationId);
+    expect(after.status).toBe("charged");
+    expect(after.card_update_token).toBeNull();
+    expect(after.card_update_token_issued_at).toBeNull();
   }, 30_000);
 });
 
@@ -613,13 +816,14 @@ describe("TC-TYPEA-F: 一気通貫 — カード問題→suspended→リカバ�
     tkt = (await testAdmin.from("tickets").select("status").eq("ticket_id", ticketId).single()).data;
     expect(tkt?.status).toBe("suspended"); // ✓ 保留
 
-    // 3. update-card でカード差し替え
-    const { data: rsv } = await testAdmin.from("entrance_reservations")
-      .select("email").eq("reservation_id", reservationId).single();
+    // 3. cron がサスペンド時に発行したメールリンクのトークンで update-card
+    const issued = await readCardUpdateToken(reservationId);
+    expect(issued.card_update_token).toMatch(/^[0-9a-f-]{36}$/);
+    const token = issued.card_update_token!;
     const updateReq = new Request("http://localhost", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reservation_id: reservationId, email: rsv?.email }),
+      body: JSON.stringify({ reservation_id: reservationId, token }),
     });
     const updateRes = await updateCardPOST(updateReq);
     expect(updateRes.status).toBe(200);
@@ -636,6 +840,14 @@ describe("TC-TYPEA-F: 一気通貫 — カード問題→suspended→リカバ�
 
     tkt = (await testAdmin.from("tickets").select("status").eq("ticket_id", ticketId).single()).data;
     expect(tkt?.status).toBe("valid"); // ✓ 復活
+
+    // メールのリンクは使用済みで無効化され、再利用しても予約は動かない
+    const after = await readCardUpdateToken(reservationId);
+    expect(after.card_update_token).toBeNull();
+    expect(after.card_update_token_issued_at).toBeNull();
+    const reuseRes = await updateCardPOST(updateCardReq({ reservation_id: reservationId, token }));
+    expect(reuseRes.status).toBe(404);
+    expect((await readCardUpdateToken(reservationId)).status).toBe("reserved");
 
     // 5. checkin 成功
     const { data: tktData } = await testAdmin.from("tickets")

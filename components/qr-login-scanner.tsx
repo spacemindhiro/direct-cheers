@@ -60,7 +60,7 @@ export function QrLoginScanner({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950 flex flex-col">
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between p-4 pt-[calc(1rem_+_env(safe-area-inset-top))]">
         <div className="flex items-center gap-2 text-sm font-black text-white">
           <QrCode size={16} className="text-pink-500" /> QRでログイン
         </div>

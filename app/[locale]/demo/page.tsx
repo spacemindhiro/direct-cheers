@@ -35,7 +35,7 @@ export default function DemoEntrancePage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white relative overflow-hidden font-sans">
       {/* 1. ナビゲーションヘッダー（追加） */}
-      <nav className="fixed top-0 w-full z-50 bg-slate-950/50 backdrop-blur-xl border-b border-white/5 px-8 h-16 flex items-center justify-between">
+      <nav className="fixed top-0 w-full z-50 bg-slate-950/50 backdrop-blur-xl border-b border-white/5 px-8 h-[calc(4rem_+_env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2 group text-slate-400 hover:text-white transition-colors">
             <Home size={18} />

@@ -23,7 +23,7 @@ async function AdminHeader() {
   }).length;
 
   return (
-    <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4">
+    <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4 pt-[calc(1rem_+_env(safe-area-inset-top))]">
       <div className="max-w-5xl mx-auto flex justify-between items-center">
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="flex items-center gap-2 group">
@@ -75,7 +75,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
       <Suspense fallback={
-        <div className="h-16 border-b border-slate-800" />
+        <div className="h-[calc(4rem_+_env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] border-b border-slate-800" />
       }>
         <AdminHeader />
       </Suspense>

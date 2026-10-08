@@ -29,6 +29,9 @@ const LABELS: Record<string, string> = {
   sales: "売上管理",
   settlements: "精算管理",
   help: "利用マニュアル",
+  terms: "利用規約",
+  privacy: "プライバシーポリシー",
+  law: "特定商取引法に基づく表記",
 };
 
 const LOCALES = ["en", "ja"];
@@ -67,8 +70,9 @@ export function DashboardBreadcrumb() {
     // 過ぎないため。最終セグメントなら表示）
     if (seg === "qr" && i < segments.length - 1) continue;
 
-    // 同意書系も一覧ページが無い（入口はプロフィールの「規約・同意書」欄）ため、
-    // documents / agreements / agreements配下の規約種別は中間セグメントを出さない
+    // 同意書系（/dashboard/profile/documents|agreements/...）も一覧ページが無い
+    // （入口はプロフィールの「規約・同意書」欄）ため、documents / agreements /
+    // agreements配下の規約種別は中間セグメントを出さない。親のプロフィールは通常どおり出る
     const isLast = i === segments.length - 1;
     if ((seg === "documents" || seg === "agreements" || prev === "agreements") && !isLast) continue;
 

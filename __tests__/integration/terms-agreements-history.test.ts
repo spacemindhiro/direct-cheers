@@ -5,7 +5,7 @@
  * （/dashboard/terms）では同意済みになると「同意完了（版）」の表示だけになり、
  * ログイン後に本文を見返す手段が無かった（対面調印した signed_documents のみ
  * 閲覧可能だった）。プロフィールの「規約・同意書」欄と
- * /dashboard/agreements/[type]/[version] がこのAPIで同意履歴を取得する。
+ * /dashboard/profile/agreements/[type]/[version] がこのAPIで同意履歴を取得する。
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { insertProfile, deleteAuthUsers } from "../helpers/seed";

@@ -8,6 +8,7 @@ import { Capacitor } from "@capacitor/core";
 import { Loader2, Mail, Send, MailCheck, QrCode } from "lucide-react";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
 import { QrLoginScanner } from "@/components/qr-login-scanner";
+import { ConsentNotice } from "@/components/legal/consent-notice";
 
 function GoogleIcon() {
   return (
@@ -240,6 +241,7 @@ export function LoginForm({
           : <><Send size={16} /> ログインリンクを送る</>
         }
       </button>
+      <ConsentNotice lead="新規登録となる場合、Googleでのサインインまたはログインリンクの送信により、" />
 
     </div>
   );

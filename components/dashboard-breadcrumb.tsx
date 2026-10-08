@@ -78,7 +78,9 @@ export function DashboardBreadcrumb() {
 
     const label = segments[i - 2] === "agreements"
       ? "同意済みの規約"
-      : isDynamic(seg) ? dynamicLabel(prev) : (LABELS[seg] ?? seg);
+      : prev === "terms" && segments[i - 2] === "profile"
+        ? `版 ${seg}` // /dashboard/profile/terms/[version]（利用規約の過去の版）
+        : isDynamic(seg) ? dynamicLabel(prev) : (LABELS[seg] ?? seg);
     items.push({ label, href: path, isCurrent: i === segments.length - 1 });
   }
 

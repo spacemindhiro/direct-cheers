@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { PasskeySetup } from "@/components/passkey-setup";
 import { Loader2, ArrowRight, CheckCircle2, Ticket, Send, MailCheck } from "lucide-react";
+import { ConsentNotice } from "@/components/legal/consent-notice";
 
 type Step = "loading" | "landing" | "magic_sent" | "redeeming" | "done" | "error";
 
@@ -267,6 +268,7 @@ function InvitePage() {
         <p className="text-[10px] text-slate-600 text-center leading-relaxed">
           初めての方はこのままアカウント作成。すでにお持ちの方はそのままログインできます。
         </p>
+        <ConsentNotice lead="新規登録となる場合、Googleでのサインインまたはログインリンクの送信により、" />
       </form>
 
     </div>

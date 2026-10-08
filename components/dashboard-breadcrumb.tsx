@@ -43,6 +43,7 @@ function dynamicLabel(prev: string): string {
     case "events": return "イベント詳細";
     case "qr": return "QR詳細";
     case "connect-review": return "審査詳細";
+    case "documents": return "調印済み文書";
     default: return "詳細";
   }
 }
@@ -66,7 +67,14 @@ export function DashboardBreadcrumb() {
     // 過ぎないため。最終セグメントなら表示）
     if (seg === "qr" && i < segments.length - 1) continue;
 
-    const label = isDynamic(seg) ? dynamicLabel(prev) : (LABELS[seg] ?? seg);
+    // 同意書系も一覧ページが無い（入口はプロフィールの「規約・同意書」欄）ため、
+    // documents / agreements / agreements配下の規約種別は中間セグメントを出さない
+    const isLast = i === segments.length - 1;
+    if ((seg === "documents" || seg === "agreements" || prev === "agreements") && !isLast) continue;
+
+    const label = segments[i - 2] === "agreements"
+      ? "同意済みの規約"
+      : isDynamic(seg) ? dynamicLabel(prev) : (LABELS[seg] ?? seg);
     items.push({ label, href: path, isCurrent: i === segments.length - 1 });
   }
 

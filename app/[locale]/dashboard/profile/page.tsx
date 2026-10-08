@@ -527,9 +527,9 @@ export default function ProfileEditPage() {
           {/* 公開中の規約・ポリシー */}
           <div className="space-y-2">
             {[
-              { href: '/terms',   label: '利用規約' },
-              { href: '/privacy', label: 'プライバシーポリシー' },
-              { href: '/law',     label: '特定商取引法に基づく表記' },
+              { href: '/dashboard/profile/terms',   label: '利用規約' },
+              { href: '/dashboard/profile/privacy', label: 'プライバシーポリシー' },
+              { href: '/dashboard/profile/law',     label: '特定商取引法に基づく表記' },
             ].map((item) => (
               <Link
                 key={item.href}
@@ -552,7 +552,7 @@ export default function ProfileEditPage() {
                 </p>
               </div>
               <Link
-                href={`/dashboard/agreements/${a.terms_type}/${a.version}`}
+                href={`/dashboard/profile/agreements/${a.terms_type}/${a.version}`}
                 className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest transition-colors flex items-center gap-1 shrink-0"
               >
                 確認する <ChevronRight size={12} />
@@ -570,7 +570,7 @@ export default function ProfileEditPage() {
                 </p>
               </div>
               <Link
-                href={`/dashboard/documents/${signedDoc.id}`}
+                href={`/dashboard/profile/documents/${signedDoc.id}`}
                 className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest transition-colors flex items-center gap-1"
               >
                 確認する <ChevronRight size={12} />

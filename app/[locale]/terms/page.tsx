@@ -17,7 +17,7 @@ export default function TermsPage() {
           <div className="flex items-center gap-4 mb-12 border-b border-slate-800 pb-8">
             <ShieldCheck className="text-pink-500" size={28} />
             <h1 className="text-2xl md:text-3xl font-black italic text-white uppercase tracking-tight">利用規約</h1>
-            <span className="ml-auto text-[10px] text-slate-500 font-mono italic text-right">Last Updated: 2026.06.27</span>
+            <span className="ml-auto text-[10px] text-slate-500 font-mono italic text-right">Last Updated: 2026.10.08</span>
           </div>
           
           <div className="space-y-10 text-[13px] md:text-sm leading-relaxed">
@@ -86,7 +86,33 @@ export default function TermsPage() {
             </section>
 
             <section>
-              <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-slate-500 pl-3">第9条（規約の変更）</h2>
+              <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-slate-500 pl-3">第9条（通信の秘密）</h2>
+              <ol className="list-decimal ml-5 space-y-2">
+                <li>当社は、電気通信事業法に基づく届出電気通信事業者（届出番号 A-08-24390）として、本サービスのメッセージ機能その他ユーザー間の通信の秘密を保護します。</li>
+                <li>
+                  当社は、ユーザー間の通信の内容を閲覧・利用し、または第三者に提供しません。ただし、次の各号に該当する場合を除きます。
+                  <ol className="list-[lower-roman] ml-5 mt-2 space-y-1 text-slate-400">
+                    <li>裁判官の発する令状その他法令に基づき開示が求められた場合</li>
+                    <li>人の生命、身体または財産に対する差し迫った危険があり、緊急に必要と認められる場合</li>
+                    <li>システムの保守・障害対応に必要な範囲で、機械的に処理する場合</li>
+                  </ol>
+                </li>
+                <li>ユーザー間のトラブルについて当社へ相談・通報する場合、ユーザーは自らが当事者である通信の内容を、自らの判断で当社に提供するものとします。当社は、提供を受けた内容を当該トラブルへの対応に必要な範囲でのみ利用します。</li>
+                <li>前各項は、次条に定める応援メッセージには適用しません。</li>
+              </ol>
+            </section>
+
+            <section>
+              <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-slate-500 pl-3">第10条（応援メッセージの取扱い）</h2>
+              <ol className="list-decimal ml-5 space-y-2">
+                <li>Cheers（メッセージ）の購入に際して送信されるニックネームおよびメッセージ（以下「応援メッセージ」）は、宛先のアーティストに加え、当該イベントの主催者、担当エージェントおよび当社が閲覧できるものとし、会場での演出、SNSその他の媒体で公開されることがあります。</li>
+                <li>ユーザーは、応援メッセージに個人情報その他他人に知られたくない情報を記載しないものとします。</li>
+                <li>ユーザーは、当社、主催者およびアーティストに対し、応援メッセージを第1項の目的で無償で利用（公開・転載・編集を含む）することを許諾し、著作者人格権を行使しないものとします。</li>
+              </ol>
+            </section>
+
+            <section>
+              <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-slate-500 pl-3">第11条（規約の変更）</h2>
               <p>当社は、ユーザーの承諾を得ることなく、本規約を変更できるものとします。変更後の規約は、本サービス上に表示した時点から効力を生じるものとします。</p>
             </section>
 

@@ -82,7 +82,8 @@ export default function TermsPage() {
 
             <section>
               <h2 className="text-base font-bold text-white mb-3 italic border-l-2 border-slate-500 pl-3">第8条（禁止事項）</h2>
-              <p>本サービスの運営妨害、他人の決済手段の不正使用、デジタルアセットの不正複製・改ざん、転売行為等を禁止します。</p>
+              <p className="mb-3">本サービスの運営妨害、他人の決済手段の不正使用、デジタルアセットの不正複製・改ざん、転売行為等を禁止します。</p>
+              <p>また、メッセージ機能および応援メッセージを用いた、第三者への金銭要求、本サービスを介さない直接決済の勧誘、誹謗中傷その他法令または公序良俗に反する内容の送信を禁止します。</p>
             </section>
 
             <section>

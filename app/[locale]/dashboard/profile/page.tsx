@@ -16,6 +16,7 @@ import { PwaInstallButton } from '@/components/pwa-install-button';
 import { StatementDescriptorPreview } from '@/components/statement-descriptor-preview';
 import { AvatarUploadField } from '@/components/avatar-upload-field';
 import { sanitizeStatementDescriptorSuffix } from '@/lib/statement-descriptor';
+import { TERMS_LABELS, type TermsType } from '@/lib/terms';
 
 type Profile = {
   display_name: string;
@@ -95,6 +96,7 @@ export default function ProfileEditPage() {
   const [isPending, startTransition] = useTransition();
   const [inviter, setInviter] = useState<{ display_name: string | null; profile_id: string } | null>(null);
   const [signedDoc, setSignedDoc] = useState<{ id: string; signed_at: string } | null>(null);
+  const [agreements, setAgreements] = useState<{ terms_type: TermsType; version: string; agreed_at: string }[]>([]);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'other'>('other');
   const [updatingConnect, setUpdatingConnect] = useState(false);
   const router = useRouter();
@@ -163,6 +165,10 @@ export default function ProfileEditPage() {
       fetch('/api/profile/signed-document')
         .then((r) => r.ok ? r.json() : null)
         .then((data) => { if (data?.document) setSignedDoc(data.document); });
+
+      fetch('/api/terms/agreements')
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data?.agreements) setAgreements(data.agreements); });
 
       setIsLoading(false);
     };
@@ -512,12 +518,50 @@ export default function ProfileEditPage() {
           </div>
         )}
 
-        {/* ── 署名済み利用規約同意書 ── */}
-        {signedDoc && (
-          <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-4">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2">
-              <FileText size={11} className="text-indigo-400" /> 利用規約同意書
-            </p>
+        {/* ── 規約・同意書（全ロール） ── */}
+        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 space-y-4">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2">
+            <FileText size={11} className="text-indigo-400" /> 規約・同意書
+          </p>
+
+          {/* 公開中の規約・ポリシー */}
+          <div className="space-y-2">
+            {[
+              { href: '/terms',   label: '利用規約' },
+              { href: '/privacy', label: 'プライバシーポリシー' },
+              { href: '/law',     label: '特定商取引法に基づく表記' },
+            ].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center justify-between px-4 py-3 bg-slate-800/50 hover:bg-slate-800 rounded-2xl transition-colors"
+              >
+                <span className="text-xs font-bold text-slate-300">{item.label}</span>
+                <ChevronRight size={14} className="text-slate-500" />
+              </Link>
+            ))}
+          </div>
+
+          {/* デジタル同意した規約（同意したバージョンの本文を見返せる） */}
+          {agreements.map((a) => (
+            <div key={`${a.terms_type}:${a.version}`} className="flex items-center justify-between px-4 py-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
+              <div className="min-w-0">
+                <p className="text-xs font-black text-indigo-300">{TERMS_LABELS[a.terms_type] ?? a.terms_type}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  v{a.version}　同意日 {new Date(a.agreed_at).toLocaleDateString('ja-JP', { timeZone: DISPLAY_TZ, year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+              <Link
+                href={`/dashboard/agreements/${a.terms_type}/${a.version}`}
+                className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest transition-colors flex items-center gap-1 shrink-0"
+              >
+                確認する <ChevronRight size={12} />
+              </Link>
+            </div>
+          ))}
+
+          {/* 対面調印した同意書 */}
+          {signedDoc && (
             <div className="flex items-center justify-between px-4 py-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
               <div>
                 <p className="text-xs font-black text-indigo-300">調印済み文書</p>
@@ -532,8 +576,8 @@ export default function ProfileEditPage() {
                 確認する <ChevronRight size={12} />
               </Link>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
       </div>
 

@@ -415,6 +415,9 @@ function ThanksContent() {
                   rows={3}
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 outline-none resize-none"
                 />
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  ※メッセージはアーティスト・主催者・運営が閲覧し、会場演出やSNS等で紹介されることがあります。個人情報は書かないでください。
+                </p>
                 <div className="flex gap-3">
                   <button
                     type="button"

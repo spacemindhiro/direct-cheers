@@ -13,7 +13,11 @@ export default function LawPage() {
     },
     { 
       label: "代表責任者", 
-      value: "森脇 弘貴" 
+      value: "森脇 弘貴"
+    },
+    {
+      label: "電気通信事業届出番号",
+      value: "A-08-24390"
     },
     { 
       label: "所在地", 

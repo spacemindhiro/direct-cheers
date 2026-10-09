@@ -75,11 +75,12 @@ export function EventHandoffRequestButton({
         <Minus size={16} className="text-violet-400 shrink-0" />
       </button>
       {error && <p className="text-xs text-red-400">{error}</p>}
-      <div className="flex gap-3">
+      {/* スマホ幅では文言の長いボタンが横に収まらずはみ出すため縦並びにする */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <select
           value={selected}
           onChange={(e) => setSelected(e.target.value)}
-          className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-white"
+          className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs font-bold text-white"
         >
           {candidates.map((c) => (
             <option key={c.profile_id} value={c.profile_id}>{c.name}</option>
@@ -88,7 +89,7 @@ export function EventHandoffRequestButton({
         <button
           onClick={handleRequest}
           disabled={isPending}
-          className="flex items-center gap-2 px-5 py-2.5 bg-violet-500 hover:bg-violet-400 text-white rounded-xl font-black text-xs transition-all disabled:opacity-60 shrink-0"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-violet-500 hover:bg-violet-400 text-white rounded-xl font-black text-xs transition-all disabled:opacity-60 shrink-0"
         >
           {isPending ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />}
           このイベントの担当を依頼する

@@ -136,7 +136,8 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     .maybeSingle();
 
   const isHandoffCandidate = pendingHandoff?.to_agent_id === user.id;
-  const canRequestHandoff = isEventAgent && !isAdmin && !pendingHandoff &&
+  // 自主開催（エージェント自身が主催者）のイベントは承認がadminルートのため代打の対象外
+  const canRequestHandoff = isEventAgent && !isAdmin && !isSelfOrganized && !pendingHandoff &&
     HANDOFF_ELIGIBLE_STATUSES.includes(event.lifecycle_status);
 
   const { data: candidateAgentRows } = canRequestHandoff

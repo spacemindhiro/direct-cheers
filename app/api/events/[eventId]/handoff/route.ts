@@ -32,7 +32,7 @@ export async function POST(
 
   const { data: event } = await supabase
     .from("events")
-    .select("event_id, title, agent_id, lifecycle_status")
+    .select("event_id, title, agent_id, organizer_profile_id, lifecycle_status")
     .eq("event_id", eventId)
     .single();
 
@@ -40,6 +40,11 @@ export async function POST(
 
   if (event.agent_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // 自主開催（エージェント自身が主催者）のイベントは代打の対象外
+  if (event.organizer_profile_id === event.agent_id) {
+    return NextResponse.json({ error: "自主開催イベントは担当の依頼ができません" }, { status: 400 });
   }
 
   if (!HANDOFF_ELIGIBLE_STATUSES.includes(event.lifecycle_status)) {

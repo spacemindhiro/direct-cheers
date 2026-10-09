@@ -208,6 +208,32 @@ describe("TC-HANDOFF-A: handoff POST — 代打依頼の作成", () => {
     const res = await handoffPOST(req, { params: Promise.resolve({ eventId }) });
     expect(res.status).toBe(400);
   });
+
+  // 自主開催（エージェント自身が主催者）のイベントは承認がadminルートのため代打の対象外
+  it.each(["review_requested", "published", "ongoing"])(
+    "TC-HANDOFF-A-09: 自主開催イベント（%s）で依頼 → 400・pending行は作られない",
+    async (status) => {
+      const eventId = await insertEvent({ organizerProfileId: agentAProfileId, agentId: agentAProfileId, title: `TC-HANDOFF self ${status}` });
+      await testAdmin.from("events").update({ lifecycle_status: status }).eq("event_id", eventId);
+      cleanup.eventIds.push(eventId);
+      mockAs(agentAProfileId, "agent");
+
+      const req = new Request("http://localhost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to_agent_id: agentBProfileId }),
+      });
+      const res = await handoffPOST(req, { params: Promise.resolve({ eventId }) });
+      const data = await res.json();
+      expect(res.status).toBe(400);
+      expect(data.error).toBe("自主開催イベントは担当の依頼ができません");
+
+      const { count } = await testAdmin.from("event_agent_handoffs")
+        .select("handoff_id", { count: "exact", head: true })
+        .eq("event_id", eventId);
+      expect(count).toBe(0);
+    },
+  );
 });
 
 // ── TC-HANDOFF-B: PATCH — 承諾/却下 ────────────────────────────────────

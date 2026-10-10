@@ -22,7 +22,7 @@ import {
 import {
   insertProfile,
   deleteAuthUsers,
-  insertEvent,
+  insertEvent, ongoingEventWindow,
   insertQrConfig,
   insertQrConfigTargets,
   insertTransaction,
@@ -171,7 +171,7 @@ describe("TC-MOR-01: 宛先=アーティストのQRでも on_behalf_of はオー
   let productId: string;
 
   beforeAll(async () => {
-    eventId = await insertEvent({ organizerProfileId, title: "TC-MOR-01 イベント" });
+    eventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId, title: "TC-MOR-01 イベント" });
     productId = await insertProduct({ eventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
     qrConfigId = await insertQrConfig({
       eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId, productId,
@@ -214,7 +214,7 @@ describe("TC-MOR-02: チャージバック債務はオーガナイザー固定�
 
   beforeAll(async () => {
     const ts = Date.now();
-    const eventId = await insertEvent({ organizerProfileId, title: "TC-MOR-02 イベント" });
+    const eventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId, title: "TC-MOR-02 イベント" });
     const qrConfigId = await insertQrConfig({
       eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId,
     });
@@ -286,7 +286,7 @@ describe("TC-MOR-03: 返金（settle前）の debt_claims もオーガナイザ�
   const GROSS = 10_000;
 
   beforeAll(async () => {
-    const eventId = await insertEvent({ organizerProfileId, title: "TC-MOR-03 イベント" });
+    const eventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId, title: "TC-MOR-03 イベント" });
     const qrConfigId = await insertQrConfig({
       eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId,
     });
@@ -333,7 +333,7 @@ describe("TC-MOR-03: 返金（settle前）の debt_claims もオーガナイザ�
 // ── TC-MOR-04: settle時、資金の届け先はMoRと無関係に受取人本人の口座になる ─
 describe("TC-MOR-04: settle Transferの送金先はMoRと無関係に受取人自身のConnectID", () => {
   it("アーティスト宛のTransferは destination=artistConnectId（organizerConnectIdではない）", async () => {
-    const eventId = await insertEvent({ organizerProfileId, title: "TC-MOR-04 イベント" });
+    const eventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId, title: "TC-MOR-04 イベント" });
     cleanup.eventIds.push(eventId);
 
     const GROSS = 10_000;

@@ -13,7 +13,7 @@ import {
   stripe,
 } from "../helpers/stripe-fixtures";
 import { insertProfile, deleteAuthUsers } from "../helpers/seed";
-import { insertEvent, insertQrConfig, insertProduct } from "../helpers/seed";
+import { insertEvent, ongoingEventWindow, insertQrConfig, insertProduct } from "../helpers/seed";
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 
 // route が stripe に渡すパラメータ・テストで注入する mock 状態を保持する
@@ -108,14 +108,14 @@ beforeAll(async () => {
   });
   cleanup.profileIds.push(organizerProfileId, noConnectOrganizerProfileId);
 
-  eventId = await insertEvent({ organizerProfileId });
+  eventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId });
   productId = await insertProduct({ eventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
   cleanup.productIds.push(productId);
   qrConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId, productId });
   cleanup.eventIds.push(eventId);
   cleanup.qrConfigIds.push(qrConfigId);
 
-  noConnectEventId = await insertEvent({ organizerProfileId: noConnectOrganizerProfileId });
+  noConnectEventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId: noConnectOrganizerProfileId });
   noConnectProductId = await insertProduct({ eventId: noConnectEventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
   cleanup.productIds.push(noConnectProductId);
   noConnectQrConfigId = await insertQrConfig({
@@ -587,5 +587,157 @@ describe("TC-PAY-05: statement_descriptor_suffix（宛先名義による動的�
     expect(res.status).toBe(200);
     const pid = captured.sessionCreateParams?.payment_intent_data;
     expect(pid?.statement_descriptor_suffix).toBeUndefined();
+  });
+});
+
+// ── TC-PAY-WINDOW: QRの有効期間・状態の関所（画面を通さずAPIを直接叩く） ─────────
+// 以前は有効期間の判定が決済画面にしかなく、期限切れ・削除済みQRのURLでも
+// APIを直接叩けば決済が通っていた（2026-10-10修正。lib/purchase-window.ts）。
+describe("TC-PAY-WINDOW: 期限切れ・削除済み・受付終了のQRはAPIからも決済できない", () => {
+  const HOUR = 3600_000;
+
+  async function makeQr(params: {
+    startAt: Date;
+    endAt: Date;
+    lifecycle?: string;
+    bypass?: boolean;
+    deleted?: boolean;
+    product?: { type: string; paymentType?: "A" | "B" | "C"; salesStartAt?: Date; salesEndAt?: Date };
+  }) {
+    const evId = await insertEvent({ organizerProfileId, startAt: params.startAt, endAt: params.endAt });
+    cleanup.eventIds.push(evId);
+    if (params.lifecycle) {
+      await testAdmin.from("events").update({ lifecycle_status: params.lifecycle }).eq("event_id", evId);
+    }
+    const prodId = await insertProduct({
+      eventId: evId,
+      type: params.product?.type ?? "standard",
+      paymentType: params.product?.paymentType,
+      minAmount: 50,
+      maxAmount: 500_000,
+    });
+    cleanup.productIds.push(prodId);
+    if (params.product?.salesStartAt || params.product?.salesEndAt) {
+      await testAdmin.from("products").update({
+        sales_start_at: params.product.salesStartAt?.toISOString() ?? null,
+        sales_end_at: params.product.salesEndAt?.toISOString() ?? null,
+      }).eq("product_id", prodId);
+    }
+    const qrId = await insertQrConfig({ eventId: evId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId, productId: prodId });
+    cleanup.qrConfigIds.push(qrId);
+    if (params.bypass || params.deleted) {
+      await testAdmin.from("qr_configs").update({
+        ...(params.bypass ? { bypass_validity: true } : {}),
+        ...(params.deleted ? { deleted_at: new Date().toISOString() } : {}),
+      }).eq("qr_config_id", qrId);
+    }
+    return { qrId, prodId };
+  }
+
+  function payReq(qrId: string, prodId: string, amount = 3000) {
+    return new Request("http://localhost/api/pay/cheers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qr_config_id: qrId, product_id: prodId, amount, payment_method: "card" }),
+    });
+  }
+
+  async function expectRejected(qrId: string, prodId: string, status: number, reason?: string) {
+    captured.sessionCreateParams = undefined as any;
+    const res = await POST(payReq(qrId, prodId));
+    const data = await res.json();
+    expect(res.status).toBe(status);
+    if (reason) expect(data.reason).toBe(reason);
+    expect(data.url).toBeUndefined();
+    expect(captured.sessionCreateParams).toBeUndefined(); // Stripe に何も作られていない
+  }
+
+  async function expectAccepted(qrId: string, prodId: string) {
+    const res = await POST(payReq(qrId, prodId));
+    const data = await res.json();
+    expect(res.status).toBe(200);
+    expect(data.url).toMatch(/^https:\/\/checkout\.stripe\.com\//);
+    expect(captured.sessionCreateParams?.metadata?.qr_config_id).toBe(qrId);
+  }
+
+  const now = () => Date.now();
+
+  it("W-01: 削除済みQR（開催中）→ 404", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - HOUR), endAt: new Date(now() + HOUR), deleted: true });
+    await expectRejected(qrId, prodId, 404);
+  });
+
+  it("W-02: 中止（cancelled）イベント → 409 closed", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - HOUR), endAt: new Date(now() + HOUR), lifecycle: "cancelled" });
+    await expectRejected(qrId, prodId, 409, "closed");
+  });
+
+  it("W-03: 下書き（draft）イベント → 409 closed", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - HOUR), endAt: new Date(now() + HOUR), lifecycle: "draft" });
+    await expectRejected(qrId, prodId, 409, "closed");
+  });
+
+  it("W-04: 精算済み（settled）イベント → 409 closed", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - 5 * HOUR), endAt: new Date(now() - 4 * HOUR), lifecycle: "settled" });
+    await expectRejected(qrId, prodId, 409, "closed");
+  });
+
+  it("W-05: 開催前（1時間後に開始）→ 409 before_event", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() + HOUR), endAt: new Date(now() + 5 * HOUR) });
+    await expectRejected(qrId, prodId, 409, "before_event");
+  });
+
+  it("W-06: 終了から3時間1分経過 → 409 after_event", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - 10 * HOUR), endAt: new Date(now() - 3 * HOUR - 60_000) });
+    await expectRejected(qrId, prodId, 409, "after_event");
+  });
+
+  it("W-07: 終了から2時間59分（猶予内）→ 200", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - 10 * HOUR), endAt: new Date(now() - 3 * HOUR + 60_000) });
+    await expectAccepted(qrId, prodId);
+  });
+
+  it("W-08: 3ヶ月前に終わったイベントのQR（ネットに残ったURL）→ 409 after_event", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - 90 * 24 * HOUR), endAt: new Date(now() - 90 * 24 * HOUR + 6 * HOUR) });
+    await expectRejected(qrId, prodId, 409, "after_event");
+  });
+
+  it("W-09: テスト用QR（bypass_validity）は開催前でも 200", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() + 24 * HOUR), endAt: new Date(now() + 30 * HOUR), bypass: true });
+    await expectAccepted(qrId, prodId);
+  });
+
+  it("W-10: テスト用QR（bypass_validity）でも中止イベントは 409 closed", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - HOUR), endAt: new Date(now() + HOUR), bypass: true, lifecycle: "cancelled" });
+    await expectRejected(qrId, prodId, 409, "closed");
+  });
+
+  it("W-11: テスト用QR（bypass_validity）でも削除済みなら 404", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - HOUR), endAt: new Date(now() + HOUR), bypass: true, deleted: true });
+    await expectRejected(qrId, prodId, 404);
+  });
+
+  it("W-12: 前売り（エントランスB）は販売終了後なら、イベント前でも 409 after_sales", async () => {
+    const { qrId, prodId } = await makeQr({
+      startAt: new Date(now() + 24 * HOUR), endAt: new Date(now() + 30 * HOUR),
+      product: { type: "entrance", paymentType: "B", salesEndAt: new Date(now() - 60_000) },
+    });
+    await expectRejected(qrId, prodId, 409, "after_sales");
+  });
+
+  it("W-13: 前売り（エントランスB）は販売開始前なら 409 before_sales", async () => {
+    const { qrId, prodId } = await makeQr({
+      startAt: new Date(now() + 48 * HOUR), endAt: new Date(now() + 54 * HOUR),
+      product: { type: "entrance", paymentType: "B", salesStartAt: new Date(now() + HOUR) },
+    });
+    await expectRejected(qrId, prodId, 409, "before_sales");
+  });
+
+  it("W-14: 当日券（エントランスC）はイベント期間で判定：開催前は 409 before_event", async () => {
+    const { qrId, prodId } = await makeQr({
+      startAt: new Date(now() + HOUR), endAt: new Date(now() + 5 * HOUR),
+      product: { type: "entrance", paymentType: "C" },
+    });
+    await expectRejected(qrId, prodId, 409, "before_event");
   });
 });

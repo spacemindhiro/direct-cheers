@@ -6,6 +6,7 @@ import { checkConnectCapabilities } from "@/lib/stripe-check";
 import { buildStatementDescriptorSuffixes } from "@/lib/statement-descriptor";
 import { resolveDrinkUnitPrice } from "@/lib/drink-ticket-pricing";
 import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
+import { evaluatePurchaseWindow, purchaseWindowErrorMessage } from "@/lib/purchase-window";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -72,11 +73,13 @@ export async function POST(req: Request) {
         product_id,
         event_id,
         recipient_name_context,
-        event:events!event_id(organizer_profile_id, title, venue),
+        bypass_validity,
+        event:events!event_id(organizer_profile_id, title, venue, lifecycle_status, start_at, end_at),
         recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii),
-        product:products!product_id(name, min_amount, max_amount, deleted_at, type, payment_type, quantity_selectable, bulk_pricing)
+        product:products!product_id(name, min_amount, max_amount, deleted_at, type, payment_type, quantity_selectable, bulk_pricing, sales_start_at, sales_end_at)
       `)
       .eq("qr_config_id", qr_config_id)
+      .is("deleted_at", null)
       .single(),
   ]);
 
@@ -98,6 +101,7 @@ export async function POST(req: Request) {
   let resolvedProduct: {
     name?: string; min_amount: number; max_amount: number;
     type?: string; payment_type?: string | null;
+    sales_start_at?: string | null; sales_end_at?: string | null;
     quantity_selectable?: boolean; bulk_pricing?: { min_quantity: number; unit_price: number }[] | null;
   } | null = null;
   if (qrc.product_id) {
@@ -111,7 +115,7 @@ export async function POST(req: Request) {
   } else {
     const { data: fallbackProduct } = await admin
       .from("products")
-      .select("event_id, name, min_amount, max_amount, type, payment_type, quantity_selectable, bulk_pricing")
+      .select("event_id, name, min_amount, max_amount, type, payment_type, quantity_selectable, bulk_pricing, sales_start_at, sales_end_at")
       .eq("product_id", product_id)
       .is("deleted_at", null)
       .single();
@@ -123,6 +127,19 @@ export async function POST(req: Request) {
 
   if (!resolvedProduct) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  }
+
+  // 有効期間・イベント状態は決済画面と同じ関数で判定する。画面だけで判定していたため、
+  // 期限切れ・削除済みQRのURLでもAPIを直接叩けば決済が通っていた（2026-10-10修正）。
+  const verdict = evaluatePurchaseWindow({
+    lifecycleStatus: eventRow?.lifecycle_status,
+    eventStartAt: eventRow?.start_at,
+    eventEndAt: eventRow?.end_at,
+    product: resolvedProduct,
+    bypassValidity: (qrc as any).bypass_validity === true,
+  });
+  if (!verdict.ok) {
+    return NextResponse.json({ error: purchaseWindowErrorMessage(verdict), reason: verdict.reason }, { status: 409 });
   }
 
   if (amount < resolvedProduct.min_amount || amount > resolvedProduct.max_amount) {

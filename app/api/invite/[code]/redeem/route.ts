@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CLOSED_LIFECYCLES } from "@/lib/purchase-window";
 
 export async function POST(
   _req: Request,
@@ -24,12 +25,20 @@ export async function POST(
 
   const { data: qrConfig } = await admin
     .from("qr_configs")
-    .select("product_id")
+    .select("product_id, event:events!event_id(lifecycle_status)")
     .eq("qr_config_id", invite.qr_config_id)
-    .single();
+    .is("deleted_at", null)
+    .maybeSingle();
 
   if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
     return NextResponse.json({ error: "この招待コードは期限切れです" }, { status: 410 });
+  }
+
+  // 招待元のQRが削除済み、またはイベントが受付終了（下書き・中止・精算済み）なら発行しない。
+  // 招待は開催前に配るものなので、当日決済の期間判定（purchase-window）は当てはめない。
+  const lifecycleStatus = (qrConfig?.event as any)?.lifecycle_status as string | undefined;
+  if (!qrConfig || !lifecycleStatus || (CLOSED_LIFECYCLES as readonly string[]).includes(lifecycleStatus)) {
+    return NextResponse.json({ error: "この招待コードは現在ご利用いただけません" }, { status: 410 });
   }
 
   // 使用数チェック（定員）

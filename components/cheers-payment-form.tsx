@@ -173,6 +173,7 @@ export function CheersPaymentForm({
 
   // タイプA: SetupIntentフロー
   const proceedEntranceTypeA = (confirmedEmail: string) => {
+    setCheckoutError("");
     startTransition(async () => {
       const res = await fetch("/api/entrance/reserve", {
         method: "POST",
@@ -184,7 +185,10 @@ export function CheersPaymentForm({
         }),
       });
       const data = await res.json();
-      if (data.error) return; // TODO: エラー表示
+      if (data.error) {
+        setCheckoutError(data.error === "SOLD_OUT" ? "申し訳ありません。このチケットは完売しました。" : data.error);
+        return;
+      }
       setSetupData({
         clientSecret: data.client_secret,
         reservationId: data.reservation_id,

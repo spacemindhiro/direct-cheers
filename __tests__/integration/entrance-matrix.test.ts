@@ -18,6 +18,7 @@ import {
   insertEvent,
   insertProduct,
   insertTicket,
+  insertQrConfig,
 } from "../helpers/seed";
 import { testAdmin } from "../helpers/db-reset";
 
@@ -59,6 +60,7 @@ vi.mock("stripe", async (importOriginal) => {
         object: "payment_intent",
       });
       (this.checkout.sessions as any).create = async (params: any) => ({
+        _captured: (capturedSessionParams.push(params), true),
         id: `cs_entm_${Date.now()}`,
         url: `https://checkout.stripe.com/pay/cs_entm_mock`,
         payment_status: "unpaid",
@@ -138,7 +140,24 @@ const cleanup = {
   productIds: [] as string[],
   ticketIds: [] as string[],
   provisionalEmails: [] as string[],
+  qrConfigIds: [] as string[],
 };
+
+// Stripe Checkout セッション作成時のパラメータ（success_url 等の検証用）
+const capturedSessionParams: any[] = [];
+
+function reserveReq(body: Record<string, unknown>) {
+  return new Request("http://localhost/api/entrance/reserve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function soldCount(productId: string): Promise<number> {
+  const { data } = await testAdmin.from("products").select("sold_count").eq("product_id", productId).single();
+  return (data as { sold_count: number }).sold_count;
+}
 
 // ── 認証ヘルパー ────────────────────────────────────────────────────────────
 
@@ -224,6 +243,9 @@ afterAll(async () => {
   }
   if (cleanup.provisionalEmails.length) {
     await testAdmin.from("provisional_users").delete().in("email", cleanup.provisionalEmails);
+  }
+  if (cleanup.qrConfigIds.length) {
+    await testAdmin.from("qr_configs").delete().in("qr_config_id", cleanup.qrConfigIds);
   }
   if (cleanup.productIds.length) {
     await testAdmin.from("products").delete().in("product_id", cleanup.productIds);
@@ -468,22 +490,115 @@ describe("TC-ENT-TYPE: プロダクト種別（B/C）の予約パス分岐検証
   it("タイプB に qr_config_id あり → URL に qr_config_id が含まれる", async () => {
     const productId = await insertProduct({ eventId: baseEventId, paymentType: "B", name: "TYPE-B with QR" });
     cleanup.productIds.push(productId);
+    const qrConfigId = await insertQrConfig({
+      eventId: baseEventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId, productId,
+    });
+    cleanup.qrConfigIds.push(qrConfigId);
 
     const email = `type-b-qr-${Date.now()}@test.local`;
     cleanup.provisionalEmails.push(email);
-    const req = new Request("http://localhost/api/entrance/reserve", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        product_id: productId,
-        customer_email: email,
-        qr_config_id: "test-qr-config-id",
-      }),
-    });
-    const res = await reservePOST(req);
+    const res = await reservePOST(reserveReq({ product_id: productId, customer_email: email, qr_config_id: qrConfigId }));
     const data = await res.json();
     expect(res.status).toBe(200);
     expect(data.type).toBe("B");
+    expect(data.url).toBe("https://checkout.stripe.com/pay/cs_entm_mock");
+    const sent = capturedSessionParams[capturedSessionParams.length - 1];
+    expect(sent.metadata.qr_config_id).toBe(qrConfigId);
+    expect(sent.success_url).toBe(
+      `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000"}/c/${qrConfigId}/ticket?session_id={CHECKOUT_SESSION_ID}&product_id=${productId}`,
+    );
+  });
+
+  // ── QRの関所（画面を通さずAPIを直接叩いた場合）──
+  it("存在しないQR ID → 400・在庫は減らない", async () => {
+    const productId = await insertProduct({ eventId: baseEventId, paymentType: "B", name: "TYPE-B fake QR" });
+    cleanup.productIds.push(productId);
+    const before = await soldCount(productId);
+    const res = await reservePOST(reserveReq({ product_id: productId, customer_email: `fake-qr-${Date.now()}@test.local`, qr_config_id: "test-qr-config-id" }));
+    expect(res.status).toBe(400);
+    expect(await soldCount(productId)).toBe(before);
+  });
+
+  it("削除済みQR → 400・在庫は減らない", async () => {
+    const productId = await insertProduct({ eventId: baseEventId, paymentType: "B", name: "TYPE-B deleted QR" });
+    cleanup.productIds.push(productId);
+    const qrConfigId = await insertQrConfig({
+      eventId: baseEventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId, productId,
+    });
+    cleanup.qrConfigIds.push(qrConfigId);
+    await testAdmin.from("qr_configs").update({ deleted_at: new Date().toISOString() }).eq("qr_config_id", qrConfigId);
+    const before = await soldCount(productId);
+
+    const res = await reservePOST(reserveReq({ product_id: productId, customer_email: `deleted-qr-${Date.now()}@test.local`, qr_config_id: qrConfigId }));
+    expect(res.status).toBe(400);
+    expect(await soldCount(productId)).toBe(before);
+  });
+
+  it("別商品のQR → 400（安い商品のQRと組み合わせる攻撃）", async () => {
+    const target = await insertProduct({ eventId: baseEventId, paymentType: "B", name: "TYPE-B target" });
+    const other = await insertProduct({ eventId: baseEventId, paymentType: "B", name: "TYPE-B other" });
+    cleanup.productIds.push(target, other);
+    const otherQr = await insertQrConfig({
+      eventId: baseEventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId, productId: other,
+    });
+    cleanup.qrConfigIds.push(otherQr);
+
+    const res = await reservePOST(reserveReq({ product_id: target, customer_email: `other-qr-${Date.now()}@test.local`, qr_config_id: otherQr }));
+    expect(res.status).toBe(400);
+  });
+});
+
+// ── TC-ENT-WINDOW: 前売り予約APIの販売期間・イベント状態の関所 ─────────────
+describe("TC-ENT-WINDOW: 販売期間外・受付終了イベントは予約APIからも買えない（在庫も減らない）", () => {
+  async function productWith(params: { salesStartAt?: Date; salesEndAt?: Date; lifecycle?: string; paymentType?: "A" | "B" }) {
+    const evId = await insertEvent({ organizerProfileId, title: "ENT-WINDOW" });
+    cleanup.eventIds.push(evId);
+    if (params.lifecycle) await testAdmin.from("events").update({ lifecycle_status: params.lifecycle }).eq("event_id", evId);
+    const prodId = await insertProduct({ eventId: evId, paymentType: params.paymentType ?? "B", name: "ENT-WINDOW" });
+    cleanup.productIds.push(prodId);
+    await testAdmin.from("products").update({
+      sales_start_at: params.salesStartAt?.toISOString() ?? null,
+      sales_end_at: params.salesEndAt?.toISOString() ?? null,
+    }).eq("product_id", prodId);
+    return prodId;
+  }
+
+  async function expectWindowRejected(prodId: string, reason: string) {
+    const before = await soldCount(prodId);
+    const email = `ent-window-${Date.now()}@test.local`;
+    cleanup.provisionalEmails.push(email);
+    const res = await reservePOST(reserveReq({ product_id: prodId, customer_email: email }));
+    const data = await res.json();
+    expect(res.status).toBe(409);
+    expect(data.reason).toBe(reason);
+    expect(await soldCount(prodId)).toBe(before);
+  }
+
+  it("販売終了後のB → 409 after_sales", async () => {
+    await expectWindowRejected(await productWith({ salesEndAt: new Date(Date.now() - 60_000) }), "after_sales");
+  });
+
+  it("販売開始前のA → 409 before_sales", async () => {
+    await expectWindowRejected(await productWith({ paymentType: "A", salesStartAt: new Date(Date.now() + 3600_000) }), "before_sales");
+  });
+
+  it("中止イベント → 409 closed", async () => {
+    await expectWindowRejected(await productWith({ lifecycle: "cancelled" }), "closed");
+  });
+
+  it("下書きイベント → 409 closed", async () => {
+    await expectWindowRejected(await productWith({ lifecycle: "draft" }), "closed");
+  });
+
+  it("販売期間内のB → 200・在庫が1減る", async () => {
+    const prodId = await productWith({ salesStartAt: new Date(Date.now() - 3600_000), salesEndAt: new Date(Date.now() + 3600_000) });
+    const before = await soldCount(prodId);
+    const email = `ent-window-ok-${Date.now()}@test.local`;
+    cleanup.provisionalEmails.push(email);
+    const res = await reservePOST(reserveReq({ product_id: prodId, customer_email: email }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).type).toBe("B");
+    expect(await soldCount(prodId)).toBe(before + 1);
   });
 });
 

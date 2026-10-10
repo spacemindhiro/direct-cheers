@@ -15,7 +15,7 @@ import {
   createTestConnectAccount,
   deleteTestConnectAccount,
 } from "../helpers/stripe-fixtures";
-import { insertProfile, deleteAuthUsers, insertEvent, insertQrConfig, insertProduct } from "../helpers/seed";
+import { insertProfile, deleteAuthUsers, insertEvent, ongoingEventWindow, insertQrConfig, insertProduct } from "../helpers/seed";
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 
 // pay-cheers.test.ts と同じ mock 戦略:
@@ -105,7 +105,7 @@ beforeAll(async () => {
   });
   cleanup.profileIds.push(organizerProfileId, noConnectOrgProfileId);
 
-  eventId = await insertEvent({ organizerProfileId, title: "PAY-MATRIX テストイベント" });
+  eventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId, title: "PAY-MATRIX テストイベント" });
   productId = await insertProduct({ eventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
   cleanup.productIds.push(productId);
   qrConfigId = await insertQrConfig({
@@ -118,7 +118,7 @@ beforeAll(async () => {
   cleanup.qrConfigIds.push(qrConfigId);
 
   noConnectEventId = await insertEvent({
-    organizerProfileId: noConnectOrgProfileId,
+    ...ongoingEventWindow(), organizerProfileId: noConnectOrgProfileId,
     title: "PAY-MATRIX Connect なしイベント",
   });
   noConnectProductId = await insertProduct({ eventId: noConnectEventId, type: "standard", minAmount: 50, maxAmount: 500_000 });

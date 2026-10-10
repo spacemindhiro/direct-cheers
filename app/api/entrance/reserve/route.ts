@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
+import { evaluatePurchaseWindow, purchaseWindowErrorMessage } from "@/lib/purchase-window";
 import { buildEntrancePaymentParams, EntranceAccountIncompleteError } from "@/lib/entrance-payment";
 import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
 
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
   // 商品情報取得
   const { data: product } = await admin
     .from("products")
-    .select("product_id, payment_type, stock_limit, sold_count, charge_amount: min_amount, name, event_id, track_inventory")
+    .select("product_id, type, payment_type, stock_limit, sold_count, charge_amount: min_amount, name, event_id, track_inventory, sales_start_at, sales_end_at")
     .eq("product_id", product_id)
     .is("deleted_at", null)
     .single();
@@ -68,6 +69,46 @@ export async function POST(req: Request) {
     );
   }
 
+  const eventId = (product as any).event_id as string;
+  const amount = (product as any).charge_amount as number;
+
+  // イベント情報取得
+  const { data: event } = await admin
+    .from("events")
+    .select("title, start_at, end_at, venue, lifecycle_status")
+    .eq("event_id", eventId)
+    .single();
+
+  // QR経由の場合、そのQRが生きていて、この商品のQRであることを確かめる（bypass_validity もQRから取る）
+  let bypassValidity = false;
+  if (qr_config_id) {
+    const { data: qrc } = await admin
+      .from("qr_configs")
+      .select("product_id, event_id, bypass_validity")
+      .eq("qr_config_id", qr_config_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    const matches = qrc && (qrc.product_id ? qrc.product_id === product_id : qrc.event_id === eventId);
+    if (!matches) {
+      return NextResponse.json({ error: "この決済リンクに対応する商品ではありません" }, { status: 400 });
+    }
+    bypassValidity = qrc.bypass_validity === true;
+  }
+
+  // 販売期間・イベント状態は決済画面と同じ関数で判定する（画面だけの判定だったため
+  // APIを直接叩けば販売期間外・中止イベントでも予約できていた。2026-10-10修正）。
+  // 在庫を確保する前に判定し、弾く予約で在庫を減らさない。
+  const verdict = evaluatePurchaseWindow({
+    lifecycleStatus: event?.lifecycle_status,
+    eventStartAt: event?.start_at,
+    eventEndAt: event?.end_at,
+    product: product as any,
+    bypassValidity,
+  });
+  if (!verdict.ok) {
+    return NextResponse.json({ error: purchaseWindowErrorMessage(verdict), reason: verdict.reason }, { status: 409 });
+  }
+
   // タイプA/Bは常に在庫管理する
   const { data: hasStock } = await admin.rpc("reserve_product_stock", {
     p_product_id: product_id,
@@ -75,16 +116,6 @@ export async function POST(req: Request) {
   if (!hasStock) {
     return NextResponse.json({ error: "SOLD_OUT" }, { status: 409 });
   }
-
-  const eventId = (product as any).event_id as string;
-  const amount = (product as any).charge_amount as number;
-
-  // イベント情報取得
-  const { data: event } = await admin
-    .from("events")
-    .select("title, start_at, venue")
-    .eq("event_id", eventId)
-    .single();
 
   // ----- タイプB: Checkout Session（即時決済） -----
   if (paymentType === "B") {

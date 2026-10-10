@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserIdByEmail } from "@/lib/resolve-profile";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 /**
  * マジックリンク送信。クライアントから直接 supabase.auth.signInWithOtp() を
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
   if (!email) {
     return NextResponse.json({ error: "email is required" }, { status: 400 });
   }
-  const postAuthRedirect = redirect || "/dashboard";
+  const postAuthRedirect = safeRedirectPath(redirect);
 
   const admin = createAdminClient();
 

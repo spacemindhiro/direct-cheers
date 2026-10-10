@@ -185,14 +185,17 @@ export async function POST(req: Request) {
     eventRow?.organizer_profile_id
       ? admin.from("profiles").select("stripe_connect_id").eq("profile_id", eventRow.organizer_profile_id).single()
       : Promise.resolve({ data: null as { stripe_connect_id: string | null } | null }),
-    emailForCustomer && payment_method === "card"
-      ? admin.from("provisional_users").select("stripe_customer_id").eq("email", emailForCustomer).maybeSingle()
+    // 保存済みカードを出すのは、ログインで本人確認済みのメールのときだけ。フォームに
+    // 入力されたメール（customer_email）は誰でも他人のものを入れられるため、それで
+    // 顧客を引くと他人の保存カードがCheckoutの選択肢に出てしまう（2026-10-11修正）。
+    loggedInEmail && payment_method === "card"
+      ? admin.from("provisional_users").select("stripe_customer_id").eq("email", loggedInEmail).maybeSingle()
       : Promise.resolve({ data: null as { stripe_customer_id: string | null } | null }),
   ]);
 
   // organizer の Connect ID（全決済手段で on_behalf_of に使用 — MoR はオーガナイザー）
   const organizerConnectId: string | null = orgProfileResult.data?.stripe_connect_id ?? null;
-  // 事前登録済みカスタマーID（ログイン済みの場合はそのメールを優先。フォームはロック表示済みだが API 側でも保証）
+  // 事前登録済みカスタマーID（ログイン中の本人のメールに紐づくものだけ）
   const savedCustomerId: string | null = provResult.data?.stripe_customer_id ?? null;
 
   // PayPay は Stripe Connect の on_behalf_of を現行 API でサポートしていない。

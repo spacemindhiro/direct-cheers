@@ -165,7 +165,7 @@ function ThanksContent() {
         fetch("/api/pay/card-viewed", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transaction_id: data.transaction_id }),
+          body: JSON.stringify({ session_id: sessionId }),
         }).catch(() => {});
 
         // 会員かつパスキー登録済みの場合のみパスキーログインを表示
@@ -428,7 +428,7 @@ function ThanksContent() {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                          transaction_id: result.transaction_id,
+                          session_id: sessionId,
                           nickname: msgNickname || undefined,
                           comment: msgComment || undefined,
                         }),

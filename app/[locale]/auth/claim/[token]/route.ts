@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserIdByEmail } from "@/lib/resolve-profile";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 // GET /auth/claim/[token]
 //
@@ -39,9 +40,7 @@ export async function GET(
 
   const email = claim.email;
   // 遷移先はサーバー側でしか書かないが、念のためサイト内の相対パスに限定する
-  const redirectPath = claim.redirect_path.startsWith("/") && !claim.redirect_path.startsWith("//")
-    ? claim.redirect_path
-    : "/dashboard/collection";
+  const redirectPath = safeRedirectPath(claim.redirect_path, "/dashboard/collection");
   const supabase = await createClient();
 
   // 既にそのアカウントでログイン中ならトークンを消費して先へ進めるだけ

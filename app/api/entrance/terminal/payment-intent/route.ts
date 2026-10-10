@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkConnectCapabilities } from "@/lib/stripe-check";
+import { canOperateEvent } from "@/lib/event-operator";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -60,6 +61,11 @@ export async function POST(req: Request) {
   );
   if (!productEligible) {
     return NextResponse.json({ error: "対面タッチ決済に対応していない商品です" }, { status: 400 });
+  }
+
+  // そのイベントの主催者・エージェント・管理者だけが、そのイベントの商品で決済を起こせる
+  if (!(await canOperateEvent(admin, user.id, profile?.role, product.event_id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { data: qrc } = await admin

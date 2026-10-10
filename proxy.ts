@@ -53,10 +53,11 @@ export async function proxy(request: NextRequest) {
     normalizedPath.startsWith("/display") || // 子機(PWA)起動時、未ログインでも/auth/loginへリダイレクトしない（認可は画面側で実施）
     path.startsWith("/account/"); // アカウント復旧・統合確認（ロケールなし）
 
-  // /c/・/entrance/・/r/・/auth/qr/ は [locale] の外にあるルート — intl middleware を通さない
+  // /c/・/entrance/・/r/・/t/・/auth/qr/ は [locale] の外にあるルート — intl middleware を通さない
   // /r/ はNFCタップ（未ログイン前提）からのアクセスのため認証チェックも不可
+  // /t/ は操作解説動画のメール等向け固定リンク（未ログイン前提でYouTubeへリダイレクトするだけ）
   // /auth/qr/ はスキャナ端末のQRログイン（未ログイン前提のルートハンドラ）
-  if (path.startsWith("/c/") || path.startsWith("/entrance/") || path.startsWith("/r/") || path.startsWith("/auth/qr/")) {
+  if (path.startsWith("/c/") || path.startsWith("/entrance/") || path.startsWith("/r/") || path.startsWith("/t/") || path.startsWith("/auth/qr/")) {
     const response = NextResponse.next({ request });
     // 簡易ログイン（dc_ce Cookie）は、認識が行われるたびに有効期限を
     // スライドさせる。決済しなくても定期的にQRを読むだけで途切れずに

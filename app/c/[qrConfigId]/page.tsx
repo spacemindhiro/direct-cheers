@@ -8,6 +8,7 @@ import { CheersPaymentForm } from "@/components/cheers-payment-form";
 import { InAppBrowserBanner } from "@/components/in-app-browser-banner";
 import { resolveStatementDescriptorSource, resolveRecipientAvatarUrl } from "@/lib/statement-descriptor";
 import { PAYPAY_AVAILABLE } from "@/lib/fee-config";
+import { CLOSED_LIFECYCLES, evaluatePurchaseWindow } from "@/lib/purchase-window";
 import { MapPin, Calendar, Clock, Loader2 } from "lucide-react";
 
 function ValidityMessage({ title, message }: { title: string; message: string }) {
@@ -105,7 +106,7 @@ async function CheersContent({
   if (!qr) notFound();
 
   const event = qr.event as any;
-  if (!event || ["draft", "cancelled"].includes(event.lifecycle_status)) {
+  if (!event || (CLOSED_LIFECYCLES as readonly string[]).includes(event.lifecycle_status)) {
     notFound();
   }
 
@@ -123,52 +124,46 @@ async function CheersContent({
 
   if (!products || products.length === 0) notFound();
 
-  // 有効期間チェック
-  if (!bypassValidity) {
-    const now = new Date();
-    const product = products[0] as any;
-    const isEntranceAB =
-      product.type === "entrance" &&
-      (product.payment_type === "A" || product.payment_type === "B");
-
-    if (isEntranceAB) {
-      const salesStart = product.sales_start_at ? new Date(product.sales_start_at) : null;
-      const salesEnd = product.sales_end_at ? new Date(product.sales_end_at) : null;
-      if (salesStart && now < salesStart) {
+  // 有効期間チェック（決済APIと同じ判定関数。表示はここ、関所はAPI）
+  const verdict = evaluatePurchaseWindow({
+    lifecycleStatus: event.lifecycle_status,
+    eventStartAt: event.start_at,
+    eventEndAt: event.end_at,
+    product: products[0] as any,
+    bypassValidity,
+  });
+  if (!verdict.ok) {
+    switch (verdict.reason) {
+      case "closed":
+        notFound();
+      case "before_sales":
         return (
           <ValidityMessage
             title="販売期間前です"
-            message={`前売り販売は ${salesStart.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })} から開始します`}
+            message={`前売り販売は ${verdict.salesStart.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })} から開始します`}
           />
         );
-      }
-      if (salesEnd && now > salesEnd) {
+      case "after_sales":
         return (
           <ValidityMessage
             title="販売期間が終了しました"
             message="このQRコードの前売り販売は終了しました"
           />
         );
-      }
-    } else {
-      const eventStart = new Date(event.start_at);
-      const eventEndPlus3h = new Date(new Date(event.end_at).getTime() + 3 * 60 * 60 * 1000);
-      if (now < eventStart) {
+      case "before_event":
         return (
           <ValidityMessage
             title="イベント当日からご利用いただけます"
-            message={`${eventStart.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "long", day: "numeric" })} 開場後にお使いください`}
+            message={`${verdict.eventStart.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "long", day: "numeric" })} 開場後にお使いください`}
           />
         );
-      }
-      if (now > eventEndPlus3h) {
+      case "after_event":
         return (
           <ValidityMessage
             title="決済受付が終了しました"
             message="イベント終了から3時間が経過したため、このQRコードは無効になりました"
           />
         );
-      }
     }
   }
 

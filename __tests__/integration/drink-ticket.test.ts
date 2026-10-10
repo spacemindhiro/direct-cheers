@@ -16,7 +16,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import {
   insertProfile,
   deleteAuthUsers,
-  insertEvent,
+  insertEvent, ongoingEventWindow,
   insertProduct,
   insertQrConfig,
 } from "../helpers/seed";
@@ -103,7 +103,7 @@ beforeAll(async () => {
     role: "organizer", displayName: "ドリンクテスト主催者", email: `drink-organizer-${ts}@test.local`,
   });
   cleanup.profileIds.push(organizerProfileId);
-  eventId = await insertEvent({ organizerProfileId, title: "TC-DRINK イベント" });
+  eventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId, title: "TC-DRINK イベント" });
   cleanup.eventIds.push(eventId);
 }, 30_000);
 

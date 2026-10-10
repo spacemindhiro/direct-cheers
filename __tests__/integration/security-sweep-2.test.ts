@@ -4,7 +4,7 @@
  *   A. pay/message     — 決済セッションIDで本人確認・メッセージプランのみ
  *   B. pay/card-viewed — 決済セッションIDで本人確認（取引IDだけでは閲覧ログを足せない）
  *   C. 対面タッチ決済   — そのイベントの主催者・エージェント・管理者だけ
- *   D. pay/cheers      — 保存カード（Stripe顧客）はログイン本人のメールのときだけ
+ *   D. pay/cheers      — 保存カード（Stripe顧客）はフォームのメールでは引かず、この端末で払った顧客だけ
  *   E. stripe/link-setup — 顧客に紐づけるのはログイン本人のメールだけ
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -62,8 +62,13 @@ vi.mock("@/lib/supabase/server", () => ({
   })),
   getUser: vi.fn(async () => (auth.userId ? { id: auth.userId, email: auth.email } : null)),
 }));
+// リクエストに載っている Cookie（テストごとに書き換える）
+const cookieJar: Record<string, string> = {};
 vi.mock("next/headers", () => ({
-  cookies: vi.fn(() => ({ get: () => null, getAll: () => [] })),
+  cookies: vi.fn(async () => ({
+    get: (name: string) => (name in cookieJar ? { name, value: cookieJar[name] } : undefined),
+    getAll: () => Object.entries(cookieJar).map(([name, value]) => ({ name, value })),
+  })),
   headers: vi.fn(() => new Headers()),
 }));
 vi.mock("@/lib/realtime-broadcast", () => ({
@@ -80,6 +85,8 @@ import { POST as terminalCompletePOST } from "@/app/api/entrance/terminal/comple
 import { POST as clearSignupPOST } from "@/app/api/entrance/terminal/clear-signup/route";
 import { POST as payCheersPOST } from "@/app/api/pay/cheers/route";
 import { POST as linkSetupPOST } from "@/app/api/stripe/link-setup/route";
+import { NextResponse } from "next/server";
+import { issueSavedCardCookie, SAVED_CARD_COOKIE } from "@/lib/saved-card-device";
 
 const ts = Date.now();
 let ownerId: string;      // イベントの主催者
@@ -261,43 +268,100 @@ describe("TC-SEC2-C: 対面タッチ決済はそのイベントの主催者・�
 });
 
 // ── D. pay/cheers の保存カード ─────────────────────────────────────────────
-describe("TC-SEC2-D: 保存カード（Stripe顧客）を出すのはログイン本人のメールのときだけ", () => {
+describe("TC-SEC2-D: 保存カード（Stripe顧客）はフォームのメールでは引かず、この端末で払った顧客だけ", () => {
   const victimEmail = `sec2-victim-${ts}@test.local`;
   const victimCustomer = "cus_sec2_victim_saved";
+  const attackerEmail = `sec2-attacker-${ts}@test.local`;
+  const attackerCustomer = "cus_sec2_attacker_saved";
+  let victimToken: string;
+  let attackerToken: string;
+
+  /** 決済完了（pay/complete）と同じ発行処理で、端末の合言葉を得る */
+  async function issueToken(sessionId: string, customer: string, email: string): Promise<string | null> {
+    const res = NextResponse.json({});
+    await issueSavedCardCookie(testAdmin as any, res, { checkoutSessionId: sessionId, stripeCustomerId: customer, email });
+    return res.cookies.get(SAVED_CARD_COOKIE)?.value ?? null;
+  }
 
   beforeAll(async () => {
-    emails.push(victimEmail);
+    emails.push(victimEmail, attackerEmail);
+    // 旧方式（メールで引く）の顧客も残しておき、メールで引かれないことを確かめる
     await testAdmin.from("provisional_users").upsert({ email: victimEmail, stripe_customer_id: victimCustomer }, { onConflict: "email" });
+    victimToken = (await issueToken(`cs_sec2_victim_${ts}`, victimCustomer, victimEmail))!;
+    attackerToken = (await issueToken(`cs_sec2_attacker_${ts}`, attackerCustomer, attackerEmail))!;
+  });
+
+  afterAll(async () => {
+    await testAdmin.from("saved_card_devices").delete().like("checkout_session_id", "cs_sec2_%");
   });
 
   function payReq(email: string) {
     return json({ qr_config_id: qrStandard, product_id: standardProductId, amount: 1000, payment_method: "card", customer_email: email });
   }
 
-  it("D-01: 未ログインで他人のメールを入力 → 他人の顧客を渡さない", async () => {
-    loginAs(null);
+  async function sessionCustomerFor(email: string, cookie: string | null) {
+    for (const k of Object.keys(cookieJar)) delete cookieJar[k];
+    if (cookie) cookieJar[SAVED_CARD_COOKIE] = cookie;
     mock.sessionCreateParams = undefined;
-    const res = await payCheersPOST(payReq(victimEmail));
+    const res = await payCheersPOST(payReq(email));
     expect(res.status).toBe(200);
-    expect(mock.sessionCreateParams.customer).toBeUndefined();
-    expect(mock.sessionCreateParams.customer_email).toBe(victimEmail);
-    expect(mock.sessionCreateParams.customer_creation).toBe("always");
+    return mock.sessionCreateParams;
+  }
+
+  it("D-01: 合言葉なし・他人のメールを入力 → 他人の顧客を渡さない（新規顧客として作成）", async () => {
+    loginAs(null);
+    const p = await sessionCustomerFor(victimEmail, null);
+    expect(p.customer).toBeUndefined();
+    expect(p.customer_email).toBe(victimEmail);
+    expect(p.customer_creation).toBe("always");
   });
 
-  it("D-02: 別人がログイン中に他人のメールを入力 → ログイン本人のメールが優先され、他人の顧客は渡さない", async () => {
+  it("D-02: 本人の端末（合言葉）＋本人のメール → 本人の保存済み顧客を渡す", async () => {
+    loginAs(null);
+    const p = await sessionCustomerFor(victimEmail, victimToken);
+    expect(p.customer).toBe(victimCustomer);
+    expect(p.customer_email).toBeUndefined();
+  });
+
+  it("D-03: 本人の端末でもメールの大文字小文字違いは同じ人として扱う", async () => {
+    loginAs(null);
+    const p = await sessionCustomerFor(victimEmail.toUpperCase(), victimToken);
+    expect(p.customer).toBe(victimCustomer);
+  });
+
+  it("D-04: 攻撃者の端末（自分の合言葉）＋他人のメール → 他人の顧客も自分の顧客も渡さない", async () => {
+    loginAs(null);
+    const p = await sessionCustomerFor(victimEmail, attackerToken);
+    expect(p.customer).toBeUndefined();
+    expect(p.customer_email).toBe(victimEmail);
+  });
+
+  it("D-05: 偽造した合言葉（ランダム・形式不正）→ 渡さない", async () => {
+    loginAs(null);
+    expect((await sessionCustomerFor(victimEmail, crypto.randomUUID())).customer).toBeUndefined();
+    expect((await sessionCustomerFor(victimEmail, "' or 1=1 --")).customer).toBeUndefined();
+  });
+
+  it("D-06: 別人がログイン中に他人のメールを入力 → ログイン本人のメールが優先され、他人の顧客は渡さない", async () => {
     loginAs(otherOrgId, `sec2-other-${ts}@test.local`);
-    mock.sessionCreateParams = undefined;
-    await payCheersPOST(payReq(victimEmail));
-    expect(mock.sessionCreateParams.customer).toBeUndefined();
-    expect(mock.sessionCreateParams.customer_email).toBe(`sec2-other-${ts}@test.local`);
+    const p = await sessionCustomerFor(victimEmail, victimToken);
+    expect(p.customer).toBeUndefined();
+    expect(p.customer_email).toBe(`sec2-other-${ts}@test.local`);
   });
 
-  it("D-03: 本人がログイン中 → 本人の保存済み顧客を渡す", async () => {
-    loginAs(ownerId, victimEmail);
-    mock.sessionCreateParams = undefined;
-    await payCheersPOST(payReq(victimEmail));
-    expect(mock.sessionCreateParams.customer).toBe(victimCustomer);
-    expect(mock.sessionCreateParams.customer_email).toBeUndefined();
+  it("D-07: 合言葉の発行は決済1回につき最初の1回だけ（サンクス画面URLの共有で取得させない）", async () => {
+    const sessionId = `cs_sec2_once_${ts}`;
+    const first = await issueToken(sessionId, victimCustomer, victimEmail);
+    const second = await issueToken(sessionId, victimCustomer, victimEmail);
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second).toBeNull();
+    const { count } = await testAdmin.from("saved_card_devices").select("*", { count: "exact", head: true }).eq("checkout_session_id", sessionId);
+    expect(count).toBe(1);
+  });
+
+  it("D-08: 顧客IDやメールが無い決済では発行しない", async () => {
+    expect(await issueToken(`cs_sec2_nocus_${ts}`, null as any, victimEmail)).toBeNull();
+    expect(await issueToken(`cs_sec2_nomail_${ts}`, victimCustomer, null as any)).toBeNull();
   });
 });
 

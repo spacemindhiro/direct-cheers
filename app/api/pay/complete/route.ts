@@ -5,6 +5,7 @@ import { getUser } from "@/lib/supabase/server";
 import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 import { issuePurchaseClaimUrl, claimRedirectPathFor } from "@/lib/purchase-claim";
 import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
+import { issueSavedCardCookie } from "@/lib/saved-card-device";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
       existingTicketQuantity = t?.quantity ?? null;
     }
     const existingAutoCheckin = product.product_type === "entrance" && product.payment_type === "C" && product.auto_checkin;
-    return buildResponse(
+    const existingResponse = buildResponse(
       email,
       { ...existing, total_gross_amount: existing.total_gross_amount + welcomeCheerAmount },
       product,
@@ -106,6 +107,8 @@ export async function POST(req: Request) {
       existingAutoCheckin,
       welcomeCheerAmount || null,
     );
+    await issueSavedCardCookie(admin, existingResponse, { checkoutSessionId: session_id, stripeCustomerId, email });
+    return existingResponse;
   }
 
   const productId = meta.product_id || null;
@@ -326,6 +329,9 @@ export async function POST(req: Request) {
     autoCheckin,
     welcomeCheerTotal || null,
   );
+
+  // 保存カード用の端末Cookie（この決済で最初の1回だけ発行）
+  await issueSavedCardCookie(admin, response, { checkoutSessionId: session_id, stripeCustomerId, email });
 
   if (email) {
     setCustomerEmailCookie(response, email);

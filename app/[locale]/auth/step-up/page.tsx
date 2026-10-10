@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { StepUpForm } from '@/components/step-up-form';
+import { safeRedirectPath } from '@/lib/safe-redirect';
 
 const STEP_UP_TTL_MS = 1440 * 60 * 1000; // 24時間
 
@@ -14,7 +15,8 @@ async function StepUpContent({
 }: {
   searchParams: Promise<{ redirect?: string }>;
 }) {
-  const { redirect: redirectTo = '/dashboard' } = await searchParams;
+  const { redirect: rawRedirect } = await searchParams;
+  const redirectTo = safeRedirectPath(rawRedirect);
 
   const supabase = await createClient();
   const user = await getUser();

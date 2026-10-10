@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { User, ArrowRight, Loader2 } from 'lucide-react';
 import type { PasskeySetup as PasskeySetupType } from '@/components/passkey-setup';
+import { safeRedirectPath } from '@/lib/safe-redirect';
 
 export default function ProfileSetupPage() {
   return (
@@ -28,7 +29,8 @@ function ProfileSetupForm() {
   }, []);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect');
+  const rawRedirect = searchParams.get('redirect');
+  const redirectTo = rawRedirect ? safeRedirectPath(rawRedirect) : null;
 
   const handleSubmit = (formData: FormData) => {
     const displayName = (formData.get('display_name') as string).trim();

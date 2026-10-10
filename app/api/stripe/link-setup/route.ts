@@ -1,18 +1,24 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/supabase/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-export async function POST(req: Request) {
+/**
+ * Stripe Link / カードの事前登録用 SetupIntent を発行する。
+ *
+ * 顧客（Stripe Customer）に紐づけるのはログイン中の本人のメールだけ。以前は
+ * リクエストボディの email をそのまま使っていたため、他人のメールで顧客を作ったり、
+ * 仮登録ユーザーの stripe_customer_id を書き換えたりできた（2026-10-11修正）。
+ * 未ログインなら顧客に紐づけない SetupIntent を返す（Link 自体はStripe側で本人確認する）。
+ */
+export async function POST() {
   try {
-    const body = await req.json().catch(() => ({}));
-    const email: string | undefined = body.email;
+    const email = (await getUser())?.email ?? undefined;
 
     let customerId: string | undefined;
-
     if (email) {
-      // 既存 Customer を検索、なければ作成
       const existing = await stripe.customers.list({ email, limit: 1 });
       if (existing.data.length > 0) {
         customerId = existing.data[0].id;
@@ -21,7 +27,7 @@ export async function POST(req: Request) {
         customerId = customer.id;
       }
 
-      // provisional_users に stripe_customer_id を保存
+      // provisional_users に stripe_customer_id を保存（QR決済時に保存カードを出すため）
       const admin = createAdminClient();
       await admin
         .from("provisional_users")

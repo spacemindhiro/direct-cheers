@@ -4,10 +4,12 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { MailCheck, ArrowRight, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { safeRedirectPath } from '@/lib/safe-redirect';
 function SignUpSuccessContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get('email');
-  const redirectTo = searchParams.get('redirect');
+  const rawRedirect = searchParams.get('redirect');
+  const redirectTo = rawRedirect ? safeRedirectPath(rawRedirect) : null;
   const decodedEmail = email ? decodeURIComponent(email) : null;
 
   const [resent, setResent] = useState(false);

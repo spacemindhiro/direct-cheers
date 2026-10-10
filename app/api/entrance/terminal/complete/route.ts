@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew, broadcastTouchpaySignup } from "@/lib/realtime-broadcast";
+import { canOperateEvent } from "@/lib/event-operator";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -83,6 +84,10 @@ export async function POST(req: Request) {
 
   if (!productId || !eventId) {
     return NextResponse.json({ error: "Missing metadata on PaymentIntent" }, { status: 400 });
+  }
+
+  if (!(await canOperateEvent(admin, user.id, profile?.role, eventId))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const gross = pi.amount;

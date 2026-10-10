@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Loader2, ArrowRight, Mail, Lock } from "lucide-react";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 export function SignUpForm({
   className,
@@ -16,7 +17,8 @@ export function SignUpForm({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect");
+  const rawRedirect = searchParams.get("redirect");
+  const redirectTo = rawRedirect ? safeRedirectPath(rawRedirect) : null;
   const emailLock = searchParams.get("email") ?? "";
 
   const handleSignUp = (formData: FormData) => {

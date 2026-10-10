@@ -8,6 +8,7 @@ import { Capacitor } from "@capacitor/core";
 import { Loader2, Mail, Send, MailCheck, QrCode } from "lucide-react";
 import type { PasskeySetup as PasskeySetupType } from "@/components/passkey-setup";
 import { QrLoginScanner } from "@/components/qr-login-scanner";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 function GoogleIcon() {
   return (
@@ -36,7 +37,7 @@ export function LoginForm({
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
-    setRedirectTo(p.get("redirect") || "/dashboard");
+    setRedirectTo(safeRedirectPath(p.get("redirect")));
     setEmailHint(p.get("email") ?? "");
   }, []);
 

@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 import { TutorialVideoButton } from "./tutorial-video-button";
+import { TUTORIAL_VIDEO_IDS } from "@/lib/tutorial-videos";
 
 // 「招待リンクから登録する」。ロールごとに別撮りしている（O-01/A-01）
 const INVITE_REGISTER_VIDEO_IDS: Record<string, string> = {
-  organizer: "NUekyDjROuo", // O-01
-  artist: "JvbFdwyf4lo", // A-01
+  organizer: TUTORIAL_VIDEO_IDS["o-01"],
+  artist: TUTORIAL_VIDEO_IDS["a-01"],
 };
 
 export function InviteLoginPrompt({

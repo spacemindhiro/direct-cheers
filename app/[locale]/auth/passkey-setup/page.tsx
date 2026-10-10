@@ -7,11 +7,12 @@ import { Capacitor } from "@capacitor/core";
 import { createClient } from "@/lib/supabase/client";
 import { PasskeySetup } from "@/components/passkey-setup";
 import { ChevronRight, Fingerprint } from "lucide-react";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 function PasskeySetupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") ?? "/dashboard";
+  const redirect = safeRedirectPath(searchParams.get("redirect"));
   const emailParam = searchParams.get("email") ?? "";
 
   const [email, setEmail] = useState<string | null>(null);

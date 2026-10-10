@@ -34,11 +34,13 @@ const captured: {
   fakeSessionPaymentStatus: "paid" | "unpaid";
   fakePiStatus: "succeeded" | "requires_capture" | "requires_payment_method";
   fakeMetadata: Record<string, string>;
+  fakeCustomer: string | null;
 } = {
   fakePiId: "",
   fakeSessionPaymentStatus: "paid",
   fakePiStatus: "succeeded",
   fakeMetadata: {},
+  fakeCustomer: null,
 };
 
 vi.mock("stripe", async (importOriginal) => {
@@ -63,7 +65,7 @@ vi.mock("stripe", async (importOriginal) => {
           latest_charge: null,
         },
         customer_email: "idem-test@test.local",
-        customer: null,
+        customer: captured.fakeCustomer,
         amount_total: 1000,
         payment_method_types: ["card"],
         metadata: captured.fakeMetadata,
@@ -223,6 +225,41 @@ describe("TC-IDEM-B: /api/pay/complete 二重呼び出し → 同一 transaction
 
     expect(res.status).toBe(200);
     expect(data.transaction_id).toBe(existingTxId);
+  });
+
+  it("TC-IDEM-B-03: 保存カード用の端末Cookie（dc_sc）は同じ決済で最初の1回だけ発行される", async () => {
+    const fakePiId = `pi_idem_sc_${Date.now()}`;
+    const sessionId = `cs_test_idem_sc_${Date.now()}`;
+    captured.fakePiId = fakePiId;
+    captured.fakeSessionPaymentStatus = "unpaid";
+    captured.fakePiStatus = "requires_capture";
+    captured.fakeCustomer = "cus_idem_saved_card";
+
+    const existingTxId = await insertTransaction({
+      qrConfigId, grossAmount: 1000, netAmount: 900, stripeFee: 40, platformFee: 100, stripePaymentIntentId: fakePiId,
+    });
+    cleanup.transactionIds.push(existingTxId);
+
+    const call = () => completePOST(new Request("http://localhost/api/pay/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId }),
+    }));
+
+    const first = await call();
+    const token = first.cookies.get("dc_sc")?.value;
+    expect(token).toMatch(/^[0-9a-f-]{36}$/);
+    const { data: row } = await testAdmin.from("saved_card_devices")
+      .select("stripe_customer_id, email").eq("token", token!).single();
+    expect(row).toEqual({ stripe_customer_id: "cus_idem_saved_card", email: "idem-test@test.local" });
+
+    // サンクス画面の再読込・URLの共有では発行しない
+    const second = await call();
+    expect(second.status).toBe(200);
+    expect(second.cookies.get("dc_sc")).toBeUndefined();
+
+    await testAdmin.from("saved_card_devices").delete().eq("checkout_session_id", sessionId);
+    captured.fakeCustomer = null;
   });
 });
 

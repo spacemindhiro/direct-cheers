@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { broadcastTouchpayClear } from "@/lib/realtime-broadcast";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { canOperateEvent } from "@/lib/event-operator";
 
 // POST /api/entrance/terminal/clear-signup
 // 新規客向けサインアップQRは子機側でタイマー自動消去しない仕様のため、
@@ -23,6 +25,9 @@ export async function POST(req: Request) {
   const { event_id, target_device_id } = await req.json() as { event_id: string; target_device_id?: string | null };
   if (!event_id) {
     return NextResponse.json({ error: "Missing event_id" }, { status: 400 });
+  }
+  if (!(await canOperateEvent(createAdminClient(), user.id, profile?.role, event_id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   await broadcastTouchpayClear(event_id, target_device_id ?? null);

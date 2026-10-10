@@ -7,6 +7,8 @@ import { buildStatementDescriptorSuffixes } from "@/lib/statement-descriptor";
 import { resolveDrinkUnitPrice } from "@/lib/drink-ticket-pricing";
 import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
 import { evaluatePurchaseWindow, purchaseWindowErrorMessage } from "@/lib/purchase-window";
+import { SAVED_CARD_COOKIE, resolveSavedCardCustomer } from "@/lib/saved-card-device";
+import { cookies } from "next/headers";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -185,14 +187,21 @@ export async function POST(req: Request) {
     eventRow?.organizer_profile_id
       ? admin.from("profiles").select("stripe_connect_id").eq("profile_id", eventRow.organizer_profile_id).single()
       : Promise.resolve({ data: null as { stripe_connect_id: string | null } | null }),
-    emailForCustomer && payment_method === "card"
-      ? admin.from("provisional_users").select("stripe_customer_id").eq("email", emailForCustomer).maybeSingle()
-      : Promise.resolve({ data: null as { stripe_customer_id: string | null } | null }),
+    // 保存済みカード（Stripe顧客）は、フォームに入力されたメールでは引かない。メールは
+    // 誰でも他人のものを入れられるため、他人の保存カードがCheckoutの選択肢に出てしまう
+    // （2026-10-11修正）。ログイン中ならそのメール、そうでなければ「この端末で実際に
+    // 決済を完了した顧客」（lib/saved-card-device.ts の Cookie）だけを使う。
+    payment_method !== "card"
+      ? Promise.resolve({ data: null as { stripe_customer_id: string | null } | null })
+      : loggedInEmail
+        ? admin.from("provisional_users").select("stripe_customer_id").eq("email", loggedInEmail).maybeSingle()
+        : resolveSavedCardCustomer(admin, (await cookies()).get(SAVED_CARD_COOKIE)?.value, emailForCustomer)
+            .then((id) => ({ data: id ? { stripe_customer_id: id } : null })),
   ]);
 
   // organizer の Connect ID（全決済手段で on_behalf_of に使用 — MoR はオーガナイザー）
   const organizerConnectId: string | null = orgProfileResult.data?.stripe_connect_id ?? null;
-  // 事前登録済みカスタマーID（ログイン済みの場合はそのメールを優先。フォームはロック表示済みだが API 側でも保証）
+  // 保存済みカスタマーID（ログイン本人のもの、またはこの端末で決済を完了したもの）
   const savedCustomerId: string | null = provResult.data?.stripe_customer_id ?? null;
 
   // PayPay は Stripe Connect の on_behalf_of を現行 API でサポートしていない。

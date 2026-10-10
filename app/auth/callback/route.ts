@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { safeRedirectPath } from '@/lib/safe-redirect';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -45,6 +46,9 @@ export async function GET(request: Request) {
   if (!authUser) {
     return errRedirect('no_user_after_exchange');
   }
+
+  // ?redirect= / post_auth_redirect は外部入力。自サイト内のパス以外は捨てる
+  redirect = redirect ? safeRedirectPath(redirect) : null;
 
   // exchangeCodeForSession 直後は同一リクエスト内でクッキーが読めないため admin クライアントでプロフィール確認
   const admin = createAdminClient();

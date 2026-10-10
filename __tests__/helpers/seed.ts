@@ -38,6 +38,15 @@ export async function deleteAuthUsers(profileIds: string[]): Promise<void> {
   );
 }
 
+/**
+ * 当日決済（チア・メッセージ・当日券・ドリンク等）を通すための「開催中」の日時。
+ * 決済APIはイベント開始〜終了3時間後しか受け付けない（lib/purchase-window.ts）ため、
+ * insertEvent の既定（翌日開始）のままだと開催前として弾かれる。
+ */
+export function ongoingEventWindow(): { startAt: Date; endAt: Date } {
+  return { startAt: new Date(Date.now() - 3600_000), endAt: new Date(Date.now() + 3 * 3600_000) };
+}
+
 // テスト用イベントを挿入
 export async function insertEvent(params: {
   eventId?: string;

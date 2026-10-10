@@ -34,7 +34,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import {
-  insertProfile, deleteAuthUsers, insertEvent, insertQrConfig,
+  insertProfile, deleteAuthUsers, insertEvent, ongoingEventWindow, insertQrConfig,
   insertTransaction, insertDistribution, insertProduct,
 } from "../helpers/seed";
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
@@ -144,7 +144,7 @@ describe("TC-MATRIX-A: 挿入順序を入れ替えても解決結果は変わら
     });
     cleanup.profileIds.push(organizerProfileId);
 
-    eventId = await insertEvent({ organizerProfileId, title: eventTitle });
+    eventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId, title: eventTitle });
     cleanup.eventIds.push(eventId);
 
     productId = await insertProduct({ eventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
@@ -244,7 +244,7 @@ describe("TC-MATRIX-B: 双方のtransactionがaccrued状態でも名義解決が
       organizer_avatar_url: organizerAvatarUrl, artist_avatar_url: artistAvatarUrl,
     }).eq("profile_id", organizerProfileId);
 
-    eventId = await insertEvent({ organizerProfileId, title: "MATRIX-B FESTIVAL" });
+    eventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId, title: "MATRIX-B FESTIVAL" });
     cleanup.eventIds.push(eventId);
 
     productId = await insertProduct({ eventId, type: "standard", minAmount: 50, maxAmount: 500_000 });
@@ -348,7 +348,7 @@ describe("TC-MATRIX-C: 名前未設定（display_nameのみ）の宛先は、con
     });
     cleanup.profileIds.push(unnamedRecipientProfileId);
 
-    eventId = await insertEvent({ organizerProfileId, title: "MATRIX-C FESTIVAL" });
+    eventId = await insertEvent({ ...ongoingEventWindow(), organizerProfileId, title: "MATRIX-C FESTIVAL" });
     cleanup.eventIds.push(eventId);
 
     qrOrganizerConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: unnamedRecipientProfileId });

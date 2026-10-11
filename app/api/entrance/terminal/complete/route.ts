@@ -6,6 +6,7 @@ import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew, broadcastTouchpaySignup } from "@/lib/realtime-broadcast";
 import { canOperateEvent } from "@/lib/event-operator";
 import { issueTouchpaySignupToken } from "@/lib/touchpay-signup-token";
+import { commitStock } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -90,6 +91,9 @@ export async function POST(req: Request) {
   if (!(await canOperateEvent(admin, user.id, profile?.role, eventId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  // 在庫の仮押さえを販売済みに移す（冪等）
+  await commitStock(admin, meta.stock_hold_key);
 
   const gross = pi.amount;
   const feeConfig = await getFeeConfig();

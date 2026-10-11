@@ -17,6 +17,7 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
+import { commitStock } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -145,6 +146,8 @@ async function handleTypeB(
   }
 
   const meta = session.metadata ?? {};
+  // 在庫の仮押さえを販売済みに移す（webhook と二重にならない・冪等）
+  await commitStock(admin, meta.stock_hold_key);
   const productId = meta.product_id;
   const eventId = meta.event_id;
   const email = session.customer_email ?? "";

@@ -108,13 +108,15 @@ describe("TC-RACE-A: 残1枚チケットへの同時予約 — 1人だけ成功"
     expect(successCount).toBe(1);
     expect(soldOutCount).toBe(N - 1);
 
-    // DB の sold_count が正確に 1 になっていること
+    // タイプBは予約時点では仮押さえ（支払い完了で販売済みに移る）。仮押さえが正確に1枚分、販売済みは0
+    const { data: holds } = await testAdmin.from("stock_holds").select("quantity").eq("product_id", productId);
+    expect((holds ?? []).reduce((n, h) => n + h.quantity, 0)).toBe(1);
     const { data: product } = await testAdmin
       .from("products")
       .select("sold_count")
       .eq("product_id", productId)
       .single();
-    expect(product?.sold_count).toBe(1);
+    expect(product?.sold_count).toBe(0);
   }, 30_000);
 });
 
@@ -170,7 +172,10 @@ describe("TC-RACE-C: 十分な在庫 — 全員成功（ロック解放確認）
 
     expect(results.every((r) => r.status === 200)).toBe(true);
 
+    // 仮押さえが人数分（支払い完了までは販売済みにしない）
+    const { data: holds } = await testAdmin.from("stock_holds").select("quantity").eq("product_id", productId);
+    expect((holds ?? []).reduce((n, h) => n + h.quantity, 0)).toBe(N);
     const { data: product } = await testAdmin.from("products").select("sold_count").eq("product_id", productId).single();
-    expect(product?.sold_count).toBe(N);
+    expect(product?.sold_count).toBe(0);
   }, 30_000);
 });

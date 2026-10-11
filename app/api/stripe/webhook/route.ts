@@ -7,6 +7,7 @@ import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 import { retryPendingTransfersForProfile } from "@/lib/pending-transfers";
 import { advanceToReviewPendingIfNeeded } from "@/lib/connect-review";
+import { commitStock } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 // Stripeの送信先は1つにつき1つのスコープ（自社アカウント/連結アカウント）しか
@@ -360,6 +361,12 @@ export async function POST(req: Request) {
       // ──────────────────────────────────────────────────────
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        // 在庫の仮押さえを販売済みに移す。カードはオーソリのみ（payment_status=unpaid）でも
+        // 支払い手続き自体は完了しているため、入金状態より前に行う。冪等（pay/complete と二重にならない）
+        if (session.status === "complete") {
+          await commitStock(admin, session.metadata?.stock_hold_key);
+        }
 
         if (session.payment_status !== "paid") break;
 

@@ -12,6 +12,7 @@ import { getUser } from "@/lib/supabase/server";
 import { evaluatePurchaseWindow, purchaseWindowErrorMessage } from "@/lib/purchase-window";
 import { buildEntrancePaymentParams, EntranceAccountIncompleteError } from "@/lib/entrance-payment";
 import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
+import { CHECKOUT_EXPIRES_SEC, CHECKOUT_HOLD_TTL_SEC, holdStock, releaseStock } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -109,12 +110,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: purchaseWindowErrorMessage(verdict), reason: verdict.reason }, { status: 409 });
   }
 
-  // タイプA/Bは常に在庫管理する
-  const { data: hasStock } = await admin.rpc("reserve_product_stock", {
-    p_product_id: product_id,
-  });
-  if (!hasStock) {
-    return NextResponse.json({ error: "SOLD_OUT" }, { status: 409 });
+  // タイプAは予約そのものが枠の確保なので、その場で在庫を確保する。
+  // タイプBは決済の仮押さえ（下）にする。以前はBも決済開始時に販売済みにしており、
+  // 払わずに離脱しても戻らなかった（2026-10-11修正）
+  if (paymentType === "A") {
+    const { data: hasStock } = await admin.rpc("reserve_product_stock", {
+      p_product_id: product_id,
+    });
+    if (!hasStock) {
+      return NextResponse.json({ error: "SOLD_OUT" }, { status: 409 });
+    }
   }
 
   // ----- タイプB: Checkout Session（即時決済） -----
@@ -137,50 +142,64 @@ export async function POST(req: Request) {
       throw err;
     }
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      customer_email,
-      payment_intent_data: {
-        ...(entranceParams.onBehalfOf ? { on_behalf_of: entranceParams.onBehalfOf } : {}),
-        ...(entranceParams.statementDescriptorSuffix
-          ? { statement_descriptor_suffix: entranceParams.statementDescriptorSuffix }
-          : {}),
-      },
-      payment_method_options: {
-        card: {
-          ...(entranceParams.statementDescriptorSuffixKana
-            ? { statement_descriptor_suffix_kana: entranceParams.statementDescriptorSuffixKana }
-            : {}),
-          ...(entranceParams.statementDescriptorSuffixKanji
-            ? { statement_descriptor_suffix_kanji: entranceParams.statementDescriptorSuffixKanji }
+    const hold = await holdStock(admin, product_id, 1, CHECKOUT_HOLD_TTL_SEC);
+    if (hold.status === "sold_out") {
+      return NextResponse.json({ error: "SOLD_OUT" }, { status: 409 });
+    }
+    const holdKey = hold.status === "held" ? hold.holdKey : null;
+
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        customer_email,
+        ...(holdKey ? { expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_EXPIRES_SEC } : {}),
+        payment_intent_data: {
+          ...(entranceParams.onBehalfOf ? { on_behalf_of: entranceParams.onBehalfOf } : {}),
+          ...(entranceParams.statementDescriptorSuffix
+            ? { statement_descriptor_suffix: entranceParams.statementDescriptorSuffix }
             : {}),
         },
-      },
-      line_items: [{
-        price_data: {
-          currency: "jpy",
-          product_data: {
-            name: `【入場チケット】${(product as any).name} — ${event?.title ?? ""}`,
-            // 実会場への入場券であることをStripe側に明示する
-            ...((event as any)?.venue ? { description: `イベント会場: ${(event as any).venue} への入場チケット` } : {}),
+        payment_method_options: {
+          card: {
+            ...(entranceParams.statementDescriptorSuffixKana
+              ? { statement_descriptor_suffix_kana: entranceParams.statementDescriptorSuffixKana }
+              : {}),
+            ...(entranceParams.statementDescriptorSuffixKanji
+              ? { statement_descriptor_suffix_kanji: entranceParams.statementDescriptorSuffixKanji }
+              : {}),
           },
-          unit_amount: amount,
         },
-        quantity: 1,
-      }],
-      success_url: successUrl,
-      cancel_url: `${SITE_URL}/entrance/${product_id}`,
-      metadata: {
-        product_id,
-        event_id: eventId,
-        event_venue: (event as any)?.venue ?? "",
-        payment_type: "B",
-        holder_name: holder_name ?? "",
-        qr_config_id: effectiveQrConfigId,
-        ticket_channel: "advance_purchase_onsite_admission",
-      },
-    });
+        line_items: [{
+          price_data: {
+            currency: "jpy",
+            product_data: {
+              name: `【入場チケット】${(product as any).name} — ${event?.title ?? ""}`,
+              // 実会場への入場券であることをStripe側に明示する
+              ...((event as any)?.venue ? { description: `イベント会場: ${(event as any).venue} への入場チケット` } : {}),
+            },
+            unit_amount: amount,
+          },
+          quantity: 1,
+        }],
+        success_url: successUrl,
+        cancel_url: `${SITE_URL}/entrance/${product_id}`,
+        metadata: {
+          product_id,
+          event_id: eventId,
+          event_venue: (event as any)?.venue ?? "",
+          payment_type: "B",
+          holder_name: holder_name ?? "",
+          qr_config_id: effectiveQrConfigId,
+          ticket_channel: "advance_purchase_onsite_admission",
+          ...(holdKey ? { stock_hold_key: holdKey } : {}),
+        },
+      });
+    } catch (err) {
+      if (holdKey) await releaseStock(admin, holdKey);
+      throw err;
+    }
     return ok({ type: "B", url: session.url });
   }
 

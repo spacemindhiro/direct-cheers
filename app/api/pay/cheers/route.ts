@@ -8,6 +8,7 @@ import { resolveDrinkUnitPrice } from "@/lib/drink-ticket-pricing";
 import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
 import { evaluatePurchaseWindow, purchaseWindowErrorMessage } from "@/lib/purchase-window";
 import { SAVED_CARD_COOKIE, resolveSavedCardCustomer } from "@/lib/saved-card-device";
+import { CHECKOUT_EXPIRES_SEC, CHECKOUT_HOLD_TTL_SEC, SOLD_OUT_MESSAGE, holdStock, releaseStock } from "@/lib/stock-hold";
 import { cookies } from "next/headers";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -311,6 +312,18 @@ export async function POST(req: Request) {
     };
   }
 
+  // 在庫の仮押さえ（在庫管理対象の商品のみ）。以前はQR決済からの販売を在庫に一切数えて
+  // いなかった（2026-10-11修正）。押さえた商品は支払い画面も同じ時間で失効させ、
+  // 払わずに離脱した分は期限切れで自然に数えなくなるようにする
+  const hold = await holdStock(admin, product_id, quantity, CHECKOUT_HOLD_TTL_SEC);
+  if (hold.status === "sold_out") {
+    return NextResponse.json({ error: SOLD_OUT_MESSAGE, reason: "sold_out" }, { status: 409 });
+  }
+  if (hold.status === "held") {
+    sessionParams.expires_at = Math.floor(Date.now() / 1000) + CHECKOUT_EXPIRES_SEC;
+    sessionParams.metadata = { ...sessionParams.metadata, stock_hold_key: hold.holdKey };
+  }
+
   try {
     const session = await stripe.checkout.sessions.create(sessionParams);
     const response = NextResponse.json({ url: session.url });
@@ -320,6 +333,7 @@ export async function POST(req: Request) {
     if (emailForCustomer) setCustomerEmailCookie(response, emailForCustomer);
     return response;
   } catch (err: any) {
+    if (hold.status === "held") await releaseStock(admin, hold.holdKey);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

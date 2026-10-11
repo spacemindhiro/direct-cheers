@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { remainingStock } from "@/lib/stock-hold";
 
 export async function GET(
   _req: Request,
@@ -23,5 +24,7 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ product });
+  // 残り在庫（支払い中の仮押さえを含めて計算。売り切れ表示に使う）
+  const remaining = (await remainingStock(admin, [productId]))[productId] ?? null;
+  return NextResponse.json({ product: { ...product, remaining } });
 }

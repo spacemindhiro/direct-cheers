@@ -93,7 +93,7 @@ export async function POST(req: Request) {
   }
 
   // 在庫の仮押さえを販売済みに移す（冪等）
-  await commitStock(admin, meta.stock_hold_key);
+  await commitStock(admin, meta.stock_hold_key, payment_intent_id);
 
   const gross = pi.amount;
   const feeConfig = await getFeeConfig();

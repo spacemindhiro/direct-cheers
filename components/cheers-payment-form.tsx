@@ -20,6 +20,8 @@ type Product = {
   default_amount?: number;
   quantity_selectable?: boolean;
   bulk_pricing?: DrinkBulkTier[] | null;
+  /** 残り在庫（上限 − 販売済み − 支払い中）。null/undefined は在庫管理の対象外 */
+  remaining?: number | null;
 };
 
 // タイプA: SetupIntent（または5日以内はPaymentIntentオーソリ）でカード入力
@@ -147,6 +149,9 @@ export function CheersPaymentForm({
   // エントランス（Aタイプ以外）・ドリンクチケット: 人数/杯数分まとめて購入できる。
   // amountは単価のまま、quantityと掛け合わせた合計金額をStripe側（line item）で計算させる。
   const [quantity, setQuantity] = useState(1);
+  // 売り切れ：画面を開いた時点で残り0、または決済開始で売り切れが返ってきたら購入ボタンを押せなくする
+  const [soldOut, setSoldOut] = useState(selectedProduct?.remaining === 0);
+  const maxQuantity = Math.min(10, selectedProduct?.remaining ?? 10);
   const drinkUnitPrice = isDrinkTicket ? resolveDrinkUnitPrice(selectedProduct.min_amount, selectedProduct.bulk_pricing, quantity) : amount;
   const totalAmount = isDrinkTicket
     ? drinkUnitPrice * quantity
@@ -186,7 +191,12 @@ export function CheersPaymentForm({
       });
       const data = await res.json();
       if (data.error) {
-        setCheckoutError(data.error === "SOLD_OUT" ? "申し訳ありません。このチケットは完売しました。" : data.error);
+        if (data.error === "SOLD_OUT") {
+          setSoldOut(true);
+          setCheckoutError("申し訳ありません。このチケットは完売しました。");
+        } else {
+          setCheckoutError(data.error);
+        }
         return;
       }
       setSetupData({
@@ -218,7 +228,16 @@ export function CheersPaymentForm({
       if (data.url) {
         window.location.href = data.url;
       } else {
-        setCheckoutError(data.error ?? "決済の開始に失敗しました");
+        if (data.reason === "sold_out" || data.error === "SOLD_OUT") {
+          if (quantity > 1) {
+            setCheckoutError("ご希望の人数分の在庫がありません。人数を減らしてお試しください。");
+          } else {
+            setSoldOut(true);
+            setCheckoutError("申し訳ありません。売り切れました。");
+          }
+        } else {
+          setCheckoutError(data.error ?? "決済の開始に失敗しました");
+        }
       }
     });
   };
@@ -396,7 +415,7 @@ export function CheersPaymentForm({
             </span>
             <button
               type="button"
-              onClick={() => setQuantity((q) => Math.min(10, q + 1))}
+              onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))}
               disabled={quantity >= 10}
               className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-white font-black text-lg disabled:opacity-40 active:scale-95 transition-all"
             >
@@ -448,11 +467,17 @@ export function CheersPaymentForm({
         </p>
         <button
           type="button"
-          disabled={isPending}
+          disabled={isPending || soldOut}
           onClick={() => handleCheckout("card")}
-          className="w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.15em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60"
+          className={`w-full h-16 rounded-2xl font-black text-sm uppercase tracking-[0.15em] transition-all flex items-center justify-center gap-3 ${
+            soldOut
+              ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+              : "bg-gradient-to-r from-pink-600 to-pink-500 text-white hover:brightness-110 shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] disabled:opacity-60"
+          }`}
         >
-          {isPending ? (
+          {soldOut ? (
+            <>売り切れ</>
+          ) : isPending ? (
             <Loader2 size={20} className="animate-spin" />
           ) : (selectedProduct?.type === "entrance" || isDrinkTicket || (selectedProduct?.type === "custom" && selectedProduct?.payment_type === "V")) ? (
             <>¥{totalAmount.toLocaleString()} を購入する</>
@@ -469,7 +494,7 @@ export function CheersPaymentForm({
           <>
             <button
               type="button"
-              disabled={isPending}
+              disabled={isPending || soldOut}
               onClick={() => handleCheckout("paypay")}
               className="w-full h-14 bg-[#E52E2E] text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:brightness-110 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60"
             >

@@ -19,6 +19,8 @@ type Product = {
   min_amount: number;
   stock_limit: number | null;
   sold_count: number;
+  /** 残り在庫（上限 − 販売済み − 支払い中）。null は在庫管理の対象外 */
+  remaining: number | null;
   event: {
     event_id: string;
     title: string;
@@ -207,8 +209,7 @@ function EntrancePageContent() {
       .finally(() => setLoading(false));
   }, [params.productId]);
 
-  const soldOut =
-    product?.stock_limit != null && product.sold_count >= product.stock_limit;
+  const soldOut = product?.remaining === 0;
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,7 +232,8 @@ function EntrancePageContent() {
     setSubmitting(false);
 
     if (data.error === "SOLD_OUT") {
-      setError("申し訳ありません。このチケットは完売しました。");
+      // 画面を開いた後で売り切れた場合も、その場で「完売しました」表示に切り替える
+      setProduct((p) => (p ? { ...p, remaining: 0 } : p));
       return;
     }
     if (data.error) {
@@ -352,7 +354,7 @@ function EntrancePageContent() {
               <div className="text-right">
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">残席</p>
                 <p className={`text-lg font-black ${soldOut ? "text-red-400" : "text-white"}`}>
-                  {soldOut ? "SOLD OUT" : `${product.stock_limit - product.sold_count}`}
+                  {soldOut ? "SOLD OUT" : `${product.remaining ?? product.stock_limit - product.sold_count}`}
                 </p>
               </div>
             )}

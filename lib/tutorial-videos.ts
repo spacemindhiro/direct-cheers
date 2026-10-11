@@ -21,4 +21,5 @@ export const TUTORIAL_VIDEO_IDS: Record<string, string> = {
   "a-03": "68bSogaaGjw",
   "a-04": "EGid2xExtN0",
   "u-01": "ULsvaPueffs",
+  "a-intro3min": "0TwpHPEQnBU",
 };

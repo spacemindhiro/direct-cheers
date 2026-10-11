@@ -73,7 +73,6 @@ function DrinkTicketReceipt({ quantity, productName }: { quantity: number; produ
 import Link from "next/link";
 import { WelcomeCheerPicker } from "@/components/welcome-cheer-picker";
 
-const DEVICE_TOKEN_KEY = "dc_dt";
 
 type PaymentResult = {
   transaction_id: string;
@@ -189,24 +188,6 @@ function ThanksContent() {
             // サンクス取得失敗は無視
           }
         }
-
-        const email: string | null = data.email;
-        if (!email) return;
-
-        // LocalStorage デバイストークンを発行・保存
-        try {
-          const tokenRes = await fetch("/api/account/device-token", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
-          });
-          if (tokenRes.ok) {
-            const { token } = await tokenRes.json();
-            if (token) localStorage.setItem(DEVICE_TOKEN_KEY, token);
-          }
-        } catch {
-          // トークン発行失敗は無視
-        }
       })
       .catch(() => setError("通信エラーが発生しました"))
       .finally(() => setLoading(false));
@@ -294,8 +275,8 @@ function ThanksContent() {
           <a
             href={
               isPurchase
-                ? `/api/wallet/ticket/${result.ticket_id}`
-                : `/api/wallet/pass/${result.transaction_id}`
+                ? `/api/wallet/ticket/${result.ticket_id}?session_id=${encodeURIComponent(sessionId ?? "")}`
+                : `/api/wallet/pass/${result.transaction_id}?session_id=${encodeURIComponent(sessionId ?? "")}`
             }
             className="flex items-center gap-3 w-full h-14 bg-black border border-white/20 rounded-2xl px-5 hover:border-white/40 transition-all"
           >
@@ -373,7 +354,7 @@ function ThanksContent() {
 
         {/* ウェルカムチア（entrance × ticket_idありのみ） */}
         {result.product_type === "entrance" && result.ticket_id && (
-          <WelcomeCheerPicker ticketId={result.ticket_id} />
+          <WelcomeCheerPicker ticketId={result.ticket_id} sessionId={sessionId} />
         )}
 
         {/* メッセージ送信（message タイプのみ） */}

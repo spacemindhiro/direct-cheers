@@ -73,7 +73,7 @@ vi.mock("stripe", async (importOriginal) => {
   return { ...StripeModule, default: MockStripe };
 });
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { POST as qrCreatePOST } from "@/app/api/qr/create/route";
 import { DELETE as qrDeleteDELETE } from "@/app/api/qr/[qrConfigId]/route";
 import { GET as cheerProductsGET } from "@/app/api/events/[eventId]/cheer-products/route";
@@ -693,7 +693,13 @@ describe("TC-WC-C: 確定API — 演者選択の正常系・異常系", () => {
   let wrongPriceProductId: string;
   let ticketId: string;
   let floor2TransactionId: string;
+  let buyerProfileId: string;
+  let strangerProfileId: string;
   const piId = `pi_wc_confirm_${Date.now()}`;
+
+  // ウェルカムチアの宛先はチケットの持ち主（マイチケット）か、決済直後の本人（サンクス画面）だけが扱える
+  const loginAs = (id: string | null) =>
+    (getUser as any).mockResolvedValue(id ? { id, email: `${id}@test.local` } : null);
 
   beforeAll(async () => {
     wcDefaultProductId = await insertProduct({
@@ -755,9 +761,37 @@ describe("TC-WC-C: 確定API — 演者選択の正常系・異常系", () => {
       .eq("stripe_payment_intent_id", piId);
     cleanup.transactionIds.push(...txs!.map((t) => t.transaction_id));
     floor2TransactionId = txs!.find((t) => t.stripe_pi_sequence === 1)!.transaction_id;
+
+    // サインアップQRから自分のアカウントに紐付けたお客様（＝チケットの持ち主）
+    buyerProfileId = await insertProfile({ role: "user", displayName: "WC購入者", email: `wc-buyer-${Date.now()}@test.local` });
+    strangerProfileId = await insertProfile({ role: "user", displayName: "WC第三者", email: `wc-stranger-${Date.now()}@test.local` });
+    cleanup.profileIds.push(buyerProfileId, strangerProfileId);
+    await testAdmin.from("tickets").update({ holder_profile_id: buyerProfileId }).eq("ticket_id", ticketId);
   }, 30_000);
 
+  it("TC-WC-C-00a: ログインなし・セッションIDなし → GETは何も返さず、確定は404（チケットIDだけでは操作できない）", async () => {
+    loginAs(null);
+    const getRes = await welcomeCheerGET(new Request(`http://localhost/api/entrance/welcome-cheer/${ticketId}`), { params: Promise.resolve({ ticketId }) });
+    expect(await getRes.json()).toEqual({ has_welcome_cheer: false });
+    const postRes = await welcomeCheerConfirmPOST(new Request(`http://localhost/api/entrance/welcome-cheer/${ticketId}/confirm`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product_id: artistProductId }),
+    }), { params: Promise.resolve({ ticketId }) });
+    expect(postRes.status).toBe(404);
+  });
+
+  it("TC-WC-C-00b: 持ち主以外がログイン → 確定は404・宛先は変わらない", async () => {
+    loginAs(strangerProfileId);
+    const postRes = await welcomeCheerConfirmPOST(new Request(`http://localhost/api/entrance/welcome-cheer/${ticketId}/confirm`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product_id: artistProductId }),
+    }), { params: Promise.resolve({ ticketId }) });
+    expect(postRes.status).toBe(404);
+    const { data } = await testAdmin.from("transactions").select("welcome_cheer_locked_at").eq("transaction_id", floor2TransactionId).single();
+    expect(data!.welcome_cheer_locked_at).toBeNull();
+    loginAs(buyerProfileId);
+  });
+
   it("TC-WC-C-01: GET — 演者候補一覧に演者本人のチアが含まれる", async () => {
+    loginAs(buyerProfileId);
     const req = new Request(`http://localhost/api/entrance/welcome-cheer/${ticketId}`);
     const res = await welcomeCheerGET(req, { params: Promise.resolve({ ticketId }) });
     const data = await res.json();

@@ -346,7 +346,7 @@ export function QRBoardDisplay({
   ).current;
 
   // タッチ決済（Case④）完了時のサインアップ用QRオーバーレイ
-  const [touchpaySignup, setTouchpaySignup] = useState<{ ticketId: string; quantity: number } | null>(null);
+  const [touchpaySignup, setTouchpaySignup] = useState<{ token: string; quantity: number } | null>(null);
   const signupCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // グループ一覧（タイル）のスクロール状態。下にまだタイルがあることを
@@ -745,7 +745,7 @@ export function QRBoardDisplay({
   // サインアップ用QR描画（タッチ決済完了時のみ）
   useEffect(() => {
     if (!touchpaySignup || !signupCanvasRef.current) return;
-    const signupUrl = `${siteUrlRef.current}/entrance/signup/${touchpaySignup.ticketId}`;
+    const signupUrl = `${siteUrlRef.current}/entrance/signup/${touchpaySignup.token}`;
     import("qrcode").then(({ default: QRCode }) => {
       QRCode.toCanvas(signupCanvasRef.current!, signupUrl, {
         width: Math.min(qrSize, 320),
@@ -854,11 +854,19 @@ export function QRBoardDisplay({
     // タッチ決済（Case④）完了・新規客 → サインアップ用QRを表示する。
     // 親機スタッフが「次の決済へ」を押す（touchpay-clearイベント）まで、
     // タイマーでは絶対に消さない（客がQRを読み取る時間を確実に確保するため）。
+    // QRの中身（使い切りの合言葉）はこの公開チャンネルには載っていない。合図を受けたら
+    // ログイン済みセッションで取りに行く（合言葉自体は10分で無効になる）。
     channel.on("broadcast", { event: "touchpay-signup" }, ({ payload }) => {
-      const { ticket_id, quantity, target_device_id } = payload as { ticket_id: string; quantity: number; target_device_id?: string | null };
+      const { quantity, target_device_id } = payload as { quantity: number; target_device_id?: string | null };
       // target_device_id指定時、自分宛てでなければ無視（子機を1台に絞ったペアリング）
       if (target_device_id != null && target_device_id !== deviceId) return;
-      setTouchpaySignup({ ticketId: ticket_id, quantity });
+      const qs = target_device_id != null ? `?device_id=${encodeURIComponent(target_device_id)}` : "";
+      fetch(`/api/events/${eventId}/touchpay-signup${qs}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { token?: string | null } | null) => {
+          if (d?.token) setTouchpaySignup({ token: d.token, quantity });
+        })
+        .catch(() => {});
     });
 
     // 親機スタッフの明示操作でのみサインアップQRをクリアする

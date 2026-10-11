@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/supabase/server";
+import { canAccessTicket } from "@/lib/purchase-access";
 
 // POST /api/entrance/welcome-cheer/[ticketId]/confirm
-// body: { product_id: string }
+// body: { product_id: string; session_id?: string }
 //
 // 購入者がウェルカムチア（2階）の宛先演者を確定する。一度確定したら変更不可。
 // 選べるのは、このイベントのワンプライスかつ2階金額と完全一致するチア商品のみ。
@@ -11,12 +13,18 @@ export async function POST(
   { params }: { params: Promise<{ ticketId: string }> }
 ) {
   const { ticketId } = await params;
-  const { product_id } = await req.json() as { product_id?: string };
+  const { product_id, session_id } = await req.json() as { product_id?: string; session_id?: string };
   if (!product_id) {
     return NextResponse.json({ error: "Missing product_id" }, { status: 400 });
   }
 
   const admin = createAdminClient();
+
+  // 宛先を決められるのは本人だけ（ログイン中の持ち主か、その決済の session_id を持つ人）。
+  // 以前はチケットIDだけで通っていた（2026-10-11修正）
+  if (!(await canAccessTicket(admin, ticketId, { user: await getUser(), sessionId: session_id }))) {
+    return NextResponse.json({ error: "TICKET_NOT_FOUND" }, { status: 404 });
+  }
 
   const { data: ticket } = await admin
     .from("tickets")

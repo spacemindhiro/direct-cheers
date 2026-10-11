@@ -18,7 +18,8 @@ type WelcomeCheerState = {
   candidates?: WelcomeCheerCandidate[];
 };
 
-export function WelcomeCheerPicker({ ticketId }: { ticketId: string }) {
+// sessionId: 決済直後のサンクス画面から使うときに渡す（本人確認用）。マイチケットではログインで本人確認する
+export function WelcomeCheerPicker({ ticketId, sessionId }: { ticketId: string; sessionId?: string | null }) {
   const [state, setState] = useState<WelcomeCheerState | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -26,11 +27,11 @@ export function WelcomeCheerPicker({ ticketId }: { ticketId: string }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`/api/entrance/welcome-cheer/${ticketId}`)
+    fetch(`/api/entrance/welcome-cheer/${ticketId}${sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : ""}`)
       .then((r) => r.json())
       .then(setState)
       .catch(() => {});
-  }, [ticketId]);
+  }, [ticketId, sessionId]);
 
   if (!state?.has_welcome_cheer) return null;
 
@@ -55,7 +56,7 @@ export function WelcomeCheerPicker({ ticketId }: { ticketId: string }) {
     const res = await fetch(`/api/entrance/welcome-cheer/${ticketId}/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ product_id: selected }),
+      body: JSON.stringify({ product_id: selected, session_id: sessionId ?? undefined }),
     });
     const data = await res.json();
     setConfirming(false);

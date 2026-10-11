@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Merge, CheckCircle2, Loader2, ChevronRight, KeyRound, Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
+import { Mail, Merge, CheckCircle2, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AccountPage() {
@@ -177,19 +176,6 @@ export default function AccountPage() {
         )}
       </div>
 
-      {/* リカバリー */}
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
-        <Link
-          href="/account/recover"
-          className="flex items-center justify-between p-5 hover:bg-slate-700 transition-colors"
-        >
-          <div>
-            <p className="text-sm font-bold text-white">メールアドレスを忘れた</p>
-            <p className="text-[10px] text-slate-500 mt-0.5">決済金額・日付からアカウントを復旧</p>
-          </div>
-          <ChevronRight size={16} className="text-slate-500" />
-        </Link>
-      </div>
     </div>
   );
 }

@@ -1,19 +1,27 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCheerCardIdentity } from "@/lib/statement-descriptor";
+import { getUser } from "@/lib/supabase/server";
+import { canAccessTicket } from "@/lib/purchase-access";
 
 // GET /api/entrance/welcome-cheer/[ticketId]
 //
 // エントランスチケット（ticket_id）に紐づくウェルカムチア（2階transaction）の
 // 状態と、選択可能な演者候補（ワンプライスかつ金額完全一致のチア商品）を返す。
-// ticket_id自体が推測不可能なUUIDのため、これを知っていることを認可とする
-// （wallet/pass等、本アプリの他エンドポイントと同じ方針）。
+// 以前は「ticket_id が推測不可能なUUIDなので、知っていることを認可とする」方針だったが、
+// チケットIDはタッチ決済のサインアップQRで第三者の目に触れていた（2026-10-11修正）。
+// ログイン中の持ち主か、その決済の session_id を持つ人（サンクス画面）だけに返す。
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ ticketId: string }> }
 ) {
   const { ticketId } = await params;
   const admin = createAdminClient();
+
+  const sessionId = new URL(req.url).searchParams.get("session_id");
+  if (!(await canAccessTicket(admin, ticketId, { user: await getUser(), sessionId }))) {
+    return NextResponse.json({ has_welcome_cheer: false });
+  }
 
   const { data: ticket } = await admin
     .from("tickets")

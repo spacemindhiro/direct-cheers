@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew, broadcastTouchpaySignup } from "@/lib/realtime-broadcast";
 import { canOperateEvent } from "@/lib/event-operator";
+import { issueTouchpaySignupToken } from "@/lib/touchpay-signup-token";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -247,7 +248,11 @@ export async function POST(req: Request) {
     if (isRepeat) {
       broadcastCheerNew(eventId, gross).catch(() => {});
     } else {
-      broadcastTouchpaySignup(eventId, ticket.ticket_id, quantity, meta.target_device_id || null).catch(() => {});
+      // サインアップQRには使い切りの合言葉を載せる。合言葉は公開チャンネルで配信せず、
+      // 子機がログイン済みセッションで取りに来る（合図と人数だけを配信する）
+      const targetDeviceId = meta.target_device_id || null;
+      const token = await issueTouchpaySignupToken(admin, { ticketId: ticket.ticket_id, eventId, targetDeviceId });
+      if (token) broadcastTouchpaySignup(eventId, quantity, targetDeviceId).catch(() => {});
     }
   }
 

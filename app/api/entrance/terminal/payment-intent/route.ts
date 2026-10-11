@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkConnectCapabilities } from "@/lib/stripe-check";
 import { canOperateEvent } from "@/lib/event-operator";
+import { SOLD_OUT_MESSAGE, TERMINAL_HOLD_TTL_SEC, holdStock, releaseStock } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -118,23 +119,38 @@ export async function POST(req: Request) {
 
   const amount = product.min_amount * quantity;
 
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount,
-    currency: "jpy",
-    payment_method_types: ["card_present"],
-    capture_method: "manual",
-    ...(organizerConnectId ? { on_behalf_of: organizerConnectId } : {}),
-    metadata: {
-      product_id,
-      qr_config_id: qrc?.qr_config_id ?? "",
-      event_id: product.event_id,
-      event_venue: eventRow?.venue ?? "",
-      quantity: String(quantity),
-      device_name: device_name ?? "",
-      target_device_id,
-      staff_profile_id: user.id,
-    },
-  });
+  // 在庫の仮押さえ（在庫管理対象の商品のみ）。以前はタッチ決済の販売を在庫に一切数えて
+  // いなかった（2026-10-11修正）。決済完了（terminal/complete）で販売済みに移す
+  const hold = await holdStock(admin, product_id, quantity, TERMINAL_HOLD_TTL_SEC);
+  if (hold.status === "sold_out") {
+    return NextResponse.json({ error: SOLD_OUT_MESSAGE, reason: "sold_out" }, { status: 409 });
+  }
+  const holdKey = hold.status === "held" ? hold.holdKey : null;
+
+  let paymentIntent: Stripe.PaymentIntent;
+  try {
+    paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: "jpy",
+      payment_method_types: ["card_present"],
+      capture_method: "manual",
+      ...(organizerConnectId ? { on_behalf_of: organizerConnectId } : {}),
+      metadata: {
+        product_id,
+        qr_config_id: qrc?.qr_config_id ?? "",
+        event_id: product.event_id,
+        event_venue: eventRow?.venue ?? "",
+        quantity: String(quantity),
+        device_name: device_name ?? "",
+        target_device_id,
+        staff_profile_id: user.id,
+        ...(holdKey ? { stock_hold_key: holdKey } : {}),
+      },
+    });
+  } catch (err) {
+    if (holdKey) await releaseStock(admin, holdKey);
+    throw err;
+  }
 
   return NextResponse.json({
     client_secret: paymentIntent.client_secret,

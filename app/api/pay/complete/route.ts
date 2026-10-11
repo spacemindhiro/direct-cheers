@@ -6,6 +6,7 @@ import { sendPurchaseReceipt } from "@/lib/email/purchase-receipt";
 import { issuePurchaseClaimUrl, claimRedirectPathFor } from "@/lib/purchase-claim";
 import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
 import { issueSavedCardCookie } from "@/lib/saved-card-device";
+import { commitStock } from "@/lib/stock-hold";
 import { getFeeConfig } from "@/lib/fee-config";
 import { broadcastCheerNew } from "@/lib/realtime-broadcast";
 import { resolveProfileIdByEmail } from "@/lib/resolve-profile";
@@ -51,6 +52,9 @@ export async function POST(req: Request) {
       : (session.customer as Stripe.Customer)?.id ?? null;
 
   const admin = createAdminClient();
+
+  // 在庫の仮押さえを販売済みに移す（webhook と二重にならない・冪等）
+  await commitStock(admin, meta.stock_hold_key);
 
   // profile_id をメールから1回だけ解決 — provisional_users 優先、auth.users フォールバック
   const [senderProfileId, loggedInUser] = await Promise.all([

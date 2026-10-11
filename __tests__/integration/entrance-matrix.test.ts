@@ -590,15 +590,22 @@ describe("TC-ENT-WINDOW: 販売期間外・受付終了イベントは予約API�
     await expectWindowRejected(await productWith({ lifecycle: "draft" }), "closed");
   });
 
-  it("販売期間内のB → 200・在庫が1減る", async () => {
+  it("販売期間内のB → 200・仮押さえ1件（在庫数は支払い完了まで増えない）・支払い画面は30分で失効", async () => {
     const prodId = await productWith({ salesStartAt: new Date(Date.now() - 3600_000), salesEndAt: new Date(Date.now() + 3600_000) });
     const before = await soldCount(prodId);
     const email = `ent-window-ok-${Date.now()}@test.local`;
     cleanup.provisionalEmails.push(email);
+    const startedAt = Math.floor(Date.now() / 1000);
     const res = await reservePOST(reserveReq({ product_id: prodId, customer_email: email }));
     expect(res.status).toBe(200);
     expect((await res.json()).type).toBe("B");
-    expect(await soldCount(prodId)).toBe(before + 1);
+    expect(await soldCount(prodId)).toBe(before);
+
+    const sent = capturedSessionParams[capturedSessionParams.length - 1];
+    const { data: holds } = await testAdmin.from("stock_holds").select("hold_key, quantity").eq("product_id", prodId);
+    expect(holds).toEqual([{ hold_key: sent.metadata.stock_hold_key, quantity: 1 }]);
+    expect(sent.expires_at - startedAt).toBeGreaterThanOrEqual(30 * 60);
+    expect(sent.expires_at - startedAt).toBeLessThanOrEqual(30 * 60 + 5);
   });
 });
 

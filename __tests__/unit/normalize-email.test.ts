@@ -18,6 +18,16 @@ describe("normalizeEmail", () => {
     expect(normalizeEmail("﻿tsekine​1234@‌‍gmail⁠.com")).toBe("tsekine1234@gmail.com");
   });
 
+  it("コピペで混入する方向制御(LRM/RLM/LRE/PDF/LRI/PDI)・ソフトハイフンを除去する", () => {
+    expect(normalizeEmail("‎tsekine1234@gmail.com‏")).toBe("tsekine1234@gmail.com");
+    expect(normalizeEmail("‪tsekine­1234@gmail.com‬")).toBe("tsekine1234@gmail.com");
+    expect(normalizeEmail("⁦tsekine1234@gmail.com⁩")).toBe("tsekine1234@gmail.com");
+  });
+
+  it("NBSP・タブ・途中の空白も除去する", () => {
+    expect(normalizeEmail(" tsekine1234 @gmail.com\t")).toBe("tsekine1234@gmail.com");
+  });
+
   it("前後の半角・全角スペース・改行を除去する", () => {
     expect(normalizeEmail(" 　tsekine1234@gmail.com　\n")).toBe("tsekine1234@gmail.com");
   });
@@ -32,9 +42,9 @@ describe("EMAIL_PATTERN", () => {
     expect(EMAIL_PATTERN.test(normalizeEmail("ｔｓｅｋｉｎｅ１２３４＠ｇｍａｉｌ．ｃｏｍ"))).toBe(true);
   });
 
-  it("＠なし・ドメインのドットなし・途中スペースは弾く", () => {
-    expect(EMAIL_PATTERN.test("not-an-email")).toBe(false);
-    expect(EMAIL_PATTERN.test("a@localhost")).toBe(false);
-    expect(EMAIL_PATTERN.test("a b@test.local")).toBe(false);
+  it("＠なし・＠複数・ドメインのドットなしは弾く", () => {
+    expect(EMAIL_PATTERN.test(normalizeEmail("not-an-email"))).toBe(false);
+    expect(EMAIL_PATTERN.test(normalizeEmail("a@b@test.local"))).toBe(false);
+    expect(EMAIL_PATTERN.test(normalizeEmail("a@localhost"))).toBe(false);
   });
 });

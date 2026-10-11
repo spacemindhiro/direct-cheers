@@ -151,7 +151,8 @@ export function CheersPaymentForm({
   const [quantity, setQuantity] = useState(1);
   // 売り切れ：画面を開いた時点で残り0、または決済開始で売り切れが返ってきたら購入ボタンを押せなくする
   const [soldOut, setSoldOut] = useState(selectedProduct?.remaining === 0);
-  const maxQuantity = Math.min(10, selectedProduct?.remaining ?? 10);
+  // 人数の上限は残り枚数まで（最低1名。残り0のときは売り切れでボタンごと押せない）
+  const maxQuantity = Math.max(1, Math.min(10, selectedProduct?.remaining ?? 10));
   const drinkUnitPrice = isDrinkTicket ? resolveDrinkUnitPrice(selectedProduct.min_amount, selectedProduct.bulk_pricing, quantity) : amount;
   const totalAmount = isDrinkTicket
     ? drinkUnitPrice * quantity
@@ -405,7 +406,7 @@ export function CheersPaymentForm({
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              disabled={quantity <= 1}
+              disabled={soldOut || quantity <= 1}
               className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-white font-black text-lg disabled:opacity-40 active:scale-95 transition-all"
             >
               −
@@ -416,7 +417,7 @@ export function CheersPaymentForm({
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))}
-              disabled={quantity >= 10}
+              disabled={soldOut || quantity >= maxQuantity}
               className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-white font-black text-lg disabled:opacity-40 active:scale-95 transition-all"
             >
               ＋

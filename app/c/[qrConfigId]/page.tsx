@@ -9,6 +9,7 @@ import { InAppBrowserBanner } from "@/components/in-app-browser-banner";
 import { resolveStatementDescriptorSource, resolveRecipientAvatarUrl } from "@/lib/statement-descriptor";
 import { PAYPAY_AVAILABLE } from "@/lib/fee-config";
 import { CLOSED_LIFECYCLES, evaluatePurchaseWindow } from "@/lib/purchase-window";
+import { remainingStock } from "@/lib/stock-hold";
 import { MapPin, Calendar, Clock, Loader2 } from "lucide-react";
 
 function ValidityMessage({ title, message }: { title: string; message: string }) {
@@ -167,6 +168,16 @@ async function CheersContent({
     }
   }
 
+  // 見出しは商品の種類で出し分ける（入場チケット・引換券・ドリンクは「応援」ではなく購入）。
+  // 以前は種類に関係なく「Send Cheers / 応援する」だった
+  const headProduct = products[0] as { type?: string; payment_type?: string | null };
+  const heading =
+    headProduct.type === "entrance"
+      ? { kicker: "Get Ticket", title: "チケットを購入する" }
+      : headProduct.type === "custom" && (headProduct.payment_type === "V" || headProduct.payment_type === "D")
+        ? { kicker: "Purchase", title: "購入する" }
+        : { kicker: "Send Cheers", title: "応援する" };
+
   const recipient = qr.recipient as any;
   // 画面表示名は名義コンテキスト（organizer/artist）に応じて organizer_name/artist_name を優先する。
   // entrance（入場券）は宛先の個人名ではなく主催者名を表示する（MoRがオーガナイザーのため）。
@@ -194,7 +205,10 @@ async function CheersContent({
 
   const qrAmountStep = ((qr as any).amount_step as number) ?? 100;
   const qrDefaultAmount = (qr as any).default_amount as number | null;
+  // 残り在庫（売り切れなら購入ボタンを最初から押せなくする）
+  const remaining = await remainingStock(admin, products.map((p: any) => p.product_id));
   const formProducts = products.map((p: any) => ({
+    remaining: remaining[p.product_id] ?? null,
     product_id: p.product_id,
     name: p.name,
     type: p.type,
@@ -254,9 +268,9 @@ async function CheersContent({
       {/* 決済フォーム */}
       <div className="px-6 py-8 max-w-md mx-auto space-y-6">
         <div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Send Cheers</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">{heading.kicker}</p>
           <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mt-1">
-            {qr.label ?? "応援する"}
+            {qr.label ?? heading.title}
           </h2>
         </div>
 

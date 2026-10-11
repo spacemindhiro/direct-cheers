@@ -46,6 +46,10 @@ vi.mock("stripe", async (importOriginal) => {
         mock.piCreateParams = params;
         return { id: `pi_stock_${Date.now()}`, client_secret: "pi_stock_secret", metadata: params.metadata };
       };
+      (this.customers as any).create = async () => ({ id: `cus_stock_${Date.now()}` });
+      (this.setupIntents as any).create = async () => ({ id: `seti_stock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, client_secret: "seti_stock_secret" });
+      (this.setupIntents as any).retrieve = async (id: string) => ({ id, payment_method: "pm_stock_mock", status: "succeeded" });
+      (this.paymentMethods as any).attach = async (id: string, params: any) => ({ id, customer: params.customer });
       (this.paymentIntents as any).retrieve = async (id: string) => ({
         id, status: "requires_capture", amount: 3000, metadata: mock.piMetadata,
         latest_charge: { payment_method_details: { card_present: { fingerprint: `fp_stock_${id}` } } },
@@ -80,7 +84,11 @@ import { POST as terminalPiPOST } from "@/app/api/entrance/terminal/payment-inte
 import { POST as terminalCompletePOST } from "@/app/api/entrance/terminal/complete/route";
 import { POST as reservationCancelPOST } from "@/app/api/entrance/reservations/[reservationId]/cancel/route";
 import { voidTransactionSideEffects } from "@/lib/cancel-transaction-effects";
-import { recordReservedStock, releaseStockForTransactions } from "@/lib/stock-hold";
+import { releaseStockForTransactions } from "@/lib/stock-hold";
+import { POST as reservePOST } from "@/app/api/entrance/reserve/route";
+import { POST as entranceCompletePOST } from "@/app/api/entrance/complete/route";
+import { GET as entranceProductGET } from "@/app/api/entrance/product/[productId]/route";
+import { remainingStock } from "@/lib/stock-hold";
 
 const ts = Date.now();
 let organizerId: string;
@@ -191,7 +199,6 @@ describe("TC-STOCK-B: 外部（公開鍵）から在庫の関数を呼べない"
     ["hold_product_stock", () => ({ p_product_id: someProduct(), p_quantity: 1, p_hold_key: "x", p_ttl_seconds: 60 })],
     ["commit_product_stock", () => ({ p_hold_key: "x", p_payment_ref: "x" })],
     ["release_product_stock", () => ({ p_payment_ref: "x" })],
-    ["record_reserved_stock", () => ({ p_product_id: someProduct(), p_reservation_id: "00000000-0000-0000-0000-000000000000" })],
   ] as const)("%s → 権限なし（42501）", async (fn, args) => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const anon = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -345,8 +352,9 @@ describe("TC-STOCK-F: キャンセル・返金で在庫を戻す", () => {
       email: `stock-a-holder-${ts}@test.local`, charge_amount: 3000, status: "reserved",
     }).select("reservation_id").single();
     const reservationId = rsvRow!.reservation_id as string;
-    expect((await testAdmin.rpc("reserve_product_stock", { p_product_id: productId })).data).toBe(true);
-    await recordReservedStock(testAdmin as any, productId, reservationId);
+    // 予約時の仮押さえ → カード登録完了で確定、と同じ状態を作る
+    await rpcHold(productId, 1, `rsv:${reservationId}`);
+    await testAdmin.rpc("commit_product_stock", { p_hold_key: `rsv:${reservationId}`, p_payment_ref: `rsv:${reservationId}` });
     await insertTicket({ eventId, productId, reservationId, holderProfileId: holder, status: "valid" });
     expect(await sold(productId)).toBe(1);
 
@@ -355,7 +363,95 @@ describe("TC-STOCK-F: キャンセル・返金で在庫を戻す", () => {
     expect(res.status).toBe(200);
     expect(await sold(productId)).toBe(0);
     auth.user = null;
+    await testAdmin.from("tickets").delete().eq("reservation_id", reservationId);
     await testAdmin.from("entrance_reservations").delete().eq("reservation_id", reservationId);
     await deleteAuthUsers([holder]);
+  });
+});
+
+// ── G ──────────────────────────────────────────────────────────────────
+describe("TC-STOCK-G: 前売りA — カード登録が済むまで在庫もチケットも確定しない", () => {
+  let farEventId: string;
+  beforeAll(async () => {
+    farEventId = await insertEvent({ organizerProfileId: organizerId, title: "STOCK-A", startAt: new Date(Date.now() + 14 * 86400_000), endAt: new Date(Date.now() + 14 * 86400_000 + 6 * 3600_000) });
+  });
+  afterAll(async () => {
+    await testAdmin.from("tickets").delete().eq("event_id", farEventId);
+    await testAdmin.from("entrance_reservations").delete().eq("event_id", farEventId);
+    const { data: ps } = await testAdmin.from("products").select("product_id").eq("event_id", farEventId);
+    await testAdmin.from("products").delete().in("product_id", (ps ?? []).map((p) => p.product_id));
+    await testAdmin.from("events").delete().eq("event_id", farEventId);
+  });
+
+  async function productA(limit: number) {
+    const productId = await insertProduct({ eventId: farEventId, type: "entrance", paymentType: "A", name: "STOCK-A", minAmount: 3000, maxAmount: 3000, trackInventory: true });
+    await testAdmin.from("products").update({ stock_limit: limit, sold_count: 0 }).eq("product_id", productId);
+    return productId;
+  }
+  const reserve = (productId: string, n: number) =>
+    reservePOST(json({ product_id: productId, customer_email: `stock-a-${n}-${ts}@test.local` }));
+  const ticketOf = async (reservationId: string) =>
+    ((await testAdmin.from("tickets").select("status").eq("reservation_id", reservationId).single()).data as { status: string }).status;
+
+  it("G-01: 予約しただけ → チケットは一時停止・在庫は仮押さえ（販売済み0）", async () => {
+    const productId = await productA(1);
+    const res = await reserve(productId, 1);
+    expect(res.status).toBe(200);
+    const { reservation_id } = await res.json();
+    expect(await ticketOf(reservation_id)).toBe("suspended");
+    expect(await sold(productId)).toBe(0);
+    expect(await holdsOf(productId)).toEqual([{ hold_key: `rsv:${reservation_id}`, quantity: 1 }]);
+    // 残り1枚を押さえているので次の人は売り切れ
+    expect((await reserve(productId, 2)).status).toBe(409);
+  });
+
+  it("G-02: カード登録を完了 → チケット有効・在庫確定", async () => {
+    const productId = await productA(2);
+    const { reservation_id } = await (await reserve(productId, 3)).json();
+    const res = await entranceCompletePOST(json({ reservation_id, payment_method_id: `pm_stock_${ts}` }));
+    expect(res.status).toBe(200);
+    expect(await ticketOf(reservation_id)).toBe("valid");
+    expect(await sold(productId)).toBe(1);
+    expect(await holdsOf(productId)).toEqual([]);
+    expect(await ledgerOf(productId)).toEqual([{ quantity: 1, payment_ref: `rsv:${reservation_id}`, released_at: null }]);
+  });
+
+  it("G-03: カード登録せずに離脱 → 期限切れで在庫が戻り、次の人が予約できる。離脱した人のチケットは一時停止のまま", async () => {
+    const productId = await productA(1);
+    const { reservation_id } = await (await reserve(productId, 4)).json();
+    await testAdmin.from("stock_holds").update({ expires_at: new Date(Date.now() - 1000).toISOString() }).eq("hold_key", `rsv:${reservation_id}`);
+    const next = await reserve(productId, 5);
+    expect(next.status).toBe(200);
+    expect(await ticketOf(reservation_id)).toBe("suspended");
+    expect(await sold(productId)).toBe(0);
+  });
+});
+
+// ── H ──────────────────────────────────────────────────────────────────
+describe("TC-STOCK-H: 購入画面に出す残り在庫（支払い中の分も引く）", () => {
+  it("H-01: 上限3・販売済み1・支払い中1 → 残り1。支払い中が切れると残り2", async () => {
+    const { productId } = await makeProduct({ stockLimit: 3, track: true, paymentType: "B" });
+    await testAdmin.from("products").update({ sold_count: 1 }).eq("product_id", productId);
+    await rpcHold(productId, 1, `h01-${ts}`);
+    expect((await remainingStock(testAdmin as any, [productId]))[productId]).toBe(1);
+    const res = await entranceProductGET(new Request("http://localhost"), { params: Promise.resolve({ productId }) });
+    expect((await res.json()).product.remaining).toBe(1);
+    await testAdmin.from("stock_holds").update({ expires_at: new Date(Date.now() - 1000).toISOString() }).eq("hold_key", `h01-${ts}`);
+    expect((await remainingStock(testAdmin as any, [productId]))[productId]).toBe(2);
+  });
+
+  it("H-02: 満席なら残り0（購入ボタンを売り切れにする条件）", async () => {
+    const { productId } = await makeProduct({ stockLimit: 2, track: true, paymentType: "B" });
+    await testAdmin.from("products").update({ sold_count: 1 }).eq("product_id", productId);
+    await rpcHold(productId, 1, `h02-${ts}`);
+    expect((await remainingStock(testAdmin as any, [productId]))[productId]).toBe(0);
+  });
+
+  it("H-03: 上限なし・在庫管理オフは null（売り切れにしない）", async () => {
+    const a = await makeProduct({ stockLimit: null, track: true });
+    const b = await makeProduct({ stockLimit: 1, track: false });
+    const r = await remainingStock(testAdmin as any, [a.productId, b.productId]);
+    expect(r[a.productId]).toBeNull();
+    expect(r[b.productId]).toBeNull();
   });
 });

@@ -28,8 +28,8 @@ export async function holdStock(
   productId: string,
   quantity: number,
   ttlSeconds: number,
+  holdKey: string = crypto.randomUUID(),
 ): Promise<HoldResult> {
-  const holdKey = crypto.randomUUID();
   const { data, error } = await admin.rpc("hold_product_stock", {
     p_product_id: productId,
     p_quantity: quantity,
@@ -56,13 +56,11 @@ export async function commitStock(
   if (error) console.error(`[stock-hold] 確定失敗 hold=${holdKey}: ${error.message}`);
 }
 
-const reservationRef = (reservationId: string) => `rsv:${reservationId}`;
-
-/** 前売りAの予約：reserve_product_stock で数えた1枚を台帳に記録する */
-export async function recordReservedStock(admin: AdminClient, productId: string, reservationId: string): Promise<void> {
-  const { error } = await admin.rpc("record_reserved_stock", { p_product_id: productId, p_reservation_id: reservationId });
-  if (error) console.error(`[stock-hold] 予約の在庫記録失敗 reservation=${reservationId}: ${error.message}`);
-}
+/**
+ * 前売りAの予約の在庫キー。仮押さえ（予約時）・確定（カード登録完了時）・戻し（予約キャンセル・返金）を
+ * すべてこのキーで行う。予約はカード登録が済むまで在庫を確定しない
+ */
+export const reservationRef = (reservationId: string) => `rsv:${reservationId}`;
 
 /** 前売りAの予約キャンセル：その予約で数えた1枚を戻す（冪等） */
 export async function releaseReservedStock(admin: AdminClient, reservationId: string): Promise<void> {
@@ -97,3 +95,23 @@ export async function releaseStock(admin: AdminClient, holdKey: string): Promise
 }
 
 export const SOLD_OUT_MESSAGE = "申し訳ありません。売り切れました。";
+
+/**
+ * 残り在庫（上限 − 販売済み − 支払い中の仮押さえ）。null は在庫管理の対象外（無制限）。
+ * 購入画面で「売り切れ」を表示するために使う。実際の売り切れ判定は決済開始の仮押さえで行う
+ */
+export async function remainingStock(admin: AdminClient, productIds: string[]): Promise<Record<string, number | null>> {
+  const out: Record<string, number | null> = {};
+  if (productIds.length === 0) return out;
+  const [{ data: products }, { data: holds }] = await Promise.all([
+    admin.from("products").select("product_id, stock_limit, sold_count, track_inventory").in("product_id", productIds),
+    admin.from("stock_holds").select("product_id, quantity").in("product_id", productIds)
+      .is("committed_at", null).gt("expires_at", new Date().toISOString()),
+  ]);
+  for (const p of products ?? []) {
+    if (p.stock_limit == null || !p.track_inventory) { out[p.product_id] = null; continue; }
+    const held = (holds ?? []).filter((h) => h.product_id === p.product_id).reduce((n, h) => n + h.quantity, 0);
+    out[p.product_id] = Math.max(p.stock_limit - (p.sold_count ?? 0) - held, 0);
+  }
+  return out;
+}

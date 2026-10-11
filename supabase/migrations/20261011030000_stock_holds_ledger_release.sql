@@ -4,7 +4,9 @@
 -- 予約キャンセルのいずれの経路でも在庫を戻す処理が無かった。
 --
 -- - 確定（commit）で行を消さず committed_at と payment_ref（決済の PaymentIntent ID、
---   前売りAの予約は 'rsv:<reservation_id>'）を残す
+--   前売りAの予約は 'rsv:<reservation_id>'）を残す。前売りAは予約時に仮押さえ、
+--   カード登録（またはオーソリ）の完了で確定する（以前は予約時点で販売済みにしており、
+--   カード登録せずに離脱した予約が在庫を食い続けた）
 -- - 戻し（release）は payment_ref で引き、確定済み・未返却の行だけを戻す（冪等）
 --   台帳に無い販売（この仕組みより前の販売＝もともと数えていなかったもの）は戻さないので、
 --   sold_count がずれない
@@ -141,18 +143,6 @@ AS $$
   SELECT public.commit_product_stock(p_hold_key, NULL::text);
 $$;
 
--- 前売りAの予約：reserve_product_stock で数えた1枚を台帳に記録する（予約キャンセル・返金で戻せるように）
-CREATE OR REPLACE FUNCTION public.record_reserved_stock(p_product_id uuid, p_reservation_id uuid)
-RETURNS void
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  INSERT INTO stock_holds (hold_key, product_id, quantity, expires_at, committed_at, payment_ref)
-  VALUES ('rsv:' || p_reservation_id::text, p_product_id, 1, now(), now(), 'rsv:' || p_reservation_id::text)
-  ON CONFLICT (hold_key) DO NOTHING;
-$$;
-
 -- 戻し。確定済み・未返却の行だけを戻す（冪等）。戻した数量を返す
 CREATE OR REPLACE FUNCTION public.release_product_stock(p_payment_ref text)
 RETURNS integer
@@ -191,11 +181,9 @@ REVOKE EXECUTE ON FUNCTION public.hold_product_stock(uuid, integer, text, intege
 REVOKE EXECUTE ON FUNCTION public.reserve_product_stock(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.commit_product_stock(text, text) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.commit_product_stock(text) FROM PUBLIC, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.record_reserved_stock(uuid, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.release_product_stock(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.hold_product_stock(uuid, integer, text, integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.reserve_product_stock(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.commit_product_stock(text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.commit_product_stock(text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.record_reserved_stock(uuid, uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.release_product_stock(text) TO service_role;

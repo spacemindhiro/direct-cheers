@@ -145,4 +145,27 @@ jobs:
         env:
           CI: true
 
+      # ── 6. DB変更（マイグレーション）の衝突検知 ─────────────────────
+      # テストの後に置く（検知で落ちてもテスト結果は全部見えるように）。
+      # このジョブはmainへのPRの必須チェックなので、ここで落ちればマージできない＝本番に出ない。
+      #   - 日付の逆転: 本番の最新より古い日付のDB変更があると、本番のDB反映（supabase db push）が
+      #     エラーで止まり、アプリだけ本番に出て障害になる
+      #   - 構造の一致: 逆転を「古い分の削除＋最終形の新規作成」で解消した場合、STGの順番（古い分あり）と
+      #     本番の順番（古い分なし）で流したDBの構造が一致するか
+      # develop への push では警告のみ（次のリリースまでに解消すべきものを早めに知らせる）。
+      # 詳細と解消ルールは scripts/check-migrations.sh の冒頭（2026-10-12 導入）
+      - name: Check migration order (vs main)
+        if: always()
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            scripts/check-migrations.sh order "origin/${{ github.base_ref }}"
+          else
+            scripts/check-migrations.sh order origin/main ||
+              echo "::warning::本番の最新より古い日付のDB変更があります。次のリリースまでに最終形へ書き直してください（scripts/check-migrations.sh）"
+          fi
+
+      - name: Check migration convergence (STG order vs production order)
+        if: always() && github.event_name == 'pull_request'
+        run: scripts/check-migrations.sh converge "origin/${{ github.base_ref }}"
+
       # ランナーは使い捨て VM のためクリーンアップ不要

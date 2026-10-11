@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import {
-  insertProfile, deleteAuthUsers, insertEvent, insertProduct, insertQrConfig, insertQrConfigTargets, insertTransaction,
+  insertProfile, deleteAuthUsers, insertEvent, insertProduct, insertQrConfig, insertQrConfigTargets, insertTransaction, insertTicket,
   ongoingEventWindow,
 } from "../helpers/seed";
 import { testAdmin } from "../helpers/db-reset";
@@ -78,6 +78,9 @@ import { POST as payCheersPOST } from "@/app/api/pay/cheers/route";
 import { POST as payCompletePOST } from "@/app/api/pay/complete/route";
 import { POST as terminalPiPOST } from "@/app/api/entrance/terminal/payment-intent/route";
 import { POST as terminalCompletePOST } from "@/app/api/entrance/terminal/complete/route";
+import { POST as reservationCancelPOST } from "@/app/api/entrance/reservations/[reservationId]/cancel/route";
+import { voidTransactionSideEffects } from "@/lib/cancel-transaction-effects";
+import { recordReservedStock, releaseStockForTransactions } from "@/lib/stock-hold";
 
 const ts = Date.now();
 let organizerId: string;
@@ -109,8 +112,12 @@ const rpcHold = async (productId: string, qty: number, key: string, ttl = 600) =
   (await testAdmin.rpc("hold_product_stock", { p_product_id: productId, p_quantity: qty, p_hold_key: key, p_ttl_seconds: ttl })).data;
 const sold = async (productId: string) =>
   ((await testAdmin.from("products").select("sold_count").eq("product_id", productId).single()).data as { sold_count: number }).sold_count;
+/** 未確定（支払い中）の仮押さえ */
 const holdsOf = async (productId: string) =>
-  ((await testAdmin.from("stock_holds").select("hold_key, quantity").eq("product_id", productId).order("created_at")).data ?? []) as { hold_key: string; quantity: number }[];
+  ((await testAdmin.from("stock_holds").select("hold_key, quantity").eq("product_id", productId).is("committed_at", null).order("created_at")).data ?? []) as { hold_key: string; quantity: number }[];
+/** 台帳（確定済みの行） */
+const ledgerOf = async (productId: string) =>
+  ((await testAdmin.from("stock_holds").select("quantity, payment_ref, released_at").eq("product_id", productId).not("committed_at", "is", null).order("created_at")).data ?? []) as { quantity: number; payment_ref: string | null; released_at: string | null }[];
 
 beforeAll(async () => {
   organizerId = await insertProfile({ role: "organizer", displayName: "stock-org", email: `stock-org-${ts}@test.local`, stripeConnectId: `acct_stock_${ts}` });
@@ -152,10 +159,11 @@ describe("TC-STOCK-A: 仮押さえ・確定の関数", () => {
   it("A-03: 確定で販売済みに移る。2回確定しても1回分", async () => {
     const { productId } = await makeProduct({ stockLimit: 5, track: true });
     await rpcHold(productId, 3, `a03-${ts}`);
-    await testAdmin.rpc("commit_product_stock", { p_hold_key: `a03-${ts}` });
-    await testAdmin.rpc("commit_product_stock", { p_hold_key: `a03-${ts}` });
+    await testAdmin.rpc("commit_product_stock", { p_hold_key: `a03-${ts}`, p_payment_ref: `pi_a03_${ts}` });
+    await testAdmin.rpc("commit_product_stock", { p_hold_key: `a03-${ts}`, p_payment_ref: `pi_a03_${ts}` });
     expect(await sold(productId)).toBe(3);
     expect(await holdsOf(productId)).toEqual([]);
+    expect(await ledgerOf(productId)).toEqual([{ quantity: 3, payment_ref: `pi_a03_${ts}`, released_at: null }]);
   });
 
   it("A-04: 上限なし・在庫管理オフは対象外（unlimited・仮押さえを作らない）", async () => {
@@ -181,7 +189,9 @@ describe("TC-STOCK-B: 外部（公開鍵）から在庫の関数を呼べない"
   it.each([
     ["reserve_product_stock", () => ({ p_product_id: someProduct() })],
     ["hold_product_stock", () => ({ p_product_id: someProduct(), p_quantity: 1, p_hold_key: "x", p_ttl_seconds: 60 })],
-    ["commit_product_stock", () => ({ p_hold_key: "x" })],
+    ["commit_product_stock", () => ({ p_hold_key: "x", p_payment_ref: "x" })],
+    ["release_product_stock", () => ({ p_payment_ref: "x" })],
+    ["record_reserved_stock", () => ({ p_product_id: someProduct(), p_reservation_id: "00000000-0000-0000-0000-000000000000" })],
   ] as const)("%s → 権限なし（42501）", async (fn, args) => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const anon = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -246,6 +256,7 @@ describe("TC-STOCK-D: 決済完了（pay/complete）で販売済みに移る", (
     expect(r2.status).toBe(200);
     expect(await sold(productId)).toBe(2);
     expect(await holdsOf(productId)).toEqual([]);
+    expect(await ledgerOf(productId)).toEqual([{ quantity: 2, payment_ref: mock.piId, released_at: null }]);
   });
 });
 
@@ -272,8 +283,79 @@ describe("TC-STOCK-E: タッチ決済（terminal）", () => {
     expect(done.status).toBe(200);
     expect(await sold(productId)).toBe(3);
     expect(await holdsOf(productId)).toEqual([]);
+    expect(await ledgerOf(productId)).toEqual([{ quantity: 3, payment_ref: `pi_stock_e01_${ts}`, released_at: null }]);
 
     await testAdmin.from("display_devices").delete().eq("device_id", deviceId);
     auth.user = null;
+  });
+});
+
+// ── F ──────────────────────────────────────────────────────────────────
+describe("TC-STOCK-F: キャンセル・返金で在庫を戻す", () => {
+  /** 支払い済み（確定済み）の販売を1件作る */
+  async function paidSale(productId: string, qrId: string, qty: number, label: string) {
+    const pi = `pi_stock_f_${label}_${ts}`;
+    await rpcHold(productId, qty, `f-${label}-${ts}`);
+    await testAdmin.rpc("commit_product_stock", { p_hold_key: `f-${label}-${ts}`, p_payment_ref: pi });
+    const txId = await insertTransaction({ qrConfigId: qrId, grossAmount: 3000 * qty, netAmount: 2500 * qty, stripeFee: 100, platformFee: 300, stripePaymentIntentId: pi });
+    return { pi, txId };
+  }
+
+  it("F-01: 取引のキャンセル・返金（共通処理）で人数分戻る。2回呼んでも1回分", async () => {
+    const { productId, qrId } = await makeProduct({ stockLimit: 5, track: true });
+    const { txId } = await paidSale(productId, qrId, 2, "f01");
+    expect(await sold(productId)).toBe(2);
+    await voidTransactionSideEffects(testAdmin as any, [txId], "voided");
+    await voidTransactionSideEffects(testAdmin as any, [txId], "voided");
+    expect(await sold(productId)).toBe(0);
+    const ledger = await ledgerOf(productId);
+    expect(ledger.length).toBe(1);
+    expect(ledger[0].released_at).not.toBeNull();
+  });
+
+  it("F-02: 同じ決済の2行（ウェルカムチアの2階など）が一緒に渡されても1回分だけ戻る", async () => {
+    const { productId, qrId } = await makeProduct({ stockLimit: 5, track: true });
+    const { pi, txId } = await paidSale(productId, qrId, 3, "f02");
+    const tx2 = await insertTransaction({ qrConfigId: qrId, grossAmount: 500, netAmount: 400, stripeFee: 20, platformFee: 50, stripePaymentIntentId: pi, stripePiSequence: 1 });
+    await releaseStockForTransactions(testAdmin as any, [txId, tx2]);
+    expect(await sold(productId)).toBe(0);
+  });
+
+  it("F-03: 台帳に無い販売（この仕組みより前の販売）は戻さない", async () => {
+    const { productId, qrId } = await makeProduct({ stockLimit: 5, track: true });
+    await testAdmin.from("products").update({ sold_count: 4 }).eq("product_id", productId); // 予約APIで数えていた昔の分
+    const legacyTx = await insertTransaction({ qrConfigId: qrId, grossAmount: 3000, netAmount: 2500, stripeFee: 100, platformFee: 300, stripePaymentIntentId: `pi_stock_legacy_${ts}` });
+    await releaseStockForTransactions(testAdmin as any, [legacyTx]);
+    expect(await sold(productId)).toBe(4);
+  });
+
+  it("F-04: 戻した後は、その在庫をまた売れる", async () => {
+    const { productId, qrId } = await makeProduct({ stockLimit: 1, track: true });
+    const { txId } = await paidSale(productId, qrId, 1, "f04");
+    expect(await rpcHold(productId, 1, `f04-next-${ts}`)).toBe("sold_out");
+    await releaseStockForTransactions(testAdmin as any, [txId]);
+    expect(await rpcHold(productId, 1, `f04-next2-${ts}`)).toBe("held");
+  });
+
+  it("F-05: 前売りAの予約キャンセルで、予約で数えた1枚が戻る", async () => {
+    const { productId } = await makeProduct({ stockLimit: 3, track: true, paymentType: "A" });
+    const holder = await insertProfile({ role: "user", displayName: "stock-a-holder", email: `stock-a-holder-${ts}@test.local` });
+    const { data: rsvRow } = await testAdmin.from("entrance_reservations").insert({
+      product_id: productId, event_id: eventId, stripe_setup_intent_id: `seti_stock_${ts}`, stripe_customer_id: `cus_stock_${ts}`,
+      email: `stock-a-holder-${ts}@test.local`, charge_amount: 3000, status: "reserved",
+    }).select("reservation_id").single();
+    const reservationId = rsvRow!.reservation_id as string;
+    expect((await testAdmin.rpc("reserve_product_stock", { p_product_id: productId })).data).toBe(true);
+    await recordReservedStock(testAdmin as any, productId, reservationId);
+    await insertTicket({ eventId, productId, reservationId, holderProfileId: holder, status: "valid" });
+    expect(await sold(productId)).toBe(1);
+
+    auth.user = { id: holder, email: `stock-a-holder-${ts}@test.local` };
+    const res = await reservationCancelPOST(new Request("http://localhost", { method: "POST" }), { params: Promise.resolve({ reservationId }) });
+    expect(res.status).toBe(200);
+    expect(await sold(productId)).toBe(0);
+    auth.user = null;
+    await testAdmin.from("entrance_reservations").delete().eq("reservation_id", reservationId);
+    await deleteAuthUsers([holder]);
   });
 });

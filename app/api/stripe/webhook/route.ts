@@ -365,7 +365,7 @@ export async function POST(req: Request) {
         // 在庫の仮押さえを販売済みに移す。カードはオーソリのみ（payment_status=unpaid）でも
         // 支払い手続き自体は完了しているため、入金状態より前に行う。冪等（pay/complete と二重にならない）
         if (session.status === "complete") {
-          await commitStock(admin, session.metadata?.stock_hold_key);
+          await commitStock(admin, session.metadata?.stock_hold_key, typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id);
         }
 
         if (session.payment_status !== "paid") break;

@@ -12,7 +12,7 @@ import { getUser } from "@/lib/supabase/server";
 import { evaluatePurchaseWindow, purchaseWindowErrorMessage } from "@/lib/purchase-window";
 import { buildEntrancePaymentParams, EntranceAccountIncompleteError } from "@/lib/entrance-payment";
 import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
-import { CHECKOUT_EXPIRES_SEC, CHECKOUT_HOLD_TTL_SEC, holdStock, releaseStock } from "@/lib/stock-hold";
+import { CHECKOUT_EXPIRES_SEC, CHECKOUT_HOLD_TTL_SEC, holdStock, recordReservedStock, releaseStock } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -297,6 +297,8 @@ export async function POST(req: Request) {
     if (resErr) {
       return NextResponse.json({ error: resErr.message }, { status: 500 });
     }
+    // 予約で数えた1枚を台帳に記録（予約キャンセル・返金で戻せるように）
+    await recordReservedStock(admin, product_id, reservation!.reservation_id);
 
     return ok({
       type: paymentType,
@@ -344,6 +346,8 @@ export async function POST(req: Request) {
   if (resErr) {
     return NextResponse.json({ error: resErr.message }, { status: 500 });
   }
+  // 予約で数えた1枚を台帳に記録（予約キャンセル・返金で戻せるように）
+  await recordReservedStock(admin, product_id, reservation!.reservation_id);
 
   // タイプA: カード登録を待たずにチケットを即時発行する。
   // 「購入完了」としてチケット画面を見せ、カード登録は非同期に行うUX設計。

@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
 
   // 在庫の仮押さえを販売済みに移す（webhook と二重にならない・冪等）
-  await commitStock(admin, meta.stock_hold_key);
+  await commitStock(admin, meta.stock_hold_key, pi?.id);
 
   // profile_id をメールから1回だけ解決 — provisional_users 優先、auth.users フォールバック
   const [senderProfileId, loggedInUser] = await Promise.all([

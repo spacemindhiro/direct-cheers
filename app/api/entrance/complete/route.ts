@@ -147,7 +147,7 @@ async function handleTypeB(
 
   const meta = session.metadata ?? {};
   // 在庫の仮押さえを販売済みに移す（webhook と二重にならない・冪等）
-  await commitStock(admin, meta.stock_hold_key);
+  await commitStock(admin, meta.stock_hold_key, typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id);
   const productId = meta.product_id;
   const eventId = meta.event_id;
   const email = session.customer_email ?? "";

@@ -41,3 +41,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# scripts/hotfix-local-db.sh の2つ目のローカルSupabase
+.local-db/

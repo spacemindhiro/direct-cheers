@@ -2,19 +2,33 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/supabase/server";
-import { reconcileTicketForUser } from "@/lib/touchpay-reconcile";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { cookies } from "next/headers";
+import { SIGNUP_DEVICE_COOKIE, claimFailureMessage, claimTouchpaySignupToken } from "@/lib/touchpay-signup-token";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
+// ログインリンク（サインアップ画面で入力したメール宛て）から戻ってきたところで紐付ける。
+// ログインリンクはメールアプリ等の別ブラウザで開かれうるため、「QRを開いたブラウザ」か
+// 「そのブラウザで入力したメールでログインした人」のどちらかで通す。
 async function TouchpaySignupCompleteContent({
   params,
 }: {
-  params: Promise<{ ticketId: string }>;
+  params: Promise<{ token: string }>;
 }) {
-  const { ticketId } = await params;
+  const { token } = await params;
   const user = await getUser();
-  if (!user) redirect(`/entrance/signup/${ticketId}`);
+  if (!user) redirect(`/entrance/signup/${token}`);
 
-  await reconcileTicketForUser(ticketId, user.id, user.email ?? null);
+  const deviceKey = (await cookies()).get(SIGNUP_DEVICE_COOKIE)?.value ?? null;
+  const result = await claimTouchpaySignupToken(createAdminClient(), token, user, deviceKey);
+  if (!result.ok) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-lg font-black text-white">紐付けできませんでした</p>
+        <p className="text-sm text-slate-400 max-w-sm">{claimFailureMessage(result.reason)}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 px-6 text-center">
@@ -22,7 +36,7 @@ async function TouchpaySignupCompleteContent({
       <p className="text-lg font-black text-white">アカウントに紐付けました</p>
       <p className="text-sm text-slate-400">今日の入場チケットはマイチケットからいつでも確認できます</p>
       <Link
-        href={`/tickets#ticket-${ticketId}`}
+        href={`/tickets#ticket-${result.ticketId}`}
         className="w-full max-w-xs h-12 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center mt-2"
       >
         マイチケットを見る
@@ -34,7 +48,7 @@ async function TouchpaySignupCompleteContent({
 export default function TouchpaySignupCompletePage({
   params,
 }: {
-  params: Promise<{ ticketId: string }>;
+  params: Promise<{ token: string }>;
 }) {
   return (
     <Suspense fallback={

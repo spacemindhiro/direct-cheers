@@ -28,41 +28,41 @@ import {
   Plus,
 } from "lucide-react";
 import { TutorialVideoButton } from "./tutorial-video-button";
+import { TUTORIAL_VIDEO_IDS } from "@/lib/tutorial-videos";
 
-// YouTube動画ID。オーガナイザー向け操作解説動画（O系列）。
+// オーガナイザー向け操作解説動画（O系列）。IDはlib/tutorial-videos.tsが単一の正。
 // 未アップロードの間は空文字にしておく（TutorialVideoButtonが自動で非表示にする）
 const ORGANIZER_TUTORIAL_VIDEOS: Record<string, string> = {
-  inviteRegister: "NUekyDjROuo", // O-01 招待リンクから登録する
-  profileSetup: "_ze_P_gijyc", // O-02-1 プロフィールを設定する（オーガナイザー）
-  bankSetup: "IBTSbNuLdUI", // O-02 口座を登録する
-  createEvent: "xvSKe1glbWI", // O-03 イベントを作成する
-  inviteArtist: "CQtz2qYJdh8", // O-04 出演者を呼ぶ
-  inviteUnregistered: "C4iDi28qNTo", // O-05 未登録の出演者を招待する
-  requestApproval: "sZjv600qFCo", // O-06 公開の承認を依頼する
-  createQr: "aJJmY8dCP2U", // O-07 QRを作成する
-  printQr: "eV4xs72wvMg", // O-08 QRを印刷する
-  venueOps: "QzqoMJa6FWM", // O-09 売上を見る・決済を取り消す
-  submitEvidence: "v1Imf_hNj6Q", // O-10 開催証跡を提出する
+  inviteRegister: TUTORIAL_VIDEO_IDS["o-01"],
+  profileSetup: TUTORIAL_VIDEO_IDS["o-02-1"],
+  bankSetup: TUTORIAL_VIDEO_IDS["o-02"],
+  createEvent: TUTORIAL_VIDEO_IDS["o-03"],
+  inviteArtist: TUTORIAL_VIDEO_IDS["o-04"],
+  inviteUnregistered: TUTORIAL_VIDEO_IDS["o-05"],
+  requestApproval: TUTORIAL_VIDEO_IDS["o-06"],
+  createQr: TUTORIAL_VIDEO_IDS["o-07"],
+  printQr: TUTORIAL_VIDEO_IDS["o-08"],
+  venueOps: TUTORIAL_VIDEO_IDS["o-09"],
+  submitEvidence: TUTORIAL_VIDEO_IDS["o-10"],
 };
 
-// YouTube動画ID。当日運用向け操作解説動画（D系列）
+// 当日運用向け操作解説動画（D系列）
 const DAY_OF_TUTORIAL_VIDEOS: Record<string, string> = {
-  printOnly: "KjD1HOLPH0I", // D-01 印刷したQRだけで運用する
-  scanner: "SQZHar-WqRE", // D-02 入場スキャナで検札する
+  printOnly: TUTORIAL_VIDEO_IDS["d-01"],
+  scanner: TUTORIAL_VIDEO_IDS["d-02"],
 };
 
-// YouTube動画ID。一般ユーザー向け操作解説動画（U系列）
+// 一般ユーザー向け操作解説動画（U系列）
 const USER_TUTORIAL_VIDEOS: Record<string, string> = {
-  scanAndCheer: "ULsvaPueffs", // U-01 QRを読んで応援する
+  scanAndCheer: TUTORIAL_VIDEO_IDS["u-01"],
 };
 
-// YouTube動画ID。アーティスト向け操作解説動画（A系列）
-// 未アップロードの間は空文字にしておく（TutorialVideoButtonが自動で非表示にする）
+// アーティスト向け操作解説動画（A系列）
 const ARTIST_TUTORIAL_VIDEOS: Record<string, string> = {
-  inviteRegister: "JvbFdwyf4lo", // A-01 招待リンクから登録する
-  profileSetup: "_tF8-GIZr10", // A-02 プロフィールを設定する
-  bankSetup: "68bSogaaGjw", // A-03 口座を登録する
-  lineupApprove: "EGid2xExtN0", // A-04 出演依頼を承認する
+  inviteRegister: TUTORIAL_VIDEO_IDS["a-01"],
+  profileSetup: TUTORIAL_VIDEO_IDS["a-02"],
+  bankSetup: TUTORIAL_VIDEO_IDS["a-03"],
+  lineupApprove: TUTORIAL_VIDEO_IDS["a-04"],
 };
 
 const ORGANIZER_GROUPS: { id: "prep" | "dayof"; label: string }[] = [

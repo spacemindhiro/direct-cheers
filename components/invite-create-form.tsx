@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { Link2, Copy, Check, Loader2, ArrowRight, Search, UserCircle, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { roleRank } from "@/lib/role-rank";
+import { normalizeEmail } from "@/lib/normalize-email";
 import type { InvitationRow } from "@/components/invitations-list";
 
 const ROLE_OPTIONS: Record<string, { label: string; canInvite: string[] }> = {
@@ -141,7 +142,7 @@ export function InviteCreateForm({ myRole, onAdd }: { myRole: string; onAdd?: (i
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           target_role: targetRole,
-          target_email: targetEmail,
+          target_email: normalizeEmail(targetEmail),
         }),
       });
       const data = await res.json();
@@ -317,9 +318,15 @@ export function InviteCreateForm({ myRole, onAdd }: { myRole: string; onAdd?: (i
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
               メールアドレスで招待
             </label>
+            {/* type="email" はブラウザ標準検証が全角文字・不可視文字で送信をブロックするため使わない。
+                正規化と形式チェックはサーバー側で行う */}
             <Input
-              type="email"
-              required
+              type="text"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={targetEmail}
               onChange={(e) => setTargetEmail(e.target.value)}
               placeholder="相手のメールアドレス"

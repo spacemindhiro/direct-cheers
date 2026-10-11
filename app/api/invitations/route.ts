@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { roleRank } from "@/lib/role-rank";
+import { normalizeEmail, EMAIL_PATTERN } from "@/lib/normalize-email";
 import { Resend } from "resend";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
     target_profile_id?: string;
     target_email?: string;
   };
-  const target_email = rawTargetEmail?.trim() || undefined;
+  const target_email = rawTargetEmail ? normalizeEmail(rawTargetEmail) || undefined : undefined;
 
   if (!target_profile_id && !target_email) {
     return NextResponse.json({ error: "宛先ユーザーを選択するかメールアドレスを入力してください" }, { status: 400 });
@@ -110,7 +111,7 @@ export async function POST(req: Request) {
       .eq("status", "pending");
   } else {
     // 未登録ユーザー向け：メールアドレス直接指定の招待
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target_email!)) {
+    if (!EMAIL_PATTERN.test(target_email!)) {
       return NextResponse.json({ error: "メールアドレスの形式が正しくありません" }, { status: 400 });
     }
 

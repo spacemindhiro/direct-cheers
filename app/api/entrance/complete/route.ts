@@ -17,7 +17,7 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeConfig } from "@/lib/fee-config";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
-import { commitStock } from "@/lib/stock-hold";
+import { commitStock, reservationRef } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -101,6 +101,9 @@ export async function POST(req: Request) {
       })
       .eq("reservation_id", reservation.reservation_id);
 
+    // カード登録の完了で、予約時の仮押さえを販売済みにする（カード再登録で再度来ても冪等）
+    await commitStock(admin, reservationRef(reservation.reservation_id), reservationRef(reservation.reservation_id));
+
     // /reserve で発行済みのチケットを取得して返す
     const { data: ticket } = await admin
       .from("tickets")
@@ -147,7 +150,7 @@ async function handleTypeB(
 
   const meta = session.metadata ?? {};
   // 在庫の仮押さえを販売済みに移す（webhook と二重にならない・冪等）
-  await commitStock(admin, meta.stock_hold_key);
+  await commitStock(admin, meta.stock_hold_key, typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id);
   const productId = meta.product_id;
   const eventId = meta.event_id;
   const email = session.customer_email ?? "";
@@ -256,6 +259,9 @@ async function handleTypeAAuth(
     .from("entrance_reservations")
     .update({ card_update_token: null, card_update_token_issued_at: null })
     .eq("reservation_id", reservationId);
+
+  // オーソリの完了で、予約時の仮押さえを販売済みにする（冪等）
+  await commitStock(admin, reservationRef(reservationId), reservationRef(reservationId));
 
   const row = (rpcRows as any[])[0];
   // ticket_code を取得

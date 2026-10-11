@@ -336,13 +336,14 @@ describe("TC-ENT-C: タイプA予約", () => {
     expect(reservation?.status).toBe("pending"); // カード登録前なので pending
     expect(reservation?.charge_amount).toBe(5000);
 
-    // DB にチケットが valid で作成されていること
+    // チケットはカード登録が済むまで一時停止（suspended）。登録前に入場できてはいけない
+    // （以前は valid で発行しており、カード登録せずに離脱すると決済なしで入場できた）
     const { data: ticket } = await testAdmin
       .from("tickets")
       .select("ticket_id, status")
       .eq("ticket_id", data.ticket_id)
       .single();
-    expect(ticket?.status).toBe("valid");
+    expect(ticket?.status).toBe("suspended");
     cleanup.ticketIds.push(data.ticket_id);
   });
 

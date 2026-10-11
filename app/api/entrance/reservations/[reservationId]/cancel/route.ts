@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
+import { releaseReservedStock } from "@/lib/stock-hold";
 
 export async function POST(
   _req: Request,
@@ -62,6 +63,9 @@ export async function POST(
     .from("tickets")
     .update({ status: "cancelled" })
     .eq("ticket_id", ticket.ticket_id);
+
+  // 予約で数えた在庫を戻す（冪等）
+  await releaseReservedStock(admin, reservationId);
 
   // Walletパスを更新（fire-and-forget）
   pushWalletUpdateBySerial(ticket.ticket_id).catch(() => {});

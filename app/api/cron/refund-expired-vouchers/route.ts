@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { releaseStockForTransactions } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -104,6 +105,7 @@ export async function GET(req: Request) {
           .from("transactions")
           .update({ status: "refunded" })
           .eq("transaction_id", voucher.transaction_id),
+        releaseStockForTransactions(admin, [voucher.transaction_id]),
         admin
           .from("transaction_distributions")
           .update({ distribution_status: "voided" })

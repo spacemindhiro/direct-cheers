@@ -12,7 +12,7 @@ import { getUser } from "@/lib/supabase/server";
 import { evaluatePurchaseWindow, purchaseWindowErrorMessage } from "@/lib/purchase-window";
 import { buildEntrancePaymentParams, EntranceAccountIncompleteError } from "@/lib/entrance-payment";
 import { setCustomerEmailCookie } from "@/lib/customer-email-cookie";
-import { CHECKOUT_EXPIRES_SEC, CHECKOUT_HOLD_TTL_SEC, holdStock, releaseStock } from "@/lib/stock-hold";
+import { CHECKOUT_EXPIRES_SEC, CHECKOUT_HOLD_TTL_SEC, holdStock, releaseStock, reservationRef } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -110,14 +110,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: purchaseWindowErrorMessage(verdict), reason: verdict.reason }, { status: 409 });
   }
 
-  // タイプAは予約そのものが枠の確保なので、その場で在庫を確保する。
-  // タイプBは決済の仮押さえ（下）にする。以前はBも決済開始時に販売済みにしており、
-  // 払わずに離脱しても戻らなかった（2026-10-11修正）
+  // タイプAは予約時に仮押さえし、カード登録（またはオーソリ）の完了で確定する
+  // （entrance/complete）。以前は予約を作った時点で販売済みにしており、カード登録を
+  // せずに離脱した予約が在庫を食い続けた（2026-10-11修正）。予約IDを先に決め、
+  // その予約専用のキーで押さえる。タイプBは決済の仮押さえ（下）
+  const reservationId = crypto.randomUUID();
   if (paymentType === "A") {
-    const { data: hasStock } = await admin.rpc("reserve_product_stock", {
-      p_product_id: product_id,
-    });
-    if (!hasStock) {
+    const hold = await holdStock(admin, product_id, 1, CHECKOUT_HOLD_TTL_SEC, reservationRef(reservationId));
+    if (hold.status === "sold_out") {
       return NextResponse.json({ error: "SOLD_OUT" }, { status: 409 });
     }
   }
@@ -239,6 +239,7 @@ export async function POST(req: Request) {
       entranceParams = await buildEntrancePaymentParams(admin, stripe, eventId);
     } catch (err: any) {
       if (err instanceof EntranceAccountIncompleteError) {
+        await releaseStock(admin, reservationRef(reservationId));
         return NextResponse.json(
           { error: "account_incomplete", missing_capabilities: err.missingCapabilities },
           { status: 422 },
@@ -282,6 +283,7 @@ export async function POST(req: Request) {
     const { data: reservation, error: resErr } = await admin
       .from("entrance_reservations")
       .insert({
+        reservation_id: reservationId,
         product_id,
         event_id: eventId,
         stripe_payment_intent_id: paymentIntent.id,
@@ -295,6 +297,7 @@ export async function POST(req: Request) {
       .single();
 
     if (resErr) {
+      await releaseStock(admin, reservationRef(reservationId));
       return NextResponse.json({ error: resErr.message }, { status: 500 });
     }
 
@@ -329,6 +332,7 @@ export async function POST(req: Request) {
   const { data: reservation, error: resErr } = await admin
     .from("entrance_reservations")
     .insert({
+      reservation_id: reservationId,
       product_id,
       event_id: eventId,
       stripe_setup_intent_id: setupIntent.id,
@@ -342,12 +346,14 @@ export async function POST(req: Request) {
     .single();
 
   if (resErr) {
+    await releaseStock(admin, reservationRef(reservationId));
     return NextResponse.json({ error: resErr.message }, { status: 500 });
   }
 
-  // タイプA: カード登録を待たずにチケットを即時発行する。
-  // 「購入完了」としてチケット画面を見せ、カード登録は非同期に行うUX設計。
-  // ステータスは reserved→charged へと後から遷移するが、チケット自体は有効。
+  // タイプA: チケットは予約時に発行するが、カード登録が済むまでは一時停止（suspended）にし、
+  // カード登録の完了（entrance/complete）で有効にする。以前は予約時点で有効にしていたため、
+  // カード登録をせずに離脱した予約が「有効なチケット・決済なし」のまま残り（cron は
+  // カード登録済みの reserved しか対象にしない）、そのまま入場できた（2026-10-11修正）。
   const { data: ticket } = await admin
     .from("tickets")
     .insert({
@@ -355,7 +361,7 @@ export async function POST(req: Request) {
       product_id,
       event_id: eventId,
       email: customer_email,
-      status: "valid",
+      status: "suspended",
     })
     .select("ticket_id, ticket_code")
     .single();

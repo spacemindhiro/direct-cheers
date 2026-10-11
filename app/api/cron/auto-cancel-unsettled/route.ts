@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { releaseStockForTransactions } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -117,6 +118,7 @@ export async function GET(req: Request) {
           // オーソリ中(未キャプチャ) → cancelで資金移動ゼロのまま解放。想定される通常パターン
           await stripe.paymentIntents.cancel(piId);
           await admin.from("transactions").update({ status: "cancelled" }).in("transaction_id", txIds);
+          await releaseStockForTransactions(admin, txIds);
         } else if (pi.status === "succeeded") {
           // 想定外(通常はrequires_captureのはず)。安全側に倒して返金する。
           // PayPay等automatic captureの決済はここに来る。返金してもStripeの決済手数料は
@@ -125,6 +127,7 @@ export async function GET(req: Request) {
           // 無記録のまま被っていた不具合として発覚・修正)。
           await stripe.refunds.create({ payment_intent: piId });
           await admin.from("transactions").update({ status: "refunded" }).in("transaction_id", txIds);
+          await releaseStockForTransactions(admin, txIds);
           if (event.organizer_profile_id) {
             for (const t of groupTxs) {
               const feeAmount = t.stripe_fee ?? 0;

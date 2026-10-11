@@ -401,4 +401,27 @@ describe("TC-INV-MAIL-F: target_email による未登録ユーザー招待", () 
     expect(res.status).toBe(403);
     expect(sendMock).toHaveBeenCalledTimes(0);
   });
+
+  it("TC-INV-MAIL-F-07: 全角・大文字・ゼロ幅文字・全角スペース混じりの入力は正規化して保存・送信される", async () => {
+    sendMock.mockResolvedValue({ data: { id: "email_dummy" }, error: null });
+    mockAs(agentId, "agent", AGENT_DISPLAY_NAME);
+    const local = `unregistered-f07-${Date.now()}`;
+    const expected = `${local}@test.local`;
+    // 全角英数＋全角＠＋全角．＋大文字＋ゼロ幅スペース＋前後全角スペース
+    const fullWidth = local.replace(/[!-~]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0xfee0));
+    const raw = `　${fullWidth}​＠ＴＥＳＴ．ｌｏｃａｌ　`;
+
+    const res = await invitationsPOST(buildRequest({ target_role: "artist", target_email: raw }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.target_email).toBe(expected);
+
+    const { data: row } = await testAdmin
+      .from("invitations")
+      .select("target_email")
+      .eq("invitation_id", body.invitation_id)
+      .single();
+    expect(row!.target_email).toBe(expected);
+    expect(sendMock.mock.calls[0][0].to).toBe(expected);
+  });
 });

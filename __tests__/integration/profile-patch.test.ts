@@ -8,10 +8,11 @@
  * DBに反映されない（再取得時に元の値に戻り「消えた」ように見える）
  * バグがあった。
  *
- * このテストはAPIルート自体（admin.from("profiles").update(updates)で
- * ロール制限なく任意のカラムを更新する）が正しく動作することを保証する
+ * このテストはAPIルート自体（プロフィール画面が送る項目を
+ * admin.from("profiles").update(updates) で更新する）が正しく動作することを保証する
  * （フロントエンドのバグはupdatesに何を含めるかの問題であり、APIの
  * 責務ではないため、ここではAPIコントラクトを固定する）。
+ * 更新できる項目の制限（role等は拒否）は profile-patch-whitelist.test.ts で検証する。
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { insertProfile, deleteAuthUsers, insertEvent, insertQrConfig, insertTransaction } from "../helpers/seed";

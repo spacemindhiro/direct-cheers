@@ -175,12 +175,15 @@ export async function POST(req: Request) {
 
   // Stripe payout（Connect アカウント → 銀行口座）
   let stripeTransferId: string | null = null;
+  // Stripe が算出する着金予定日（土日・銀行休業日を織り込んだ値）。申請直後の画面に出す
+  let arrivalDate: number | null = null;
   try {
     const payout = await stripe.payouts.create(
       { amount: netPayout, currency: "jpy" },
       { stripeAccount: profile.stripe_connect_id }
     );
     stripeTransferId = payout.id;
+    arrivalDate = payout.arrival_date ?? null;
   } catch (err: any) {
     return NextResponse.json({ error: `Stripe payout 失敗: ${err.message}` }, { status: 500 });
   }
@@ -260,6 +263,7 @@ export async function POST(req: Request) {
     request_id: payoutReq.request_id,
     net_payout: netPayout,
     stripe_transfer_id: stripeTransferId,
+    arrival_date: arrivalDate,
   });
 }
 

@@ -6,7 +6,7 @@
  * 8/31 15:00）ため、その境界を正確に跨ぐことを固定値で検証する。
  */
 import { describe, it, expect } from "vitest";
-import { getJstMonthStartIso, snapPayoutAmount} from "@/lib/payout-config";
+import { getJstMonthStartIso, snapPayoutAmount, formatArrivalDate } from "@/lib/payout-config";
 
 describe("TC-PAYOUT-CONFIG: getJstMonthStartIso", () => {
   it("JST日中の日時 → 同月1日 00:00 JST(UTC 前日15:00)を返す", () => {
@@ -77,5 +77,37 @@ describe("TC-PAYOUT-SLIDER: snapPayoutAmount", () => {
     const available = 550;
     expect(snapPayoutAmount(501, available, STEP)).toBe(550);
     expect(snapPayoutAmount(550, available, STEP)).toBe(550);
+  });
+});
+
+/**
+ * TC-PAYOUT-ARRIVAL: 着金予定日の表示。
+ *
+ * 出金申請は押した瞬間に stripe.payouts.create を叩くので、待ち時間は Stripe → 銀行の
+ * 振込時間そのもの。Stripe が土日・銀行休業日を織り込んで返す payout.arrival_date を
+ * そのまま出す。Stripe が返す値は「その日の 00:00 UTC」（実測: 1791936000 =
+ * 2026-10-14T00:00:00Z、2026-10-12 19:43 JST 申請ぶんの着金予定日）なので、
+ * サーバーのタイムゾーンで解釈すると日付がずれる。JST固定で組むことを境界値で固定する。
+ */
+describe("TC-PAYOUT-ARRIVAL: formatArrivalDate", () => {
+  it("Stripe実測値（2026-10-14 00:00 UTC）→ 10月14日", () => {
+    expect(formatArrivalDate(1791936000)).toBe("10月14日");
+  });
+
+  it("UTCの00:00を素のローカル時刻で見ると前日になりうる値でも、JSTの日付を返す", () => {
+    // 2026-10-14 00:00 UTC = 2026-10-14 09:00 JST（UTC-5 のサーバーでは 10/13 19:00）
+    expect(formatArrivalDate(Date.UTC(2026, 9, 14) / 1000)).toBe("10月14日");
+  });
+
+  it("月末の予定日 → 翌月1日に繰り上がらない", () => {
+    expect(formatArrivalDate(Date.UTC(2026, 9, 31) / 1000)).toBe("10月31日");
+  });
+
+  it("年またぎ（1月1日）→ 12月31日にならない", () => {
+    expect(formatArrivalDate(Date.UTC(2027, 0, 1) / 1000)).toBe("1月1日");
+  });
+
+  it("日付のゼロ埋めはしない（1月5日 と表示する）", () => {
+    expect(formatArrivalDate(Date.UTC(2027, 0, 5) / 1000)).toBe("1月5日");
   });
 });

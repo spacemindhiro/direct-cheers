@@ -9,7 +9,13 @@ import {
   CheckCircle2, RefreshCw, CalendarClock, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
-import { HOLD_DAYS, TRANSFER_FEE, FEE_WAIVER_DAYS, FREE_POOL_MONTHLY_LIMIT, getJstMonthStartIso } from "@/lib/payout-config";
+import Stripe from "stripe";
+import {
+  HOLD_DAYS, TRANSFER_FEE, FEE_WAIVER_DAYS, FREE_POOL_MONTHLY_LIMIT,
+  getJstMonthStartIso, formatArrivalDate, ARRIVAL_NOTE,
+} from "@/lib/payout-config";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const LIFECYCLE_LABELS: Record<string, string> = {
   draft: "承認待ち", published: "公開済み", ongoing: "開催中",
@@ -184,10 +190,35 @@ async function PayoutContent() {
   // 出金履歴
   const { data: history } = await admin
     .from("payout_requests")
-    .select("request_id, requested_amount, net_payout_amount, stripe_fee_deducted, status, created_at")
+    .select("request_id, requested_amount, net_payout_amount, stripe_fee_deducted, status, created_at, stripe_transfer_id")
     .eq("profile_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);
+
+  // 着金予定日は Stripe の payout.arrival_date（土日・銀行休業日を織り込んだ値）が正。
+  // DBには持っていないので、まだ着金していない可能性がある分だけ payout を引く
+  // （着金の目安は最大4営業日なので、暦日で10日前までを対象にすれば足りる）。
+  // 履歴20件ぶん全部引くとページ表示のたびに Stripe へ20回叩くことになるため絞る。
+  const arrivalLookbackIso = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+  const arrivalDates = new Map<string, number>();
+  if (profile?.stripe_connect_id) {
+    const recent = (history ?? []).filter(
+      (h) => h.stripe_transfer_id && h.created_at >= arrivalLookbackIso
+    );
+    await Promise.all(
+      recent.map(async (h) => {
+        try {
+          const payout = await stripe.payouts.retrieve(h.stripe_transfer_id!, {
+            stripeAccount: profile.stripe_connect_id!,
+          });
+          if (payout.arrival_date) arrivalDates.set(h.request_id, payout.arrival_date);
+        } catch (err: any) {
+          // 予定日が出ないだけで履歴自体は見せる（Stripe障害・テスト/本番キーの食い違いなど）
+          console.error(`[payout] arrival_date取得失敗 payout=${h.stripe_transfer_id}:`, err.message);
+        }
+      })
+    );
+  }
 
   // 無料枠（120日超過分）の出金は月1回まで。今月分を使い切っているか判定する
   const { count: freeCountThisMonth } = await admin
@@ -421,6 +452,12 @@ async function PayoutContent() {
                     <p className="text-[10px] text-slate-500 mt-0.5">
                       手数料 ¥{h.stripe_fee_deducted} 控除 · {new Date(h.created_at).toLocaleDateString("ja-JP")}
                     </p>
+                    {arrivalDates.has(h.request_id) && (
+                      <p className="flex items-center gap-1 text-[10px] font-bold text-slate-400 mt-1">
+                        <CalendarClock size={10} />
+                        入金予定日 {formatArrivalDate(arrivalDates.get(h.request_id)!)}
+                      </p>
+                    )}
                   </div>
                   <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg ${
                     h.status === "completed" ? "bg-green-500/10 text-green-400" : "bg-amber-500/10 text-amber-400"
@@ -430,6 +467,7 @@ async function PayoutContent() {
                 </div>
               ))}
             </div>
+            <p className="text-[10px] text-slate-600 font-bold">{ARRIVAL_NOTE}</p>
           </div>
         )}
       </div>

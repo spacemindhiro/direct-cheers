@@ -27,3 +27,26 @@ export function snapPayoutAmount(value: number, available: number, step: number)
   if (value + step > available) return available;
   return value;
 }
+
+/**
+ * 申請から銀行に着金するまでの目安。
+ *
+ * 出金申請は押した瞬間に Stripe の payout（Connectアカウント → 銀行口座）を作るので、
+ * 待ち時間は丸ごと Stripe → 銀行の振込時間。Stripe の手動入金は「通常1〜4営業日」で、
+ * 同日入金が使えるのは米国・英国・ユーロ圏のみ（日本は対象外）。
+ * 1件ごとの正確な予定日は payout.arrival_date に入るので、取れたときはそちらを優先して出す。
+ */
+export const ARRIVAL_NOTE = "銀行への着金まで1〜4営業日（土日祝を除く）";
+
+/**
+ * payout.arrival_date（UNIX秒）を「10月14日」の形にする。
+ *
+ * Stripe が返すのは日付だけの意味を持つタイムスタンプ（その日の 00:00 UTC）なので、
+ * サーバーのタイムゾーンで解釈すると日付がずれる（JSTで見ると9時間進んで同日、
+ * 米国のサーバーで見ると前日になる）。JST固定で組み立てる。
+ * arrival_date は Stripe 側で土日・銀行休業日を織り込んだ値。
+ */
+export function formatArrivalDate(arrivalDateUnixSec: number): string {
+  const jst = new Date(arrivalDateUnixSec * 1000 + 9 * 60 * 60 * 1000);
+  return `${jst.getUTCMonth() + 1}月${jst.getUTCDate()}日`;
+}

@@ -26,6 +26,9 @@ import {
   ListChecks,
   Printer,
   Plus,
+  CreditCard,
+  MessageCircleHeart,
+  DoorOpen,
 } from "lucide-react";
 import { TutorialVideoButton } from "./tutorial-video-button";
 import { TUTORIAL_VIDEO_IDS } from "@/lib/tutorial-videos";
@@ -44,6 +47,7 @@ const ORGANIZER_TUTORIAL_VIDEOS: Record<string, string> = {
   printQr: TUTORIAL_VIDEO_IDS["o-08"],
   venueOps: TUTORIAL_VIDEO_IDS["o-09"],
   submitEvidence: TUTORIAL_VIDEO_IDS["o-10"],
+  createEntranceQr: TUTORIAL_VIDEO_IDS["o-11"],
 };
 
 // 当日運用向け操作解説動画（D系列）
@@ -54,7 +58,9 @@ const DAY_OF_TUTORIAL_VIDEOS: Record<string, string> = {
 
 // 一般ユーザー向け操作解説動画（U系列）
 const USER_TUTORIAL_VIDEOS: Record<string, string> = {
+  linkSetup: TUTORIAL_VIDEO_IDS["u-04"],
   scanAndCheer: TUTORIAL_VIDEO_IDS["u-01"],
+  messageCheer: TUTORIAL_VIDEO_IDS["u-02"],
 };
 
 // アーティスト向け操作解説動画（A系列）
@@ -175,14 +181,30 @@ function UserGuide() {
             <b>LINEなどアプリ内ブラウザではApple Payは使えません</b>
           </li>
           <li><b>Google Pay</b>（Android）: 「Google ウォレット」アプリでカードを登録しておくと同様にワンタッチで支払えます</li>
-          <li><b>Stripe Link</b>: ダッシュボードの「Stripe Linkにカードを登録する」（または「/link-setup」）からメールアドレスとカードを登録すると、次回からはメールアドレスの入力だけでどんな環境でも確実にワンタッチ決済できます。<b>Apple Pay/Google Payが使えない場面のバックアップとして特におすすめです</b></li>
+          <li><b>Stripe Link</b>: メールアドレスとカードを登録しておくと、どんな環境でもワンタッチで決済できます。<b>Apple Pay/Google Payが使えない場面のバックアップとして特におすすめです</b>（登録方法は「② Stripe Link にカードを登録する」）</li>
           <li>いずれも未設定の場合はカード番号の手入力でも決済できますが、毎回入力が必要でイベント当日は時間がかかります。手入力の決済画面には「将来の支払いのためにカード情報を保存する」というチェックボックスが表示されるので、ここにチェックを入れておくと次回以降はカード番号の再入力が不要になります</li>
         </ul>
       </Section>
 
       <Section
+        icon={<CreditCard size={16} className="text-pink-500" />}
+        title="② Stripe Link にカードを登録する"
+        subtitle="Stripe Link"
+        videoId={USER_TUTORIAL_VIDEOS.linkSetup}
+      >
+        <p>イベント当日にカード番号を打ち込まずに支払えるようにしておく設定です。LINEの中のブラウザなどApple Payが使えない場面でも使えます。</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>ダッシュボードの「Stripe Linkにカードを登録する」（または「/link-setup」）を開きます</li>
+          <li>カード番号・有効期限・セキュリティコードを入力し、国（カードを発行した国）を選びます。カード情報はStripeが預かり、Direct Cheers側には送られません</li>
+          <li><b>携帯電話番号と氏名は必ず入力してください</b>。「オプション」と表示されていますが、空のままだとStripe Linkのアカウントは作られず、カードを保存しただけになります（メールアドレスはログイン中のものが自動で入っています）</li>
+          <li>「カードを登録する」を押し、携帯電話にショートメッセージで認証コードが届いたら入力します</li>
+          <li>「登録完了」と表示されれば終わりです。ダッシュボードの表示が「Stripe Link 登録済み」に変わり、次回からは決済画面でワンタッチで支払えます</li>
+        </ul>
+      </Section>
+
+      <Section
         icon={<KeyRound size={16} className="text-pink-500" />}
-        title="② 会員登録・ログイン"
+        title="③ 会員登録・ログイン"
         subtitle="Member Access"
       >
         <p>「パスキー」（顔認証・指紋認証）を登録しておくと、次回からはメールアドレスの入力なしで一瞬にログインできます。まだの方は「アカウント管理」の「パスキー管理」から登録しておくことを強くおすすめします。</p>
@@ -196,7 +218,7 @@ function UserGuide() {
 
       <Section
         icon={<Heart size={16} className="text-pink-500" />}
-        title="③ チアを送る・チケットを購入する"
+        title="④ チアを送る・チケットを購入する"
         subtitle="Send Cheers"
         videoId={USER_TUTORIAL_VIDEOS.scanAndCheer}
       >
@@ -211,8 +233,23 @@ function UserGuide() {
       </Section>
 
       <Section
+        icon={<MessageCircleHeart size={16} className="text-pink-500" />}
+        title="⑤ メッセージ付きで応援する"
+        subtitle="Cheer Message"
+        videoId={USER_TUTORIAL_VIDEOS.messageCheer}
+      >
+        <p>主催者が「メッセージ」タイプで作ったQRでは、応援と一緒にアーティストへひと言メッセージを送れます。</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>QRを読み取って応援する流れは「④ チアを送る・チケットを購入する」と同じです</li>
+          <li>決済が終わると、cheers!カードの下に「メッセージを送る」欄が表示されます</li>
+          <li>ニックネーム（任意）とメッセージを入力して「送る」を押すと、「メッセージを送りました！」と表示されアーティストに届きます</li>
+          <li>メッセージを書かずに「スキップ」することもできます</li>
+        </ul>
+      </Section>
+
+      <Section
         icon={<Ticket size={16} className="text-pink-500" />}
-        title="④ マイチケットの使い方"
+        title="⑥ マイチケットの使い方"
         subtitle="Wallet"
       >
         <p>ダッシュボードの「マイチケット」から、購入したチケットをQRコード付きのデジタルチケットで確認できます。</p>
@@ -226,7 +263,7 @@ function UserGuide() {
 
       <Section
         icon={<Layers size={16} className="text-pink-500" />}
-        title="⑤ カードコレクション・応援履歴"
+        title="⑦ カードコレクション・応援履歴"
         subtitle="Collection"
       >
         <p>ダッシュボードの「Cheers History」で、これまで応援した金額やコメントの履歴を確認できます（直近20件のダイジェスト表示）。過去分もすべて遡って見たい場合は「カードコレクション」をご利用ください（全期間、ページ送りで確認できます）。</p>
@@ -236,7 +273,7 @@ function UserGuide() {
 
       <Section
         icon={<UserCog size={16} className="text-pink-500" />}
-        title="⑥ アカウント設定"
+        title="⑧ アカウント設定"
         subtitle="Account"
       >
         <ul className="list-disc pl-4 space-y-1">
@@ -506,7 +543,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<QrCode size={16} className="text-pink-500" />}
-        title="⑧ QRを作成する"
+        title="⑧ QRを作成する（スタンダード／メッセージ）"
         subtitle="QR Config"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.createQr}
       >
@@ -515,13 +552,30 @@ function OrganizerPrepGuide() {
           <li>商品タイプは「スタンダード」「メッセージ」「エントランス」「カスタム（バウチャー／ドリンクチケット）」。企画・承認前のタイプにはロックがかかり「エージェントと企画・承認後に解放」と表示されます</li>
           <li>価格は「ワンプライス」または「レンジ」（スライダーで金額幅・単位を指定）から選べます</li>
           <li>配分設定で、受け取り先（主催者名義／演者名義）ごとに比率（%）を割り当てます（合計100%が必須）</li>
-          <li>エントランス（入場チケット）は3タイプあります: <b>前売事後確定タイプ（5日前確定）</b>は予約時にカードを保存し5日前に自動決済、<b>前売即時確定タイプ（即時確定）</b>は予約時に即時決済（中止時の返金手数料リスクはオーガナイザー負担）、<b>当日決済タイプ</b>は事前予約なしで当日のタッチ決済またはQR自己決済のみです</li>
+          <li>入場チケット（エントランス）の作り方は「⑨ エントランスQRを作成する」を参照してください</li>
+        </ul>
+      </Section>
+
+      <Section
+        icon={<DoorOpen size={16} className="text-pink-500" />}
+        title="⑨ エントランスQRを作成する"
+        subtitle="Entrance QR"
+        videoId={ORGANIZER_TUTORIAL_VIDEOS.createEntranceQr}
+      >
+        <p>入場チケットをQRで販売するときは、「QR 作成」で商品タイプ「エントランス」を選びます。</p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>決済タイプは3つあります: <b>前売事後確定タイプ（5日前確定）</b>は予約時にカードを保存し5日前に自動決済（販売開始・終了日時を入力）、<b>前売即時確定タイプ（即時確定）</b>は予約時に即時決済（中止時の返金手数料リスクはオーガナイザー負担のため、販売上限数の入力が必須）、<b>当日決済タイプ</b>は事前予約なしで当日のタッチ決済またはQR自己決済のみです</li>
+          <li>ラベルはお客様や親機の画面に出る商品名です（例: 当日券）。エントランスの金額は1つに固定で、スライダーでは選べません</li>
+          <li>当日決済タイプでも「当日決済タイプでも在庫管理する」をオンにすると、販売枚数に上限を設けられます</li>
+          <li>「対面タッチ決済を許可する」をオンにすると、当日この商品を親機のカードリーダーで販売できます</li>
+          <li>「ウェルカムチアを含める」で、入場料の一部を演者へのチアとして切り出せます。候補に出るのは、同じ金額のチアQRをすでに用意している演者だけです（1円でも違うと出ません）</li>
+          <li>配分先の合計が100%になっていることを確認して「QRを作成」を押せば完成です。作ったQRの詳細画面の「招待チケット発行」から、関係者向けの招待チケットも発行できます</li>
         </ul>
       </Section>
 
       <Section
         icon={<Printer size={16} className="text-pink-500" />}
-        title="⑨ QRを印刷する"
+        title="⑩ QRを印刷する"
         subtitle="Print QR"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.printQr}
       >
@@ -530,7 +584,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<ScanLine size={16} className="text-pink-500" />}
-        title="⑩ 売上を見る・決済を取り消す"
+        title="⑪ 売上を見る・決済を取り消す"
         subtitle="Sales & Cancellation"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.venueOps}
       >
@@ -543,7 +597,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<FileCheck2 size={16} className="text-pink-500" />}
-        title="⑪ エビデンス提出"
+        title="⑫ エビデンス提出"
         subtitle="Evidence"
         videoId={ORGANIZER_TUTORIAL_VIDEOS.submitEvidence}
       >
@@ -564,7 +618,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<TrendingUp size={16} className="text-pink-500" />}
-        title="⑫ 売上・精算の確認"
+        title="⑬ 売上・精算の確認"
         subtitle="Statistics / Income / Settlement"
       >
         <ul className="list-disc pl-4 space-y-1">
@@ -576,7 +630,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<Wallet size={16} className="text-pink-500" />}
-        title="⑬ 出金"
+        title="⑭ 出金"
         subtitle="Payout"
       >
         <p>「出金管理」で「出金可能」「保留中」「凍結中」の残高を確認できます。売上は決済が行われてから2週間（14日）後に出金可能になり、振込手数料¥500が差し引かれます。</p>
@@ -586,7 +640,7 @@ function OrganizerPrepGuide() {
 
       <Section
         icon={<XCircle size={16} className="text-red-400" />}
-        title="⑭ イベントの中止"
+        title="⑮ イベントの中止"
         subtitle="Cancellation"
       >
         <p>イベント詳細ページの「中止申請」から中止の手続きができます。</p>

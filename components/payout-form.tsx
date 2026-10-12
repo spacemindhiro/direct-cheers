@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { snapPayoutAmount } from "@/lib/payout-config";
 import { Loader2, ArrowDownToLine, AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -9,6 +10,8 @@ type Props = {
   transferFee: number;
   pool: "free" | "fee";
 };
+
+const SLIDER_STEP = 100;
 
 export function PayoutForm({ available, transferFee, pool }: Props) {
   const router = useRouter();
@@ -92,9 +95,9 @@ export function PayoutForm({ available, transferFee, pool }: Props) {
           type="range"
           min={minAmount}
           max={available}
-          step={100}
+          step={SLIDER_STEP}
           value={amount}
-          onChange={(e) => applyAmount(Number(e.target.value))}
+          onChange={(e) => applyAmount(snapPayoutAmount(Number(e.target.value), available, SLIDER_STEP))}
           className="w-full accent-pink-500"
           disabled={available < minAmount}
         />

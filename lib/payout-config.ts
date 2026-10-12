@@ -13,3 +13,17 @@ export function getJstMonthStartIso(now: Date = new Date()): string {
   const month = jst.getUTCMonth();
   return new Date(Date.UTC(year, month, 1) - 9 * 60 * 60 * 1000).toISOString();
 }
+
+/**
+ * 出金額スライダーの値を、実際に申請できる額へ寄せる。
+ *
+ * HTML の input[type=range] は min を基点に step 刻みで値を取るため、
+ * 刻みがちょうど max に乗らないと「一番右まで動かしても全額にならない」。
+ * 配分額は端数を含む（例 7,743円）ので、min=501 / step=100 だと最大 7,701 までしか
+ * 選べず、42円が出金できないまま残っていた。
+ * 一番右（＝次の刻みが available を超える位置）まで動かしたら available ちょうどにする。
+ */
+export function snapPayoutAmount(value: number, available: number, step: number): number {
+  if (value + step > available) return available;
+  return value;
+}

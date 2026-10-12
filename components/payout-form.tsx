@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { snapPayoutAmount } from "@/lib/payout-config";
-import { Loader2, ArrowDownToLine, AlertTriangle } from "lucide-react";
+import { ARRIVAL_NOTE, formatArrivalDate, snapPayoutAmount } from "@/lib/payout-config";
+import { Loader2, ArrowDownToLine, AlertTriangle, CalendarClock } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -20,6 +20,7 @@ export function PayoutForm({ available, transferFee, pool }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [arrivalDate, setArrivalDate] = useState<number | null>(null);
 
   const minAmount = pool === "free" ? 1 : transferFee + 1;
   const net = amount - transferFee;
@@ -59,6 +60,7 @@ export function PayoutForm({ available, transferFee, pool }: Props) {
     if (data.error) {
       setError(data.error);
     } else {
+      setArrivalDate(typeof data.arrival_date === "number" ? data.arrival_date : null);
       setSuccess(true);
       router.refresh();
     }
@@ -68,7 +70,15 @@ export function PayoutForm({ available, transferFee, pool }: Props) {
     return (
       <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-5 text-center space-y-2">
         <p className="font-black text-green-400">出金申請を受け付けました</p>
-        <p className="text-xs text-slate-500">振込完了まで数営業日かかります</p>
+        {/* 予定日が取れたらそれを出す。取れなかったときだけ一般的な目安に落とす */}
+        {arrivalDate !== null ? (
+          <p className="flex items-center justify-center gap-1.5 text-xs font-bold text-slate-300">
+            <CalendarClock size={13} className="text-slate-500" />
+            {formatArrivalDate(arrivalDate)}ごろ、ご登録の口座に入金されます
+          </p>
+        ) : (
+          <p className="text-xs text-slate-500">{ARRIVAL_NOTE}</p>
+        )}
       </div>
     );
   }
@@ -121,6 +131,10 @@ export function PayoutForm({ available, transferFee, pool }: Props) {
         <div className="border-t border-slate-700 pt-2 flex justify-between text-sm">
           <span className="font-black text-white">実際の振込額</span>
           <span className="font-black text-emerald-400">¥{Math.max(0, net).toLocaleString()}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold">
+          <CalendarClock size={11} />
+          {ARRIVAL_NOTE}
         </div>
       </div>
 

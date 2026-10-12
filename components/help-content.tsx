@@ -69,6 +69,8 @@ const ARTIST_TUTORIAL_VIDEOS: Record<string, string> = {
   profileSetup: TUTORIAL_VIDEO_IDS["a-02"],
   bankSetup: TUTORIAL_VIDEO_IDS["a-03"],
   lineupApprove: TUTORIAL_VIDEO_IDS["a-04"],
+  cheersCard: TUTORIAL_VIDEO_IDS["a-05"],
+  payout: TUTORIAL_VIDEO_IDS["a-08"],
 };
 
 const ORGANIZER_GROUPS: { id: "prep" | "dayof"; label: string }[] = [
@@ -375,10 +377,12 @@ function ArtistGuide() {
         icon={<Heart size={16} className="text-pink-500" />}
         title="⑤ チアの受け取り方"
         subtitle="Cheers Card"
+        videoId={ARTIST_TUTORIAL_VIDEOS.cheersCard}
       >
         <p>アーティスト個人が常時使える「マイQR」はありません。チア用のQRコードは、出演するイベントごとにオーガナイザーが発行し、そこに配分先の1人としてあなたが登録される仕組みです。</p>
         <ul className="list-disc pl-4 space-y-1">
-          <li>出演確定したイベントのQR詳細画面で、「✦ Cheersカード」（自分が受取人の場合はカード画像を変更可能）と「✦ 配分設定」（自分の配分比率、閲覧のみ）を確認できます</li>
+          <li>出演確定したイベントのQR詳細画面で、「✦ Cheersカード」と「✦ 配分設定」（自分の配分比率、閲覧のみ）を確認できます</li>
+          <li>カード画像を変更できるのは、そのQRの宛先が自分になっている場合だけです。配分先に入っているだけでは変更できません</li>
           <li>金額のレンジや商品タイプ、QRコード自体の作成・編集はオーガナイザーが行います</li>
         </ul>
       </Section>
@@ -400,12 +404,14 @@ function ArtistGuide() {
         icon={<Wallet size={16} className="text-pink-500" />}
         title="⑦ 出金"
         subtitle="Payout"
+        videoId={ARTIST_TUTORIAL_VIDEOS.payout}
       >
-        <p>「出金管理」（Payout）で、残高を「出金可能」「保留中」「凍結中」の3区分で確認し、出金申請ができます。</p>
+        <p>「出金管理」（Payout）で、残高を「無料出金可能」「出金可能」「保留中」「凍結中」の4区分で確認し、出金申請ができます。</p>
         <ul className="list-disc pl-4 space-y-1">
           <li>売上は決済が行われてから2週間（14日）後に出金可能になります。振込手数料として¥500が差し引かれます</li>
           <li>決済から120日を超えた分は、月1回に限り振込手数料無料で出金できます。対象の残高がある場合は出金画面に無料枠として案内されます</li>
           <li>出金可能額がある場合のみ、スライダーで金額を指定して「¥○○ を出金する」ボタンから申請できます</li>
+          <li>運営の承認を待つ必要はありません。申請するとその場で銀行への振込手続きが始まります。銀行に届くまでは1〜4営業日（土日祝を除く）で、申請直後の画面と「出金履歴」に入金予定日が表示されます</li>
           <li>チャージバック（クレジットカード会社への異議申し立て）が発生すると、該当額が「凍結中」に区分され、出金が一時停止されます。回数は画面上部に表示されます</li>
         </ul>
       </Section>

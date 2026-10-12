@@ -230,6 +230,16 @@ async function PayoutContent() {
     .gte("created_at", getJstMonthStartIso());
   const freeUsedThisMonth = (freeCountThisMonth ?? 0) >= FREE_POOL_MONTHLY_LIMIT;
 
+  // 申請直後の受付メッセージはサーバー側で出す。
+  // PayoutForm 側の success 表示は、全額出金すると available が 0 になり
+  // router.refresh() でフォームごと description が消える＝一瞬しか出ない
+  // （「数営業日」をやめた意味が無くなる）。直近の申請はここから出す。
+  const latestRequest = (history ?? [])[0];
+  const justRequested =
+    latestRequest && Date.now() - new Date(latestRequest.created_at).getTime() < 10 * 60 * 1000
+      ? latestRequest
+      : null;
+
   const eventRows = [...eventMap.values()]
     .filter((r) => r.available + r.freeAvailable + r.pending + r.frozen > 0)
     .sort((a, b) => (b.available + b.freeAvailable + b.pending) - (a.available + a.freeAvailable + a.pending));
@@ -429,13 +439,31 @@ async function PayoutContent() {
             )}
 
             {freeAvailable === 0 && available <= TRANSFER_FEE && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center">
-                <p className="text-slate-600 text-sm font-bold">
-                  {available === 0
-                    ? "出金可能な残高がありません"
-                    : `出金可能額が振込手数料（¥${TRANSFER_FEE.toLocaleString()}）以下です`}
-                </p>
-              </div>
+              justRequested ? (
+                /* 全額出金するとフォームごと消える（available が 0 になるため）。
+                   申請直後の案内と入金予定日を、ボタンがあったこの位置に残す */
+                <div className="flex items-start gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5">
+                  <CheckCircle2 size={18} className="text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-black text-emerald-400">出金申請を受け付けました</p>
+                    <p className="text-xs text-slate-300 font-bold mt-1">
+                      ¥{justRequested.net_payout_amount.toLocaleString()} を
+                      {arrivalDates.has(justRequested.request_id)
+                        ? `${formatArrivalDate(arrivalDates.get(justRequested.request_id)!)}ごろ`
+                        : "1〜4営業日のうちに"}
+                      、ご登録の口座にお振込みします
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center">
+                  <p className="text-slate-600 text-sm font-bold">
+                    {available === 0
+                      ? "出金可能な残高がありません"
+                      : `出金可能額が振込手数料（¥${TRANSFER_FEE.toLocaleString()}）以下です`}
+                  </p>
+                </div>
+              )
             )}
           </div>
         )}

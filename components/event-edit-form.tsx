@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { jstLocalToUtcIso, addHoursToLocalDT } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { VenueSelect } from "@/components/venue-select";
+import { FlyerUploadField } from "@/components/flyer-upload-field";
 import { ArrowRight, Loader2, Search, X, Plus } from "lucide-react";
 
 type Artist = { profile_id: string; display_name: string; status?: string };
@@ -17,6 +18,7 @@ type EventEditFormProps = {
     venue: string;
     start_at: string;
     end_at: string;
+    base_flyer_url: string | null;
   };
   initialVenue: Venue | null;
   currentArtists: Artist[];
@@ -38,6 +40,7 @@ export function EventEditForm({
   const [warning, setWarning] = useState<string | null>(null);
   const [startAt, setStartAt] = useState(defaultValues.start_at);
   const [endAt, setEndAt] = useState(defaultValues.end_at);
+  const [flyerUrl, setFlyerUrl] = useState<string | null>(defaultValues.base_flyer_url);
   const endBeforeStart = !!(startAt && endAt && endAt <= startAt);
   const [selectedArtists, setSelectedArtists] = useState<Artist[]>(currentArtists);
   const [artistMessages, setArtistMessages] = useState<Record<string, string>>({});
@@ -106,6 +109,7 @@ export function EventEditForm({
             profile_id: a.profile_id,
             invite_message: artistMessages[a.profile_id] || null,
           })),
+          base_flyer_url: flyerUrl,
         }),
       });
       const data = await res.json();
@@ -188,6 +192,8 @@ export function EventEditForm({
             )}
           </div>
         </div>
+
+        <FlyerUploadField value={flyerUrl} onChange={setFlyerUrl} />
 
         {/* 出演アーティスト */}
         <div className="space-y-3">

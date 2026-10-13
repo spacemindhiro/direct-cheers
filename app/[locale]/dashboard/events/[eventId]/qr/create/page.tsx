@@ -6,6 +6,7 @@ import { QRCreateForm } from "@/components/qr-create-form";
 import { getFeeConfig } from "@/lib/fee-config";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { avatarFields } from "@/lib/image-source";
 
 async function QRCreateContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -29,10 +30,10 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
   const { data: event } = await adminForEvent
     .from("events")
     .select(`
-      event_id, title, lifecycle_status, start_at, venue, paypay_enabled,
+      event_id, title, lifecycle_status, start_at, venue, paypay_enabled, base_flyer_url,
       organizer_profile_id,
-      organizer:profiles!organizer_profile_id(display_name, organizer_name, organizer_avatar_url, avatar_url),
-      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name, artist_name, artist_avatar_url, avatar_url))
+      organizer:profiles!organizer_profile_id(display_name, organizer_name, organizer_avatar_url, avatar_url, organizer_avatar_original_url, avatar_original_url),
+      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name, artist_name, artist_avatar_url, avatar_url, artist_avatar_original_url, avatar_original_url))
     `)
     .eq("event_id", eventId)
     .single();
@@ -51,7 +52,10 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
     {
       profile_id: event.organizer_profile_id,
       display_name: (event.organizer as any)?.organizer_name ?? (event.organizer as any)?.display_name ?? "オーガナイザー",
-      avatar_url: (event.organizer as any)?.organizer_avatar_url ?? (event.organizer as any)?.avatar_url ?? null,
+      ...avatarFields(
+        { url: (event.organizer as any)?.organizer_avatar_url, originalUrl: (event.organizer as any)?.organizer_avatar_original_url },
+        { url: (event.organizer as any)?.avatar_url, originalUrl: (event.organizer as any)?.avatar_original_url },
+      ),
       role: "organizer" as const,
       status: "confirmed" as const,
     },
@@ -60,7 +64,10 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
       .map((ea: any) => ({
         profile_id: ea.artist_profile_id,
         display_name: ea.artist?.artist_name ?? ea.artist?.display_name ?? "—",
-        avatar_url: ea.artist?.artist_avatar_url ?? ea.artist?.avatar_url ?? null,
+        ...avatarFields(
+          { url: ea.artist?.artist_avatar_url, originalUrl: ea.artist?.artist_avatar_original_url },
+          { url: ea.artist?.avatar_url, originalUrl: ea.artist?.avatar_original_url },
+        ),
         role: "artist" as const,
         status: ea.status as string,
       })),
@@ -100,6 +107,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
         eventStartAt={(event as any).start_at ?? null}
         eventVenue={(event as any).venue ?? null}
         targets={targets}
+        eventFlyerUrl={(event as any).base_flyer_url ?? null}
         feeConfig={feeConfig}
         organizerBalance={organizerBalance}
         productTypeConfigs={productTypeConfigs ?? []}

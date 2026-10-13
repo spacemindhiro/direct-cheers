@@ -9,7 +9,7 @@ import { CheersCard } from "@/components/cheers-card";
 import { StripImageUpload } from "@/components/strip-image-upload";
 import { WalletTicketPreview } from "@/components/wallet-ticket-preview";
 
-type TargetCandidate = { profile_id: string; display_name: string; avatar_url?: string | null; role: "organizer" | "artist"; status?: string };
+type TargetCandidate = { profile_id: string; display_name: string; avatar_url?: string | null; avatar_original_url?: string | null; role: "organizer" | "artist"; status?: string };
 type DistTarget = { profile_id: string; ratio: string };
 type BulkTierInput = { min_quantity: string; unit_price: string };
 
@@ -60,6 +60,7 @@ export function QREditDelete({
   serialScopeInherited = false,
   userRole = "",
   currentBypassValidity = false,
+  eventFlyerUrl = null,
 }: {
   qrConfigId: string;
   eventId: string;
@@ -99,6 +100,7 @@ export function QREditDelete({
   serialScopeInherited?: boolean;
   userRole?: string;
   currentBypassValidity?: boolean;
+  eventFlyerUrl?: string | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -157,6 +159,15 @@ export function QREditDelete({
 
   // カードプレビュー用の金額（レンジ指定はデフォルト金額、固定はその場で編集中の金額を反映）
   const previewAmount = isRange ? defaultAmount : (parseInt(editFixed, 10) || minAmount);
+
+  // QR画像・チケット画像の素材（宛先の画像／フライヤー）。宛先を変えても、選び済みの画像は差し替えない
+  const currentRecipient = candidates.find((c) => c.profile_id === recipientId && c.role === recipientRole);
+  const imageSources = {
+    recipient: currentRecipient?.avatar_url
+      ? { url: currentRecipient.avatar_url, originalUrl: currentRecipient.avatar_original_url ?? null, name: currentRecipient.display_name }
+      : null,
+    flyerUrl: eventFlyerUrl,
+  };
 
   // 宛先の選択肢は配分に登録されている人のみ
   const recipientOptions = candidates.filter((c) =>
@@ -508,6 +519,7 @@ export function QREditDelete({
               <StripImageUpload
                 currentUrl={stripImageUrl}
                 pathPrefix={qrConfigId}
+                sources={imageSources}
                 onUploadComplete={setStripImageUrl}
               />
 
@@ -564,7 +576,8 @@ export function QREditDelete({
                 currentUrl={imageUrl}
                 pathPrefix={qrConfigId}
                 eventTitle={eventTitle}
-                artistName={candidates.find((c) => c.profile_id === recipientId && c.role === recipientRole)?.display_name ?? ""}
+                artistName={currentRecipient?.display_name ?? ""}
+                sources={imageSources}
                 onUploadComplete={setImageUrl}
               />
 

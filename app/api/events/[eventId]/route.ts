@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 import { sendLineupInviteEmail } from "@/lib/email/notification";
+import { isValidFlyerUrl } from "@/lib/image-source";
 
 export async function PATCH(
   req: Request,
@@ -43,7 +44,7 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { title, venue, venue_id, start_at, end_at, artists, artist_ids, paypay_enabled } = body as {
+  const { title, venue, venue_id, start_at, end_at, artists, artist_ids, paypay_enabled, base_flyer_url } = body as {
     title?: string;
     venue?: string;
     venue_id?: string | null;
@@ -52,7 +53,11 @@ export async function PATCH(
     artists?: { profile_id: string; invite_message?: string | null }[];
     artist_ids?: string[];
     paypay_enabled?: boolean;
+    base_flyer_url?: string | null; // 任意のフライヤー画像。変えても再承認は不要
   };
+  if (base_flyer_url !== undefined && !isValidFlyerUrl(base_flyer_url)) {
+    return NextResponse.json({ error: "フライヤー画像の形式が不正です" }, { status: 400 });
+  }
   // 新フォーマット（artists[]）と旧フォーマット（artist_ids[]）の両方をサポート
   const artistList = artists ?? artist_ids?.map((id) => ({ profile_id: id, invite_message: null as string | null }));
 
@@ -71,6 +76,7 @@ export async function PATCH(
   if (start_at !== undefined) updates.start_at = start_at;
   if (end_at !== undefined) updates.end_at = end_at;
   if (paypay_enabled !== undefined) updates.paypay_enabled = paypay_enabled;
+  if (base_flyer_url !== undefined) updates.base_flyer_url = base_flyer_url;
   if (scheduleOrVenueChanged && !["draft", "settled", "cancelled"].includes(event.lifecycle_status)) {
     updates.lifecycle_status = "draft";
   }

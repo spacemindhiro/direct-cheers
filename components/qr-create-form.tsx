@@ -32,7 +32,7 @@ const PRODUCT_TYPE_FALLBACK = [
 ];
 
 type ProductTypeConfig = { type: string; label: string; min_amount: number; max_amount: number; is_enabled: boolean };
-type TargetCandidate = { profile_id: string; display_name: string; avatar_url?: string | null; role: "organizer" | "artist"; status?: string };
+type TargetCandidate = { profile_id: string; display_name: string; avatar_url?: string | null; avatar_original_url?: string | null; role: "organizer" | "artist"; status?: string };
 type DistTarget = { profile_id: string; ratio: string };
 
 export function QRCreateForm({
@@ -45,6 +45,7 @@ export function QRCreateForm({
   organizerBalance = 0,
   productTypeConfigs = [],
   userRole = "",
+  eventFlyerUrl = null,
 }: {
   eventId: string;
   eventTitle?: string;
@@ -55,6 +56,7 @@ export function QRCreateForm({
   organizerBalance?: number;
   productTypeConfigs?: ProductTypeConfig[];
   userRole?: string;
+  eventFlyerUrl?: string | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -374,6 +376,13 @@ export function QRCreateForm({
     `${c.display_name}${c.role === "organizer" ? "（主催者名義）" : "（演者名義）"}`;
 
   const currentRecipient = targetCandidates.find((c) => c.profile_id === recipientId && c.role === recipientRole);
+  // QR画像・チケット画像の素材（宛先の画像／フライヤー）。宛先を変えても、選び済みの画像は差し替えない
+  const imageSources = {
+    recipient: currentRecipient?.avatar_url
+      ? { url: currentRecipient.avatar_url, originalUrl: currentRecipient.avatar_original_url ?? null, name: currentRecipient.display_name }
+      : null,
+    flyerUrl: eventFlyerUrl,
+  };
 
   // ワンプライスの金額入力（全タイプ共通）
   const fixedPriceInput = (
@@ -552,6 +561,7 @@ export function QRCreateForm({
               eventTitle={eventTitle}
               artistName={currentRecipient?.display_name ?? ""}
               required
+              sources={imageSources}
               onUploadComplete={setImageUrl}
             />
             {imageUrl && (
@@ -722,7 +732,7 @@ export function QRCreateForm({
             {/* 画像・プレビュー（entrance / バウチャー） */}
             {(productType === "entrance" || isVoucher) ? (
               <div className="space-y-6">
-                <StripImageUpload onUploadComplete={setStripImageUrl} />
+                <StripImageUpload sources={imageSources} onUploadComplete={setStripImageUrl} />
 
                 {/* カラー設定 */}
                 <div className="space-y-3">
@@ -773,6 +783,7 @@ export function QRCreateForm({
                   eventTitle={eventTitle}
                   artistName={currentRecipient?.display_name ?? ""}
                   required
+                  sources={imageSources}
                   onUploadComplete={setImageUrl}
                 />
                 {imageUrl && (

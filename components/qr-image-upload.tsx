@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ImageCropperModal } from "@/components/image-cropper-modal";
+import { ImageSourcePicker, type ImageSourceOptions } from "@/components/image-source-picker";
 import { Camera, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -12,6 +13,8 @@ type Props = {
   eventTitle?: string;
   artistName?: string;
   required?: boolean;
+  // 素材の選択肢（宛先の画像・フライヤー）。無ければ「アップロード」だけが使える
+  sources?: ImageSourceOptions;
   onUploadComplete: (url: string | null) => void;
 };
 
@@ -41,7 +44,7 @@ async function resizeImage(blob: Blob): Promise<Blob> {
   );
 }
 
-export function QRImageUpload({ currentUrl, pathPrefix, required, onUploadComplete }: Props) {
+export function QRImageUpload({ currentUrl, pathPrefix, required, sources, onUploadComplete }: Props) {
   const [rawSrc, setRawSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -82,6 +85,7 @@ export function QRImageUpload({ currentUrl, pathPrefix, required, onUploadComple
     }
   };
 
+  const handlePicked = (src: string) => { setRawSrc(src); setCropOpen(true); };
   const handleRemove = () => { setDisplayUrl(null); setRawSrc(null); onUploadComplete(null); };
   const handleAreaClick = () => { rawSrc ? setCropOpen(true) : fileRef.current?.click(); };
 
@@ -90,6 +94,13 @@ export function QRImageUpload({ currentUrl, pathPrefix, required, onUploadComple
       <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
         QR 画像{required ? <span className="text-pink-500 ml-1">*</span> : "（任意）"}
       </label>
+
+      <ImageSourcePicker
+        sources={sources}
+        onPicked={handlePicked}
+        onUploadClick={() => fileRef.current?.click()}
+        disabled={uploading}
+      />
 
       <div
         onClick={handleAreaClick}

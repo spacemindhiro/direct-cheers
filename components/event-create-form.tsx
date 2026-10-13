@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { jstLocalToUtcIso, addHoursToLocalDT } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { VenueSelect } from "@/components/venue-select";
+import { FlyerUploadField } from "@/components/flyer-upload-field";
 import { ArrowRight, Loader2, Music, Search, X, Plus } from "lucide-react";
 
 type Artist = { profile_id: string; display_name: string };
@@ -21,6 +22,7 @@ export function EventCreateForm({
   const [artistMessages, setArtistMessages] = useState<Record<string, string>>({});
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
+  const [flyerUrl, setFlyerUrl] = useState<string | null>(null);
   const endBeforeStart = !!(startAt && endAt && endAt <= startAt);
 
 
@@ -88,7 +90,7 @@ export function EventCreateForm({
             profile_id: a.profile_id,
             invite_message: artistMessages[a.profile_id] || null,
           })),
-
+          base_flyer_url: flyerUrl,
         }),
       });
       const data = await res.json();
@@ -159,6 +161,8 @@ export function EventCreateForm({
             )}
           </div>
         </div>
+
+        <FlyerUploadField value={flyerUrl} onChange={setFlyerUrl} />
 
         {/* 出演アーティスト */}
         <div className="space-y-3">

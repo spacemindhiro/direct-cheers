@@ -36,7 +36,7 @@ export async function POST(
     return NextResponse.json({ error: "承認依頼できるのはドラフト状態のイベントのみです" }, { status: 400 });
   }
 
-  const { error } = await supabase
+  const { error } = await createAdminClient()
     .from("events")
     .update({ lifecycle_status: "review_requested" })
     .eq("event_id", eventId);

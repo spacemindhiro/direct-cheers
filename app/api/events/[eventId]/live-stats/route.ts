@@ -36,16 +36,21 @@ export async function GET(
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isAdmin = role === "admin";
-  const isOrganizer = role === "organizer" && event.organizer_profile_id === user.id;
-  const isAgent = role === "agent";
+  // 主催者は役割を問わない（エージェントが自分で主催し、別のエージェントへ引き継いだイベントも見られるように）
+  const isOrganizer = event.organizer_profile_id === user.id;
+  // 担当エージェントのみ（以前は役割だけを見ており、担当外のイベントの購入者メール・売上まで見えた）
+  const isAgent = role === "agent" && event.agent_id === user.id;
 
+  // 出演者も役割を問わず、このイベントに出演者として入っているかで判定する（画面の表示条件と同じ）
   let isArtist = false;
-  if (role === "artist") {
+  if (!isAdmin && !isOrganizer && !isAgent) {
     const { data: ea } = await admin
       .from("event_artists")
       .select("artist_profile_id")
       .eq("event_id", eventId)
       .eq("artist_profile_id", user.id)
+      .is("deleted_at", null)
+      .neq("status", "rejected")
       .maybeSingle();
     isArtist = !!ea;
   }
@@ -222,7 +227,7 @@ export async function GET(
   // 購入者メアドは個人情報のため運営側（admin/organizer/agent）にのみ開示する
   const canReadEmail = isAdmin || isOrganizer || isAgent;
   // 現場取消はイベント当事者（admin / 主催organizer / 担当agent）のみ
-  const canCancel = isAdmin || isOrganizer || (isAgent && event.agent_id === user.id);
+  const canCancel = isAdmin || isOrganizer || isAgent;
 
   const recentTransactions = pagedTxList.map((tx) => ({
     transaction_id: tx.transaction_id,

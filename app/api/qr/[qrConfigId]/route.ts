@@ -37,6 +37,8 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
   return { qr, supabase, admin, isAdmin, isOrganizer, isAgent, isRecipient, error: null };
 }
 
+const isValidRatio = (r: unknown) => typeof r === "number" && Number.isFinite(r) && r >= 0 && r <= 1;
+
 // ラベル・宛先・配分更新
 export async function PATCH(
   req: Request,
@@ -47,7 +49,7 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { qr, supabase: sb, admin, isAdmin, isOrganizer, isAgent, isRecipient, error } = await getQRWithPermission(qrConfigId, user.id);
+  const { qr, admin, isAdmin, isOrganizer, isAgent, isRecipient, error } = await getQRWithPermission(qrConfigId, user.id);
   if (!qr) return NextResponse.json({ error }, { status: error === "Not found" ? 404 : 500 });
 
   const canEdit = isAdmin || isOrganizer || isAgent;
@@ -331,13 +333,20 @@ export async function PATCH(
     if (targets.length === 0) {
       return NextResponse.json({ error: "配分先を1人以上指定してください" }, { status: 400 });
     }
+    // 1人ずつ 0〜100% の範囲。合計だけの確認では「109% と -9%」が通り、精算で運営の資金から払い出されていた
+    if (!targets.every((t) => isValidRatio(t.distribution_ratio))) {
+      return NextResponse.json({ error: "配分比率は0〜100%で指定してください" }, { status: 400 });
+    }
     const totalRatio = targets.reduce((sum, t) => sum + t.distribution_ratio, 0);
     if (Math.abs(totalRatio - 1.0) > 0.001) {
       return NextResponse.json({ error: "配分比率の合計を100%にしてください" }, { status: 400 });
     }
 
+    // 書き込みは権限確認済みのサーバーで行う（DBは本人による直接書き込みを許可していない）
+    const writer = admin ?? createAdminClient();
+
     // 既存を論理削除
-    await sb
+    await writer
       .from("qr_config_targets")
       .update({ deleted_at: new Date().toISOString() })
       .eq("qr_config_id", qrConfigId)
@@ -349,7 +358,7 @@ export async function PATCH(
       profile_id: t.profile_id,
       distribution_ratio: t.distribution_ratio,
     }));
-    const { error: targetError } = await sb.from("qr_config_targets").insert(rows);
+    const { error: targetError } = await writer.from("qr_config_targets").insert(rows);
     if (targetError) return NextResponse.json({ error: targetError.message }, { status: 500 });
   }
 
@@ -389,7 +398,7 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { qr, supabase: sb, admin, isAdmin, isOrganizer, isAgent, error } = await getQRWithPermission(qrConfigId, user.id);
+  const { qr, admin, isAdmin, isOrganizer, isAgent, error } = await getQRWithPermission(qrConfigId, user.id);
   if (!qr) return NextResponse.json({ error }, { status: error === "Forbidden" ? 403 : 404 });
 
   if (!isAdmin && !isOrganizer && !isAgent) {
@@ -461,7 +470,7 @@ export async function DELETE(
 
   const now = new Date().toISOString();
 
-  const { error: deleteError } = await sb
+  const { error: deleteError } = await adminClient
     .from("qr_configs")
     .update({ deleted_at: now })
     .eq("qr_config_id", qrConfigId);

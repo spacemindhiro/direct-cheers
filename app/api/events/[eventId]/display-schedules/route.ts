@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
+import { qrConfigsBelongToEvent, qrGroupBelongsToEvent } from "@/lib/event-refs";
 
 async function canManage(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string): Promise<boolean> {
   const { data } = await admin
@@ -105,6 +106,8 @@ export async function POST(
   if (qr_config_id && qr_group_id) {
     return NextResponse.json({ error: "単一QRとグループは同時に指定できません" }, { status: 400 });
   }
+  if (!(await qrConfigsBelongToEvent(admin, eventId, [qr_config_id]))
+    || !(await qrGroupBelongsToEvent(admin, eventId, qr_group_id))) return NextResponse.json({ error: "このイベントのQRではありません" }, { status: 400 });
 
   if (track_id) {
     const { data: track } = await admin
@@ -160,6 +163,8 @@ export async function PATCH(
   if (qr_config_id && qr_group_id) {
     return NextResponse.json({ error: "単一QRとグループは同時に指定できません" }, { status: 400 });
   }
+  if (!(await qrConfigsBelongToEvent(admin, eventId, [qr_config_id]))
+    || !(await qrGroupBelongsToEvent(admin, eventId, qr_group_id))) return NextResponse.json({ error: "このイベントのQRではありません" }, { status: 400 });
 
   const { error } = await admin
     .from("display_schedules")

@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   }
 
   // イベント作成
-  const { data: event, error: eventError } = await supabase
+  const { data: event, error: eventError } = await createAdminClient()
     .from("events")
     .insert({
       organizer_profile_id: user.id,
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
       status: "pending",
       invite_message: a.invite_message ?? null,
     }));
-    const { data: insertedArtists, error: artistError } = await supabase
+    const { data: insertedArtists, error: artistError } = await createAdminClient()
       .from("event_artists")
       .insert(artistRows)
       .select("event_artist_id, artist_profile_id, invite_message");

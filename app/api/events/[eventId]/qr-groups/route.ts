@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
+import { qrConfigsBelongToEvent, qrGroupBelongsToEvent } from "@/lib/event-refs";
 
 async function canManage(admin: ReturnType<typeof createAdminClient>, eventId: string, userId: string): Promise<boolean> {
   const { data } = await admin
@@ -77,6 +78,7 @@ export async function POST(
   if (!qr_config_ids || qr_config_ids.length < 2) {
     return NextResponse.json({ error: "グループには2件以上のQRが必要です" }, { status: 400 });
   }
+  if (!(await qrConfigsBelongToEvent(admin, eventId, qr_config_ids))) return NextResponse.json({ error: "このイベントのQRではありません" }, { status: 400 });
 
   const { data, error } = await admin
     .from("qr_groups")
@@ -113,6 +115,10 @@ export async function PATCH(
   const body = await req.json();
   const { qr_group_id, name, qr_config_ids } = body as { qr_group_id?: string; name?: string; qr_config_ids?: string[] };
   if (!qr_group_id) return NextResponse.json({ error: "qr_group_id required" }, { status: 400 });
+  // メンバー差し替えはグループIDだけで行うため、先にこのイベントのグループか確かめる
+  if (!(await qrGroupBelongsToEvent(admin, eventId, qr_group_id))) {
+    return NextResponse.json({ error: "QRグループが見つかりません" }, { status: 404 });
+  }
 
   if (name !== undefined) {
     if (!name.trim()) return NextResponse.json({ error: "name は空にできません" }, { status: 400 });
@@ -128,6 +134,7 @@ export async function PATCH(
     if (qr_config_ids.length < 2) {
       return NextResponse.json({ error: "グループには2件以上のQRが必要です" }, { status: 400 });
     }
+    if (!(await qrConfigsBelongToEvent(admin, eventId, qr_config_ids))) return NextResponse.json({ error: "このイベントのQRではありません" }, { status: 400 });
     const { error: delError } = await admin.from("qr_group_members").delete().eq("qr_group_id", qr_group_id);
     if (delError) return NextResponse.json({ error: delError.message }, { status: 500 });
 

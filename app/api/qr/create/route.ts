@@ -148,6 +148,11 @@ export async function POST(req: Request) {
   if (!targets || targets.length === 0) {
     return NextResponse.json({ error: "配分先を1人以上指定してください" }, { status: 400 });
   }
+  // 1人ずつ 0〜100% の範囲。合計だけの確認では「109% と -9%」が通り、精算で運営の資金から払い出されていた
+  if (!targets.every((t) => typeof t.distribution_ratio === "number" && Number.isFinite(t.distribution_ratio)
+    && t.distribution_ratio >= 0 && t.distribution_ratio <= 1)) {
+    return NextResponse.json({ error: "配分比率は0〜100%で指定してください" }, { status: 400 });
+  }
   const totalRatio = targets.reduce((sum, t) => sum + t.distribution_ratio, 0);
   if (Math.abs(totalRatio - 1.0) > 0.001) {
     return NextResponse.json({ error: "配分比率の合計を100%にしてください" }, { status: 400 });

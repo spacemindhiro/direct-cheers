@@ -75,8 +75,11 @@ export async function PATCH(
     updates.lifecycle_status = "draft";
   }
 
+  // 書き込みは権限確認済みのサーバーで行う（DBは本人による直接書き込みを許可していない）
+  const writer = createAdminClient();
+
   if (Object.keys(updates).length > 0) {
-    const { error } = await supabase
+    const { error } = await writer
       .from("events")
       .update(updates)
       .eq("event_id", eventId);
@@ -98,7 +101,7 @@ export async function PATCH(
     // 削除: 現在いるが新リストにいない → 論理削除
     const toRemove = (currentArtists ?? []).filter((a) => !newIds.has(a.artist_profile_id));
     if (toRemove.length > 0) {
-      await supabase
+      await writer
         .from("event_artists")
         .update({ deleted_at: new Date().toISOString() })
         .in("event_artist_id", toRemove.map((a) => a.event_artist_id));
@@ -122,7 +125,7 @@ export async function PATCH(
       const toCreate = toAddList.filter((a) => !deletedEaIdByProfileId.has(a.profile_id));
 
       if (toRestore.length > 0) {
-        const { error: restoreError } = await supabase
+        const { error: restoreError } = await writer
           .from("event_artists")
           .update({ status: "pending", deleted_at: null })
           .in("event_artist_id", toRestore.map((a) => deletedEaIdByProfileId.get(a.profile_id)!));
@@ -140,7 +143,7 @@ export async function PATCH(
           status: "pending",
           invite_message: a.invite_message ?? null,
         }));
-        const { data, error: insertError } = await supabase
+        const { data, error: insertError } = await writer
           .from("event_artists")
           .insert(rows)
           .select("event_artist_id, artist_profile_id");
@@ -328,7 +331,7 @@ export async function DELETE(
     return NextResponse.json({ error: "承認前のイベントのみ削除できます" }, { status: 400 });
   }
 
-  const { error } = await supabase
+  const { error } = await createAdminClient()
     .from("events")
     .update({ deleted_at: new Date().toISOString() })
     .eq("event_id", eventId);

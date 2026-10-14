@@ -9,7 +9,10 @@ export async function GET(req: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") ?? "").trim();
+  // カンマ・括弧は PostgREST の or() 構文を壊し、検索語に条件を混ぜ込めるため除去する
+  // （電話番号など表示しない列で他人を絞り込めた）。% _ \ は ILIKE の特殊文字としてエスケープ
+  const q = (searchParams.get("q") ?? "").replace(/[,()]/g, "").trim()
+    .replace(/\\/g, "\\\\").replace(/[%_]/g, (c) => `\\${c}`);
   if (q.length < 1) return NextResponse.json({ artists: [] });
 
   const admin = createAdminClient();

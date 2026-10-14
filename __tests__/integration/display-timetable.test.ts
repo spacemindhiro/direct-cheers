@@ -37,6 +37,7 @@ let event2Id: string;
 let qrConfigA: string;
 let qrConfigB: string;
 let qrConfigC: string;
+let qrConfigE2: string; // event2 のQR（スケジュールに指定できるのは同じイベントのQRだけ）
 
 const cleanup = {
   profileIds: [] as string[],
@@ -72,7 +73,8 @@ beforeAll(async () => {
   qrConfigA = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId });
   qrConfigB = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId });
   qrConfigC = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId });
-  cleanup.qrConfigIds.push(qrConfigA, qrConfigB, qrConfigC);
+  qrConfigE2 = await insertQrConfig({ eventId: event2Id, creatorProfileId: organizerProfileId, recipientProfileId: artistProfileId });
+  cleanup.qrConfigIds.push(qrConfigA, qrConfigB, qrConfigC, qrConfigE2);
 }, 30_000);
 
 afterAll(async () => {
@@ -662,7 +664,7 @@ describe("TC-DISPLAY-E: 後方互換 — トラック未作成イベントでの
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        qr_config_id: qrConfigA,
+        qr_config_id: qrConfigE2,
         start_at: new Date(now + 30 * 3600_000).toISOString(),
         end_at: new Date(now + 31 * 3600_000).toISOString(),
         label: "後方互換スロット",

@@ -96,17 +96,6 @@ const TERMS_BASE_2026_06_27: TermsSection[] = [
   },
 ];
 
-const TERMS_BASE_2026_09_13: TermsSection[] = [
-  ...TERMS_BASE_2026_06_27,
-  {
-    article: '第8条の2',
-    title: 'メッセージに関する禁止事項違反への措置',
-    paragraphs: [
-      '利用者が利用規約第8条に定めるメッセージに関する禁止事項に違反し、またはその違反が疑われる場合、当プラットフォームは第2条に基づく措置を講じることができる。',
-    ],
-  },
-];
-
 const TERMS_ORGANIZER_2026_05_24: TermsSection[] = [
   {
     article: '第9条',
@@ -248,7 +237,6 @@ const TERMS_AGENT_2026_09_06: TermsSection[] = [
 export const TERMS_HISTORY: Record<TermsType, TermsVersionEntry[]> = {
   base: [
     { version: '2026-06-27', sections: TERMS_BASE_2026_06_27 },
-    { version: '2026-09-13', sections: TERMS_BASE_2026_09_13 },
   ],
   organizer: [
     { version: '2026-05-24', sections: TERMS_ORGANIZER_2026_05_24 },

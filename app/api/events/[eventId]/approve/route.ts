@@ -53,7 +53,7 @@ export async function POST(
     return NextResponse.json({ error: "承認依頼中のイベントのみ承認できます" }, { status: 400 });
   }
 
-  const { data: eventDetail, error } = await supabase
+  const { data: eventDetail, error } = await createAdminClient()
     .from("events")
     .update({ lifecycle_status: "published" })
     .eq("event_id", eventId)

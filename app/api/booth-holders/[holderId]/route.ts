@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
+import { canOperateEvent } from "@/lib/event-operator";
 
-async function canManage(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<boolean> {
+async function managerRole(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<string | null> {
   const { data } = await admin.from("profiles").select("role").eq("profile_id", userId).single();
-  return !!data && ["organizer", "agent", "admin"].includes(data.role);
+  return data && ["organizer", "agent", "admin"].includes(data.role) ? data.role : null;
 }
 
 // ホルダーの更新（名前・NFCタグ・載せる機材の付け替え）
@@ -17,8 +18,8 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const admin = createAdminClient();
-  const allowed = await canManage(admin, user.id);
-  if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const role = await managerRole(admin, user.id);
+  if (!role) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json() as {
     name?: string;
@@ -59,6 +60,10 @@ export async function PATCH(
         .eq("qr_config_id", body.current_qr_config_id)
         .maybeSingle();
       if (!qrConfig) return NextResponse.json({ error: "指定されたQRが見つかりません" }, { status: 400 });
+      // NFCタグの飛び先＝お客様の支払い先。操作できるイベントのQRにしか向けられない
+      if (!(await canOperateEvent(admin, user.id, role, qrConfig.event_id))) {
+        return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      }
       patch.current_qr_config_id = qrConfig.qr_config_id;
       patch.current_event_id = qrConfig.event_id;
     } else {
@@ -97,8 +102,8 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const admin = createAdminClient();
-  const allowed = await canManage(admin, user.id);
-  if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const role = await managerRole(admin, user.id);
+  if (!role) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const { error } = await admin
     .from("booth_holders")

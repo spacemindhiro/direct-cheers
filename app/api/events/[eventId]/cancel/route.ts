@@ -47,7 +47,7 @@ export async function POST(
   const isDraft = ["draft", "review_requested"].includes(event.lifecycle_status);
   const newStatus = isDraft ? "cancelled" : "cancellation_requested";
 
-  const { error } = await supabase
+  const { error } = await createAdminClient()
     .from("events")
     .update({ lifecycle_status: newStatus })
     .eq("event_id", eventId);
@@ -130,7 +130,7 @@ export async function PATCH(
 
   const newStatus = approve ? "cancelled" : "published";
 
-  const { data: eventDetail, error } = await supabase
+  const { data: eventDetail, error } = await createAdminClient()
     .from("events")
     .update({ lifecycle_status: newStatus })
     .eq("event_id", eventId)

@@ -16,6 +16,7 @@ const LABELS: Record<string, string> = {
   "touch-pay": "対面タッチ決済",
   qr: "QR管理",
   invitations: "招待管理",
+  directory: "照会",
   profile: "プロフィール",
   payout: "出金管理",
   collection: "コレクション",
@@ -47,6 +48,7 @@ function dynamicLabel(prev: string): string {
     case "qr": return "QR詳細";
     case "connect-review": return "審査詳細";
     case "documents": return "調印済み文書";
+    case "directory": return "プロフィール照会";
     default: return "詳細";
   }
 }

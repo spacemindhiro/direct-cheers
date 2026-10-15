@@ -339,10 +339,20 @@ export function EventCreateForm({
         {error && <p className="text-sm text-red-400 font-bold">{error}</p>}
       </div>
 
+      {/* 作成直後は下書きで、出演者にもまだ何も届かないことを押す前に伝える */}
+      <div className="mt-6 bg-sky-500/10 border border-sky-500/30 rounded-2xl px-5 py-4 space-y-1.5">
+        <p className="text-xs font-black text-sky-300 tracking-widest">作成すると下書きとして保存されます</p>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          {isProxy
+            ? "この時点では、主催者にも出演者にも何も届きません。イベント画面の「主催者に確認を依頼する」で主催者に確認を依頼し、主催者が承認依頼を送った時点で、出演者に出演依頼が届きます。"
+            : "この時点では、出演者に出演依頼は届きません。イベント画面で内容を確認して「エージェントに承認依頼を送る」を押した時点で、出演者に出演依頼が届きます。"}
+        </p>
+      </div>
+
       <button
         type="submit"
         disabled={isPending || endBeforeStart}
-        className="mt-6 w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
+        className="mt-4 w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>イベントを作成 <ArrowRight size={18} /></>}
       </button>

@@ -38,9 +38,7 @@ export function isStepUpFresh(cookieValue: string | undefined, now = Date.now())
 
 /**
  * 照会画面の閲覧者判定。ページとAPIで必ずこれを通す。
- * ロールが organizer 以上でも審査未了（status≠active）の間は見せない
- * （ロール付与と承認は別タイミングで、審査待ちのorganizer等が実在する）。
- * adminはオーナー本人のため status を問わない。
+ * 判定はロールのみ。登録手続きの進捗（status＝口座開設等）は利用可否に関係しない。
  */
 export async function resolveDirectoryViewer(
   admin: SupabaseClient,
@@ -48,12 +46,11 @@ export async function resolveDirectoryViewer(
 ): Promise<{ role: string } | null> {
   const { data: me } = await admin
     .from("profiles")
-    .select("role, status")
+    .select("role")
     .eq("profile_id", userId)
     .is("deleted_at", null)
     .maybeSingle();
   if (!me || !canViewDirectory(me.role)) return null;
-  if (me.role !== "admin" && me.status !== "active") return null;
   return { role: me.role };
 }
 

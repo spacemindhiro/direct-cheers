@@ -875,8 +875,8 @@ async function DashboardContent() {
         </Link>
       )}
 
-      {/* 照会（organizer はアーティストのみ、agent/admin はオーガナイザーも検索可）。審査未了には出さない（lib/directory.ts の判定と同じ） */}
-      {(profile?.role === 'admin' || (['agent', 'organizer'].includes(profile?.role ?? '') && profile?.status === 'active')) && (
+      {/* 照会（organizer はアーティストのみ、agent/admin はオーガナイザーも検索可） */}
+      {['admin', 'agent', 'organizer'].includes(profile?.role ?? '') && (
         <Link
           href="/dashboard/directory"
           className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"

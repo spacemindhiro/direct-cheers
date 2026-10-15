@@ -351,15 +351,37 @@ describe("TC-DIRECTORY-G: ステップアップ認証（APIを直接叩かれて
 });
 
 describe("TC-DIRECTORY-H: 閲覧者の状態", () => {
-  it.each(["pendingOrganizer", "pendingAgent", "deletedOrganizer"] as const)(
-    "TC-DIRECTORY-H-01: %s（ロールは organizer 以上だが審査未了/退会）は検索・詳細とも403",
+  it.each(["pendingOrganizer", "pendingAgent"] as const)(
+    "TC-DIRECTORY-H-01: %s（登録手続き中）でもロールどおり利用できる",
     async (viewer) => {
-      const r = await search(ids[viewer], "artist", MARK);
-      expect(r.status).toBe(403);
+      const r = await search(ids[viewer], "artist", `芸名${MARK}`);
+      expect(r.status).toBe(200);
+      expect(r.body.results.map((x: { profile_id: string }) => x.profile_id)).toEqual([ids.artist]);
       const d = await detail(ids[viewer], ids.artist);
-      expect(d.status).toBe(403);
+      expect(d.status).toBe(200);
     },
   );
+
+  it("TC-DIRECTORY-H-01b: 登録手続き中の agent も口座状況まで見える（ロールで決まる）", async () => {
+    const d = await detail(ids.pendingAgent, ids.artist);
+    expect(d.body.profile.internal.account.chargeback_count).toBe(2);
+    const o = await search(ids.pendingAgent, "organizer", `主催名${MARK}`);
+    expect(o.status).toBe(200);
+  });
+
+  it("TC-DIRECTORY-H-01c: 登録手続き中の organizer はオーガナイザー検索不可・口座状況なし（ロールどおり）", async () => {
+    const o = await search(ids.pendingOrganizer, "organizer", `主催名${MARK}`);
+    expect(o.status).toBe(403);
+    const d = await detail(ids.pendingOrganizer, ids.artist);
+    expect(d.body.profile.internal).toBe(null);
+  });
+
+  it("TC-DIRECTORY-H-01d: 退会済みの organizer は検索・詳細とも403", async () => {
+    const r = await search(ids.deletedOrganizer, "artist", MARK);
+    expect(r.status).toBe(403);
+    const d = await detail(ids.deletedOrganizer, ids.artist);
+    expect(d.status).toBe(403);
+  });
 
   it("TC-DIRECTORY-H-02: 登録手続き中の organizer/agent も照会される側としては検索に出る（退会者は出ない）", async () => {
     const r = await search(ids.admin, "organizer", `審査待ち`);

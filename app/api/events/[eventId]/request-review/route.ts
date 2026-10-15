@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendApprovalRequestEmail } from "@/lib/email/notification";
+import { findUnsentLineupInvites, sendLineupInvites } from "@/lib/lineup-invite";
 
 export async function POST(
   _req: Request,
@@ -44,6 +45,19 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // 下書きの間に「出演依頼予定」として登録された出演者へ、ここでまとめて出演依頼を送る
+  try {
+    const admin = createAdminClient();
+    const unsent = await findUnsentLineupInvites(admin, eventId);
+    await sendLineupInvites(admin, {
+      eventId,
+      eventTitle: event.title,
+      organizerId: event.organizer_profile_id,
+      messageSenderId: user.id,
+      invites: unsent,
+    });
+  } catch { /* 出演依頼の失敗で承認依頼は止めない */ }
 
   // エージェントへ承認依頼通知 + メール
   try {

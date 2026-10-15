@@ -8,6 +8,8 @@ import { EventEndButton } from "@/components/event-end-button";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
 import { EventRequestReviewButton } from "@/components/event-request-review-button";
+import { EventProxyNotifyButton } from "@/components/event-proxy-notify-button";
+import { findUnsentLineupInvites } from "@/lib/lineup-invite";
 import { EventDeleteButton } from "@/components/event-delete-button";
 import { EventCancelButton } from "@/components/event-cancel-button";
 import { EventCancelApproveButton } from "@/components/event-cancel-approve-button";
@@ -106,6 +108,21 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   }
   const canRequestReview = isEventOrganizer && event.lifecycle_status === "draft";
   const isSelfOrganized = event.agent_id === event.organizer_profile_id;
+  // 担当エージェント（またはadmin）が主催者名義の下書きを主催者に送る（代理作成の確認依頼）
+  const canProxyNotify = (isEventAgent || isAdmin) && event.lifecycle_status === "draft" &&
+    !isSelfOrganized && event.organizer_profile_id !== user.id;
+  const { data: lastProxyNotif } = canProxyNotify
+    ? await adminClient.from("notifications").select("created_at")
+        .eq("profile_id", event.organizer_profile_id).eq("type", "proxy_event_created")
+        .filter("metadata->>event_id", "eq", eventId)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle()
+    : { data: null };
+  // 下書きの間に登録され、まだ出演依頼を送っていない出演者（承認依頼を送った時点でまとめて送る）
+  const unsentLineupIds = new Set(
+    (isEventOrganizer || isEventAgent || isAdmin)
+      ? (await findUnsentLineupInvites(adminClient, eventId)).map((u) => u.artist_profile_id)
+      : [],
+  );
   const canApprove = (isEventAgent || isAdmin) && event.lifecycle_status === "review_requested" &&
     (!isSelfOrganized || isAdmin);
   const canCreateQR = (isEventOrganizer || isEventAgent) &&
@@ -226,6 +243,22 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         )}
       </div>
 
+      {/* 承認依頼ボタン（オーガナイザー）。下書きの間は最初に目に入る位置に出す */}
+      {canRequestReview && (
+        <div className="bg-pink-500/10 border border-pink-500/40 rounded-[1.5rem] px-5 py-4 space-y-3">
+          <p className="text-sm text-slate-200 leading-relaxed">
+            このイベントはまだ下書きです。内容を確認して、よければ下のボタンを押してください。担当エージェントが承認すると公開されます。
+            {unsentLineupIds.size > 0 && "「依頼予定」の出演者には、このボタンを押した時点で出演依頼が届きます。"}
+          </p>
+          <EventRequestReviewButton eventId={eventId} />
+        </div>
+      )}
+
+      {/* 代理作成の下書きを主催者に送る（担当エージェント） */}
+      {canProxyNotify && (
+        <EventProxyNotifyButton eventId={eventId} lastSentAt={lastProxyNotif?.created_at ?? null} />
+      )}
+
       <EventDetailTabs
         overview={<>
       {/* 出演アーティスト */}
@@ -240,6 +273,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] divide-y divide-slate-800">
               {visibleArtists.map((ea: any) => {
                 const isConfirmed = ea.status === "confirmed";
+                const isPlanned = unsentLineupIds.has(ea.artist_profile_id);
                 return (
                   <div key={ea.artist_profile_id} className="flex items-center justify-between px-5 py-3.5">
                     <div className="flex items-center gap-3">
@@ -263,9 +297,11 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
                     <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
                       isConfirmed
                         ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                        : "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                        : isPlanned
+                          ? "text-slate-300 bg-slate-500/10 border-slate-500/30"
+                          : "text-amber-400 bg-amber-500/10 border-amber-500/20"
                     }`}>
-                      {isConfirmed ? "出演確定" : "交渉中"}
+                      {isConfirmed ? "出演確定" : isPlanned ? "依頼予定" : "交渉中"}
                     </span>
                   </div>
                 );
@@ -328,9 +364,6 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
           enabled={(event as any).paypay_enabled ?? false}
         />
       )}
-
-      {/* 承認依頼ボタン（オーガナイザー） */}
-      {canRequestReview && <EventRequestReviewButton eventId={eventId} />}
 
       {/* 削除ボタン（承認前のみ、イベント作成者本人。agentが自分のイベントを作った場合もここに含まれる） */}
       {user.id === event.organizer_profile_id && ["draft", "review_requested"].includes(event.lifecycle_status) && (

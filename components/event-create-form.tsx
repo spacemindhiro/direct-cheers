@@ -8,13 +8,20 @@ import { VenueSelect } from "@/components/venue-select";
 import { ArrowRight, Loader2, Music, Search, X, Plus } from "lucide-react";
 
 type Artist = { profile_id: string; display_name: string };
+type OrganizerOption = { profile_id: string; name: string };
 
 export function EventCreateForm({
   connectedArtists,
+  organizerOptions = [],
+  proxyOrganizerId = null,
 }: {
   connectedArtists: Artist[];
+  // エージェント/admin のみ：主催者名義で代理作成できる主催者の一覧
+  organizerOptions?: OrganizerOption[];
+  proxyOrganizerId?: string | null;
 }) {
   const router = useRouter();
+  const isProxy = !!proxyOrganizerId;
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [selectedArtists, setSelectedArtists] = useState<Artist[]>([]);
@@ -86,9 +93,9 @@ export function EventCreateForm({
           end_at: jstLocalToUtcIso(end_at),
           artists: selectedArtists.map((a) => ({
             profile_id: a.profile_id,
-            invite_message: artistMessages[a.profile_id] || null,
+            invite_message: isProxy ? null : artistMessages[a.profile_id] || null,
           })),
-
+          organizer_profile_id: proxyOrganizerId,
         }),
       });
       const data = await res.json();
@@ -103,6 +110,33 @@ export function EventCreateForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 space-y-6">
+
+        {organizerOptions.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+              主催者
+            </label>
+            <select
+              value={proxyOrganizerId ?? ""}
+              onChange={(e) => {
+                // 主催者ごとにコネクション済みアーティストが違うため、ページを読み直す
+                const v = e.target.value;
+                router.replace(v ? `/dashboard/events/create?organizer=${v}` : "/dashboard/events/create");
+              }}
+              className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
+            >
+              <option value="">自分（自主開催）</option>
+              {organizerOptions.map((o) => (
+                <option key={o.profile_id} value={o.profile_id}>{o.name}</option>
+              ))}
+            </select>
+            {isProxy && (
+              <p className="text-xs text-slate-400 leading-relaxed">
+                主催者の名義で下書きを作成します。作成しただけでは主催者には届きません。内容が整ったら、イベント画面の「主催者に確認を依頼する」で主催者にメールを送ってください。
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
@@ -165,6 +199,9 @@ export function EventCreateForm({
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
             <Music size={11} className="text-pink-500" /> 出演アーティスト
           </label>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            下書きの間は「依頼予定」です。主催者がエージェントに承認依頼を送った時点で、出演依頼が届きます。
+          </p>
 
           {/* 選択済みアーティスト + メッセージ入力 */}
           {selectedArtists.length > 0 && (
@@ -188,7 +225,7 @@ export function EventCreateForm({
                         <X size={13} />
                       </button>
                     </div>
-                    <textarea
+                    {!isProxy && <textarea
                       value={artistMessages[a.profile_id] ?? ""}
                       onChange={(e) =>
                         setArtistMessages((prev) => ({ ...prev, [a.profile_id]: e.target.value }))
@@ -196,7 +233,7 @@ export function EventCreateForm({
                       placeholder={`${a.display_name} への依頼メッセージ（任意）`}
                       rows={2}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:border-pink-500 outline-none resize-none"
-                    />
+                    />}
                   </div>
                 );
               })}
@@ -302,10 +339,20 @@ export function EventCreateForm({
         {error && <p className="text-sm text-red-400 font-bold">{error}</p>}
       </div>
 
+      {/* 作成直後は下書きで、出演者にもまだ何も届かないことを押す前に伝える */}
+      <div className="mt-6 bg-sky-500/10 border border-sky-500/30 rounded-2xl px-5 py-4 space-y-1.5">
+        <p className="text-xs font-black text-sky-300 tracking-widest">作成すると下書きとして保存されます</p>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          {isProxy
+            ? "この時点では、主催者にも出演者にも何も届きません。イベント画面の「主催者に確認を依頼する」で主催者に確認を依頼し、主催者が承認依頼を送った時点で、出演者に出演依頼が届きます。"
+            : "この時点では、出演者に出演依頼は届きません。イベント画面で内容を確認して「エージェントに承認依頼を送る」を押した時点で、出演者に出演依頼が届きます。"}
+        </p>
+      </div>
+
       <button
         type="submit"
         disabled={isPending || endBeforeStart}
-        className="mt-6 w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
+        className="mt-4 w-full h-16 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-[0_0_30px_rgba(236,72,153,0.3)] active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>イベントを作成 <ArrowRight size={18} /></>}
       </button>

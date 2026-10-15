@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
 import { sendApprovalRequestEmail } from "@/lib/email/notification";
 import { findUnsentLineupInvites, sendLineupInvites } from "@/lib/lineup-invite";
 
@@ -31,6 +32,10 @@ export async function POST(
 
   if (event.organizer_profile_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  // 代理作成でまだ主催者に送っていない下書きは、主催者からは存在しない扱い
+  if (await isProxyDraftHiddenFrom(createAdminClient(), eventId, user.id)) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
   if (event.lifecycle_status !== "draft") {

@@ -2,6 +2,8 @@ import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { hiddenProxyDraftIds } from "@/lib/proxy-draft";
 import { Loader2, Plus, Calendar, MapPin } from "lucide-react";
 import Link from "next/link";
 import { ListPager } from "@/components/list-pager";
@@ -75,14 +77,22 @@ async function EventsContent({
   // artist: 自分が出演するイベント / admin: 全件（events_select ポリシー）
   // 全件取得すると PostgREST の 1000件上限で古いものが黙って切り捨てられるため、
   // 必ず .range() でページングする（cron/reconcile と同じ理由）。
-  const listQuery = supabase
+  // 代理作成でまだ主催者に送っていない下書きは、主催者の一覧には出さない
+  const hiddenIds = profile?.role === "admin" ? [] : await hiddenProxyDraftIds(createAdminClient(), user.id);
+  const hiddenFilter = `(${hiddenIds.join(",")})`;
+
+  let listQuery = supabase
     .from("events")
     .select(EVENT_COLUMNS, { count: "exact" })
     .is("deleted_at", null);
-  const otherCountQuery = supabase
+  let otherCountQuery = supabase
     .from("events")
     .select("event_id", { count: "exact", head: true })
     .is("deleted_at", null);
+  if (hiddenIds.length > 0) {
+    listQuery = listQuery.not("event_id", "in", hiddenFilter);
+    otherCountQuery = otherCountQuery.not("event_id", "in", hiddenFilter);
+  }
 
   const [{ data: events, count: shownCount }, { count: otherCount }] = await Promise.all([
     (tab === "past"

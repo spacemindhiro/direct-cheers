@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
 
 // フォールバック（product_type_configs が取得できなかった場合）
 const PRODUCT_TYPE_FALLBACK: Record<string, { min: number; max: number; label: string }> = {
@@ -112,6 +113,11 @@ export async function POST(req: Request) {
   const { data: me } = await supabase.from("profiles").select("role").eq("profile_id", user.id).single();
   if (event.organizer_profile_id !== user.id && event.agent_id !== user.id && me?.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  // 代理作成でまだ主催者に送っていない下書きは、主催者からは存在しない扱い
+  if (event.agent_id !== user.id && me?.role !== "admin" &&
+      await isProxyDraftHiddenFrom(createAdminClient(), event.event_id, user.id)) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
   // 有効期間バイパスはadmin限定

@@ -9,6 +9,7 @@
  *   B. 権限・対象チェック（他エージェントの主催者／オーガナイザー／対象ロール・状態）
  *   C. 出演依頼（依頼メッセージを主催者名義で送らない・スレッドは主催者と出演者）
  *   D. 代理作成後のライフサイクル（申請は主催者本人のみ → 承認で公開）
+ *   E. proxy-notify（下書きを主催者に送る：担当エージェント/adminのみ・下書きのみ・再送可）
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { insertProfile, deleteAuthUsers } from "../helpers/seed";
@@ -36,6 +37,7 @@ import { sendProxyEventCreatedEmail } from "@/lib/email/notification";
 import { POST as createPOST } from "@/app/api/events/create/route";
 import { POST as requestReviewPOST } from "@/app/api/events/[eventId]/request-review/route";
 import { POST as approvePOST } from "@/app/api/events/[eventId]/approve/route";
+import { POST as proxyNotifyPOST } from "@/app/api/events/[eventId]/proxy-notify/route";
 
 let adminProfileId: string;
 let agentProfileId: string;
@@ -134,31 +136,17 @@ describe("TC-PROXY-CREATE-A: 代理作成の正常系", () => {
     expect(ev?.title).toBe(title);
   });
 
-  it("A-02: 主催者に proxy_event_created 通知が1件・メールが1回（宛先とイベント一致）", async () => {
+  it("A-02: 作成しただけでは主催者に通知もメールも届かない（下書き）", async () => {
     mockAs(agentProfileId, "agent");
-    const title = `代理作成A02-${Date.now()}`;
-    const res = await createPOST(createReq({ title, organizer_profile_id: organizerProfileId }));
+    const res = await createPOST(createReq({ title: `代理作成A02-${Date.now()}`, organizer_profile_id: organizerProfileId }));
     const { event_id } = await res.json();
+    expect(res.status).toBe(200);
     cleanup.eventIds.push(event_id);
 
-    const { data: notifs } = await testAdmin.from("notifications")
-      .select("profile_id, type, title, metadata, is_read")
-      .filter("metadata->>event_id", "eq", event_id);
-    expect(notifs?.length).toBe(1);
-    expect(notifs?.[0].profile_id).toBe(organizerProfileId);
-    expect(notifs?.[0].type).toBe("proxy_event_created");
-    expect(notifs?.[0].title).toBe(`「${title}」の内容を確認してください`);
-    expect(notifs?.[0].metadata.created_by).toBe(agentProfileId);
-    expect(notifs?.[0].is_read).toBe(false);
-
-    const { data: authUser } = await testAdmin.auth.admin.getUserById(organizerProfileId);
-    expect(vi.mocked(sendProxyEventCreatedEmail)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(sendProxyEventCreatedEmail).mock.calls[0][0]).toEqual({
-      to: authUser.user!.email,
-      eventId: event_id,
-      eventTitle: title,
-      creatorName: "担当エージェント（代理作成）",
-    });
+    const { count } = await testAdmin.from("notifications").select("notification_id", { count: "exact", head: true })
+      .eq("profile_id", organizerProfileId).filter("metadata->>event_id", "eq", event_id);
+    expect(count).toBe(0);
+    expect(vi.mocked(sendProxyEventCreatedEmail)).toHaveBeenCalledTimes(0);
   });
 
   it("A-03: admin が代理作成 → 担当は主催者の responsible_agent_id（admin 自身ではない）", async () => {
@@ -304,5 +292,88 @@ describe("TC-PROXY-CREATE-D: 申請は主催者本人 → 承認で公開", () =
     expect(res.status).toBe(200);
     const { data: ev } = await testAdmin.from("events").select("lifecycle_status").eq("event_id", eventId).single();
     expect(ev?.lifecycle_status).toBe("published");
+  });
+});
+
+// ── E. proxy-notify ───────────────────────────────────────────────
+describe("TC-PROXY-CREATE-E: 下書きを主催者に送る（proxy-notify）", () => {
+  let draftId: string;
+  const notify = (id: string) => proxyNotifyPOST(new Request("http://localhost", { method: "POST" }), { params: Promise.resolve({ eventId: id }) });
+  const notifCount = async (id: string) => (await testAdmin.from("notifications").select("notification_id", { count: "exact", head: true })
+    .eq("profile_id", organizerProfileId).eq("type", "proxy_event_created").filter("metadata->>event_id", "eq", id)).count;
+
+  beforeAll(async () => {
+    mockAs(agentProfileId, "agent");
+    const res = await createPOST(createReq({ title: `代理作成E-${Date.now()}`, organizer_profile_id: organizerProfileId }));
+    draftId = (await res.json()).event_id;
+    cleanup.eventIds.push(draftId);
+  });
+
+  it("E-01: 他エージェント → 403・通知なし", async () => {
+    mockAs(otherAgentProfileId, "agent");
+    const res = await notify(draftId);
+    expect(res.status).toBe(403);
+    expect(await notifCount(draftId)).toBe(0);
+  });
+
+  it("E-02: 主催者本人 → 403・通知なし", async () => {
+    mockAs(organizerProfileId, "organizer");
+    const res = await notify(draftId);
+    expect(res.status).toBe(403);
+    expect(await notifCount(draftId)).toBe(0);
+  });
+
+  it("E-03: 担当エージェント → 主催者に通知1件・メール1回（宛先・内容一致）", async () => {
+    mockAs(agentProfileId, "agent");
+    const res = await notify(draftId);
+    expect(res.status).toBe(200);
+    expect(await notifCount(draftId)).toBe(1);
+
+    const { data: ev } = await testAdmin.from("events").select("title").eq("event_id", draftId).single();
+    const { data: n } = await testAdmin.from("notifications").select("title, metadata")
+      .eq("type", "proxy_event_created").filter("metadata->>event_id", "eq", draftId).single();
+    expect(n?.title).toBe(`「${ev!.title}」の内容を確認してください`);
+    expect(n?.metadata.created_by).toBe(agentProfileId);
+    const { data: authUser } = await testAdmin.auth.admin.getUserById(organizerProfileId);
+    expect(vi.mocked(sendProxyEventCreatedEmail)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendProxyEventCreatedEmail).mock.calls[0][0]).toEqual({
+      to: authUser.user!.email,
+      eventId: draftId,
+      eventTitle: ev!.title,
+      creatorName: "担当エージェント（代理作成）",
+    });
+  });
+
+  it("E-04: 再送 → 通知が2件目になる・メールも再送", async () => {
+    mockAs(agentProfileId, "agent");
+    const res = await notify(draftId);
+    expect(res.status).toBe(200);
+    expect(await notifCount(draftId)).toBe(2);
+    expect(vi.mocked(sendProxyEventCreatedEmail)).toHaveBeenCalledTimes(1);
+  });
+
+  it("E-05: admin も送れる", async () => {
+    mockAs(adminProfileId, "admin");
+    const res = await notify(draftId);
+    expect(res.status).toBe(200);
+    expect(await notifCount(draftId)).toBe(3);
+  });
+
+  it("E-06: 下書きでない（承認待ち）→ 400・通知増えない", async () => {
+    await testAdmin.from("events").update({ lifecycle_status: "review_requested" }).eq("event_id", draftId);
+    mockAs(agentProfileId, "agent");
+    const res = await notify(draftId);
+    expect(res.status).toBe(400);
+    expect(await notifCount(draftId)).toBe(3);
+  });
+
+  it("E-07: 自主開催（主催者＝担当）→ 400", async () => {
+    mockAs(agentProfileId, "agent");
+    const res0 = await createPOST(createReq({ title: `代理作成E07-${Date.now()}` }));
+    const selfId = (await res0.json()).event_id;
+    cleanup.eventIds.push(selfId);
+    const res = await notify(selfId);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("自主開催のイベントです");
   });
 });

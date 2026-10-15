@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendLineupInviteEmail, sendProxyEventCreatedEmail } from "@/lib/email/notification";
+import { sendLineupInviteEmail } from "@/lib/email/notification";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -180,35 +180,8 @@ export async function POST(req: Request) {
     } catch { /* notifications テーブルがなければスキップ */ }
   }
 
-  // 代理作成：主催者に「内容を確認して申請してください」を通知（ダッシュボードのバナー＋メール）
-  if (isProxy) {
-    try {
-      const admin = createAdminClient();
-      const { data: creator } = await admin
-        .from("profiles")
-        .select("display_name, organizer_name")
-        .eq("profile_id", user.id)
-        .single();
-      const creatorName = creator?.organizer_name ?? creator?.display_name ?? "担当エージェント";
-      await admin.from("notifications").insert({
-        profile_id: organizerId,
-        type: "proxy_event_created",
-        title: `「${title}」の内容を確認してください`,
-        body: `${creatorName} さんがイベントを作成しました。内容を確認して承認依頼を送ってください。`,
-        metadata: { event_id: event.event_id, created_by: user.id },
-      });
-      const { data: authUser } = await admin.auth.admin.getUserById(organizerId);
-      const email = authUser.user?.email;
-      if (email) {
-        sendProxyEventCreatedEmail({
-          to: email,
-          eventId: event.event_id,
-          eventTitle: title,
-          creatorName,
-        }).catch(() => {});
-      }
-    } catch { /* 通知失敗は非致死的 */ }
-  }
+  // 代理作成では主催者にはまだ何も送らない。エージェントが下書きを整えてから
+  // /api/events/[eventId]/proxy-notify で主催者に確認を依頼する
 
   // フォロワー通知（new_event / artist_appearing）はエージェント承認時に送る
 

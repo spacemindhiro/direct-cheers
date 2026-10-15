@@ -132,7 +132,7 @@ export function EventCreateForm({
             </select>
             {isProxy && (
               <p className="text-xs text-slate-400 leading-relaxed">
-                主催者の名義で下書きを作成します。主催者にメールで通知が届き、主催者が内容を確認して承認依頼を送ると、承認できるようになります。
+                主催者の名義で下書きを作成します。作成しただけでは主催者には届きません。内容が整ったら、イベント画面の「主催者に確認を依頼する」で主催者にメールを送ってください。
               </p>
             )}
           </div>

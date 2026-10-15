@@ -8,6 +8,7 @@ import { EventEndButton } from "@/components/event-end-button";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
 import { EventRequestReviewButton } from "@/components/event-request-review-button";
+import { EventProxyNotifyButton } from "@/components/event-proxy-notify-button";
 import { EventDeleteButton } from "@/components/event-delete-button";
 import { EventCancelButton } from "@/components/event-cancel-button";
 import { EventCancelApproveButton } from "@/components/event-cancel-approve-button";
@@ -106,6 +107,15 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   }
   const canRequestReview = isEventOrganizer && event.lifecycle_status === "draft";
   const isSelfOrganized = event.agent_id === event.organizer_profile_id;
+  // 担当エージェント（またはadmin）が主催者名義の下書きを主催者に送る（代理作成の確認依頼）
+  const canProxyNotify = (isEventAgent || isAdmin) && event.lifecycle_status === "draft" &&
+    !isSelfOrganized && event.organizer_profile_id !== user.id;
+  const { data: lastProxyNotif } = canProxyNotify
+    ? await adminClient.from("notifications").select("created_at")
+        .eq("profile_id", event.organizer_profile_id).eq("type", "proxy_event_created")
+        .filter("metadata->>event_id", "eq", eventId)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle()
+    : { data: null };
   const canApprove = (isEventAgent || isAdmin) && event.lifecycle_status === "review_requested" &&
     (!isSelfOrganized || isAdmin);
   const canCreateQR = (isEventOrganizer || isEventAgent) &&
@@ -234,6 +244,11 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
           </p>
           <EventRequestReviewButton eventId={eventId} />
         </div>
+      )}
+
+      {/* 代理作成の下書きを主催者に送る（担当エージェント） */}
+      {canProxyNotify && (
+        <EventProxyNotifyButton eventId={eventId} lastSentAt={lastProxyNotif?.created_at ?? null} />
       )}
 
       <EventDetailTabs

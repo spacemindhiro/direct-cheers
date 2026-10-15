@@ -199,6 +199,9 @@ export function EventCreateForm({
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
             <Music size={11} className="text-pink-500" /> 出演アーティスト
           </label>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            下書きの間は「依頼予定」です。主催者がエージェントに承認依頼を送った時点で、出演依頼が届きます。
+          </p>
 
           {/* 選択済みアーティスト + メッセージ入力 */}
           {selectedArtists.length > 0 && (

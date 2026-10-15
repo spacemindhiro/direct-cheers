@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EventEditForm } from "@/components/event-edit-form";
+import { findUnsentLineupInvites } from "@/lib/lineup-invite";
 import { utcIsoToJstLocal } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -46,10 +47,12 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
     .is("deleted_at", null)
     .neq("status", "rejected");
 
+  // まだ出演依頼を送っていない（下書きの間に登録した）出演者は「依頼予定」
+  const unsentIds = new Set((await findUnsentLineupInvites(admin, eventId)).map((u) => u.artist_profile_id));
   const currentArtists = (eventArtists ?? []).map((ea: any) => ({
     profile_id: ea.artist_profile_id,
     display_name: (ea.artist as any)?.artist_name ?? (ea.artist as any)?.display_name ?? "Unknown",
-    status: ea.status as string,
+    status: unsentIds.has(ea.artist_profile_id) ? "planned" : (ea.status as string),
   }));
 
   // コネクション済みアーティスト

@@ -222,9 +222,9 @@ describe("TC-PROXY-CREATE-B: 権限・対象チェック（イベントは作ら
   });
 });
 
-// ── C. 出演依頼 ───────────────────────────────────────────────────
-describe("TC-PROXY-CREATE-C: 代理作成時の出演依頼", () => {
-  it("C-01: 依頼メッセージは保存・送信せず、スレッド参加者は主催者と出演者", async () => {
+// ── C. 出演依頼（下書きの間は「依頼予定」） ─────────────────────────────
+describe("TC-PROXY-CREATE-C: 代理作成時の出演者は依頼予定（何も送らない）", () => {
+  it("C-01: 出演行は pending・依頼メッセージは保存しない・スレッドも通知も作らない", async () => {
     mockAs(agentProfileId, "agent");
     const res = await createPOST(createReq({
       title: `代理作成C01-${Date.now()}`,
@@ -242,20 +242,12 @@ describe("TC-PROXY-CREATE-C: 代理作成時の出演依頼", () => {
     expect(eas?.[0].status).toBe("pending");
     expect(eas?.[0].invite_message).toBe(null);
 
-    const { data: conv } = await testAdmin.from("conversations").select("conversation_id")
-      .eq("event_artist_id", eas![0].event_artist_id).single();
-    const { data: parts } = await testAdmin.from("conversation_participants").select("profile_id")
-      .eq("conversation_id", conv!.conversation_id);
-    expect((parts ?? []).map((p) => p.profile_id).sort()).toEqual([organizerProfileId, artistProfileId].sort());
-    const { count: msgCount } = await testAdmin.from("messages").select("message_id", { count: "exact", head: true })
-      .eq("conversation_id", conv!.conversation_id);
-    expect(msgCount).toBe(0);
-
-    // 出演依頼の通知は主催者名義（屋号）
-    const { data: lineupNotif } = await testAdmin.from("notifications").select("body, metadata")
-      .eq("profile_id", artistProfileId).eq("type", "lineup_invite").filter("metadata->>event_id", "eq", event_id).single();
-    expect(lineupNotif?.metadata.organizer_id).toBe(organizerProfileId);
-    expect(lineupNotif?.body.startsWith("主催者屋号 から")).toBe(true);
+    const { count: convCount } = await testAdmin.from("conversations").select("conversation_id", { count: "exact", head: true })
+      .eq("event_artist_id", eas![0].event_artist_id);
+    expect(convCount).toBe(0);
+    const { count: notifCount } = await testAdmin.from("notifications").select("notification_id", { count: "exact", head: true })
+      .eq("profile_id", artistProfileId).eq("type", "lineup_invite").filter("metadata->>event_id", "eq", event_id);
+    expect(notifCount).toBe(0);
   });
 });
 

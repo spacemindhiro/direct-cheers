@@ -412,6 +412,20 @@ async function DashboardContent() {
   const pendingCancellationCount = cancelCountResult.count ?? 0;
 
   const now = new Date().toISOString();
+  // 下書きのイベントで、まだ出演依頼の通知が来ていないもの（主催者側の「依頼予定」）は出演者に見せない
+  const draftLineupEventIds = isPerformerRole
+    ? ((lineupResult.data as any[]) ?? []).filter((r) => r.status === 'pending' && r.event?.lifecycle_status === 'draft').map((r) => r.event_id as string)
+    : [];
+  const invitedDraftEventIds = new Set<string>();
+  if (draftLineupEventIds.length > 0) {
+    const { data: invitedNotifs } = await admin.from('notifications').select('metadata')
+      .eq('profile_id', user!.id).eq('type', 'lineup_invite')
+      .in('metadata->>event_id', draftLineupEventIds);
+    for (const n of (invitedNotifs ?? []) as { metadata: any }[]) {
+      if (n.metadata?.event_id) invitedDraftEventIds.add(n.metadata.event_id);
+    }
+  }
+
   const lineupInvites: {
     event_artist_id: string;
     event_id: string;
@@ -425,6 +439,7 @@ async function DashboardContent() {
         // イベント削除・中止処理はevent_artists側を連動更新しないため、ここで
         // JOIN先イベントの状態を見て除外しないと「出演予定」に残り続けてしまう
         .filter((r) => !(r.event?.deleted_at || r.event?.lifecycle_status === 'cancelled'))
+        .filter((r) => !(r.status === 'pending' && r.event?.lifecycle_status === 'draft' && !invitedDraftEventIds.has(r.event_id)))
         .filter((r) => r.status === 'pending' || (r.status === 'confirmed' && (!r.event?.end_at || r.event.end_at > now)))
         .map((r) => ({
           event_artist_id: r.event_artist_id,

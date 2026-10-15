@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // 照会画面（/dashboard/directory）のコアロジック。
+// 照会される側は登録手続き（Stripe口座開設・規約同意・面談）の途中でも検索・照会できる。
+// 口座開設が終わっていないだけで見えなくなると業務上困るため、status では絞らない。
 // 閲覧者のロールで「検索できる相手」と「見える項目」を出し分ける。
 //   organizer : アーティストのみ検索可。公開プロフィール項目のみ
 //   agent/admin: アーティスト・オーガナイザーとも検索可。実績・口座状況も見える
@@ -128,7 +130,6 @@ export async function searchDirectory(
     .from("profiles")
     .select(PUBLIC_COLUMNS)
     .in("role", TARGET_ROLES[params.type])
-    .eq("status", "active")
     .is("deleted_at", null)
     .neq("profile_id", params.viewerId)
     .or(searchColumns.map((c) => `${c}.ilike.${pattern}`).join(","))
@@ -166,6 +167,8 @@ export type DirectoryProfile = {
   social_links: { instagram?: string; soundcloud?: string; website?: string };
   // agent/admin のみ。organizer には null で返し、値自体をクライアントに渡さない
   internal: {
+    // 登録手続きの進み具合（pending_onboarding→pending_terms→pending_interview→active）
+    registration_status: string;
     account: {
       has_connect_account: boolean;
       verification_status: string;
@@ -215,7 +218,6 @@ export async function getDirectoryProfile(
     .select(PUBLIC_COLUMNS)
     .eq("profile_id", params.profileId)
     .in("role", targetRoles)
-    .eq("status", "active")
     .is("deleted_at", null)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -245,7 +247,7 @@ export async function getDirectoryProfile(
     await Promise.all([
       admin
         .from("profiles")
-        .select("stripe_connect_id, verification_status, stripe_restricted, balance_frozen, chargeback_count")
+        .select("status, stripe_connect_id, verification_status, stripe_restricted, balance_frozen, chargeback_count")
         .eq("profile_id", p.profile_id)
         .single(),
       admin
@@ -284,6 +286,7 @@ export async function getDirectoryProfile(
   return {
     ...profile,
     internal: {
+      registration_status: acct.status,
       account: {
         has_connect_account: !!acct.stripe_connect_id,
         verification_status: acct.verification_status,

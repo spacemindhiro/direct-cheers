@@ -20,6 +20,14 @@ const LIFECYCLE_LABELS: Record<string, string> = {
   settled: "精算済み",
 };
 
+const REGISTRATION_LABELS: Record<string, { label: string; className: string }> = {
+  pending_onboarding: { label: "Stripe未完了", className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
+  pending_terms: { label: "規約未同意", className: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
+  pending_interview: { label: "面談待ち", className: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
+  active: { label: "承認済み", className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+  rejected: { label: "却下", className: "text-red-400 bg-red-500/10 border-red-500/20" },
+};
+
 const VERIFICATION_LABELS: Record<string, { label: string; className: string }> = {
   unverified: { label: "未申請", className: "text-slate-400 bg-slate-500/10 border-slate-500/20" },
   pending: { label: "審査中", className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
@@ -142,6 +150,15 @@ async function DirectoryDetailContent({ params }: { params: Promise<{ profileId:
               <CreditCard size={14} className="text-indigo-400" /> 口座状況
             </h2>
             <div className="bg-slate-900 border border-slate-800 rounded-[1.5rem] px-5 py-2">
+              <Row
+                label="登録状況"
+                value={(() => {
+                  const r = REGISTRATION_LABELS[p.internal.registration_status];
+                  return r
+                    ? <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border ${r.className}`}>{r.label}</span>
+                    : p.internal.registration_status;
+                })()}
+              />
               <Row label="口座登録" value={p.internal.account.has_connect_account ? "登録あり" : "未登録"} />
               <Row
                 label="口座審査"

@@ -5,12 +5,12 @@
  *
  * カバレッジ:
  *   A. 閲覧権限マトリクス: user/artist は不可、organizer はアーティストのみ、agent/admin は両方
- *   B. 検索対象: 承認済み(active)のみ・上位互換(organizer/agentもアーティスト検索に出る)・
- *      admin/一般ユーザー/未承認/削除済み/自分は出ない
+ *   B. 検索対象: 上位互換(organizer/agentもアーティスト検索に出る)・登録手続き中(Stripe未完了等)も出る・
+ *      admin/一般ユーザー/削除済み/自分は出ない
  *   C. 検索列: artist は artist_name、organizer は organizer_name/organization_name でもヒット
  *   D. 詳細の出し分け: organizer には実績・口座状況を返さない（キー自体が値を持たない）、
  *      agent/admin には返す。実績は出演承諾済み×公開以降のみ
- *   E. 詳細の閲覧不可: 未承認・admin・不正ID は404
+ *   E. 詳細の閲覧不可: 削除済み・一般ユーザー・admin・不正ID は404
  *   F. 入力: 空クエリ・or()構文破壊文字・SNSのjavascript:URL
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -168,14 +168,18 @@ describe("TC-DIRECTORY-A: 閲覧権限マトリクス", () => {
 });
 
 describe("TC-DIRECTORY-B: 検索対象", () => {
-  it("TC-DIRECTORY-B-01: アーティスト検索は active の artist/organizer/agent のみ（上位互換）", async () => {
+  it("TC-DIRECTORY-B-01: アーティスト検索は artist/organizer/agent が出る（上位互換）", async () => {
     const r = await search(ids.organizer, "artist", `対象`);
     const hit = (r.body.results as { profile_id: string }[]).map((x) => x.profile_id).filter((id) => Object.values(ids).includes(id));
     expect(new Set(hit)).toEqual(new Set([ids.artist, ids.orgTarget, ids.agentTarget]));
   });
 
+  it("TC-DIRECTORY-B-01b: 登録手続き中（面談待ち）でも検索に出る（口座状態だけで見えなくしない）", async () => {
+    const r = await search(ids.organizer, "artist", `未承認アーティスト${MARK}`);
+    expect(r.body.results.map((x: { profile_id: string }) => x.profile_id)).toEqual([ids.pendingArtist]);
+  });
+
   it.each([
-    ["pendingArtist", "未承認アーティスト"],
     ["deletedArtist", "削除アーティスト"],
     ["activeUser", "一般アクティブ"],
     ["admin", "閲覧管理者"],
@@ -282,7 +286,6 @@ describe("TC-DIRECTORY-D: 詳細の出し分け", () => {
 
 describe("TC-DIRECTORY-E: 詳細の閲覧不可", () => {
   it.each([
-    ["pendingArtist"],
     ["deletedArtist"],
     ["activeUser"],
     ["admin"],
@@ -358,10 +361,30 @@ describe("TC-DIRECTORY-H: 閲覧者の状態", () => {
     },
   );
 
-  it("TC-DIRECTORY-H-02: 審査待ちの organizer/agent は検索対象にも出ない", async () => {
+  it("TC-DIRECTORY-H-02: 登録手続き中の organizer/agent も照会される側としては検索に出る（退会者は出ない）", async () => {
     const r = await search(ids.admin, "organizer", `審査待ち`);
     const hit = (r.body.results as { profile_id: string }[]).map((x) => x.profile_id).filter((id) => Object.values(ids).includes(id));
-    expect(hit).toEqual([]);
+    expect(new Set(hit)).toEqual(new Set([ids.pendingOrganizer, ids.pendingAgent]));
+    const r2 = await search(ids.admin, "organizer", `退会主催${MARK}`);
+    expect(r2.body.results).toEqual([]);
+  });
+
+  it.each([
+    ["pendingArtist", "pending_interview"],
+    ["pendingOrganizer", "pending_terms"],
+    ["pendingAgent", "pending_onboarding"],
+    ["artist", "active"],
+  ] as const)("TC-DIRECTORY-H-04: agent には %s の登録状況 %s を返す", async (target, expected) => {
+    const d = await detail(ids.agent, ids[target]);
+    expect(d.status).toBe(200);
+    expect(d.body.profile.internal.registration_status).toBe(expected);
+  });
+
+  it("TC-DIRECTORY-H-05: organizer が登録手続き中の相手を照会しても登録状況は返らない", async () => {
+    const d = await detail(ids.organizer, ids.pendingArtist);
+    expect(d.status).toBe(200);
+    expect(d.body.profile.internal).toBe(null);
+    expect(JSON.stringify(d.body).includes("pending_interview")).toBe(false);
   });
 
   it("TC-DIRECTORY-H-03: organizer の詳細レスポンスに口座・実績の値が載らない（agent用データを取得すらしない）", async () => {

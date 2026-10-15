@@ -8,13 +8,20 @@ import { VenueSelect } from "@/components/venue-select";
 import { ArrowRight, Loader2, Music, Search, X, Plus } from "lucide-react";
 
 type Artist = { profile_id: string; display_name: string };
+type OrganizerOption = { profile_id: string; name: string };
 
 export function EventCreateForm({
   connectedArtists,
+  organizerOptions = [],
+  proxyOrganizerId = null,
 }: {
   connectedArtists: Artist[];
+  // エージェント/admin のみ：主催者名義で代理作成できる主催者の一覧
+  organizerOptions?: OrganizerOption[];
+  proxyOrganizerId?: string | null;
 }) {
   const router = useRouter();
+  const isProxy = !!proxyOrganizerId;
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [selectedArtists, setSelectedArtists] = useState<Artist[]>([]);
@@ -86,9 +93,9 @@ export function EventCreateForm({
           end_at: jstLocalToUtcIso(end_at),
           artists: selectedArtists.map((a) => ({
             profile_id: a.profile_id,
-            invite_message: artistMessages[a.profile_id] || null,
+            invite_message: isProxy ? null : artistMessages[a.profile_id] || null,
           })),
-
+          organizer_profile_id: proxyOrganizerId,
         }),
       });
       const data = await res.json();
@@ -103,6 +110,33 @@ export function EventCreateForm({
   return (
     <form onSubmit={handleSubmit}>
       <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 space-y-6">
+
+        {organizerOptions.length > 0 && (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+              主催者
+            </label>
+            <select
+              value={proxyOrganizerId ?? ""}
+              onChange={(e) => {
+                // 主催者ごとにコネクション済みアーティストが違うため、ページを読み直す
+                const v = e.target.value;
+                router.replace(v ? `/dashboard/events/create?organizer=${v}` : "/dashboard/events/create");
+              }}
+              className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
+            >
+              <option value="">自分（自主開催）</option>
+              {organizerOptions.map((o) => (
+                <option key={o.profile_id} value={o.profile_id}>{o.name}</option>
+              ))}
+            </select>
+            {isProxy && (
+              <p className="text-xs text-slate-400 leading-relaxed">
+                主催者の名義で下書きを作成します。主催者にメールで通知が届き、主催者が内容を確認して承認依頼を送ると、承認できるようになります。
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
@@ -188,7 +222,7 @@ export function EventCreateForm({
                         <X size={13} />
                       </button>
                     </div>
-                    <textarea
+                    {!isProxy && <textarea
                       value={artistMessages[a.profile_id] ?? ""}
                       onChange={(e) =>
                         setArtistMessages((prev) => ({ ...prev, [a.profile_id]: e.target.value }))
@@ -196,7 +230,7 @@ export function EventCreateForm({
                       placeholder={`${a.display_name} への依頼メッセージ（任意）`}
                       rows={2}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:border-pink-500 outline-none resize-none"
-                    />
+                    />}
                   </div>
                 );
               })}

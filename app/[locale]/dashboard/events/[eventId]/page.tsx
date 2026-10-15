@@ -226,6 +226,16 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         )}
       </div>
 
+      {/* 承認依頼ボタン（オーガナイザー）。下書きの間は最初に目に入る位置に出す */}
+      {canRequestReview && (
+        <div className="bg-pink-500/10 border border-pink-500/40 rounded-[1.5rem] px-5 py-4 space-y-3">
+          <p className="text-sm text-slate-200 leading-relaxed">
+            このイベントはまだ下書きです。内容を確認して、よければ下のボタンを押してください。担当エージェントが承認すると公開されます。
+          </p>
+          <EventRequestReviewButton eventId={eventId} />
+        </div>
+      )}
+
       <EventDetailTabs
         overview={<>
       {/* 出演アーティスト */}
@@ -328,9 +338,6 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
           enabled={(event as any).paypay_enabled ?? false}
         />
       )}
-
-      {/* 承認依頼ボタン（オーガナイザー） */}
-      {canRequestReview && <EventRequestReviewButton eventId={eventId} />}
 
       {/* 削除ボタン（承認前のみ、イベント作成者本人。agentが自分のイベントを作った場合もここに含まれる） */}
       {user.id === event.organizer_profile_id && ["draft", "review_requested"].includes(event.lifecycle_status) && (

@@ -379,6 +379,26 @@ async function DashboardContent() {
     return true;
   });
 
+  // オーガナイザー向け: エージェントが代理作成し、まだ承認依頼を送っていないイベント（下書きの間は既読でも出し続ける）
+  let proxyCreatedNotifications: { notification_id: string; title: string; body: string; metadata: any }[] = [];
+  if (role === 'organizer') {
+    const { data: proxyNotifs } = await admin.from('notifications').select('notification_id, title, body, metadata')
+      .eq('profile_id', user!.id).eq('type', 'proxy_event_created').order('created_at', { ascending: false }).limit(10);
+    const proxyEventIds = ((proxyNotifs ?? []) as any[]).map((n) => n.metadata?.event_id).filter(Boolean) as string[];
+    if (proxyEventIds.length > 0) {
+      const { data: drafts } = await admin.from('events').select('event_id')
+        .in('event_id', proxyEventIds).eq('organizer_profile_id', user!.id).eq('lifecycle_status', 'draft').is('deleted_at', null);
+      const draftIds = new Set(((drafts ?? []) as { event_id: string }[]).map((e) => e.event_id));
+      const seenProxy = new Set<string>();
+      proxyCreatedNotifications = ((proxyNotifs ?? []) as any[]).filter((n) => {
+        const eid = n.metadata?.event_id;
+        if (!eid || !draftIds.has(eid) || seenProxy.has(eid)) return false;
+        seenProxy.add(eid);
+        return true;
+      });
+    }
+  }
+
   const pendingHandoffIds = new Set(((pendingHandoffsResult.data ?? []) as any[]).map((h) => h.handoff_id));
   const seenHandoff = new Set<string>();
   const handoffRequestedNotifications = handoffNotifs.filter((n) => {
@@ -439,6 +459,26 @@ async function DashboardContent() {
       <Suspense fallback={null}>
         <AddToHomeScreen />
       </Suspense>
+
+      {/* オーガナイザー向け: 代理作成されたイベントの確認依頼バナー */}
+      {proxyCreatedNotifications.length > 0 && (
+        <div className="space-y-2">
+          {proxyCreatedNotifications.map((n) => (
+            <Link
+              key={n.notification_id}
+              href={`/dashboard/events/${n.metadata.event_id}`}
+              className="flex items-start justify-between gap-4 bg-pink-500/10 border border-pink-500/40 hover:border-pink-500/70 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-pink-400 uppercase tracking-widest">イベントの確認</p>
+                <p className="text-sm font-black text-white">{n.title}</p>
+                <p className="text-xs text-slate-400">{n.body}</p>
+              </div>
+              <span className="text-pink-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">確認 →</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* エージェント向け: 承認依頼通知バナー */}
       {approvalRequestedNotifications.length > 0 && (

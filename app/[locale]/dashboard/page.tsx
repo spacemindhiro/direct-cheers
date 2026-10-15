@@ -2,7 +2,7 @@ import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from 'react';
 import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw, Activity, Landmark } from 'lucide-react';
+import { Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw, Activity, Landmark, Search } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
 import { LineupInvitations } from '@/components/lineup-invitations';
@@ -869,6 +869,26 @@ async function DashboardContent() {
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Invitations</p>
               <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-pink-400 transition-colors">
                 招待を送る
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* 照会（organizer はアーティストのみ、agent/admin はオーガナイザーも検索可）。審査未了には出さない（lib/directory.ts の判定と同じ） */}
+      {(profile?.role === 'admin' || (['agent', 'organizer'].includes(profile?.role ?? '') && profile?.status === 'active')) && (
+        <Link
+          href="/dashboard/directory"
+          className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[2rem] p-6 transition-all group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-sky-500/10 rounded-2xl flex items-center justify-center border border-sky-500/20 group-hover:bg-sky-500/20 transition-all">
+              <Search size={22} className="text-sky-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Directory</p>
+              <p className="text-white font-black text-lg italic uppercase tracking-tight group-hover:text-sky-400 transition-colors">
+                {profile?.role === 'organizer' ? 'アーティストを照会' : 'アーティスト・オーガナイザーを照会'}
               </p>
             </div>
           </div>

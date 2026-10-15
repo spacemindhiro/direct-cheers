@@ -54,7 +54,7 @@ export async function POST(
     profile_id: event.organizer_profile_id,
     type: "proxy_event_created",
     title: `「${event.title}」の内容を確認してください`,
-    body: `${senderName} さんがイベントを作成しました。内容を確認して承認依頼を送ってください。`,
+    body: `${senderName} さんがあなたのイベントの下書きを作成しました。内容を確認して承認依頼を送ってください。`,
     metadata: { event_id: eventId, created_by: user.id },
   }).select("created_at").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

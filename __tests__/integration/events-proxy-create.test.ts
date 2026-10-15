@@ -322,9 +322,10 @@ describe("TC-PROXY-CREATE-E: 下書きを主催者に送る（proxy-notify）", 
     expect(await notifCount(draftId)).toBe(1);
 
     const { data: ev } = await testAdmin.from("events").select("title").eq("event_id", draftId).single();
-    const { data: n } = await testAdmin.from("notifications").select("title, metadata")
+    const { data: n } = await testAdmin.from("notifications").select("title, body, metadata")
       .eq("type", "proxy_event_created").filter("metadata->>event_id", "eq", draftId).single();
     expect(n?.title).toBe(`「${ev!.title}」の内容を確認してください`);
+    expect(n?.body).toBe("担当エージェント（代理作成） さんがあなたのイベントの下書きを作成しました。内容を確認して承認依頼を送ってください。");
     expect(n?.metadata.created_by).toBe(agentProfileId);
     const { data: authUser } = await testAdmin.auth.admin.getUserById(organizerProfileId);
     expect(vi.mocked(sendProxyEventCreatedEmail)).toHaveBeenCalledTimes(1);

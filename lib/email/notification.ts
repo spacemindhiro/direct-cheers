@@ -392,7 +392,7 @@ export async function sendProxyEventCreatedEmail(opts: {
     layout(`
       <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">イベントの内容を確認してください</h1>
       <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin:0 0 20px">
-        <strong style="color:#ffffff">${opts.creatorName}</strong> さんが、あなたのイベントを作成しました。
+        <strong style="color:#ffffff">${opts.creatorName}</strong> さんが、あなたのイベントの下書きを作成しました。
         ログインして内容を確認し、「エージェントに承認依頼を送る」を押してください。承認されるとイベントが公開されます。
       </p>
       ${eventBox(opts.eventTitle, `作成：${opts.creatorName}`)}

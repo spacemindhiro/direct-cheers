@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 import { isValidFlyerUrl } from "@/lib/image-source";
 import { sendLineupInvites } from "@/lib/lineup-invite";
@@ -38,6 +39,10 @@ export async function PATCH(
 
   if (!isOrganizer && !isAgent) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  // 代理作成でまだ主催者に送っていない下書きは、主催者からは存在しない扱い
+  if (!isAgent && await isProxyDraftHiddenFrom(createAdminClient(), eventId, user.id)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   if (event.lifecycle_status === "settled") {
     return NextResponse.json({ error: "精算済みのイベントは編集できません" }, { status: 400 });
@@ -283,6 +288,9 @@ export async function DELETE(
 
   if (event.organizer_profile_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (await isProxyDraftHiddenFrom(createAdminClient(), eventId, user.id)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   if (!["draft", "review_requested"].includes(event.lifecycle_status)) {

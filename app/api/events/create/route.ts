@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidFlyerUrl } from "@/lib/image-source";
+import { markProxyDraft } from "@/lib/proxy-draft";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -125,8 +126,19 @@ export async function POST(req: Request) {
     // 主催者が承認依頼を送った時点で request-review がまとめて送る（lib/lineup-invite.ts）
   }
 
-  // 代理作成では主催者にはまだ何も送らない。エージェントが下書きを整えてから
-  // /api/events/[eventId]/proxy-notify で主催者に確認を依頼する
+  // 代理作成では主催者にはまだ何も送らず、存在自体も見せない。エージェントが下書きを整えてから
+  // /api/events/[eventId]/proxy-notify で主催者に確認を依頼した時点で見えるようになる。
+  // 目印が付けられなければ主催者に丸見えの下書きが残るため、作成ごと取り消す
+  if (isProxy) {
+    try {
+      await markProxyDraft(createAdminClient(), { eventId: event.event_id, creatorId: user.id, organizerId });
+    } catch (e) {
+      const admin = createAdminClient();
+      await admin.from("event_artists").delete().eq("event_id", event.event_id);
+      await admin.from("events").delete().eq("event_id", event.event_id);
+      return NextResponse.json({ error: `下書きの作成に失敗しました: ${(e as Error).message}` }, { status: 500 });
+    }
+  }
 
   // フォロワー通知（new_event / artist_appearing）はエージェント承認時に送る
 

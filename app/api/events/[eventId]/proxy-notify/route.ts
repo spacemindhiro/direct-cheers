@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendProxyEventCreatedEmail } from "@/lib/email/notification";
+import { clearProxyDraftMarker } from "@/lib/proxy-draft";
 
 // 代理作成した下書きを主催者に送る（確認依頼の通知＋メール）。
 // 作成しただけでは主催者には何も届かず、担当エージェントがこれを押した時点で初めて届く。
@@ -58,6 +59,9 @@ export async function POST(
     metadata: { event_id: eventId, created_by: user.id },
   }).select("created_at").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // ここで初めて主催者から見えるようにする
+  await clearProxyDraftMarker(admin, eventId);
 
   try {
     const { data: authUser } = await admin.auth.admin.getUserById(event.organizer_profile_id);

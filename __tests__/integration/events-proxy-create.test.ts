@@ -10,6 +10,7 @@
  *   C. 出演依頼（依頼メッセージを主催者名義で送らない・スレッドは主催者と出演者）
  *   D. 代理作成後のライフサイクル（申請は主催者本人のみ → 承認で公開）
  *   E. proxy-notify（下書きを主催者に送る：担当エージェント/adminのみ・下書きのみ・再送可）
+ *   G. 送るまでは主催者から存在自体を見せない（承認依頼・編集・削除・中止は 404、送ったら見える）
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { insertProfile, deleteAuthUsers } from "../helpers/seed";
@@ -38,6 +39,8 @@ import { POST as createPOST } from "@/app/api/events/create/route";
 import { POST as requestReviewPOST } from "@/app/api/events/[eventId]/request-review/route";
 import { POST as approvePOST } from "@/app/api/events/[eventId]/approve/route";
 import { POST as proxyNotifyPOST } from "@/app/api/events/[eventId]/proxy-notify/route";
+import { PATCH as eventPATCH, DELETE as eventDELETE } from "@/app/api/events/[eventId]/route";
+import { POST as cancelPOST } from "@/app/api/events/[eventId]/cancel/route";
 
 let adminProfileId: string;
 let agentProfileId: string;
@@ -260,6 +263,8 @@ describe("TC-PROXY-CREATE-D: 申請は主催者本人 → 承認で公開", () =
     const res = await createPOST(createReq({ title: `代理作成D-${Date.now()}`, organizer_profile_id: organizerProfileId }));
     eventId = (await res.json()).event_id;
     cleanup.eventIds.push(eventId);
+    // 主催者に送ってから（送るまでは主催者から見えない：G で検証）
+    await proxyNotifyPOST(new Request("http://localhost", { method: "POST" }), { params: Promise.resolve({ eventId }) });
   });
 
   it("D-01: 作成したエージェントは承認依頼を送れない → 403・draftのまま", async () => {
@@ -368,5 +373,83 @@ describe("TC-PROXY-CREATE-E: 下書きを主催者に送る（proxy-notify）", 
     const res = await notify(selfId);
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("自主開催のイベントです");
+  });
+});
+
+// ── G. 送るまでは主催者から見えない ───────────────────────────────────
+describe("TC-PROXY-CREATE-G: 未送信の代理下書きは主催者から存在しない扱い", () => {
+  let eventId: string;
+  let title: string;
+  const ctx = () => ({ params: Promise.resolve({ eventId }) });
+  const markers = async () => (await testAdmin.from("notifications").select("profile_id, metadata, is_read")
+    .eq("type", "proxy_event_draft").filter("metadata->>event_id", "eq", eventId)).data ?? [];
+  const eventRow = async () => (await testAdmin.from("events").select("title, lifecycle_status, deleted_at").eq("event_id", eventId).single()).data!;
+
+  beforeAll(async () => {
+    mockAs(agentProfileId, "agent");
+    title = `代理作成G-${Date.now()}`;
+    const res = await createPOST(createReq({ title, organizer_profile_id: organizerProfileId }));
+    eventId = (await res.json()).event_id;
+    cleanup.eventIds.push(eventId);
+  });
+
+  it("G-01: 代理作成で目印が1件付く（作成者宛て・主催者ID付き・既読）", async () => {
+    expect(await markers()).toEqual([{ profile_id: agentProfileId, metadata: { event_id: eventId, organizer_id: organizerProfileId }, is_read: true }]);
+  });
+
+  it("G-02: 主催者の承認依頼 → 404・draftのまま", async () => {
+    mockAs(organizerProfileId, "organizer", { responsible_agent_id: agentProfileId });
+    const res = await requestReviewPOST(new Request("http://localhost", { method: "POST" }), ctx());
+    expect(res.status).toBe(404);
+    expect((await eventRow()).lifecycle_status).toBe("draft");
+  });
+
+  it("G-03: 主催者の編集 → 404・タイトル変わらない", async () => {
+    mockAs(organizerProfileId, "organizer", { responsible_agent_id: agentProfileId });
+    const res = await eventPATCH(new Request("http://localhost", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "主催者が書き換え" }) }), ctx());
+    expect(res.status).toBe(404);
+    expect((await eventRow()).title).toBe(title);
+  });
+
+  it("G-04: 主催者の削除 → 404・残っている", async () => {
+    mockAs(organizerProfileId, "organizer", { responsible_agent_id: agentProfileId });
+    const res = await eventDELETE(new Request("http://localhost", { method: "DELETE" }), ctx());
+    expect(res.status).toBe(404);
+    expect((await eventRow()).deleted_at).toBe(null);
+  });
+
+  it("G-05: 主催者の中止 → 404・draftのまま", async () => {
+    mockAs(organizerProfileId, "organizer", { responsible_agent_id: agentProfileId });
+    const res = await cancelPOST(new Request("http://localhost", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }), ctx());
+    expect(res.status).toBe(404);
+    expect((await eventRow()).lifecycle_status).toBe("draft");
+  });
+
+  it("G-06: 担当エージェントは編集できる（200・反映）", async () => {
+    mockAs(agentProfileId, "agent");
+    const res = await eventPATCH(new Request("http://localhost", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: `${title}改` }) }), ctx());
+    expect(res.status).toBe(200);
+    expect((await eventRow()).title).toBe(`${title}改`);
+    title = `${title}改`;
+  });
+
+  it("G-07: 送ると目印が消え、主催者が承認依頼できる", async () => {
+    mockAs(agentProfileId, "agent");
+    expect((await proxyNotifyPOST(new Request("http://localhost", { method: "POST" }), ctx())).status).toBe(200);
+    expect(await markers()).toEqual([]);
+    mockAs(organizerProfileId, "organizer", { responsible_agent_id: agentProfileId });
+    const res = await requestReviewPOST(new Request("http://localhost", { method: "POST" }), ctx());
+    expect(res.status).toBe(200);
+    expect((await eventRow()).lifecycle_status).toBe("review_requested");
+  });
+
+  it("G-08: 主催者が自分で作った下書きには目印が付かない（従来どおり見える）", async () => {
+    mockAs(organizerProfileId, "organizer", { responsible_agent_id: agentProfileId });
+    const res = await createPOST(createReq({ title: `主催者自作G08-${Date.now()}` }));
+    const ownId = (await res.json()).event_id;
+    cleanup.eventIds.push(ownId);
+    const { count } = await testAdmin.from("notifications").select("notification_id", { count: "exact", head: true })
+      .eq("type", "proxy_event_draft").filter("metadata->>event_id", "eq", ownId);
+    expect(count).toBe(0);
   });
 });

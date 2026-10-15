@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
 import { sendCancellationRequestEmail } from "@/lib/email/notification";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -36,6 +37,10 @@ export async function POST(
 
   if (!isOrganizer && !isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  // 代理作成でまだ主催者に送っていない下書きは、主催者からは存在しない扱い
+  if (!isAdmin && await isProxyDraftHiddenFrom(createAdminClient(), eventId, user.id)) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
   const cancellableStatuses = ["draft", "review_requested", "published", "ongoing"];

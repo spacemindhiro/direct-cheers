@@ -6,7 +6,7 @@ import { EventCreateForm } from "@/components/event-create-form";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
-async function EventCreateContent() {
+async function EventCreateContent({ searchParams }: { searchParams: Promise<{ organizer?: string }> }) {
   const supabase = await createClient();
   const user = await getUser();
 
@@ -22,13 +22,34 @@ async function EventCreateContent() {
   if (!["organizer", "agent", "admin"].includes(profile?.role ?? "")) redirect("/dashboard");
   if (profile?.status !== "active") redirect("/dashboard");
 
+  // エージェント/adminは担当主催者の名義で代理作成できる（審査申請は主催者本人）
+  const admin = createAdminClient();
+  let organizerOptions: { profile_id: string; name: string }[] = [];
+  if (profile?.role === "agent" || profile?.role === "admin") {
+    let q = admin
+      .from("profiles")
+      .select("profile_id, display_name, organizer_name")
+      .eq("role", "organizer")
+      .eq("status", "active")
+      .not("responsible_agent_id", "is", null)
+      .is("deleted_at", null);
+    if (profile.role === "agent") q = q.eq("responsible_agent_id", user.id);
+    const { data: organizers } = await q;
+    organizerOptions = (organizers ?? [])
+      .map((o) => ({ profile_id: o.profile_id, name: o.organizer_name ?? o.display_name ?? "（名前未設定）" }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+  }
+  const { organizer: requestedOrganizer } = await searchParams;
+  const proxyOrganizerId = organizerOptions.some((o) => o.profile_id === requestedOrganizer)
+    ? requestedOrganizer!
+    : null;
+
   // コネクション済みアーティストを取得。相手の profiles はユーザー権限では読めない（自分の行のみ）ため、
   // 編集ページ（events/[eventId]/edit）と同じく admin クライアントで取得し、本人の organizer_profile_id で絞る
-  const admin = createAdminClient();
   const { data: connections } = await admin
     .from("connections")
     .select("artist_profile_id, artist:profiles!artist_profile_id(display_name, artist_name)")
-    .eq("organizer_profile_id", user.id)
+    .eq("organizer_profile_id", proxyOrganizerId ?? user.id)
     .eq("status", "active")
     .is("deleted_at", null);
 
@@ -48,15 +69,20 @@ async function EventCreateContent() {
           作成後、担当エージェントの承認が必要です
         </p>
       </div>
-      <EventCreateForm connectedArtists={connectedArtists} />
+      <EventCreateForm
+        key={proxyOrganizerId ?? "self"}
+        connectedArtists={connectedArtists}
+        organizerOptions={organizerOptions}
+        proxyOrganizerId={proxyOrganizerId}
+      />
     </div>
   );
 }
 
-export default function EventCreatePage() {
+export default function EventCreatePage({ searchParams }: { searchParams: Promise<{ organizer?: string }> }) {
   return (
     <Suspense fallback={<div className="flex items-center justify-center py-20"><Loader2 className="animate-spin text-slate-600" size={32} /></div>}>
-      <EventCreateContent />
+      <EventCreateContent searchParams={searchParams} />
     </Suspense>
   );
 }

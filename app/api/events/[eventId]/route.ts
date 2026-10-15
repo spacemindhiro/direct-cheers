@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
-import { sendLineupInviteEmail } from "@/lib/email/notification";
 import { isValidFlyerUrl } from "@/lib/image-source";
+import { sendLineupInvites } from "@/lib/lineup-invite";
 
 export async function PATCH(
   req: Request,
@@ -113,8 +113,15 @@ export async function PATCH(
         .in("event_artist_id", toRemove.map((a) => a.event_artist_id));
     }
 
+    // 下書きの間は出演依頼を送らず、主催者が承認依頼を送った時点で request-review がまとめて送る。
+    // そのとき依頼メッセージは主催者名義で投稿されるため、主催者以外（担当エージェント）が書いたものは保存しない
+    const deferInvites = (updates.lifecycle_status ?? event.lifecycle_status) === "draft";
+    const keepMessage = !deferInvites || isOrganizer;
+
     // 追加: 新リストにいるが現在いない
-    const toAddList = artistList.filter((a) => !currentIds.has(a.profile_id));
+    const toAddList = artistList
+      .filter((a) => !currentIds.has(a.profile_id))
+      .map((a) => (keepMessage ? a : { ...a, invite_message: null }));
     if (toAddList.length > 0) {
       // 過去に論理削除された行があれば復活させる（同一event×artistはUNIQUE制約のため新規insert不可）
       const { data: deletedRows } = await supabase
@@ -137,6 +144,15 @@ export async function PATCH(
           .in("event_artist_id", toRestore.map((a) => deletedEaIdByProfileId.get(a.profile_id)!));
         if (restoreError) {
           return NextResponse.json({ error: restoreError.message }, { status: 500 });
+        }
+        // 後でまとめて送るとき（request-review）は event_artists の依頼メッセージを使うため、今回の内容で上書きしておく
+        if (deferInvites) {
+          for (const a of toRestore) {
+            await writer
+              .from("event_artists")
+              .update({ invite_message: a.invite_message ?? null })
+              .eq("event_artist_id", deletedEaIdByProfileId.get(a.profile_id)!);
+          }
         }
       }
 
@@ -167,82 +183,18 @@ export async function PATCH(
         })),
       ];
 
-      // 追加/復活したアーティストごとにメッセージスレッドを用意（メッセージがあれば投稿）
-      try {
-        const admin = createAdminClient();
-        for (const ea of addedEAs) {
-          const { data: existingConv } = await admin
-            .from("conversations")
-            .select("conversation_id")
-            .eq("event_artist_id", ea.event_artist_id)
-            .maybeSingle();
-
-          let conversationId = existingConv?.conversation_id;
-          if (!conversationId) {
-            const { data: conv } = await admin
-              .from("conversations")
-              .insert({ type: "booking", event_artist_id: ea.event_artist_id })
-              .select("conversation_id")
-              .single();
-            if (!conv) continue;
-            conversationId = conv.conversation_id;
-            await admin.from("conversation_participants").insert([
-              { conversation_id: conversationId, profile_id: event.organizer_profile_id },
-              { conversation_id: conversationId, profile_id: ea.artist_profile_id },
-            ]);
-          }
-          const entry = toAddList.find((a) => a.profile_id === ea.artist_profile_id);
-          if (entry?.invite_message?.trim()) {
-            await admin.from("messages").insert({
-              conversation_id: conversationId,
-              sender_profile_id: user.id,
-              body: entry.invite_message.trim(),
-              message_type: "text",
-            });
-          }
-        }
-      } catch { /* 非致死的 */ }
-
-      // 追加/復活したアーティストへ通知
-      try {
-        const admin = createAdminClient();
-        const { data: eventData } = await admin
-          .from("events")
-          .select("title")
-          .eq("event_id", eventId)
-          .single();
-        const { data: organizer } = await admin
-          .from("profiles")
-          .select("display_name, organizer_name")
-          .eq("profile_id", event.organizer_profile_id)
-          .single();
-
-        const organizerDisplayName = organizer?.organizer_name ?? organizer?.display_name ?? "オーガナイザー";
-
-        const notifs = toAddList.map((a) => ({
-          profile_id: a.profile_id,
-          type: "lineup_invite",
-          title: "出演依頼が届いています",
-          body: `${organizerDisplayName} から「${eventData?.title}」への出演依頼が届いています。`,
-          metadata: { event_id: eventId, organizer_id: event.organizer_profile_id },
-        }));
-        await admin.from("notifications").insert(notifs);
-
-        // メール送信（fire-and-forget）
-        for (const a of toAddList) {
-          const { data: authUser } = await admin.auth.admin.getUserById(a.profile_id);
-          const email = authUser.user?.email;
-          if (email) {
-            sendLineupInviteEmail({
-              to: email,
-              eventId,
-              eventTitle: eventData?.title ?? "",
-              organizerName: organizerDisplayName,
-              artistName: "",
-            }).catch(() => {});
-          }
-        }
-      } catch { /* notifications テーブルがなければスキップ */ }
+      if (!deferInvites) {
+        await sendLineupInvites(createAdminClient(), {
+          eventId,
+          eventTitle: (updates.title as string | undefined) ?? event.title,
+          organizerId: event.organizer_profile_id,
+          messageSenderId: user.id,
+          invites: addedEAs.map((ea) => ({
+            ...ea,
+            invite_message: toAddList.find((a) => a.profile_id === ea.artist_profile_id)?.invite_message ?? null,
+          })),
+        });
+      }
     }
 
     // 既存アーティストへのメッセージ送信（会話スレッドが既にある場合）

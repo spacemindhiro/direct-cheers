@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendLineupInviteEmail } from "@/lib/email/notification";
 import { isValidFlyerUrl } from "@/lib/image-source";
 
 export async function POST(req: Request) {
@@ -32,10 +31,9 @@ export async function POST(req: Request) {
   if (profile?.role === "organizer" && !profile?.responsible_agent_id) {
     return NextResponse.json({ error: "No agent assigned" }, { status: 400 });
   }
-  const eventAgentId = profile?.role === "organizer" ? profile.responsible_agent_id : user.id;
 
   const body = await req.json();
-  const { title, venue, venue_id, start_at, end_at, artists, artist_ids, serial_scope, base_flyer_url = null } = body as {
+  const { title, venue, venue_id, start_at, end_at, artists, artist_ids, serial_scope, base_flyer_url = null, organizer_profile_id } = body as {
     title: string;
     venue: string;
     venue_id?: string | null;
@@ -45,9 +43,39 @@ export async function POST(req: Request) {
     artist_ids?: string[]; // 旧フォーマット後方互換
     serial_scope?: "event" | "artist";
     base_flyer_url?: string | null; // 任意のフライヤー画像（/api/events/flyer/upload で上げたもの）
+    organizer_profile_id?: string | null; // 代理作成：エージェント/adminが主催者名義で作る場合の主催者
   };
-  // 新フォーマット（artists[]）と旧フォーマット（artist_ids[]）の両方をサポート
-  const artistList = artists ?? (artist_ids ?? []).map((id) => ({ profile_id: id, invite_message: null }));
+
+  // 代理作成：担当エージェント（またはadmin）が主催者名義で下書きを作る。
+  // 審査申請は主催者本人のみ（request-review）なので、主催者の同意ステップはそのまま残る
+  const isProxy = !!organizer_profile_id && organizer_profile_id !== user.id;
+  let organizerId = user.id;
+  let eventAgentId = profile?.role === "organizer" ? profile.responsible_agent_id : user.id;
+  if (isProxy) {
+    if (!["agent", "admin"].includes(profile?.role ?? "")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const { data: target } = await createAdminClient()
+      .from("profiles")
+      .select("role, status, responsible_agent_id")
+      .eq("profile_id", organizer_profile_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!target || target.role !== "organizer" || target.status !== "active" || !target.responsible_agent_id) {
+      return NextResponse.json({ error: "代理作成できない主催者です" }, { status: 400 });
+    }
+    // エージェントは自分が担当する主催者のみ
+    if (profile?.role === "agent" && target.responsible_agent_id !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    organizerId = organizer_profile_id;
+    eventAgentId = target.responsible_agent_id;
+  }
+
+  // 新フォーマット（artists[]）と旧フォーマット（artist_ids[]）の両方をサポート。
+  // 代理作成では依頼メッセージを主催者名義で送ることになるため受け付けない
+  const artistList = (artists ?? (artist_ids ?? []).map((id) => ({ profile_id: id, invite_message: null as string | null })))
+    .map((a) => (isProxy ? { ...a, invite_message: null } : a));
 
   if (!title || !venue || !start_at || !end_at) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -60,7 +88,7 @@ export async function POST(req: Request) {
   const { data: event, error: eventError } = await createAdminClient()
     .from("events")
     .insert({
-      organizer_profile_id: user.id,
+      organizer_profile_id: organizerId,
       agent_id: eventAgentId,
       title,
       venue,
@@ -87,75 +115,18 @@ export async function POST(req: Request) {
       status: "pending",
       invite_message: a.invite_message ?? null,
     }));
-    const { data: insertedArtists, error: artistError } = await createAdminClient()
+    const { error: artistError } = await createAdminClient()
       .from("event_artists")
-      .insert(artistRows)
-      .select("event_artist_id, artist_profile_id, invite_message");
+      .insert(artistRows);
     if (artistError) {
       return NextResponse.json({ error: artistError.message }, { status: 500 });
     }
-
-    // 各アーティストごとにメッセージスレッドを作成
-    try {
-      const admin = createAdminClient();
-      for (const ea of insertedArtists ?? []) {
-        const { data: conv } = await admin
-          .from("conversations")
-          .insert({ type: "booking", event_artist_id: ea.event_artist_id })
-          .select("conversation_id")
-          .single();
-        if (!conv) continue;
-        await admin.from("conversation_participants").insert([
-          { conversation_id: conv.conversation_id, profile_id: user.id },
-          { conversation_id: conv.conversation_id, profile_id: ea.artist_profile_id },
-        ]);
-        if (ea.invite_message?.trim()) {
-          await admin.from("messages").insert({
-            conversation_id: conv.conversation_id,
-            sender_profile_id: user.id,
-            body: ea.invite_message.trim(),
-            message_type: "text",
-          });
-        }
-      }
-    } catch { /* メッセージング失敗は非致死的 */ }
-
-    // 各アーティストへ出演依頼通知
-    try {
-      const admin = createAdminClient();
-      const { data: organizer } = await admin
-        .from("profiles")
-        .select("display_name, organizer_name")
-        .eq("profile_id", user.id)
-        .single();
-
-      const organizerDisplayName = organizer?.organizer_name ?? organizer?.display_name ?? "オーガナイザー";
-
-      const notifs = artistList.map((a) => ({
-        profile_id: a.profile_id,
-        type: "lineup_invite",
-        title: "出演依頼が届いています",
-        body: `${organizerDisplayName} から「${title}」への出演依頼が届いています。`,
-        metadata: { event_id: event.event_id, organizer_id: user.id },
-      }));
-      await admin.from("notifications").insert(notifs);
-
-      // メール送信（fire-and-forget）
-      for (const a of artistList) {
-        const { data: authUser } = await admin.auth.admin.getUserById(a.profile_id);
-        const email = authUser.user?.email;
-        if (email) {
-          sendLineupInviteEmail({
-            to: email,
-            eventId: event.event_id,
-            eventTitle: title,
-            organizerName: organizerDisplayName,
-            artistName: "",
-          }).catch(() => {});
-        }
-      }
-    } catch { /* notifications テーブルがなければスキップ */ }
+    // 出演依頼（スレッド・通知・メール）は下書きの間は送らない。
+    // 主催者が承認依頼を送った時点で request-review がまとめて送る（lib/lineup-invite.ts）
   }
+
+  // 代理作成では主催者にはまだ何も送らない。エージェントが下書きを整えてから
+  // /api/events/[eventId]/proxy-notify で主催者に確認を依頼する
 
   // フォロワー通知（new_event / artist_appearing）はエージェント承認時に送る
 

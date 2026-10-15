@@ -214,6 +214,11 @@ export function EventEditForm({
                         {isNew && (
                           <span className="text-[9px] font-medium text-pink-500/70 uppercase tracking-widest">NEW</span>
                         )}
+                        {!isNew && a.status === "planned" && (
+                          <span className="text-[9px] font-black text-slate-300 bg-slate-500/10 border border-slate-500/30 rounded px-1.5 py-0.5 uppercase tracking-widest">
+                            依頼予定
+                          </span>
+                        )}
                         {!isNew && a.status === "pending" && (
                           <span className="text-[9px] font-black text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded px-1.5 py-0.5 uppercase tracking-widest">
                             交渉中

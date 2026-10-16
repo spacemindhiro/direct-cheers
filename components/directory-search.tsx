@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Search, Loader2, ChevronRight, UserCircle } from "lucide-react";
+import { Search, Loader2, ChevronRight, UserCircle, Check } from "lucide-react";
 import type { DirectorySearchItem, DirectoryType } from "@/lib/directory";
 
 const TYPE_LABELS: Record<DirectoryType, string> = {
@@ -11,7 +11,16 @@ const TYPE_LABELS: Record<DirectoryType, string> = {
 };
 
 export function DirectorySearch({ types }: { types: DirectoryType[] }) {
-  const [type, setType] = useState<DirectoryType>(types[0]);
+  // 種別ごとにオン/オフ。初期は全部オン、最後の1つはオフにできない
+  const [selected, setSelected] = useState<DirectoryType[]>(types);
+  const toggle = (t: DirectoryType) =>
+    setSelected((cur) =>
+      cur.includes(t)
+        ? (cur.length > 1 ? cur.filter((x) => x !== t) : cur)
+        : types.filter((x) => x === t || cur.includes(x)),
+    );
+  const selectedKey = selected.join(",");
+  const selectedLabel = selected.map((t) => TYPE_LABELS[t]).join("・");
   const [q, setQ] = useState("");
   const [results, setResults] = useState<DirectorySearchItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -29,7 +38,7 @@ export function DirectorySearch({ types }: { types: DirectoryType[] }) {
       setError(null);
       try {
         const res = await fetch(
-          `/api/directory/search?type=${type}&q=${encodeURIComponent(q.trim())}`,
+          `/api/directory/search?types=${selectedKey}&q=${encodeURIComponent(q.trim())}`,
           { signal: controller.signal },
         );
         const json = await res.json();
@@ -45,26 +54,31 @@ export function DirectorySearch({ types }: { types: DirectoryType[] }) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [q, type]);
+  }, [q, selectedKey]);
 
   return (
     <div className="space-y-6">
       {types.length > 1 && (
         <div className="flex gap-2">
-          {types.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setType(t)}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border transition-colors ${
-                type === t
-                  ? "bg-pink-500/10 border-pink-500/40 text-pink-400"
-                  : "bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              {TYPE_LABELS[t]}
-            </button>
-          ))}
+          {types.map((t) => {
+            const on = selected.includes(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggle(t)}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border transition-colors ${
+                  on
+                    ? "bg-pink-500/10 border-pink-500/40 text-pink-400"
+                    : "bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                {on ? <Check size={12} /> : <span className="w-3" />}
+                {TYPE_LABELS[t]}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -74,7 +88,7 @@ export function DirectorySearch({ types }: { types: DirectoryType[] }) {
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder={`${TYPE_LABELS[type]}名で検索`}
+          placeholder={`${selectedLabel}の名前で検索`}
           className="w-full bg-slate-950/50 border border-slate-800 rounded-xl pl-12 pr-5 py-3 text-sm text-white focus:border-pink-500/50 outline-none transition-all placeholder:text-slate-700"
         />
         {loading && (
@@ -86,7 +100,7 @@ export function DirectorySearch({ types }: { types: DirectoryType[] }) {
 
       {q.trim() && !loading && !error && results.length === 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 text-center">
-          <p className="text-slate-600 text-sm font-bold">該当する{TYPE_LABELS[type]}はいません</p>
+          <p className="text-slate-600 text-sm font-bold">該当する{selectedLabel}はいません</p>
         </div>
       )}
 
@@ -105,6 +119,15 @@ export function DirectorySearch({ types }: { types: DirectoryType[] }) {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-white truncate group-hover:text-pink-400 transition-colors">{r.name}</p>
               {r.sub && <p className="text-xs text-slate-500 truncate">{r.sub}</p>}
+              {selected.length > 1 && (
+                <div className="flex gap-1.5 mt-1">
+                  {r.matched.map((m) => (
+                    <span key={m} className="px-2 py-0.5 rounded-md text-[10px] font-black border border-slate-700 text-slate-400">
+                      {TYPE_LABELS[m]}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <ChevronRight size={16} className="text-slate-600 shrink-0" />
           </Link>

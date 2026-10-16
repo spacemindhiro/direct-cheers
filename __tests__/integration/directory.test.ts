@@ -37,6 +37,7 @@ import { GET as detailGET } from "@/app/api/directory/[profileId]/route";
 
 const ts = Date.now();
 const MARK = `dir${ts}`;
+type Role = Parameters<typeof insertProfile>[0]["role"];
 
 const ids = {} as Record<
   | "user" | "artistViewer" | "organizer" | "agent" | "admin"
@@ -49,7 +50,7 @@ const eventIds = {} as Record<"published" | "settled" | "draft" | "cancelled" | 
 // stepUpValue: null は「dc_stepup cookie なし」
 function mockAs(id: string | null, stepUpValue: string | null = String(Date.now())) {
   stepUp.value = stepUpValue ?? undefined;
-  (createClient as any).mockResolvedValue({
+  vi.mocked(createClient).mockResolvedValue({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: id ? { id } : null }, error: null }) },
   });
 }
@@ -71,7 +72,7 @@ async function detail(viewer: string | null, profileId: string, stepUpValue?: st
 }
 
 beforeAll(async () => {
-  const mk = (role: any, name: string, extra?: { stripeConnectId?: string }) =>
+  const mk = (role: Role, name: string, extra?: { stripeConnectId?: string }) =>
     insertProfile({ role, displayName: `${name}${MARK}`, email: `${name}-${MARK}@test.local`.replace(/[^\x00-\x7F]/g, "x") + Math.random().toString(36).slice(2, 6), ...extra });
 
   ids.user = await mk("user", "閲覧一般");

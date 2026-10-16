@@ -71,7 +71,7 @@ async function performersOf(eventId: string) {
 }
 
 beforeAll(async () => {
-  const mk = (role: any, n: string) => insertProfile({ role, displayName: `${n}${MARK}`, email: `${n}-${MARK}@test.local` });
+  const mk = (role: Parameters<typeof insertProfile>[0]["role"], n: string) => insertProfile({ role, displayName: `${n}${MARK}`, email: `${n}-${MARK}@test.local` });
   ids.agent = await mk("agent", "agent");
   ids.organizer = await mk("organizer", "org");
   ids.otherOrganizer = await mk("organizer", "org2");

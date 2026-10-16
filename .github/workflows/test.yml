@@ -15,7 +15,8 @@ on:
     branches: [develop]
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened]
+    # edited: PRの説明（アクセス範囲表）を直したときにチェックをやり直す
+    types: [opened, synchronize, reopened, edited]
 
 # 同一ブランチへの連続プッシュ時は古いランを自動キャンセル
 concurrency:
@@ -43,6 +44,18 @@ jobs:
         with:
           node-version: '25.x'
           cache: 'npm'
+
+      # ── 2.1. アクセス範囲表（main への PR のみ）──────────────────────
+      # 2026-10-16 本番セキュリティ障害の再発防止。コードに触る PR は、関係者ごとに
+      # 見える・操作できる範囲を表にし、見せない相手（×）を書かないとマージできない。
+      # テストより先に実行して、数秒で落とす。詳細は scripts/check-access-matrix.mjs
+      - name: Check access matrix in PR description
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/check-access-matrix.mjs
 
       - name: Install dependencies (npm ci)
         run: npm ci

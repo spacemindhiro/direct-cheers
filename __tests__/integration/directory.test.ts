@@ -1,6 +1,6 @@
 /**
  * TC-DIRECTORY: 照会画面 API
- *   GET /api/directory/search?type=artist|organizer&q=
+ *   GET /api/directory/search?types=artist,organizer&q=
  *   GET /api/directory/:profileId
  *
  * カバレッジ:
@@ -57,7 +57,7 @@ function mockAs(id: string | null, stepUpValue: string | null = String(Date.now(
 async function search(viewer: string | null, type: string, q: string, stepUpValue?: string) {
   mockAs(viewer, stepUpValue ?? String(Date.now()));
   const res = await searchGET(
-    new Request(`http://localhost/api/directory/search?type=${type}&q=${encodeURIComponent(q)}`),
+    new Request(`http://localhost/api/directory/search?types=${type}&q=${encodeURIComponent(q)}`),
   );
   return { status: res.status, body: await res.json() };
 }
@@ -205,14 +205,14 @@ describe("TC-DIRECTORY-C: 検索列と表示名", () => {
   it("TC-DIRECTORY-C-01: artist_name でヒットし、名前は芸名・サブはジャンル", async () => {
     const r = await search(ids.organizer, "artist", `芸名${MARK}`);
     expect(r.body.results).toEqual([
-      { profile_id: ids.artist, role: "artist", name: `芸名${MARK}`, avatar_url: null, sub: "TECHNO" },
+      { profile_id: ids.artist, role: "artist", name: `芸名${MARK}`, avatar_url: null, sub: "TECHNO", matched: ["artist"] },
     ]);
   });
 
   it("TC-DIRECTORY-C-02: organizer_name でヒットし、名前は主催名・サブは団体名", async () => {
     const r = await search(ids.admin, "organizer", `主催名${MARK}`);
     expect(r.body.results).toEqual([
-      { profile_id: ids.orgTarget, role: "organizer", name: `主催名${MARK}`, avatar_url: null, sub: `団体${MARK}` },
+      { profile_id: ids.orgTarget, role: "organizer", name: `主催名${MARK}`, avatar_url: null, sub: `団体${MARK}`, matched: ["organizer"] },
     ]);
   });
 
@@ -336,7 +336,7 @@ describe("TC-DIRECTORY-G: ステップアップ認証（APIを直接叩かれて
   ] as const)("TC-DIRECTORY-G-01: %s は検索・詳細とも401", async (_label, v) => {
     const value = v === "NONE" ? null : v;
     mockAs(ids.admin, value);
-    const r = await searchGET(new Request(`http://localhost/api/directory/search?type=artist&q=${MARK}`));
+    const r = await searchGET(new Request(`http://localhost/api/directory/search?types=artist&q=${MARK}`));
     expect(r.status).toBe(401);
     mockAs(ids.admin, value);
     const d = await detailGET(new Request("http://localhost/api/directory/x"), { params: Promise.resolve({ profileId: ids.artist }) });
@@ -417,5 +417,67 @@ describe("TC-DIRECTORY-H: 閲覧者の状態", () => {
       "organization_name", "organizer_name", "profile_id", "role", "social_links",
     ]);
     expect(d.body.profile.internal).toBe(null);
+  });
+});
+
+describe("TC-DIRECTORY-I: 両方オン（types=artist,organizer）", () => {
+  type Item = { profile_id: string; matched: string[]; name: string };
+  const mine = (results: Item[]) => results.filter((x) => Object.values(ids).includes(x.profile_id));
+
+  it("TC-DIRECTORY-I-01: 両方の結果を合わせ、同一人物は1件にまとめて該当種別を両方返す", async () => {
+    const r = await search(ids.agent, "artist,organizer", "対象");
+    expect(r.status).toBe(200);
+    const got = Object.fromEntries(mine(r.body.results).map((x) => [x.profile_id, x.matched]));
+    expect(got).toEqual({
+      [ids.artist]: ["artist"],
+      [ids.orgTarget]: ["artist", "organizer"],
+      [ids.agentTarget]: ["artist", "organizer"],
+    });
+    const idsOnly = mine(r.body.results).map((x) => x.profile_id);
+    expect(idsOnly.length).toBe(new Set(idsOnly).size);
+  });
+
+  it("TC-DIRECTORY-I-02: 指定順に関係なく artist→organizer の順で該当種別を返す", async () => {
+    const r = await search(ids.admin, "organizer,artist", `対象主催${MARK}`);
+    expect(r.body.results.map((x: Item) => [x.profile_id, x.matched])).toEqual([[ids.orgTarget, ["artist", "organizer"]]]);
+  });
+
+  it("TC-DIRECTORY-I-02b: 両方に該当した人のサブ表記はジャンルと団体名を並べる（片方が空ならある方だけ）", async () => {
+    await testAdmin.from("profiles").update({ genre: "HOUSE" }).eq("profile_id", ids.orgTarget);
+    try {
+      const r = await search(ids.admin, "artist,organizer", `対象主催${MARK}`);
+      expect(r.body.results.map((x: Item & { sub: string | null }) => x.sub)).toEqual([`HOUSE / 団体${MARK}`]);
+    } finally {
+      await testAdmin.from("profiles").update({ genre: null }).eq("profile_id", ids.orgTarget);
+    }
+    const r2 = await search(ids.admin, "artist,organizer", `対象主催${MARK}`);
+    expect(r2.body.results.map((x: Item & { sub: string | null }) => x.sub)).toEqual([`団体${MARK}`]);
+    const r3 = await search(ids.admin, "artist,organizer", `対象代理店${MARK}`);
+    expect(r3.body.results.map((x: Item & { sub: string | null }) => x.sub)).toEqual([null]);
+  });
+
+  it("TC-DIRECTORY-I-03: 片方にしか該当しない語ではその種別だけ・名前もその種別の名前", async () => {
+    const r = await search(ids.agent, "artist,organizer", `主催名${MARK}`);
+    expect(r.body.results.map((x: Item) => [x.profile_id, x.matched, x.name])).toEqual([[ids.orgTarget, ["organizer"], `主催名${MARK}`]]);
+    const r2 = await search(ids.agent, "artist,organizer", `芸名${MARK}`);
+    expect(r2.body.results.map((x: Item) => [x.profile_id, x.matched, x.name])).toEqual([[ids.artist, ["artist"], `芸名${MARK}`]]);
+  });
+
+  it("TC-DIRECTORY-I-04: 重複指定（artist,artist）は1種別として扱う", async () => {
+    const r = await search(ids.agent, "artist,artist", `芸名${MARK}`);
+    expect(r.status).toBe(200);
+    expect(r.body.results.map((x: Item) => x.matched)).toEqual([["artist"]]);
+  });
+
+  it.each([
+    ["organizer", "artist,organizer"],
+    ["organizer", "organizer,artist"],
+    ["agent", "artist,user"],
+    ["admin", "artist,"+"profiles"],
+    ["agent", ","],
+    ["agent", ""],
+  ] as const)("TC-DIRECTORY-I-05: %s が types=%s → 403（権限外・不明・空が混ざれば全体拒否）", async (viewer, types) => {
+    const r = await search(ids[viewer], types, MARK);
+    expect(r.status).toBe(403);
   });
 });

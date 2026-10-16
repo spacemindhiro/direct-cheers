@@ -108,39 +108,74 @@ export type DirectorySearchItem = {
   role: string;
   name: string;
   avatar_url: string | null;
-  // artist: ジャンル / organizer: 団体名
+  // artist: ジャンル / organizer: 団体名（両方に該当したら「ジャンル / 団体名」）
   sub: string | null;
+  // どの種別の検索に該当したか（両方オンで同一人物が両方に該当したら両方入る）
+  matched: DirectoryType[];
 };
+
+const SEARCH_LIMIT = 50;
+
+// 種別の正規化（重複除去・表示順をartist→organizerに固定）。不明な値は残し、権限判定で弾かせる
+export function parseTypes(raw: string | null): string[] {
+  const list = (raw ?? "").split(",").map((t) => t.trim()).filter(Boolean);
+  return [...new Set(list)].sort((a, b) => (a === "artist" ? -1 : b === "artist" ? 1 : 0));
+}
 
 export async function searchDirectory(
   admin: SupabaseClient,
-  params: { viewerId: string; type: DirectoryType; q: string },
+  params: { viewerId: string; types: DirectoryType[]; q: string },
 ): Promise<DirectorySearchItem[]> {
   const pattern = toIlikePattern(params.q);
-  if (!pattern) return [];
+  if (!pattern || params.types.length === 0) return [];
 
-  const searchColumns = params.type === "artist"
-    ? ["display_name", "artist_name"]
-    : ["display_name", "organizer_name", "organization_name"];
+  const searchOne = async (type: DirectoryType) => {
+    const searchColumns = type === "artist"
+      ? ["display_name", "artist_name"]
+      : ["display_name", "organizer_name", "organization_name"];
+    const { data, error } = await admin
+      .from("profiles")
+      .select(`${PUBLIC_COLUMNS}, created_at`)
+      .in("role", TARGET_ROLES[type])
+      .is("deleted_at", null)
+      .neq("profile_id", params.viewerId)
+      .or(searchColumns.map((c) => `${c}.ilike.${pattern}`).join(","))
+      .order("created_at", { ascending: false })
+      .limit(SEARCH_LIMIT);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as (ProfileRow & { created_at: string })[];
+  };
 
-  const { data, error } = await admin
-    .from("profiles")
-    .select(PUBLIC_COLUMNS)
-    .in("role", TARGET_ROLES[params.type])
-    .is("deleted_at", null)
-    .neq("profile_id", params.viewerId)
-    .or(searchColumns.map((c) => `${c}.ilike.${pattern}`).join(","))
-    .order("created_at", { ascending: false })
-    .limit(50);
-  if (error) throw new Error(error.message);
+  const perType = await Promise.all(params.types.map(async (t) => ({ type: t, rows: await searchOne(t) })));
 
-  return ((data ?? []) as ProfileRow[]).map((p) => ({
-    profile_id: p.profile_id,
-    role: p.role,
-    name: nameFor(p, params.type),
-    avatar_url: avatarFor(p, params.type),
-    sub: params.type === "artist" ? p.genre : p.organization_name,
-  }));
+  // 同一人物は1件にまとめる。名前・アバター・サブ表記は先に該当した種別（artist優先）のものを使う
+  const merged = new Map<string, DirectorySearchItem>();
+  const createdAt = new Map<string, string>();
+  for (const { type, rows } of perType) {
+    for (const p of rows) {
+      const sub = type === "artist" ? p.genre : p.organization_name;
+      const hit = merged.get(p.profile_id);
+      if (hit) {
+        // 両方に該当した人はサブ表記を「ジャンル / 団体名」と並べ、主催側の情報も見えるようにする
+        hit.matched.push(type);
+        hit.sub = [hit.sub, sub].filter(Boolean).join(" / ") || null;
+        continue;
+      }
+      merged.set(p.profile_id, {
+        profile_id: p.profile_id,
+        role: p.role,
+        name: nameFor(p, type),
+        avatar_url: avatarFor(p, type),
+        sub,
+        matched: [type],
+      });
+      createdAt.set(p.profile_id, p.created_at);
+    }
+  }
+
+  return [...merged.values()]
+    .sort((a, b) => createdAt.get(b.profile_id)!.localeCompare(createdAt.get(a.profile_id)!))
+    .slice(0, SEARCH_LIMIT);
 }
 
 export type DirectoryEvent = {

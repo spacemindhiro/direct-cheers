@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { allowedTypes, isStepUpFresh, resolveDirectoryViewer, searchDirectory, type DirectoryType } from "@/lib/directory";
+import { allowedTypes, isStepUpFresh, parseTypes, resolveDirectoryViewer, searchDirectory, type DirectoryType } from "@/lib/directory";
 
-// GET /api/directory/search?type=artist|organizer&q=xxx
-// 照会画面の検索。organizer はアーティストのみ、agent/admin はオーガナイザーも検索できる。
+// GET /api/directory/search?types=artist,organizer&q=xxx
+// 照会画面の検索。organizer はアーティストのみ、agent/admin はオーガナイザーも検索できる（両方同時も可）。
 // 登録内容を横断的に引ける機能のため、画面と同じくステップアップ認証済みを必須にする。
 export async function GET(req: Request) {
   const supabase = await createClient();
@@ -21,13 +21,19 @@ export async function GET(req: Request) {
   const viewer = await resolveDirectoryViewer(admin, user.id);
 
   const { searchParams } = new URL(req.url);
-  const type = (searchParams.get("type") ?? "artist") as DirectoryType;
-  if (!viewer || !allowedTypes(viewer.role).includes(type)) {
+  const types = parseTypes(searchParams.get("types") ?? "artist");
+  // 1つでも権限外の種別が混ざっていたら全体を拒否する（黙って落とさない）
+  const allowed = allowedTypes(viewer?.role);
+  if (!viewer || types.length === 0 || !types.every((t) => (allowed as string[]).includes(t))) {
     return NextResponse.json({ error: "Permission denied" }, { status: 403 });
   }
 
   try {
-    const results = await searchDirectory(admin, { viewerId: user.id, type, q: searchParams.get("q") ?? "" });
+    const results = await searchDirectory(admin, {
+      viewerId: user.id,
+      types: types as DirectoryType[],
+      q: searchParams.get("q") ?? "",
+    });
     return NextResponse.json({ results });
   } catch (e) {
     console.error("[directory/search]", e);

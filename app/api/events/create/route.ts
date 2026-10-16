@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidFlyerUrl } from "@/lib/image-source";
 import { markProxyDraft } from "@/lib/proxy-draft";
+import { findIneligiblePerformers } from "@/lib/directory";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -80,6 +81,10 @@ export async function POST(req: Request) {
 
   if (!title || !venue || !start_at || !end_at) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
+  // 出演者は artist/organizer/agent の実在ユーザーのみ（画面を通さず一般ユーザー・admin等を指定されるのを防ぐ）
+  if ((await findIneligiblePerformers(createAdminClient(), artistList.map((a) => a.profile_id))).length > 0) {
+    return NextResponse.json({ error: "出演者に指定できないユーザーが含まれています" }, { status: 400 });
   }
   if (!isValidFlyerUrl(base_flyer_url)) {
     return NextResponse.json({ error: "フライヤー画像の形式が不正です" }, { status: 400 });

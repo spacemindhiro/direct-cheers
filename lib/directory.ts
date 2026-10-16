@@ -14,7 +14,7 @@ export const DIRECTORY_VIEWER_ROLES = ["organizer", "agent", "admin"] as const;
 const INTERNAL_VIEWER_ROLES = ["agent", "admin"];
 
 // 上位互換：アーティスト業務はorganizer/agentも行うため検索対象に含める。
-// adminは出演・主催しないため対象外（/api/artists/search と同じ考え方）
+// adminは出演・主催しないため対象外。アーティスト側の条件はイベントの出演者に指定できる条件でもある（findIneligiblePerformers）
 const TARGET_ROLES: Record<DirectoryType, string[]> = {
   artist: ["artist", "organizer", "agent"],
   organizer: ["organizer", "agent"],
@@ -124,7 +124,7 @@ export function parseTypes(raw: string | null): string[] {
 
 export async function searchDirectory(
   admin: SupabaseClient,
-  params: { viewerId: string; types: DirectoryType[]; q: string },
+  params: { types: DirectoryType[]; q: string },
 ): Promise<DirectorySearchItem[]> {
   const pattern = toIlikePattern(params.q);
   if (!pattern || params.types.length === 0) return [];
@@ -138,7 +138,6 @@ export async function searchDirectory(
       .select(`${PUBLIC_COLUMNS}, created_at`)
       .in("role", TARGET_ROLES[type])
       .is("deleted_at", null)
-      .neq("profile_id", params.viewerId)
       .or(searchColumns.map((c) => `${c}.ilike.${pattern}`).join(","))
       .order("created_at", { ascending: false })
       .limit(SEARCH_LIMIT);
@@ -215,6 +214,30 @@ export type DirectoryProfile = {
 
 const EVENT_LIMIT = 100;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * 出演者に指定できない profile_id を返す（空配列なら全員指定可）。
+ * 条件は照会画面のアーティスト検索の対象と同じ：artist/organizer/agent かつ未削除。
+ * イベント作成・更新APIで、画面を通さず直接送られた一般ユーザー・admin・存在しないIDを弾くために使う。
+ */
+export async function findIneligiblePerformers(admin: SupabaseClient, ids: unknown[]): Promise<string[]> {
+  const asStrings = ids.map((id) => (typeof id === "string" ? id : String(id)));
+  const malformed = asStrings.filter((id) => !UUID_RE.test(id));
+  const candidates = [...new Set(asStrings.filter((id) => UUID_RE.test(id)))];
+  if (candidates.length === 0) return malformed;
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("profile_id")
+    .in("profile_id", candidates)
+    .in("role", TARGET_ROLES.artist)
+    .is("deleted_at", null);
+  if (error) throw new Error(error.message);
+  const ok = new Set((data ?? []).map((r: { profile_id: string }) => r.profile_id));
+  return [...malformed, ...candidates.filter((id) => !ok.has(id))];
+}
+
 // 本人入力のURLを他人の画面でリンクにするため、http(s)以外（javascript: 等）は落とす
 export function safeSocialLinks(
   links: ProfileRow["social_links"],
@@ -243,7 +266,7 @@ export async function getDirectoryProfile(
   const targetRoles = viewableTargetRoles(params.viewerRole);
   if (targetRoles.length === 0) return null;
   // uuid型の列に不正な文字列を渡すとDBエラー(500)になるため、ここで弾いて404扱いにする
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.profileId)) return null;
+  if (!UUID_RE.test(params.profileId)) return null;
 
   const { data: row, error } = await admin
     .from("profiles")

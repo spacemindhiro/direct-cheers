@@ -30,7 +30,6 @@ export async function GET(req: Request) {
 
   try {
     const results = await searchDirectory(admin, {
-      viewerId: user.id,
       types: types as DirectoryType[],
       q: searchParams.get("q") ?? "",
     });

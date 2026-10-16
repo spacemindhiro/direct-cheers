@@ -6,7 +6,8 @@
  *
  * カバレッジ:
  *   A. 作成（POST /api/events/create）: 一般ユーザー・admin・削除済み・存在しないID・UUIDでない値は400、
- *      イベントも出演行も作られない。artist/organizer/agent/主催者本人は通る。旧形式 artist_ids も同じ
+ *      イベントも出演行も作られない。artist/organizer/agent/主催者本人は通る。旧形式 artist_ids も同じ。
+ *      作成者の登録手続きの進捗（status）は作成可否に関係しない
  *   B. 更新（PATCH /api/events/:id）: 新しく加える相手が不正なら400、イベント本体（タイトル）も出演行も変わらない。
  *      既に出演中の人は検証対象外（後からロールが変わっても編集が止まらない）
  */
@@ -148,6 +149,21 @@ describe("TC-PERFORMER-ELIG-A: 作成", () => {
     expect(r.status).toBe(200);
     expect(r.eventCount).toBe(1);
   });
+
+  it.each(["pending_onboarding", "pending_terms", "pending_interview"] as const)(
+    "TC-PERFORMER-ELIG-A-07: 登録手続き中（status=%s）の organizer でも作成できる（statusは作成可否に関係しない）",
+    async (status) => {
+      await testAdmin.from("profiles").update({ status }).eq("profile_id", ids.organizer);
+      try {
+        const r = await create(`A07-${status}-${MARK}`, { artists: [{ profile_id: ids.artist }] });
+        expect(r.status).toBe(200);
+        expect(r.eventCount).toBe(1);
+        expect(await performersOf(eventIds[eventIds.length - 1])).toEqual([ids.artist]);
+      } finally {
+        await testAdmin.from("profiles").update({ status: "active" }).eq("profile_id", ids.organizer);
+      }
+    },
+  );
 });
 
 describe("TC-PERFORMER-ELIG-B: 更新", () => {

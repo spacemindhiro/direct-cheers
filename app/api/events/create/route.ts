@@ -17,16 +17,14 @@ export async function POST(req: Request) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, status, responsible_agent_id")
+    .select("role, responsible_agent_id")
     .eq("profile_id", user.id)
     .single();
 
-  // ロールは上位互換（agent/adminはorganizerの業務も行える）のため、organizer以上を許可
+  // ロールは上位互換（agent/adminはorganizerの業務も行える）のため、organizer以上を許可。
+  // 登録手続きの進捗（status＝口座開設等）は作成できるかどうかに関係しない
   if (!["organizer", "agent", "admin"].includes(profile?.role ?? "")) {
     return NextResponse.json({ error: "Organizer only" }, { status: 403 });
-  }
-  if (profile?.status !== "active") {
-    return NextResponse.json({ error: "Account not active" }, { status: 403 });
   }
   // organizerは担当agentの監督が必須。agent/adminは自分自身が監督者となるため不要
   // （承認時はapprove/route.tsのセルフ承認ガードにより本人ではなくadminのみ承認可能になる）
@@ -59,11 +57,11 @@ export async function POST(req: Request) {
     }
     const { data: target } = await createAdminClient()
       .from("profiles")
-      .select("role, status, responsible_agent_id")
+      .select("role, responsible_agent_id")
       .eq("profile_id", organizer_profile_id)
       .is("deleted_at", null)
       .maybeSingle();
-    if (!target || target.role !== "organizer" || target.status !== "active" || !target.responsible_agent_id) {
+    if (!target || target.role !== "organizer" || !target.responsible_agent_id) {
       return NextResponse.json({ error: "代理作成できない主催者です" }, { status: 400 });
     }
     // エージェントは自分が担当する主催者のみ

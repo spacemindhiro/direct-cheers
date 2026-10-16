@@ -59,11 +59,13 @@ export async function POST(
 
   const { data: toAgent } = await admin
     .from("profiles")
-    .select("role, status, display_name")
+    .select("role, display_name")
     .eq("profile_id", to_agent_id)
-    .single();
+    .is("deleted_at", null)
+    .maybeSingle();
 
-  if (!toAgent || toAgent.role !== "agent" || toAgent.status !== "active") {
+  // 判定はロールのみ。登録手続きの進捗（status＝口座開設等）は代打を受けられるかに関係しない
+  if (!toAgent || toAgent.role !== "agent") {
     return NextResponse.json({ error: "依頼先が有効なエージェントではありません" }, { status: 400 });
   }
 

@@ -162,7 +162,6 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         .from("profiles")
         .select("profile_id, display_name, organizer_name")
         .eq("role", "agent")
-        .eq("status", "active")
         .neq("profile_id", user.id)
         .is("deleted_at", null)
     : { data: null };

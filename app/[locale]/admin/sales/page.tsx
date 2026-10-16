@@ -59,12 +59,12 @@ async function AdminSalesContent() {
     .select("*", { count: "exact", head: true })
     .is("deleted_at", null);
 
-  // アクティブユーザー数
+  // 会員数（一般ユーザー以外）。登録手続きの進捗（status）では絞らない
   const { count: activeUserCount } = await admin
     .from("profiles")
     .select("*", { count: "exact", head: true })
-    .eq("status", "active")
-    .neq("role", "user");
+    .neq("role", "user")
+    .is("deleted_at", null);
 
   const maxMonthly = Math.max(...monthlyData.map((m) => m.amount), 1);
 
@@ -103,7 +103,7 @@ async function AdminSalesContent() {
           <div className="w-10 h-10 bg-violet-500/10 rounded-2xl flex items-center justify-center border border-violet-500/20">
             <Users size={20} className="text-violet-400" />
           </div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">アクティブ会員</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">会員</p>
           <p className="text-2xl font-black text-white italic">{activeUserCount?.toLocaleString() ?? 0}</p>
         </div>
       </div>

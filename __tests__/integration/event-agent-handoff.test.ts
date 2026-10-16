@@ -1,7 +1,7 @@
 /**
  * TC-HANDOFF: 代打（エージェント引き継ぎ）統合テスト
  *
- * 現担当エージェントが別のアクティブなエージェントへイベント担当を
+ * 現担当エージェントが別のエージェントへイベント担当を
  * 引き継げる機能。承諾があって初めて events.agent_id が更新される。
  *
  * カバレッジ:
@@ -29,7 +29,8 @@ let organizerProfileId: string;
 let agentAProfileId: string; // 現担当（依頼元）
 let agentBProfileId: string; // 代打候補（アクティブ）
 let agentCProfileId: string; // 無関係の第三エージェント
-let inactiveAgentProfileId: string; // status != active な候補
+let inactiveAgentProfileId: string; // status != active な候補（登録手続きの進捗は代打の可否に関係しない）
+let deletedAgentProfileId: string; // 削除済み（deleted_at あり）
 let artistProfileId: string;
 
 const cleanup = {
@@ -68,9 +69,11 @@ beforeAll(async () => {
   agentCProfileId = await insertProfile({ role: "agent", displayName: "エージェントC", email: `agent-c-ho-${ts}@test.local` });
   inactiveAgentProfileId = await insertProfile({ role: "agent", displayName: "休止中エージェント", email: `agent-inactive-ho-${ts}@test.local` });
   artistProfileId = await insertProfile({ role: "artist", displayName: "アーティスト（権限テスト）", email: `artist-ho-${ts}@test.local` });
+  deletedAgentProfileId = await insertProfile({ role: "agent", displayName: "削除済みエージェント", email: `agent-deleted-ho-${ts}@test.local` });
   cleanup.profileIds.push(
-    organizerProfileId, agentAProfileId, agentBProfileId, agentCProfileId, inactiveAgentProfileId, artistProfileId,
+    organizerProfileId, agentAProfileId, agentBProfileId, agentCProfileId, inactiveAgentProfileId, artistProfileId, deletedAgentProfileId,
   );
+  await testAdmin.from("profiles").update({ deleted_at: new Date().toISOString() }).eq("profile_id", deletedAgentProfileId);
 
   await testAdmin.from("profiles").update({ status: "rejected" }).eq("profile_id", inactiveAgentProfileId);
 }, 30_000);
@@ -170,17 +173,40 @@ describe("TC-HANDOFF-A: handoff POST — 代打依頼の作成", () => {
     expect(res2.status).toBe(409);
   });
 
-  it("TC-HANDOFF-A-06: 依頼先がactiveでないエージェント → 400", async () => {
+  it.each(["rejected", "pending_onboarding", "pending_interview"] as const)(
+    "TC-HANDOFF-A-06: 依頼先エージェントの status が %s でも依頼できる（statusは代打の可否に関係しない）",
+    async (status) => {
+      await testAdmin.from("profiles").update({ status }).eq("profile_id", inactiveAgentProfileId);
+      const eventId = await insertPendingHandoffEvent("published");
+      mockAs(agentAProfileId, "agent");
+
+      const req = new Request("http://localhost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to_agent_id: inactiveAgentProfileId }),
+      });
+      const res = await handoffPOST(req, { params: Promise.resolve({ eventId }) });
+      expect(res.status).toBe(200);
+      const { data: rows } = await testAdmin.from("event_agent_handoffs")
+        .select("to_agent_id, status").eq("event_id", eventId);
+      expect(rows).toEqual([{ to_agent_id: inactiveAgentProfileId, status: "pending" }]);
+    },
+  );
+
+  it("TC-HANDOFF-A-06b: 依頼先が削除済みのエージェント → 400・依頼行は作られない", async () => {
     const eventId = await insertPendingHandoffEvent("published");
     mockAs(agentAProfileId, "agent");
 
     const req = new Request("http://localhost", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to_agent_id: inactiveAgentProfileId }),
+      body: JSON.stringify({ to_agent_id: deletedAgentProfileId }),
     });
     const res = await handoffPOST(req, { params: Promise.resolve({ eventId }) });
     expect(res.status).toBe(400);
+    const { count } = await testAdmin.from("event_agent_handoffs")
+      .select("handoff_id", { count: "exact", head: true }).eq("event_id", eventId);
+    expect(count).toBe(0);
   });
 
   it("TC-HANDOFF-A-07: 依頼先がagentロールでない（artist）→ 400", async () => {

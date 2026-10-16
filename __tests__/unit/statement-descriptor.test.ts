@@ -21,6 +21,7 @@ import {
   PLATFORM_STATIC_DESCRIPTOR,
   PLATFORM_STATIC_DESCRIPTOR_KANA,
   STATEMENT_DESCRIPTOR_TOTAL_MAX,
+  buildAccountStaticDescriptor,
 } from "@/lib/statement-descriptor";
 
 describe("TC-SD-01: sanitizeStatementDescriptorSuffix", () => {
@@ -558,10 +559,10 @@ describe("TC-SD-07: resolveCheerCardIdentity（仕様マトリクス・厳格一
   });
 });
 
-// ── TC-SD-ACCT: 静的statement_descriptor（ウェブサイト名固定） ──────────────
-// JCB加盟店審査は静的表記と登録ウェブサイト名称の文字一致を見るため、
-// 全アカウント固定でウェブサイト名を登録する（2026-07-17指摘対応）。
-describe("TC-SD-ACCT: PLATFORM_STATIC_DESCRIPTOR — 静的表記はウェブサイト名と文字一致", () => {
+// ── TC-SD-ACCT: 静的statement_descriptorの漢字/カナ欄・フォールバック値 ─────────
+// 漢字/カナ欄は全アカウント固定。ASCII欄は本人の名前（TC-SD-ACCT2）で、
+// 名前から作れないときのフォールバックにPLATFORM_STATIC_DESCRIPTORを使う。
+describe("TC-SD-ACCT: PLATFORM_STATIC_DESCRIPTOR — 漢字/カナ欄の固定値・ASCII欄のフォールバック値", () => {
   it("ASCII/漢字用の静的表記はウェブサイト名と完全一致する", () => {
     expect(PLATFORM_STATIC_DESCRIPTOR).toBe("Direct Cheers");
   });
@@ -586,5 +587,84 @@ describe("TC-SD-ACCT: PLATFORM_STATIC_DESCRIPTOR — 静的表記はウェブサ
 
   it("禁止文字（< > \\ ' \" *）を含まない", () => {
     expect(PLATFORM_STATIC_DESCRIPTOR).not.toMatch(/[<>\\'"*]/);
+  });
+});
+
+// ── TC-SD-ACCT2: buildAccountStaticDescriptor（ASCII欄＝本人の名前） ─────────
+// JCBは連結アカウントの登録サイト（本人のSNS等）の名称と照合する（2026-08-16 Stripe回答、
+// 2026-10-16 トーマスさんの口座で審査通過を確認）。
+describe("TC-SD-ACCT2: buildAccountStaticDescriptor — 静的表記のASCII欄を本人の名前から作る", () => {
+  const cases: Array<{ name: string; params: Parameters<typeof buildAccountStaticDescriptor>[0]; expected: string }> = [
+    {
+      name: "artist: 英字名の上書き（artist_name_ascii）を最優先する",
+      params: { role: "artist", artistName: "ナチュラル", artistNameAscii: "Natural Frequency", organizerName: "Org Name", displayName: "たけひで" },
+      expected: "NATURAL FREQUENCY",
+    },
+    {
+      name: "artist: 英字名が無ければ artist_name をそのまま使う",
+      params: { role: "artist", artistName: "catojun", organizerName: "Org Name", displayName: "Display" },
+      expected: "CATOJUN",
+    },
+    {
+      name: "organizer: organizer_name_ascii を artist側より優先する",
+      params: { role: "organizer", artistName: "Artist Name", organizerName: "主催", organizerNameAscii: "Three Oak", displayName: "x" },
+      expected: "THREE OAK",
+    },
+    {
+      name: "agent: organizer側を先に見る（artist以外は主催者名が先）",
+      params: { role: "agent", artistName: "Artist Name", organizerName: "Agent Office" },
+      expected: "AGENT OFFICE",
+    },
+    {
+      name: "漢字だけの名前は飛ばして display_name を使う",
+      params: { role: "artist", artistName: "御影理充", displayName: "Mikage DJ" },
+      expected: "MIKAGE DJ",
+    },
+    {
+      name: "5文字未満の名前（KEN）は飛ばして次の候補を使う",
+      params: { role: "artist", artistName: "KEN", displayName: "Ken Emc2" },
+      expected: "KEN EMC2",
+    },
+    {
+      name: "数字と記号だけ（英字なし）は使わない",
+      params: { role: "artist", artistName: "2026-10", displayName: "1234567" },
+      expected: PLATFORM_STATIC_DESCRIPTOR,
+    },
+    {
+      name: "どの候補からも作れなければ PLATFORM_STATIC_DESCRIPTOR",
+      params: { role: "artist", artistName: "上山名人", organizerName: null, displayName: "たけひで" },
+      expected: PLATFORM_STATIC_DESCRIPTOR,
+    },
+    {
+      name: "全部未設定でも PLATFORM_STATIC_DESCRIPTOR",
+      params: { role: "artist" },
+      expected: PLATFORM_STATIC_DESCRIPTOR,
+    },
+    {
+      name: "22文字を超える名前は22文字で切る（末尾の空白は落とす）",
+      params: { role: "artist", artistName: "Public Beta Wear Japan Tokyo" },
+      expected: "PUBLIC BETA WEAR JAPAN",
+    },
+    {
+      name: "禁止文字・全角英数は整形される（全角→半角、記号除去）",
+      params: { role: "artist", artistName: "ＤＪ “Chi*Yan”" },
+      expected: "DJ CHIYAN",
+    },
+  ];
+
+  for (const c of cases) {
+    it(c.name, () => {
+      expect(buildAccountStaticDescriptor(c.params)).toBe(c.expected);
+    });
+  }
+
+  it("結果は常にStripeの制約（5〜22文字・英字を含む・禁止文字なし）を満たす", () => {
+    for (const c of cases) {
+      const v = buildAccountStaticDescriptor(c.params);
+      expect(v.length).toBeGreaterThanOrEqual(5);
+      expect(v.length).toBeLessThanOrEqual(STATEMENT_DESCRIPTOR_TOTAL_MAX.ascii);
+      expect(v).toMatch(/[A-Za-z]/);
+      expect(v).not.toMatch(/[<>\\'"*]/);
+    }
   });
 });

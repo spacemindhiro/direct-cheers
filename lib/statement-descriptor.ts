@@ -261,7 +261,7 @@ export function buildStatementDescriptorSuffixes(
 // 意味不明な明細になりチャージバックの原因になる上、「ベース＋suffix」以外の
 // 第三の可変要素を増やすこと自体が混乱の元になるため）。
 // ※静的statement_descriptorは別物で、JCB加盟店審査の要件により
-//   ウェブサイト名を固定登録する（PLATFORM_STATIC_DESCRIPTOR参照）。
+//   ASCII欄は本人の名前を登録する（buildAccountStaticDescriptor参照）。
 //
 // Stripeの合計文字数制限（prefix + 区切り + suffix の合計）:
 //   ASCII: 22文字 / カナ: 22文字 / 漢字: 17文字
@@ -280,18 +280,20 @@ const KANJI_TOTAL_MAX = 17;
 // ============================================================================
 // 静的statement_descriptor（アカウント登録の固定表記）
 //
-// 背景（2026-07-17 JCB加盟店審査指摘・2度目）: JCBの審査はアカウントの静的
-// statement_descriptorと「登録ウェブサイトの名称」の文字一致を見ている。
-// 1度目の指摘（2026-07-16「明細書表記は企業名が反映されるものに」）を受けて
-// 本人確認済みの事業者名（本名/会社名）を登録したが、2度目の指摘で
-// 「ウェブサイトの名称（Direct Cheers）と一致していない」と弾かれた。
-// 全アカウントのウェブサイトはDirect Cheersなので、静的表記は全アカウント
-// 固定でウェブサイト名と同一文字列にする。
+// 経緯:
+// - 2026-07-16 JCB指摘「明細書表記は企業名が反映されるものに」→本名を登録
+// - 2026-07-17 2度目の指摘はプラットフォーム本体の旧表記（DC THANKS CARD DL）と
+//   ウェブサイト名の不一致だった。これを連結アカウントにも当てはまると誤読し、
+//   全アカウント固定で "Direct Cheers" を登録していた。
+// - 2026-08-16 Stripe回答で、JCBが照合しているのは「連結アカウントに登録した
+//   ウェブサイト（本人のSNS等）の名称」と判明。トーマスさんのASCII表記をXの
+//   アカウント名に合わせて変更→2026-10-16 審査通過をStripeが回答。
+//   漢字/カナは "Direct Cheers" のままで通過しており、変更が必要なのはASCII欄のみ。
 //
-// - ASCII/漢字フィールド: ウェブサイト名と完全一致の "Direct Cheers"
-//   （漢字フィールドは半角英数字も受け付ける。既存実装でも"DC for"を
-//   フォールバック登録していた実績あり）
-// - カナフィールド: カタカナしか受け付けないため音写の「ダイレクトチアーズ」
+// - ASCII欄: 本人の名前（buildAccountStaticDescriptor）。登録サイトの表示名と
+//   一致しない場合は、JCBの指摘が来た時点で個別に修正する運用。
+// - 漢字欄: "Direct Cheers"（半角英数字も受け付ける）
+// - カナ欄: カタカナしか受け付けないため音写の「ダイレクトチアーズ」
 //
 // 注意: 動的suffixと結合されるprefixは別物で、引き続き固定PLATFORM_PREFIX。
 // 実際のカード明細は従来どおり「DC FOR* 宛先名義」と表示される。静的表記が
@@ -299,6 +301,42 @@ const KANJI_TOTAL_MAX = 17;
 // ============================================================================
 export const PLATFORM_STATIC_DESCRIPTOR = "Direct Cheers";
 export const PLATFORM_STATIC_DESCRIPTOR_KANA = "ダイレクトチアーズ";
+
+// Stripeの静的statement_descriptor（ASCII）の制約: 5〜22文字・英字を1文字以上含む
+const STATIC_DESCRIPTOR_MIN = 5;
+const STATIC_DESCRIPTOR_MAX = 22;
+
+/**
+ * 連結アカウントの静的statement_descriptor（ASCII欄）を本人の名前から組み立てる。
+ *
+ * 候補の順番:
+ *   artist  : artist_name_ascii → artist_name → organizer_name_ascii → organizer_name → display_name
+ *   それ以外: organizer_name_ascii → organizer_name → artist_name_ascii → artist_name → display_name
+ * 各候補をASCII整形し、5文字以上かつ英字を含む最初のものを使う。
+ * どれも満たさない（漢字だけの名前・短すぎる名前等）場合は PLATFORM_STATIC_DESCRIPTOR。
+ */
+export function buildAccountStaticDescriptor(params: {
+  role: string | null | undefined;
+  artistName?: string | null;
+  artistNameAscii?: string | null;
+  organizerName?: string | null;
+  organizerNameAscii?: string | null;
+  displayName?: string | null;
+}): string {
+  const artist = [params.artistNameAscii, params.artistName];
+  const organizer = [params.organizerNameAscii, params.organizerName];
+  const candidates = [
+    ...(params.role === "artist" ? [...artist, ...organizer] : [...organizer, ...artist]),
+    params.displayName,
+  ];
+  for (const raw of candidates) {
+    const sanitized = sanitizeStatementDescriptorSuffix(raw, STATIC_DESCRIPTOR_MAX);
+    if (sanitized && sanitized.length >= STATIC_DESCRIPTOR_MIN && /[A-Z]/.test(sanitized)) {
+      return sanitized;
+    }
+  }
+  return PLATFORM_STATIC_DESCRIPTOR;
+}
 
 /**
  * prefix + suffix を結合した最終的な明細表記をシミュレーションする（プレビュー表示用）。

@@ -1,10 +1,11 @@
 /**
  * TC-ONB-SD: /api/stripe/connect/onboarding の statement_descriptor 送信仕様を検証する
  *
- * 仕様（2026-07-17 JCB加盟店審査2度目の指摘を受けて変更）:
- * - 静的statement_descriptor（ASCII/漢字/カナ）: JCB審査が「登録ウェブサイトの
- *   名称との文字一致」を見るため、入力（本名・会社名の有無）によらず
- *   全アカウント固定でウェブサイト名（PLATFORM_STATIC_DESCRIPTOR）を送る。
+ * 仕様（2026-10-16 JCB審査の照合先が「連結アカウントの登録サイトの名称」と確定して変更）:
+ * - 静的statement_descriptorのASCII欄: 新規作成時は本人の名前
+ *   （buildAccountStaticDescriptor。本名・会社名は使わない）。既存アカウントの更新時は
+ *   送らない（運営が手修正した値を上書きしないため）。
+ * - 漢字/カナ欄: 全アカウント固定（PLATFORM_STATIC_DESCRIPTOR / _KANA）。
  * - prefix（動的suffixと結合されるベース表記）: 常に固定 PLATFORM_PREFIX。
  *   ユーザーによるカスタマイズは一切許可しない（従来どおり）。
  *   descriptor更新時のprefix自動上書き対策として、作成・更新の両パスで
@@ -84,9 +85,13 @@ function makeReq(body: Record<string, any>): Request {
   });
 }
 
+function expectCreateDescriptors(payments: any, expectedAscii: string) {
+  expect(payments.statement_descriptor).toBe(expectedAscii);
+  expectFixedDescriptors(payments);
+}
+
+// 漢字/カナ欄とprefix（作成・更新の両パス共通で固定）
 function expectFixedDescriptors(payments: any) {
-  expect(payments).toBeDefined();
-  expect(payments.statement_descriptor).toBe(PLATFORM_STATIC_DESCRIPTOR);
   expect(payments.statement_descriptor_kanji).toBe(PLATFORM_STATIC_DESCRIPTOR);
   expect(payments.statement_descriptor_kana).toBe(PLATFORM_STATIC_DESCRIPTOR_KANA);
   expect(payments.statement_descriptor_prefix).toBe(PLATFORM_PREFIX);
@@ -106,16 +111,25 @@ afterEach(() => {
 
 // ── TC-ONB-SD-01: 新規アカウント作成時の静的表記とprefix ──────────────────
 describe("TC-ONB-SD-01: 新規Connectアカウント作成時の statement_descriptor 送信内容", () => {
-  async function freshProfile(label: string): Promise<string> {
+  async function freshProfile(
+    label: string,
+    opts: { role?: "organizer" | "artist"; displayName?: string; names?: Record<string, string | null> } = {},
+  ): Promise<string> {
     const id = await insertProfile({
-      role: "organizer", displayName: `テスト主催者${label}`, email: `org-onb-${label}-${Date.now()}@test.local`,
+      role: opts.role ?? "organizer",
+      displayName: opts.displayName ?? `テスト主催者${label}`,
+      email: `org-onb-${label}-${Date.now()}@test.local`,
     });
     cleanup.profileIds.push(id);
+    if (opts.names) {
+      const { error } = await testAdmin.from("profiles").update(opts.names).eq("profile_id", id);
+      if (error) throw new Error(error.message);
+    }
     return id;
   }
 
-  it("個人: 本名を入力しても静的表記は固定のウェブサイト名、prefixは固定PLATFORM_PREFIX", async () => {
-    const profileId = await freshProfile("indiv");
+  it("個人: 本名ではなく主催者名（英字）がASCII欄に入る", async () => {
+    const profileId = await freshProfile("indiv", { names: { organizer_name: "Night Rainbow" } });
     mockAuth(profileId);
     const res = await onboardingPOST(makeReq({
       business_type: "individual",
@@ -124,11 +138,11 @@ describe("TC-ONB-SD-01: 新規Connectアカウント作成時の statement_descr
       first_name_kana: "タロウ", last_name_kana: "ヤマダ",
     }));
     expect(res.status).toBe(200);
-    expectFixedDescriptors(captured.accountCreateParams?.settings?.payments);
+    expectCreateDescriptors(captured.accountCreateParams?.settings?.payments, "NIGHT RAINBOW");
   }, 15_000);
 
-  it("法人: 会社名を入力しても静的表記は固定のウェブサイト名", async () => {
-    const profileId = await freshProfile("comp");
+  it("法人: 会社名ではなく主催者名の英字上書き（organizer_name_ascii）が入る", async () => {
+    const profileId = await freshProfile("comp", { names: { organizer_name: "三本樫", organizer_name_ascii: "Three Oak" } });
     mockAuth(profileId);
     const res = await onboardingPOST(makeReq({
       business_type: "company",
@@ -137,7 +151,26 @@ describe("TC-ONB-SD-01: 新規Connectアカウント作成時の statement_descr
       company_name_kana: "スペースマインドゴウドウガイシャ",
     }));
     expect(res.status).toBe(200);
-    expectFixedDescriptors(captured.accountCreateParams?.settings?.payments);
+    expectCreateDescriptors(captured.accountCreateParams?.settings?.payments, "THREE OAK");
+  }, 15_000);
+
+  it("artist: artist_name_ascii が organizer側より優先される", async () => {
+    const profileId = await freshProfile("artist", {
+      role: "artist", displayName: "たけひで",
+      names: { artist_name: "Natural Frequency", artist_name_ascii: "Natural Frequency", organizer_name: "Other Org" },
+    });
+    mockAuth(profileId);
+    const res = await onboardingPOST(makeReq({ business_type: "individual" }));
+    expect(res.status).toBe(200);
+    expectCreateDescriptors(captured.accountCreateParams?.settings?.payments, "NATURAL FREQUENCY");
+  }, 15_000);
+
+  it("名前が漢字だけならフォールバックの PLATFORM_STATIC_DESCRIPTOR", async () => {
+    const profileId = await freshProfile("kanji", { role: "artist", displayName: "御影理充", names: { artist_name: "御影理充" } });
+    mockAuth(profileId);
+    const res = await onboardingPOST(makeReq({ business_type: "individual" }));
+    expect(res.status).toBe(200);
+    expectCreateDescriptors(captured.accountCreateParams?.settings?.payments, PLATFORM_STATIC_DESCRIPTOR);
   }, 15_000);
 
   it("店舗名（business_profile.name）にdisplay_nameが設定される", async () => {
@@ -150,11 +183,11 @@ describe("TC-ONB-SD-01: 新規Connectアカウント作成時の statement_descr
     expect(captured.accountCreateParams?.business_profile?.name).toContain("テスト主催者bpname");
   }, 15_000);
 
-  it("氏名が無くても静的表記は固定のウェブサイト名（入力に依存しない）", async () => {
-    const profileId = await freshProfile("empty");
+  it("氏名が無くても、名前の列が無ければdisplay_name（英字）から作る", async () => {
+    const profileId = await freshProfile("empty", { displayName: "Gossiy Live" });
     mockAuth(profileId);
     await onboardingPOST(makeReq({ business_type: "individual" }));
-    expectFixedDescriptors(captured.accountCreateParams?.settings?.payments);
+    expectCreateDescriptors(captured.accountCreateParams?.settings?.payments, "GOSSIY LIVE");
   }, 15_000);
 
   // 2026-08-07: payout_schedule未指定だとStripeのデフォルト(自動・毎週)のまま
@@ -194,7 +227,7 @@ describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時の stripe.ac
     cleanup.profileIds.push(profileId);
   }, 30_000);
 
-  it("氏名付き再送信でも静的表記は固定のウェブサイト名で更新され、prefixは同一コールで再送される", async () => {
+  it("氏名付き再送信でもASCII欄は送らない（手修正の値を守る）。漢字/カナ・prefixは同一コールで再送される", async () => {
     mockAuth(profileId);
     const res = await onboardingPOST(makeReq({
       business_type: "individual",
@@ -205,17 +238,29 @@ describe("TC-ONB-SD-02: 既存Connectアカウントの再編集時の stripe.ac
 
     expect(captured.accountUpdateId).toBe(existingConnectId);
     expectFixedDescriptors(captured.accountUpdateParams?.settings?.payments);
+    expect("statement_descriptor" in captured.accountUpdateParams.settings.payments).toBe(false);
     // 既存アカウントが再訪問した際にもlink_paymentsを補うため常にリクエストする
     expect(captured.accountUpdateParams?.capabilities?.link_payments).toEqual({ requested: true });
   });
 
-  it("氏名なしの再送信でも静的表記は固定のウェブサイト名で更新される（入力に依存しない）", async () => {
+  it("英字の名前を持つ本人の再送信でもASCII欄は送らない", async () => {
+    await testAdmin.from("profiles").update({ organizer_name: "Night Rainbow", organizer_name_ascii: "Night Rainbow" }).eq("profile_id", profileId);
+    mockAuth(profileId);
+    const res = await onboardingPOST(makeReq({ business_type: "individual" }));
+    expect(res.status).toBe(200);
+    expect(captured.accountUpdateId).toBe(existingConnectId);
+    expect("statement_descriptor" in captured.accountUpdateParams.settings.payments).toBe(false);
+    expectFixedDescriptors(captured.accountUpdateParams?.settings?.payments);
+  });
+
+  it("氏名なしの再送信でもASCII欄は送らない（入力に依存しない）", async () => {
     mockAuth(profileId);
     const res = await onboardingPOST(makeReq({ business_name: "屋号だけでbusiness_typeなし" }));
     expect(res.status).toBe(200);
 
     expect(captured.accountUpdateId).toBe(existingConnectId);
     expectFixedDescriptors(captured.accountUpdateParams?.settings?.payments);
+    expect("statement_descriptor" in captured.accountUpdateParams.settings.payments).toBe(false);
     // 既存アカウントが再訪問した際にもlink_paymentsを補うため常にリクエストする
     expect(captured.accountUpdateParams?.capabilities?.link_payments).toEqual({ requested: true });
   });

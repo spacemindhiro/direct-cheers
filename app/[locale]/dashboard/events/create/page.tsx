@@ -14,13 +14,13 @@ async function EventCreateContent({ searchParams }: { searchParams: Promise<{ or
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, status, responsible_agent_id")
+    .select("role, responsible_agent_id")
     .eq("profile_id", user.id)
     .single();
 
   // ロールは上位互換（agent/adminはorganizerの業務も行える）のため、organizer以上を許可
+  // 登録手続きの進捗（status＝口座開設等）は作成できるかどうかに関係しない
   if (!["organizer", "agent", "admin"].includes(profile?.role ?? "")) redirect("/dashboard");
-  if (profile?.status !== "active") redirect("/dashboard");
 
   // エージェント/adminは担当主催者の名義で代理作成できる（審査申請は主催者本人）
   const admin = createAdminClient();
@@ -30,7 +30,6 @@ async function EventCreateContent({ searchParams }: { searchParams: Promise<{ or
       .from("profiles")
       .select("profile_id, display_name, organizer_name")
       .eq("role", "organizer")
-      .eq("status", "active")
       .not("responsible_agent_id", "is", null)
       .is("deleted_at", null);
     if (profile.role === "agent") q = q.eq("responsible_agent_id", user.id);

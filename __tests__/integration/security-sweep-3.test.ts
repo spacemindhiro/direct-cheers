@@ -4,7 +4,7 @@
  *   A. NFCの飛び先（booth-devices/sync・booth-holders）— 操作できるイベントのQRにしか向けられない
  *   B. QRグループ・表示スケジュール — 他のイベントのグループ・QRは指定できない
  *   C. 売上速報（live-stats）— 担当外のエージェントは見られない
- *   D. アーティスト検索 — 検索語に条件を混ぜ込めない
+ *   D. アーティスト検索（イベントの出演者選択＝照会API）— 検索語に条件を混ぜ込めない
  *   E. 配分比率 — 1人ずつ 0〜100%（合計100%でも 109% と -9% は通さない）
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -22,7 +22,11 @@ vi.mock("@/lib/supabase/server", () => ({
   getUser: vi.fn(async () => (auth.userId ? { id: auth.userId } : null)),
 }));
 vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({ get: () => undefined, getAll: () => [] })),
+  // 照会APIはステップアップ認証済みを要求するため dc_stepup だけ返す（他のcookieは無し）
+  cookies: vi.fn(async () => ({
+    get: (name: string) => (name === "dc_stepup" ? { value: String(Date.now()) } : undefined),
+    getAll: () => [],
+  })),
   headers: vi.fn(() => new Headers()),
 }));
 vi.mock("@/lib/apple-wallet-push", () => ({
@@ -35,7 +39,7 @@ import { PATCH as holderPATCH } from "@/app/api/booth-holders/[holderId]/route";
 import { POST as groupsPOST, PATCH as groupsPATCH } from "@/app/api/events/[eventId]/qr-groups/route";
 import { POST as schedulesPOST } from "@/app/api/events/[eventId]/display-schedules/route";
 import { GET as liveStatsGET } from "@/app/api/events/[eventId]/live-stats/route";
-import { GET as artistSearchGET } from "@/app/api/artists/search/route";
+import { GET as directorySearchGET } from "@/app/api/directory/search/route";
 import { PATCH as qrPATCH } from "@/app/api/qr/[qrConfigId]/route";
 import { POST as qrCreatePOST } from "@/app/api/qr/create/route";
 
@@ -235,8 +239,9 @@ describe("TC-SEC3-C: 売上速報は担当エージェントのみ", () => {
 describe("TC-SEC3-D: 検索語に条件を混ぜ込めない", () => {
   const search = async (q: string) => {
     as(orgA);
-    const res = await artistSearchGET(new Request(`http://localhost/api/artists/search?q=${encodeURIComponent(q)}`));
-    return ((await res.json()).artists as { profile_id: string }[]).map((a) => a.profile_id);
+    const res = await directorySearchGET(new Request(`http://localhost/api/directory/search?types=artist&q=${encodeURIComponent(q)}`));
+    expect(res.status).toBe(200);
+    return ((await res.json()).results as { profile_id: string }[]).map((a) => a.profile_id);
   };
 
   it("TC-SEC3-D-01: 名前に一致しない語＋「,role.like.agen」で、エージェントが返らない", async () => {

@@ -5,6 +5,7 @@ import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 import { isValidFlyerUrl } from "@/lib/image-source";
 import { sendLineupInvites } from "@/lib/lineup-invite";
+import { findIneligiblePerformers } from "@/lib/directory";
 
 export async function PATCH(
   req: Request,
@@ -65,6 +66,22 @@ export async function PATCH(
   }
   // 新フォーマット（artists[]）と旧フォーマット（artist_ids[]）の両方をサポート
   const artistList = artists ?? artist_ids?.map((id) => ({ profile_id: id, invite_message: null as string | null }));
+
+  // 新しく加える出演者は artist/organizer/agent の実在ユーザーのみ（画面を通さず一般ユーザー・admin等を指定されるのを防ぐ）。
+  // どの書き込みよりも前に確かめ、拒否したときにイベント本体だけ書き換わることがないようにする。
+  // 既に出演中の人は対象外（後からロールが変わった人を理由に編集できなくならないように）
+  if (artistList !== undefined) {
+    const { data: activeRows } = await createAdminClient()
+      .from("event_artists")
+      .select("artist_profile_id")
+      .eq("event_id", eventId)
+      .is("deleted_at", null);
+    const already = new Set((activeRows ?? []).map((r) => r.artist_profile_id));
+    const additions = artistList.map((a) => a.profile_id).filter((id) => !already.has(id));
+    if ((await findIneligiblePerformers(createAdminClient(), additions)).length > 0) {
+      return NextResponse.json({ error: "出演者に指定できないユーザーが含まれています" }, { status: 400 });
+    }
+  }
 
   // 日程・場所が変わったら draft に戻す（再承認が必要）
   // タイムゾーン付き ISO 文字列と datetime-local 値を正規化して比較

@@ -5,8 +5,8 @@
  *
  * カバレッジ:
  *   A. 閲覧権限マトリクス: user/artist は不可、organizer はアーティストのみ、agent/admin は両方
- *   B. 検索対象: 上位互換(organizer/agentもアーティスト検索に出る)・登録手続き中(Stripe未完了等)も出る・
- *      admin/一般ユーザー/削除済み/自分は出ない
+ *   B. 検索対象: 上位互換(organizer/agentもアーティスト検索に出る)・登録手続き中(Stripe未完了等)も出る・自分も出る・
+ *      admin/一般ユーザー/削除済みは出ない
  *   C. 検索列: artist は artist_name、organizer は organizer_name/organization_name でもヒット
  *   D. 詳細の出し分け: organizer には実績・口座状況を返さない（キー自体が値を持たない）、
  *      agent/admin には返す。実績は出演承諾済み×公開以降のみ
@@ -37,6 +37,7 @@ import { GET as detailGET } from "@/app/api/directory/[profileId]/route";
 
 const ts = Date.now();
 const MARK = `dir${ts}`;
+type Role = Parameters<typeof insertProfile>[0]["role"];
 
 const ids = {} as Record<
   | "user" | "artistViewer" | "organizer" | "agent" | "admin"
@@ -49,7 +50,7 @@ const eventIds = {} as Record<"published" | "settled" | "draft" | "cancelled" | 
 // stepUpValue: null は「dc_stepup cookie なし」
 function mockAs(id: string | null, stepUpValue: string | null = String(Date.now())) {
   stepUp.value = stepUpValue ?? undefined;
-  (createClient as any).mockResolvedValue({
+  vi.mocked(createClient).mockResolvedValue({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: id ? { id } : null }, error: null }) },
   });
 }
@@ -71,7 +72,7 @@ async function detail(viewer: string | null, profileId: string, stepUpValue?: st
 }
 
 beforeAll(async () => {
-  const mk = (role: any, name: string, extra?: { stripeConnectId?: string }) =>
+  const mk = (role: Role, name: string, extra?: { stripeConnectId?: string }) =>
     insertProfile({ role, displayName: `${name}${MARK}`, email: `${name}-${MARK}@test.local`.replace(/[^\x00-\x7F]/g, "x") + Math.random().toString(36).slice(2, 6), ...extra });
 
   ids.user = await mk("user", "閲覧一般");
@@ -189,9 +190,9 @@ describe("TC-DIRECTORY-B: 検索対象", () => {
     expect(r.body.results).toEqual([]);
   });
 
-  it("TC-DIRECTORY-B-03: 自分自身は出ない", async () => {
+  it("TC-DIRECTORY-B-03: 自分自身も出る（イベントの出演者選択で主催者本人を出演者にできるように）", async () => {
     const r = await search(ids.organizer, "artist", `閲覧オーガナイザー${MARK}`);
-    expect(r.body.results).toEqual([]);
+    expect(r.body.results.map((x: { profile_id: string }) => x.profile_id)).toEqual([ids.organizer]);
   });
 
   it("TC-DIRECTORY-B-04: オーガナイザー検索は organizer/agent のみで artist は出ない", async () => {

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { jstLocalToUtcIso, addHoursToLocalDT } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { VenueSelect } from "@/components/venue-select";
 import { FlyerUploadField } from "@/components/flyer-upload-field";
-import { ArrowRight, Loader2, Music, Search, X, Plus } from "lucide-react";
+import { PerformerSearch } from "@/components/performer-search";
+import { ArrowRight, Loader2, Music, X, Plus } from "lucide-react";
 
 type Artist = { profile_id: string; display_name: string };
 type OrganizerOption = { profile_id: string; name: string };
@@ -35,10 +36,6 @@ export function EventCreateForm({
 
   // 新規アーティスト検索
   const [searchMode, setSearchMode] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<Artist[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedIds = new Set(selectedArtists.map((a) => a.profile_id));
 
@@ -50,24 +47,6 @@ export function EventCreateForm({
     );
   };
 
-  const handleSearchInput = (q: string) => {
-    setSearchQuery(q);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (q.trim().length < 1) {
-      setSearchResults([]);
-      return;
-    }
-    setIsSearching(true);
-    searchTimer.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/artists/search?q=${encodeURIComponent(q.trim())}`);
-        const data = await res.json();
-        setSearchResults(data.artists ?? []);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-  };
 
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -280,64 +259,11 @@ export function EventCreateForm({
               <Plus size={13} /> 新規アーティストに依頼
             </button>
           ) : (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search size={13} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                  <Input
-                    autoFocus
-                    value={searchQuery}
-                    onChange={(e) => handleSearchInput(e.target.value)}
-                    placeholder="アーティスト名で検索..."
-                    className="h-11 pl-9 bg-slate-950/50 border-slate-700 rounded-xl text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setSearchMode(false); setSearchQuery(""); setSearchResults([]); }}
-                  className="text-slate-500 hover:text-white transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              {isSearching && (
-                <div className="flex items-center gap-2 text-xs text-slate-500 px-1">
-                  <Loader2 size={12} className="animate-spin" /> 検索中...
-                </div>
-              )}
-
-              {!isSearching && searchResults.length > 0 && (
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden">
-                  {searchResults.map((a) => (
-                    <button
-                      key={a.profile_id}
-                      type="button"
-                      onClick={() => {
-                        toggleArtist(a);
-                        setSearchQuery("");
-                        setSearchResults([]);
-                      }}
-                      disabled={selectedIds.has(a.profile_id)}
-                      className="w-full flex items-center justify-between px-5 py-3 text-sm text-left hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-default border-b border-slate-800 last:border-0"
-                    >
-                      <span className="font-bold text-white">{a.display_name}</span>
-                      {selectedIds.has(a.profile_id) ? (
-                        <span className="text-[9px] font-black text-pink-400 uppercase tracking-widest">選択済み</span>
-                      ) : (
-                        <Plus size={14} className="text-slate-500" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {!isSearching && searchQuery.length > 0 && searchResults.length === 0 && (
-                <p className="text-xs text-slate-600 px-1">
-                  「{searchQuery}」に一致するアーティストが見つかりません
-                </p>
-              )}
-            </div>
+            <PerformerSearch
+              selectedIds={selectedIds}
+              onAdd={(a) => { if (!selectedIds.has(a.profile_id)) toggleArtist(a); }}
+              onClose={() => setSearchMode(false)}
+            />
           )}
         </div>
 

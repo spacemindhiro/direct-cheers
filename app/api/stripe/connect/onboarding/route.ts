@@ -6,6 +6,7 @@ import {
   PLATFORM_PREFIX,
   PLATFORM_STATIC_DESCRIPTOR,
   PLATFORM_STATIC_DESCRIPTOR_KANA,
+  buildAccountStaticDescriptor,
 } from "@/lib/statement-descriptor";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
     // ロールとconnectId だけを取得（最小SELECT）
     const { data: me } = await supabase
       .from("profiles")
-      .select("role, stripe_connect_id, display_name")
+      .select("role, stripe_connect_id, display_name, artist_name, artist_name_ascii, organizer_name, organizer_name_ascii")
       .eq("profile_id", user.id)
       .single();
 
@@ -72,9 +73,9 @@ export async function POST(req: Request) {
     // 送られるため、屋号を明細に出したい場合は organizer_name/artist_name に
     // 自分で入力してもらえばよく、ベース側に別の名前入力欄を持つ必要は無い。
     //
-    // 一方、静的statement_descriptorはJCB加盟店審査が「登録ウェブサイトの名称との
-    // 文字一致」を見るため、全アカウント固定でウェブサイト名（Direct Cheers）を
-    // 登録する（PLATFORM_STATIC_DESCRIPTOR、経緯はlib/statement-descriptor.ts参照）。
+    // 一方、静的statement_descriptorのASCII欄はJCB加盟店審査が「連結アカウントに
+    // 登録したウェブサイト（本人のSNS等）の名称」と照合するため、本人の名前を
+    // 登録する（buildAccountStaticDescriptor、経緯はlib/statement-descriptor.ts参照）。
     // 実際のカード明細はsuffix付き決済なら従来どおり「DC FOR* 宛先名義」のまま変わらない。
 
     if (!connectId) {
@@ -103,7 +104,7 @@ export async function POST(req: Request) {
         },
       };
 
-      // 静的表記＝ウェブサイト名固定（JCB審査の文字一致用）。
+      // 静的表記のASCII欄＝本人の名前（JCB審査の照合用）。漢字/カナ欄は固定。
       // prefix（動的suffixと結合されるベース）は常に固定文字列（カスタマイズ不可）。
       //
       // payouts.schedule.interval="manual"は必須設定。指定しないとStripeの
@@ -112,7 +113,14 @@ export async function POST(req: Request) {
       // Stripeが勝手に銀行へ自動出金してしまう（2026-08-07 本番で発生・確認）。
       accountParams.settings = {
         payments: {
-          statement_descriptor: PLATFORM_STATIC_DESCRIPTOR,
+          statement_descriptor: buildAccountStaticDescriptor({
+            role: me.role,
+            artistName: me.artist_name,
+            artistNameAscii: me.artist_name_ascii,
+            organizerName: me.organizer_name,
+            organizerNameAscii: me.organizer_name_ascii,
+            displayName: me.display_name,
+          }),
           statement_descriptor_prefix: PLATFORM_PREFIX,
           statement_descriptor_kanji: PLATFORM_STATIC_DESCRIPTOR,
           statement_descriptor_prefix_kanji: PLATFORM_PREFIX,
@@ -285,9 +293,10 @@ export async function POST(req: Request) {
             ...(socialLinks ? { social_links: socialLinks } : {}),
           }).eq("profile_id", user.id)
         : Promise.resolve(null),
-      // 静的表記＝ウェブサイト名固定（JCB審査の文字一致用）。
-      // prefixは同一コールで明示指定する（statement_descriptor更新時に
-      // prefixが先頭10文字で自動上書きされるStripeの挙動への対策）。
+      // 静的表記のASCII欄（statement_descriptor）はここでは送らない。JCBの指摘を受けて
+      // 運営が登録サイトの名称に合わせて手修正した値を、本人が登録画面を開き直すたびに
+      // 上書きしてしまうため（2026-10-16に22口座を手修正）。
+      // prefixは同一コールで明示指定する。
       stripe.accounts.update(connectId, {
         ...(me.display_name ? { business_profile: { name: me.display_name } } : {}),
         // 既存アカウントが再訪問した際にもlink_paymentsが未リクエストのままなら
@@ -295,7 +304,6 @@ export async function POST(req: Request) {
         capabilities: { link_payments: { requested: true } },
         settings: {
           payments: {
-            statement_descriptor: PLATFORM_STATIC_DESCRIPTOR,
             statement_descriptor_kanji: PLATFORM_STATIC_DESCRIPTOR,
             statement_descriptor_kana: PLATFORM_STATIC_DESCRIPTOR_KANA,
             statement_descriptor_prefix: PLATFORM_PREFIX,

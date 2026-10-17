@@ -75,10 +75,14 @@ export function QRCreateForm({
 
   const [priceMode, setPriceMode] = useState<"fixed" | "range">("fixed");
   const [fixedAmount, setFixedAmount] = useState(currentConfig?.min_amount ?? 500);
-  const [minAmount, setMinAmount] = useState(currentConfig?.min_amount ?? 500);
-  const [maxAmount, setMaxAmount] = useState(currentConfig?.max_amount ?? 3000);
-  const [defaultAmount, setDefaultAmount] = useState(currentConfig?.min_amount ?? 500);
   const [amountStep, setAmountStep] = useState<100 | 500 | 1000>(100);
+  // レンジの起点・終点はスライド単位に揃える。商品タイプの最低額（50円）をそのまま
+  // 起点にすると、100円単位でも 50→150→250… と端数を引きずるため単位で切り上げる。
+  const rangeFloor = (cfgMin: number, s: number) => Math.ceil(cfgMin / s) * s;
+  const rangeCeil = (cfgMax: number, s: number) => Math.floor(cfgMax / s) * s;
+  const [minAmount, setMinAmount] = useState(rangeFloor(currentConfig?.min_amount ?? 500, 100));
+  const [maxAmount, setMaxAmount] = useState(rangeCeil(currentConfig?.max_amount ?? 3000, 100));
+  const [defaultAmount, setDefaultAmount] = useState(rangeFloor(currentConfig?.min_amount ?? 500, 100));
   // デフォルト金額を詳細設定で手動指定するまでは最低金額に自動追従させる
   const [defaultTouched, setDefaultTouched] = useState(false);
   const [showPriceAdvanced, setShowPriceAdvanced] = useState(false);
@@ -145,17 +149,17 @@ export function QRCreateForm({
   const handleTypeChange = (cfg: ProductTypeConfig) => {
     setProductType(cfg.type);
     setFixedAmount(cfg.min_amount);
-    setMinAmount(cfg.min_amount);
-    setMaxAmount(cfg.max_amount);
-    setDefaultAmount(cfg.min_amount);
+    setMinAmount(rangeFloor(cfg.min_amount, amountStep));
+    setMaxAmount(rangeCeil(cfg.max_amount, amountStep));
+    setDefaultAmount(rangeFloor(cfg.min_amount, amountStep));
     setDefaultTouched(false);
   };
 
   const handleStepChange = (s: 100 | 500 | 1000) => {
     setAmountStep(s);
-    const cfgMin = currentConfig?.min_amount ?? 50;
-    const cfgMax = currentConfig?.max_amount ?? 3000;
-    const snappedMin = Math.max(cfgMin, Math.round(minAmount / s) * s);
+    const cfgMin = rangeFloor(currentConfig?.min_amount ?? 50, s);
+    const cfgMax = rangeCeil(currentConfig?.max_amount ?? 3000, s);
+    const snappedMin = Math.min(Math.max(cfgMin, Math.round(minAmount / s) * s), cfgMax - s);
     const snappedMax = Math.min(cfgMax, Math.round(maxAmount / s) * s);
     const newMax = snappedMax <= snappedMin ? Math.min(snappedMin + s, cfgMax) : snappedMax;
     setMinAmount(snappedMin);
@@ -169,6 +173,10 @@ export function QRCreateForm({
       });
     }
   };
+
+  // レンジスライダーの両端（スライド単位に揃えた値）
+  const sliderMin = rangeFloor(currentConfig?.min_amount ?? 50, amountStep);
+  const sliderMax = rangeCeil(currentConfig?.max_amount ?? 3000, amountStep);
 
   // custom かつ payment_type='V' のとき true
   const isVoucher = productType === "custom" && customSubtype === "V";
@@ -616,8 +624,8 @@ export function QRCreateForm({
                     </div>
                     <input
                       type="range"
-                      min={currentConfig?.min_amount ?? 50}
-                      max={(currentConfig?.max_amount ?? 3000) - amountStep}
+                      min={sliderMin}
+                      max={sliderMax - amountStep}
                       step={amountStep}
                       value={minAmount}
                       onChange={(e) => {
@@ -625,7 +633,7 @@ export function QRCreateForm({
                         setMinAmount(v);
                         let newMax = maxAmount;
                         if (v >= maxAmount) {
-                          newMax = Math.min(v + amountStep, currentConfig?.max_amount ?? 3000);
+                          newMax = Math.min(v + amountStep, sliderMax);
                           setMaxAmount(newMax);
                         }
                         if (!defaultTouched) setDefaultAmount(v);
@@ -642,8 +650,8 @@ export function QRCreateForm({
                     </div>
                     <input
                       type="range"
-                      min={(currentConfig?.min_amount ?? 500) + amountStep}
-                      max={currentConfig?.max_amount ?? 3000}
+                      min={sliderMin + amountStep}
+                      max={sliderMax}
                       step={amountStep}
                       value={maxAmount}
                       onChange={(e) => {
@@ -651,7 +659,7 @@ export function QRCreateForm({
                         setMaxAmount(v);
                         let newMin = minAmount;
                         if (v <= minAmount) {
-                          newMin = Math.max(v - amountStep, currentConfig?.min_amount ?? 500);
+                          newMin = Math.max(v - amountStep, sliderMin);
                           setMinAmount(newMin);
                         }
                         if (!defaultTouched) setDefaultAmount(newMin);
@@ -660,8 +668,8 @@ export function QRCreateForm({
                       className="w-full accent-pink-500"
                     />
                     <div className="flex justify-between text-[10px] text-slate-600 font-bold">
-                      <span>¥{(currentConfig?.min_amount ?? 500).toLocaleString()}</span>
-                      <span>¥{(currentConfig?.max_amount ?? 3000).toLocaleString()}</span>
+                      <span>¥{sliderMin.toLocaleString()}</span>
+                      <span>¥{sliderMax.toLocaleString()}</span>
                     </div>
                   </div>
 

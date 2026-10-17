@@ -157,6 +157,30 @@ export function QREditDelete({
 
   const totalRatio = targets.reduce((sum, t) => sum + (parseFloat(t.ratio) || 0), 0);
 
+  // スライド単位が効くのはレンジ指定の非 entrance・非 custom のみ（スライド単位の表示条件と同じ）。
+  // 直接入力された最低・最高金額は単位に四捨五入して揃える。揃えないと「最低550円・1000円単位」の
+  // ような組み合わせが保存でき、決済画面のスライダーが 550→1550… と端数を引きずる。
+  const usesAmountStep = !isEntrance && !isVoucher && !isDrinkTicket && isRange;
+  const snapToStep = (v: number, s: number) => Math.max(s, Math.round(v / s) * s);
+  const snapRange = (minStr: string, maxStr: string, s: number) => {
+    const min = parseInt(minStr, 10);
+    const max = parseInt(maxStr, 10);
+    if (!Number.isInteger(min) || !Number.isInteger(max) || min <= 0) return null;
+    const snappedMin = snapToStep(min, s);
+    // 四捨五入で最低と最高が同じ額になったら、最高を1単位上げてレンジを保つ
+    const snappedMax = Math.max(snapToStep(max, s), snappedMin + s);
+    return { min: snappedMin, max: snappedMax };
+  };
+  // 入力欄を離れたとき・単位を切り替えたときに、表示中の値も単位に揃える
+  const applySnap = (s: number) => {
+    if (!usesAmountStep) return;
+    const r = snapRange(editMin, editMax, s);
+    if (!r) return;
+    setEditMin(String(r.min));
+    setEditMax(String(r.max));
+    setDefaultAmount((prev) => Math.min(Math.max(snapToStep(prev, s), r.min), r.max));
+  };
+
   // カードプレビュー用の金額（レンジ指定はデフォルト金額、固定はその場で編集中の金額を反映）
   const previewAmount = isRange ? defaultAmount : (parseInt(editFixed, 10) || minAmount);
 
@@ -213,6 +237,14 @@ export function QREditDelete({
       if (isRange) {
         newMin = parseInt(editMin, 10);
         newMax = parseInt(editMax, 10);
+        // 入力直後に保存された場合でも、送る値は必ず単位に揃える
+        if (usesAmountStep && newMin <= newMax) {
+          const r = snapRange(editMin, editMax, amountStep);
+          if (r) {
+            newMin = r.min;
+            newMax = r.max;
+          }
+        }
       } else {
         newMin = newMax = parseInt(editFixed, 10);
       }
@@ -282,7 +314,7 @@ export function QREditDelete({
         body.image_url = imageUrl;
         body.amount_step = amountStep;
         // レンジが変わった場合はデフォルト金額を新しい範囲内にクランプして送る
-        if (isRange) body.default_amount = Math.min(Math.max(defaultAmount, newMin), newMax);
+        if (isRange) body.default_amount = Math.min(Math.max(snapToStep(defaultAmount, amountStep), newMin), newMax);
       }
       if (touchpayEligible) body.touchpay_enabled = touchpayEnabled;
       if (isAdmin) body.bypass_validity = bypassValidity;
@@ -432,6 +464,7 @@ export function QREditDelete({
                           type="number"
                           value={value}
                           onChange={(e) => onChange(e.target.value)}
+                          onBlur={() => applySnap(amountStep)}
                           min={1}
                           className="h-12 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
                         />
@@ -684,7 +717,10 @@ export function QREditDelete({
                   <button
                     key={s}
                     type="button"
-                    onClick={() => setAmountStep(s)}
+                    onClick={() => {
+                      setAmountStep(s);
+                      applySnap(s);
+                    }}
                     className={`py-2 rounded-xl text-center text-xs font-black transition-all border ${
                       amountStep === s
                         ? "bg-pink-500/20 border-pink-500/50 text-white"

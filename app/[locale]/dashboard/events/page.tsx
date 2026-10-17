@@ -190,28 +190,28 @@ async function EventsContent({
               <Link
                 key={ev.event_id}
                 href={`/dashboard/events/${ev.event_id}`}
-                className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[1.5rem] px-6 py-5 transition-all"
+                className="block bg-slate-900 border border-slate-800 hover:border-pink-500/40 rounded-[1.5rem] px-5 py-4 sm:px-6 sm:py-5 transition-all"
               >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0 space-y-1.5">
-                    <p className="font-black text-white text-base truncate">{ev.title}</p>
-                    <div className="flex items-center gap-4 text-xs text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <MapPin size={11} /> {ev.venue ?? "—"}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar size={11} />
-                        {fmtDate(ev.start_at)}
-                      </span>
-                    </div>
+                {/* 1行目: イベント名を全幅で使う / 2行目: 左に場所・日付を1行、右端にバッジを縦積み */}
+                <p className="font-black text-white text-base truncate">{ev.title}</p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5 text-xs text-slate-500 whitespace-nowrap">
+                    <span className="flex min-w-0 items-center gap-1">
+                      <MapPin size={11} className="shrink-0" />
+                      <span className="truncate">{ev.venue ?? "—"}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      <Calendar size={11} />
+                      {fmtDate(ev.start_at)}
+                    </span>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 flex-col items-stretch gap-1.5">
                     {relation && (
-                      <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${relation.className}`}>
+                      <span className={`px-2.5 py-1 rounded-lg text-center text-[10px] font-black tracking-wider border ${relation.className}`}>
                         {relation.label}
                       </span>
                     )}
-                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${config.className}`}>
+                    <span className={`px-2.5 py-1 rounded-lg text-center text-[10px] font-black tracking-wider border ${config.className}`}>
                       {config.label}
                     </span>
                   </div>

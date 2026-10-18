@@ -10,6 +10,7 @@ import {
 import { DISPLAY_TZ } from "@/lib/display-tz";
 import { jstLocalToUtcIso, utcIsoToJstLocal, addHoursToLocalDT } from "@/lib/utils";
 import { DisplayTimetableGrid } from "@/components/display-timetable-grid";
+import { qrConfigToDisplayState, type QrConfigForDisplay, type QrDisplayState } from "@/lib/qr-display-state";
 
 type Device = {
   device_id: string;
@@ -19,25 +20,14 @@ type Device = {
   joined_at: string;
 };
 
-type QRConfig = {
-  qr_config_id: string;
-  label: string | null;
-  image_url: string | null;
+// 強制表示で子機へ送る名前・画像は qrConfigToDisplayState で子機自身の解決と同じ形に
+// 組み立てるため、宛先（recipient）・名義・商品アーティストの画像まで持つ
+type QRConfig = QrConfigForDisplay & {
   strip_image_url: string | null;
   bg_color: string;
-  product: {
-    name: string;
-    type: string;
-    artist: { display_name: string; artist_name: string | null } | null;
-  } | null;
 };
 
-type QrGroupMember = {
-  qr_config_id: string;
-  label: string | null;
-  image_url: string | null;
-  product: { name: string; type: string; artist: { display_name: string; artist_name: string | null } | null } | null;
-};
+type QrGroupMember = QrConfigForDisplay;
 
 // 名前付きQRグループ。トラックのデフォルト・タイムテーブルのスロット・強制表示の
 // いずれにも単一QRと同格で指定できる第一級の存在
@@ -423,11 +413,7 @@ export function QRControlPanel({
         payload: {
           target_device_id: targetDeviceId,
           is_forced: true,
-          qr_config_id: config.qr_config_id,
-          qr_url: `${siteUrl}/c/${config.qr_config_id}`,
-          product_name: config.product?.name ?? "",
-          label: config.label || config.product?.name || "",
-          artist_name: config.product?.artist?.artist_name ?? config.product?.artist?.display_name ?? "",
+          ...qrConfigToDisplayState(config, siteUrl),
         },
       });
       if (result === "ok") {
@@ -456,14 +442,11 @@ export function QRControlPanel({
           target_device_id: targetDeviceId,
           is_forced: true,
           qr_group_id: group.qr_group_id,
-          group_members: group.members.map((qc) => ({
-            qr_config_id: qc.qr_config_id,
-            qr_url: `${siteUrl}/c/${qc.qr_config_id}`,
-            product_name: qc.product?.name ?? "",
-            label: qc.label || qc.product?.name || "",
-            artist_name: qc.product?.artist?.artist_name ?? qc.product?.artist?.display_name ?? "",
-            image_url: qc.image_url,
-          })),
+          // タイムテーブル表示時と同じく宛先本人の写真（artist_avatar_url）を載せる。
+          // 以前は子機が参照しないimage_urlだけを送っており、強制表示の一覧が全員アイコンになっていた
+          group_members: group.members
+            .map((qc) => qrConfigToDisplayState(qc, siteUrl))
+            .filter((q): q is QrDisplayState => q !== null),
         },
       });
       if (result === "ok") {

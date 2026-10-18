@@ -635,24 +635,8 @@ export function QRBoardDisplay({
     }
   }, [eventId, deviceName, masterDeviceId]);
 
-  // 子機は終日QRを表示し続ける用途のため、OSの画面タイムアウト設定に依存せず
-  // Wake Lock APIで画面消灯を防ぐ。タブが非表示→復帰した際は権限が失われるため再取得する。
-  useEffect(() => {
-    if (!("wakeLock" in navigator)) return;
-    let wakeLock: WakeLockSentinel | null = null;
-    const requestWakeLock = async () => {
-      try { wakeLock = await navigator.wakeLock.request("screen"); } catch {}
-    };
-    requestWakeLock();
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") requestWakeLock();
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-      wakeLock?.release().catch(() => {});
-    };
-  }, []);
+  // 画面消灯の防止（Wake Lock）は表示状態に関係なく効かせるため、
+  // このコンポーネントではなく子機ページのlayout（components/screen-wake-lock.tsx）で行う。
 
   // Androidのナビゲーションバー（戻る・ホーム・最近のアプリの三角丸四角）はOS純正のシステムUIで
   // manifestの設定だけでは消せないため、Fullscreen APIで画面タップ時にイミラーシブモードへ移行する。

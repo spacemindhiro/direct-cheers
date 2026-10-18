@@ -44,8 +44,9 @@ async function ControlContent({ params }: { params: Promise<{ eventId: string }>
   const { data: qrConfigs } = await admin
     .from("qr_configs")
     .select(`
-      qr_config_id, label, image_url, strip_image_url, bg_color,
-      product:products(name, type, artist_id, artist:profiles!artist_id(display_name, artist_name))
+      qr_config_id, label, image_url, strip_image_url, bg_color, recipient_name_context,
+      product:products(name, type, artist_id, artist:profiles!artist_id(display_name, artist_name, avatar_url)),
+      recipient:profiles!recipient_profile_id(display_name, avatar_url, artist_name, organizer_name, artist_avatar_url, organizer_avatar_url)
     `)
     .eq("event_id", eventId)
     .is("deleted_at", null)

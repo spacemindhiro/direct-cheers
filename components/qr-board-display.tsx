@@ -5,16 +5,10 @@ import { createClient } from "@/lib/supabase/client";
 import { Wifi, WifiOff, Lock, X, Smartphone, Sparkles, ChevronDown } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PasskeySetup } from "@/components/passkey-setup";
-import { resolveCheerCardIdentity, type RecipientNameContext } from "@/lib/statement-descriptor";
+import { type RecipientNameContext } from "@/lib/statement-descriptor";
+import { qrConfigToDisplayState, type QrDisplayState } from "@/lib/qr-display-state";
 
-type QRState = {
-  qr_config_id: string;
-  qr_url: string;
-  product_name: string;
-  label?: string;
-  artist_name?: string;
-  artist_avatar_url?: string | null;
-};
+type QRState = QrDisplayState;
 
 type QrConfigInfo = {
   qr_config_id: string;
@@ -69,47 +63,10 @@ function getActiveSchedule(schedules: DisplaySchedule[], now: Date): DisplaySche
   ) ?? null;
 }
 
-// qr_config情報からQR表示状態を構築（タイムテーブルスロット・トラックのデフォルトQR共通）。
-// 名前・画像は「チアカード（/c/[qrConfigId]）」が使うのと同じ優先順位ロジック
-// （recipient_name_contextに応じたorganizer/artist名義 → product.artist → 未設定）で解決する。
-// 複数QRの選択タイルで見分けが付くようにするための画像なので、全QRでほぼ同じになりがちな
-// qr_configs.image_url（チアカード自体の画像）ではなく、宛先本人の写真を使うのが基本。
-// ただしエントランス・カスタム（バウチャー/ドリンクチケット）は同一主催者配下で
-// 宛先（オーガナイザー）画像が使い回されがちで、グループ一覧に並べると見分けが
-// つかず味気なくなるため、QR自体に個別画像が設定されていればそちらを優先する。
+// qr_config情報からQR表示状態を構築（名前・画像の優先順位は lib/qr-display-state.ts）。
+// 親機の強制表示も同じ関数で組み立てて送るため、どの経路でも表示が一致する
 function qrConfigToState(qc: QrConfigInfo, siteUrl: string, overrideLabel?: string | null): QRState | null {
-  if (!qc) return null;
-  const { name: artistName, avatarUrl: artistAvatarUrl } = resolveCheerCardIdentity({
-    recipientNameContext: qc.recipient_name_context ?? "artist",
-    recipient: qc.recipient
-      ? {
-          organizerName: qc.recipient.organizer_name,
-          artistName: qc.recipient.artist_name,
-          displayName: qc.recipient.display_name,
-          organizerAvatarUrl: qc.recipient.organizer_avatar_url,
-          artistAvatarUrl: qc.recipient.artist_avatar_url,
-          avatarUrl: qc.recipient.avatar_url,
-        }
-      : null,
-    productArtist: qc.product?.artist
-      ? {
-          artistName: qc.product.artist.artist_name,
-          displayName: qc.product.artist.display_name,
-          avatarUrl: qc.product.artist.avatar_url,
-        }
-      : null,
-    fallbackName: "",
-  });
-  const isTicketType = qc.product?.type === "entrance" || qc.product?.type === "custom";
-  const tileImageUrl = (isTicketType && qc.image_url) ? qc.image_url : artistAvatarUrl;
-  return {
-    qr_config_id: qc.qr_config_id,
-    qr_url: `${siteUrl}/c/${qc.qr_config_id}`,
-    product_name: qc.product?.name ?? "",
-    label: overrideLabel ?? qc.label ?? qc.product?.name ?? "",
-    artist_name: artistName,
-    artist_avatar_url: tileImageUrl,
-  };
+  return qrConfigToDisplayState(qc, siteUrl, overrideLabel);
 }
 
 // グループ表示（一覧タップ→単体QR拡大）で一覧に自動で戻るまでの時間

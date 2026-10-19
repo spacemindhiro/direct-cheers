@@ -22,6 +22,7 @@ import { GET as statusGET } from "@/app/api/terms/status/route";
 
 let artistProfileId: string;
 let organizerProfileId: string;
+let agentProfileId: string;
 
 const cleanup = {
   profileIds: [] as string[],
@@ -47,7 +48,12 @@ beforeAll(async () => {
     displayName: "テストオーガナイザー（規約）",
     email: `organizer-terms-${ts}@test.local`,
   });
-  cleanup.profileIds.push(artistProfileId, organizerProfileId);
+  agentProfileId = await insertProfile({
+    role: "agent",
+    displayName: "テストエージェント（規約）",
+    email: `agent-terms-${ts}@test.local`,
+  });
+  cleanup.profileIds.push(artistProfileId, organizerProfileId, agentProfileId);
 }, 30_000);
 
 afterAll(async () => {
@@ -88,8 +94,8 @@ describe("TC-TERMS-01: artist — baseのみ同意すればallAgreedになる", 
   });
 });
 
-describe("TC-TERMS-02: organizer — デジタル同意だけではallAgreedにならない（admin確認が必要）", () => {
-  it("base+organizerに同意してもconfirmed_atが無い間はallAgreed=false", async () => {
+describe("TC-TERMS-02: organizer — 2026-09-13〜対面確認が撤廃されデジタル同意のみでallAgreedになる", () => {
+  it("base+organizerに同意すればconfirmed_atが無くてもallAgreed=true", async () => {
     mockAuth(organizerProfileId);
 
     const agreeRes = await agreePOST(
@@ -101,8 +107,30 @@ describe("TC-TERMS-02: organizer — デジタル同意だけではallAgreedに�
     const data = await status.json();
     expect(data.status.base.digitallySigned).toBe(true);
     expect(data.status.organizer.digitallySigned).toBe(true);
+    expect(data.status.organizer.needsConfirmation).toBe(false);
     expect(data.status.organizer.confirmed).toBe(false);
-    expect(data.status.organizer.agreed).toBe(false);
+    expect(data.status.organizer.agreed).toBe(true);
+    expect(data.allAgreed).toBe(true);
+  });
+});
+
+describe("TC-TERMS-04: agent — デジタル同意だけではallAgreedにならない（対面確認が必要）", () => {
+  it("base+organizer+agentに同意してもagentのconfirmed_atが無い間はallAgreed=false", async () => {
+    mockAuth(agentProfileId);
+
+    const agreeRes = await agreePOST(
+      new Request("http://localhost", { method: "POST", body: JSON.stringify({ types: ["base", "organizer", "agent"] }) }),
+    );
+    expect(agreeRes.status).toBe(200);
+
+    const status = await statusGET();
+    const data = await status.json();
+    expect(data.status.base.agreed).toBe(true);
+    expect(data.status.organizer.agreed).toBe(true);
+    expect(data.status.agent.digitallySigned).toBe(true);
+    expect(data.status.agent.needsConfirmation).toBe(true);
+    expect(data.status.agent.confirmed).toBe(false);
+    expect(data.status.agent.agreed).toBe(false);
     expect(data.allAgreed).toBe(false);
   });
 });

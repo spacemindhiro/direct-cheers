@@ -39,6 +39,7 @@ export async function proxy(request: NextRequest) {
     normalizedPath === "" ||
     normalizedPath === "/law" ||
     normalizedPath === "/terms" ||
+    normalizedPath.startsWith("/terms/") || // 利用規約の過去の版（/terms/[version]、改定履歴から開く）
     normalizedPath === "/privacy" ||
     normalizedPath === "/about" ||
     normalizedPath === "/safety" ||

@@ -208,12 +208,15 @@ describe("TC-PROXY-CREATE-B: 権限・対象チェック（イベントは作ら
     expect(await eventCountByTitle(title)).toBe(0);
   });
 
-  it("B-04: 対象の主催者が active でない → 400", async () => {
+  it("B-04: 対象の主催者が登録手続き中（status≠active）でも代理作成できる（statusは作成可否に関係しない）", async () => {
     mockAs(agentProfileId, "agent");
     const title = `代理作成B04-${Date.now()}`;
     const res = await createPOST(createReq({ title, organizer_profile_id: pendingOrganizerId }));
-    expect(res.status).toBe(400);
-    expect(await eventCountByTitle(title)).toBe(0);
+    expect(res.status).toBe(200);
+    const { data: ev } = await testAdmin.from("events").select("event_id, organizer_profile_id, agent_id").eq("title", title).single();
+    cleanup.eventIds.push(ev!.event_id);
+    expect(ev!.organizer_profile_id).toBe(pendingOrganizerId);
+    expect(ev!.agent_id).toBe(agentProfileId);
   });
 
   it("B-05: 存在しない主催者ID → 400", async () => {

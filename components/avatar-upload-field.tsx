@@ -4,10 +4,12 @@ import { useRef, useState } from 'react';
 import { Camera, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ImageCropperModal } from '@/components/image-cropper-modal';
+import { downscaleImage } from '@/lib/image-downscale';
 
 type Props = {
   value: string;
-  onChange: (url: string) => void;
+  // originalUrl: 切り抜く前の画像（長辺1600px）。QR画像の素材として使う。アバターと必ず組で保存する
+  onChange: (url: string, originalUrl: string | null) => void;
   placeholderLabel?: string;
 };
 
@@ -19,6 +21,7 @@ type Props = {
 export function AvatarUploadField({ value, onChange, placeholderLabel = '画像を選択' }: Props) {
   const [uploading, setUploading] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [showCropper, setShowCropper] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -27,6 +30,7 @@ export function AvatarUploadField({ value, onChange, placeholderLabel = '画像�
     if (!file) return;
     const url = URL.createObjectURL(file);
     setCropSrc(url);
+    setOriginalFile(file);
     setShowCropper(true);
     e.target.value = '';
   };
@@ -42,9 +46,12 @@ export function AvatarUploadField({ value, onChange, placeholderLabel = '画像�
     try {
       const fd = new FormData();
       fd.append('file', blob, 'avatar.jpg');
+      // 原本の縮小に失敗してもアバター自体は保存する（原本なし＝QR画像には400px版を使う）
+      const original = originalFile ? await downscaleImage(originalFile).catch(() => null) : null;
+      if (original) fd.append('original', original, 'original.jpg');
       const res = await fetch('/api/avatar/upload', { method: 'POST', body: fd });
       const data = await res.json();
-      if (data.url) onChange(data.url);
+      if (data.url) onChange(data.url, data.originalUrl ?? null);
       else toast.error('アップロードに失敗しました');
     } finally {
       setUploading(false);

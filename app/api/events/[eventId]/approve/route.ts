@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEventApprovedEmail } from "@/lib/email/notification";
+import { ensureAgentConversation } from "@/lib/messaging/ensure-agent-conversation";
 
 export async function POST(
   _req: Request,
@@ -65,6 +66,11 @@ export async function POST(
   }
 
   const admin = createAdminClient();
+
+  // オーガナイザーと担当エージェントの会話を用意（本人が自分の担当の場合は不要）
+  try {
+    await ensureAgentConversation(eventId, eventDetail.organizer_profile_id, event.agent_id);
+  } catch { /* メッセージング失敗は非致死的 */ }
 
   // オーガナイザーへ承認通知 + メール
   try {

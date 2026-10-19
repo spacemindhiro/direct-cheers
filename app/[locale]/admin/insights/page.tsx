@@ -45,7 +45,6 @@ async function InsightsContent() {
     .from("profiles")
     .select("profile_id, display_name, avatar_url, role, status, follower_count, follower_milestone, created_at")
     .in("role", ["artist", "organizer"])
-    .eq("status", "active")
     .order("follower_count", { ascending: false })
     .limit(100);
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
+import { storagePublicPrefix } from "@/lib/image-source";
 
 // 本人が更新してよい項目（プロフィール画面 dashboard/profile が送る項目）。
 // 以前は受け取ったJSONをそのまま admin クライアントで update しており、
@@ -12,8 +13,18 @@ const EDITABLE_TEXT_FIELDS = [
   "bio", "affiliation", "credit_name", "genre", "organization_name",
   "organizer_name", "organizer_name_ascii", "organizer_avatar_url",
   "artist_name", "artist_name_ascii", "artist_avatar_url",
+  "avatar_original_url", "organizer_avatar_original_url", "artist_avatar_original_url",
 ] as const;
 const EDITABLE_FIELDS = new Set<string>([...EDITABLE_TEXT_FIELDS, "social_links"]);
+
+// アバターと、その切り抜き前の画像（QR画像の素材用）の組。
+// 原本は必ずアバターと組で更新する：アバターだけ変わって原本が送られなかったら原本は null に戻す
+// （残すと、QR画像を作るときに前の写真の原本から切り抜いてしまう）。
+const AVATAR_ORIGINAL_PAIRS = [
+  ["avatar_url", "avatar_original_url"],
+  ["organizer_avatar_url", "organizer_avatar_original_url"],
+  ["artist_avatar_url", "artist_avatar_original_url"],
+] as const;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -45,6 +56,15 @@ export async function PATCH(req: Request) {
     }
   }
 
+  // 原本は本人が /api/avatar/upload で上げた画像だけを受け付ける（他人の画像・外部URLを指させない）
+  const ownAvatarPrefix = `${storagePublicPrefix("avatars")}${user.id}/`;
+  for (const [, originalField] of AVATAR_ORIGINAL_PAIRS) {
+    const v = updates[originalField];
+    if (typeof v === "string" && !v.startsWith(ownAvatarPrefix)) {
+      return NextResponse.json({ error: `${originalField} の形式が不正です` }, { status: 400 });
+    }
+  }
+
   const admin = createAdminClient();
 
   // 変更前の値を取得（ウォレットカードの見た目に影響するフィールドの変化検出用）
@@ -59,6 +79,12 @@ export async function PATCH(req: Request) {
     .select(WALLET_VISIBLE_FIELDS.join(", "))
     .eq("profile_id", user.id)
     .single();
+
+  for (const [avatarField, originalField] of AVATAR_ORIGINAL_PAIRS) {
+    if (avatarField in updates && !(originalField in updates) && updates[avatarField] !== (before as any)?.[avatarField]) {
+      updates[originalField] = null;
+    }
+  }
 
   const { error } = await admin
     .from("profiles")

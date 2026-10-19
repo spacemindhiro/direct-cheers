@@ -54,6 +54,10 @@ async function DashboardNav() {
   // 付与した識別子でこのアプリからのアクセスと判定し対象外にする。
   // ログイン自体はstep-up済みスタッフが生成したQRからのみ可能なため許容する。
   const isNativeApp = (headersList.get('user-agent') ?? '').includes('DirectCheersTouchpayApp');
+  // 規約再同意の強制はTermsGate(クライアントコンポーネント)に委ねる(現在は未組み込み。下部のコメント参照)。
+  // Suspense配下でredirect()するとNext.jsがmeta refreshによる疑似リダイレクトを
+  // 行い、リダイレクト先ページでx-pathnameが正しく再取得できず自己ループする
+  // ことを実測で確認したため、サーバー側では行わない。
 
   if (!isDisplayPath && !isNativeApp && STEP_UP_ROLES.includes(profile.role as typeof STEP_UP_ROLES[number])) {
     const cookieStore = await cookies();
@@ -202,6 +206,9 @@ export default function DashboardLayout({
       <Suspense fallback={null}>
         <DashboardBreadcrumb />
       </Suspense>
+      {/* 規約再同意の強制(components/terms-gate.tsx)はAIアシスタンス機能と同時に
+          リリースするため一時的に外している。戻すときはここに
+          <Suspense fallback={null}><TermsGate /></Suspense> を置き直す。 */}
       <main className="max-w-5xl mx-auto px-6 py-10">
         {children}
       </main>

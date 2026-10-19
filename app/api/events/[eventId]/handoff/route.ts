@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendHandoffRequestEmail, sendHandoffResponseEmail } from "@/lib/email/notification";
+import { ensureAgentConversation } from "@/lib/messaging/ensure-agent-conversation";
 
 const HANDOFF_ELIGIBLE_STATUSES = ["review_requested", "published", "ongoing"];
 
@@ -58,11 +59,13 @@ export async function POST(
 
   const { data: toAgent } = await admin
     .from("profiles")
-    .select("role, status, display_name")
+    .select("role, display_name")
     .eq("profile_id", to_agent_id)
-    .single();
+    .is("deleted_at", null)
+    .maybeSingle();
 
-  if (!toAgent || toAgent.role !== "agent" || toAgent.status !== "active") {
+  // 判定はロールのみ。登録手続きの進捗（status＝口座開設等）は代打を受けられるかに関係しない
+  if (!toAgent || toAgent.role !== "agent") {
     return NextResponse.json({ error: "依頼先が有効なエージェントではありません" }, { status: 400 });
   }
 
@@ -163,6 +166,12 @@ export async function PATCH(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     eventDetail = data;
+
+    // 新エージェント用に別の会話を用意する（旧エージェントとの会話履歴を
+    // 新エージェントに見せないよう、参加者の差し替えではなく新規作成にする）
+    try {
+      await ensureAgentConversation(eventId, eventDetail.organizer_profile_id, user.id);
+    } catch { /* メッセージング失敗は非致死的 */ }
   } else {
     const { data } = await admin
       .from("events")

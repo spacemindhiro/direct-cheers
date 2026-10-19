@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 import { TutorialVideoButton } from "./tutorial-video-button";
+import { ConsentNotice } from "@/components/legal/consent-notice";
 import { TUTORIAL_VIDEO_IDS } from "@/lib/tutorial-videos";
 
 // 「招待リンクから登録する」。ロールごとに別撮りしている（O-01/A-01）
@@ -75,6 +76,7 @@ export function InviteLoginPrompt({
       >
         {isPending ? <Loader2 size={20} className="animate-spin" /> : <>登録して受け取る <ArrowRight size={18} /></>}
       </button>
+      <ConsentNotice lead="「登録して受け取る」を押すことで、" />
       {error && (
         <div className="space-y-2">
           <p className="text-center text-sm text-red-400 font-bold">{error}</p>

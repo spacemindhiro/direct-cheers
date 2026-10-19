@@ -1,5 +1,11 @@
 export type TermsType = 'base' | 'organizer' | 'agent';
 
+// 対面での調印式（admin立会いの署名）が必要な規約種別。
+// 【2026-09-13変更】organizerへの対面確認は実運用上機能しておらず
+// (本番の対象organizer14名中、署名済み0名)、負荷対効果に見合わないため撤廃。
+// 以後は agent のみ対面確認必須とし、organizer は base と同じくデジタル同意のみで完結させる。
+export const CEREMONY_REQUIRED_TYPES: TermsType[] = ['agent'];
+
 export function getRequiredTermsTypes(role: string): TermsType[] {
   switch (role) {
     case 'artist':    return ['base'];

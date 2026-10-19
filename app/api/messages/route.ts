@@ -15,11 +15,12 @@ export async function GET() {
       conversation_id,
       last_read_at,
       conversation:conversations!conversation_id(
-        conversation_id, type, updated_at, event_artist_id,
+        conversation_id, type, updated_at, event_artist_id, event_id,
         event_artist:event_artists!event_artist_id(
           event_id,
           event:events!event_id(title)
-        )
+        ),
+        event:events!event_id(title)
       )
     `)
     .eq("profile_id", user.id)
@@ -77,12 +78,16 @@ export async function GET() {
       type: string;
       updated_at: string;
       event_artist_id: string | null;
+      event_id: string | null;
       event_artist: { event_id: string; event: { title: string } | null } | null;
+      event: { title: string } | { title: string }[] | null;
     };
     const convRaw = r.conversation as unknown;
     const conv = (Array.isArray(convRaw) ? convRaw[0] : convRaw) as ConvShape | null;
 
     if (!conv) return null;
+
+    const directEvent = Array.isArray(conv.event) ? conv.event[0] : conv.event;
 
     const lastRead = lastReadMap.get(r.conversation_id);
     const unread = (unreadCounts ?? []).filter(
@@ -95,8 +100,8 @@ export async function GET() {
       conversation_id: conv.conversation_id,
       type: conv.type,
       updated_at: conv.updated_at,
-      event_title: conv.event_artist?.event?.title ?? null,
-      event_id: conv.event_artist?.event_id ?? null,
+      event_title: conv.event_artist?.event?.title ?? directEvent?.title ?? null,
+      event_id: conv.event_artist?.event_id ?? conv.event_id ?? null,
       other_profile: otherMap.get(r.conversation_id) ?? null,
       last_message: lastMsgMap.get(r.conversation_id) ?? null,
       unread_count: unread,

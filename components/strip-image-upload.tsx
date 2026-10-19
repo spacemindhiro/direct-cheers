@@ -3,18 +3,21 @@
 import { useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ImageCropperModal } from "@/components/image-cropper-modal";
+import { ImageSourcePicker, type ImageSourceOptions } from "@/components/image-source-picker";
 import { Camera, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
 type Props = {
   currentUrl?: string | null;
   pathPrefix?: string;
+  // 素材の選択肢（宛先の画像・フライヤー）。無ければ「アップロード」だけが使える
+  sources?: ImageSourceOptions;
   onUploadComplete: (url: string | null) => void;
 };
 
 const STRIP_ASPECT = 1125 / 294;
 
-export function StripImageUpload({ currentUrl, pathPrefix, onUploadComplete }: Props) {
+export function StripImageUpload({ currentUrl, pathPrefix, sources, onUploadComplete }: Props) {
   const [rawSrc, setRawSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -52,6 +55,7 @@ export function StripImageUpload({ currentUrl, pathPrefix, onUploadComplete }: P
     }
   };
 
+  const handlePicked = (src: string) => { setRawSrc(src); setCropOpen(true); };
   const handleRemove = () => { setDisplayUrl(null); setRawSrc(null); onUploadComplete(null); };
   const handleAreaClick = () => { rawSrc ? setCropOpen(true) : fileRef.current?.click(); };
 
@@ -61,6 +65,13 @@ export function StripImageUpload({ currentUrl, pathPrefix, onUploadComplete }: P
         ストリップ画像（任意）
         <span className="text-slate-600 font-normal normal-case tracking-normal ml-2">1125 × 294 / 約4:1</span>
       </label>
+
+      <ImageSourcePicker
+        sources={sources}
+        onPicked={handlePicked}
+        onUploadClick={() => fileRef.current?.click()}
+        disabled={uploading}
+      />
 
       <div
         onClick={handleAreaClick}

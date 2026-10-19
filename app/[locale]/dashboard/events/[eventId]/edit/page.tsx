@@ -23,7 +23,7 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
 
   const { data: event } = await supabase
     .from("events")
-    .select("event_id, title, venue, venue_id, start_at, end_at, lifecycle_status, organizer_profile_id, agent_id, venue_master:venues!venue_id(venue_id, name, prefecture, city)")
+    .select("event_id, title, venue, venue_id, start_at, end_at, base_flyer_url, lifecycle_status, organizer_profile_id, agent_id, venue_master:venues!venue_id(venue_id, name, prefecture, city)")
     .eq("event_id", eventId)
     .single();
 
@@ -87,6 +87,7 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
           venue: event.venue ?? "",
           start_at: toLocalDatetime(event.start_at),
           end_at: toLocalDatetime(event.end_at),
+          base_flyer_url: event.base_flyer_url ?? null,
         }}
         initialVenue={(event.venue_master as unknown as { venue_id: string; name: string; prefecture: string; city: string } | null) ?? null}
         currentArtists={currentArtists}

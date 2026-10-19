@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, MailCheck, CheckCircle2 } from "lucide-react";
+import { ConsentNotice } from "@/components/legal/consent-notice";
 
 type Step = "loading" | "landing" | "magic_sent" | "skipped" | "already_done" | "failed";
 
@@ -152,6 +153,7 @@ function TouchpaySignupPageContent() {
           >
             {pending ? <Loader2 size={16} className="animate-spin" /> : "サインアップ"}
           </button>
+          <ConsentNotice lead="サインアップすることで、" />
         </form>
 
         <button

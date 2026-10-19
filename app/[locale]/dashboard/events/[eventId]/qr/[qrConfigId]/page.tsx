@@ -12,6 +12,7 @@ import { QRInviteIssuer } from "@/components/qr-invite-issuer";
 import { WelcomeCheerEligibleEditor } from "@/components/welcome-cheer-eligible-editor";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { avatarFields } from "@/lib/image-source";
 
 async function QRDetailContent({
   params,
@@ -44,9 +45,9 @@ async function QRDetailContent({
   const { data: event } = await adminClient
     .from("events")
     .select(`
-      title, organizer_profile_id, agent_id, start_at, end_at, venue, serial_scope,
-      organizer:profiles!organizer_profile_id(display_name, organizer_name, organizer_avatar_url, avatar_url),
-      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name, artist_name, artist_avatar_url, avatar_url))
+      title, organizer_profile_id, agent_id, start_at, end_at, venue, serial_scope, base_flyer_url,
+      organizer:profiles!organizer_profile_id(display_name, organizer_name, organizer_avatar_url, avatar_url, organizer_avatar_original_url, avatar_original_url),
+      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name, artist_name, artist_avatar_url, avatar_url, artist_avatar_original_url, avatar_original_url))
     `)
     .eq("event_id", eventId)
     .single();
@@ -71,7 +72,10 @@ async function QRDetailContent({
     {
       profile_id: event.organizer_profile_id,
       display_name: (event.organizer as any)?.organizer_name ?? (event.organizer as any)?.display_name ?? "オーガナイザー",
-      avatar_url: (event.organizer as any)?.organizer_avatar_url ?? (event.organizer as any)?.avatar_url ?? null,
+      ...avatarFields(
+        { url: (event.organizer as any)?.organizer_avatar_url, originalUrl: (event.organizer as any)?.organizer_avatar_original_url },
+        { url: (event.organizer as any)?.avatar_url, originalUrl: (event.organizer as any)?.avatar_original_url },
+      ),
       role: "organizer" as const,
       status: "confirmed" as const,
     },
@@ -80,7 +84,10 @@ async function QRDetailContent({
       .map((ea: any) => ({
         profile_id: ea.artist_profile_id,
         display_name: ea.artist?.artist_name ?? ea.artist?.display_name ?? "Unknown",
-        avatar_url: ea.artist?.artist_avatar_url ?? ea.artist?.avatar_url ?? null,
+        ...avatarFields(
+          { url: ea.artist?.artist_avatar_url, originalUrl: ea.artist?.artist_avatar_original_url },
+          { url: ea.artist?.avatar_url, originalUrl: ea.artist?.avatar_original_url },
+        ),
         role: "artist" as const,
         status: ea.status as string,
       })),
@@ -244,6 +251,13 @@ async function QRDetailContent({
                 currentImageUrl={(qr as any).image_url ?? null}
                 eventTitle={event.title}
                 artistName={candidates.find((c) => c.profile_id === user.id && c.role === "artist")?.display_name ?? ""}
+                sources={(() => {
+                  const me = candidates.find((c) => c.profile_id === user.id && c.role === "artist");
+                  return {
+                    recipient: me?.avatar_url ? { url: me.avatar_url, originalUrl: me.avatar_original_url, name: me.display_name } : null,
+                    flyerUrl: (event as any).base_flyer_url ?? null,
+                  };
+                })()}
               />
             ) : (qr as any).image_url ? (
               <img
@@ -328,6 +342,7 @@ async function QRDetailContent({
           currentTargets={currentTargets}
           hasTransactions={hasTransactions}
           candidates={candidates}
+          eventFlyerUrl={(event as any).base_flyer_url ?? null}
           currentAmountStep={((qr as any).amount_step ?? 100) as 100 | 500 | 1000}
           currentDefaultAmount={(qr as any).default_amount ?? productInfo?.minAmount ?? 0}
           currentTouchpayEnabled={(qr as any).touchpay_enabled ?? false}

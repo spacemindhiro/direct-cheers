@@ -162,7 +162,6 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
         .from("profiles")
         .select("profile_id, display_name, organizer_name")
         .eq("role", "agent")
-        .eq("status", "active")
         .neq("profile_id", user.id)
         .is("deleted_at", null)
     : { data: null };
@@ -175,6 +174,18 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   // 担当エージェントの連絡先（メール）を取得
   const { data: { user: agentAuthUser } } = await adminClient.auth.admin.getUserById(event.agent_id);
   const agentEmail = agentAuthUser?.email ?? null;
+
+  // オーガナイザー↔現担当エージェントの会話（あれば）。担当交代前の
+  // 会話とは別物として扱う（agent_profile_idで現エージェント分のみ取得）
+  const { data: agentConversation } = isSelfOrganized
+    ? { data: null }
+    : await adminClient
+        .from("conversations")
+        .select("conversation_id")
+        .eq("event_id", eventId)
+        .eq("type", "agent")
+        .eq("agent_profile_id", event.agent_id)
+        .maybeSingle();
 
   const { data: evidences } = await adminClient
     .from("event_evidences")
@@ -238,6 +249,9 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
               displayName={(event.agent as any).display_name}
               avatarUrl={(event.agent as any).avatar_url ?? null}
               email={agentEmail}
+              eventId={eventId}
+              conversationId={agentConversation?.conversation_id ?? null}
+              canMessage={!isSelfOrganized && (isEventOrganizer || isEventAgent || isAdmin)}
             />
           </div>
         )}

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { TERMS_VERSIONS, getRequiredTermsTypes, type TermsType } from '@/lib/terms';
+import { TERMS_VERSIONS, getRequiredTermsTypes, CEREMONY_REQUIRED_TYPES, type TermsType } from '@/lib/terms';
 
-const REQUIRES_CONFIRMATION: TermsType[] = ['organizer', 'agent'];
+const REQUIRES_CONFIRMATION = CEREMONY_REQUIRED_TYPES;
 
 export async function POST(
   _req: Request,

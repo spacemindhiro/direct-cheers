@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { QRImageUpload } from "@/components/qr-image-upload";
+import type { ImageSourceOptions } from "@/components/image-source-picker";
 import { toast } from "sonner";
 
 export function QRRecipientImageEdit({
@@ -9,11 +10,13 @@ export function QRRecipientImageEdit({
   currentImageUrl,
   eventTitle,
   artistName,
+  sources,
 }: {
   qrConfigId: string;
   currentImageUrl: string | null;
   eventTitle: string;
   artistName: string;
+  sources?: ImageSourceOptions;
 }) {
   const router = useRouter();
 
@@ -37,6 +40,7 @@ export function QRRecipientImageEdit({
       pathPrefix={qrConfigId}
       eventTitle={eventTitle}
       artistName={artistName}
+      sources={sources}
       onUploadComplete={handleUploadComplete}
     />
   );

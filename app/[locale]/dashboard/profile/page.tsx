@@ -37,6 +37,9 @@ type Profile = {
   organizer_name_ascii: string | null;
   artist_avatar_url: string | null;
   organizer_avatar_url: string | null;
+  avatar_original_url: string | null;
+  artist_avatar_original_url: string | null;
+  organizer_avatar_original_url: string | null;
 };
 
 const roleLabel: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -74,6 +77,8 @@ export default function ProfileEditPage() {
   // 基本
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  // 切り抜く前の画像（QR画像の素材用）。アバターと必ず組で保存する
+  const [avatarOriginalUrl, setAvatarOriginalUrl] = useState<string | null>(null);
   const [instagram, setInstagram] = useState('');
   const [soundcloud, setSoundcloud] = useState('');
   const [website, setWebsite] = useState('');
@@ -90,6 +95,8 @@ export default function ProfileEditPage() {
   const [organizerNameAscii, setOrganizerNameAscii] = useState('');
   const [artistAvatarUrl, setArtistAvatarUrl] = useState('');
   const [organizerAvatarUrl, setOrganizerAvatarUrl] = useState('');
+  const [artistAvatarOriginalUrl, setArtistAvatarOriginalUrl] = useState<string | null>(null);
+  const [organizerAvatarOriginalUrl, setOrganizerAvatarOriginalUrl] = useState<string | null>(null);
 
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -105,6 +112,7 @@ export default function ProfileEditPage() {
     setProfile(data);
     setDisplayName(data.display_name ?? '');
     setAvatarUrl(data.avatar_url ?? '');
+    setAvatarOriginalUrl(data.avatar_original_url ?? null);
     setInstagram(data.social_links?.instagram ?? '');
     setSoundcloud(data.social_links?.soundcloud ?? '');
     setWebsite(data.social_links?.website ?? '');
@@ -122,12 +130,14 @@ export default function ProfileEditPage() {
     setOrganizerNameAscii(data.organizer_name_ascii ?? sanitizeStatementDescriptorSuffix(data.organizer_name) ?? '');
     setArtistAvatarUrl(data.artist_avatar_url ?? '');
     setOrganizerAvatarUrl(data.organizer_avatar_url ?? '');
+    setArtistAvatarOriginalUrl(data.artist_avatar_original_url ?? null);
+    setOrganizerAvatarOriginalUrl(data.organizer_avatar_original_url ?? null);
   };
 
   const fetchAndApplyProfile = async (supabase: ReturnType<typeof createClient>, userId: string) => {
     const { data: coreData } = await supabase
       .from('profiles')
-      .select('display_name, avatar_url, role, verification_status, pending_role, social_links, stripe_connect_id')
+      .select('display_name, avatar_url, avatar_original_url, role, verification_status, pending_role, social_links, stripe_connect_id')
       .eq('profile_id', userId)
       .single();
 
@@ -135,7 +145,7 @@ export default function ProfileEditPage() {
 
     const { data: extData } = await supabase
       .from('profiles')
-      .select('bio, affiliation, credit_name, genre, organization_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii, artist_avatar_url, organizer_avatar_url')
+      .select('bio, affiliation, credit_name, genre, organization_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii, artist_avatar_url, organizer_avatar_url, artist_avatar_original_url, organizer_avatar_original_url')
       .eq('profile_id', userId)
       .single();
 
@@ -198,6 +208,7 @@ export default function ProfileEditPage() {
       const updates: Record<string, unknown> = {
         display_name: displayName.trim(),
         avatar_url: avatarUrl.trim() || null,
+        avatar_original_url: avatarUrl.trim() ? avatarOriginalUrl : null,
         social_links: socialLinks,
       };
 
@@ -214,6 +225,7 @@ export default function ProfileEditPage() {
         updates.organizer_name        = organizerName.trim() || null;
         updates.organizer_name_ascii  = organizerNameAscii.trim() || null;
         updates.organizer_avatar_url  = organizerAvatarUrl.trim() || null;
+        updates.organizer_avatar_original_url = organizerAvatarUrl.trim() ? organizerAvatarOriginalUrl : null;
       }
       // artist_name/artist_avatar_url は「アーティスト専用」セクション（role='artist'）と
       // 「DJとして出演する場合」セクション（role='organizer'|'agent'）の両方で
@@ -224,6 +236,7 @@ export default function ProfileEditPage() {
         updates.artist_name       = artistName.trim() || null;
         updates.artist_name_ascii = artistNameAscii.trim() || null;
         updates.artist_avatar_url = artistAvatarUrl.trim() || null;
+        updates.artist_avatar_original_url = artistAvatarUrl.trim() ? artistAvatarOriginalUrl : null;
       }
 
       const res = await fetch('/api/profile', {
@@ -329,7 +342,7 @@ export default function ProfileEditPage() {
           </Field>
 
           <Field label="アバター画像" icon={<Camera size={11} className="text-pink-500" />} optional>
-            <AvatarUploadField value={avatarUrl} onChange={setAvatarUrl} placeholderLabel="別の画像を選択" />
+            <AvatarUploadField value={avatarUrl} onChange={(url, original) => { setAvatarUrl(url); setAvatarOriginalUrl(original); }} placeholderLabel="別の画像を選択" />
           </Field>
         </div>
 
@@ -366,7 +379,7 @@ export default function ProfileEditPage() {
             </Field>
             <Field label="アーティスト用の画像" icon={<Camera size={11} className="text-pink-500" />} optional
               hint="演者名義のチアで使われる画像（Walletカード等）。未設定なら基本のアバター画像を使用">
-              <AvatarUploadField value={artistAvatarUrl} onChange={setArtistAvatarUrl} placeholderLabel="演者用の画像を選択" />
+              <AvatarUploadField value={artistAvatarUrl} onChange={(url, original) => { setArtistAvatarUrl(url); setArtistAvatarOriginalUrl(original); }} placeholderLabel="演者用の画像を選択" />
             </Field>
             <Field label="海外カード明細用の英字表記" icon={<Receipt size={11} className="text-pink-500" />} optional
               hint="海外発行カードの利用明細はアーティスト名の漢字部分が表示されないため、英字表記を個別に指定できます。未入力ならアーティスト名から自動生成">
@@ -407,7 +420,7 @@ export default function ProfileEditPage() {
             </Field>
             <Field label="主催者用の画像" icon={<Camera size={11} className="text-pink-500" />} optional
               hint="主催者名義のチアで使われる画像（Walletカード等）。未設定なら基本のアバター画像を使用">
-              <AvatarUploadField value={organizerAvatarUrl} onChange={setOrganizerAvatarUrl} placeholderLabel="主催者用の画像を選択" />
+              <AvatarUploadField value={organizerAvatarUrl} onChange={(url, original) => { setOrganizerAvatarUrl(url); setOrganizerAvatarOriginalUrl(original); }} placeholderLabel="主催者用の画像を選択" />
             </Field>
             <Field label="海外カード明細用の英字表記" icon={<Receipt size={11} className="text-pink-500" />} optional
               hint="海外発行カードの利用明細は主催者名の漢字部分が表示されないため、英字表記を個別に指定できます。未入力なら主催者名から自動生成">
@@ -437,7 +450,7 @@ export default function ProfileEditPage() {
             </Field>
             <Field label="アーティスト用の画像" icon={<Camera size={11} className="text-pink-500" />} optional
               hint="演者名義のチアで使われる画像（Walletカード等）。未設定なら基本のアバター画像を使用">
-              <AvatarUploadField value={artistAvatarUrl} onChange={setArtistAvatarUrl} placeholderLabel="演者用の画像を選択" />
+              <AvatarUploadField value={artistAvatarUrl} onChange={(url, original) => { setArtistAvatarUrl(url); setArtistAvatarOriginalUrl(original); }} placeholderLabel="演者用の画像を選択" />
             </Field>
             <Field label="海外カード明細用の英字表記" icon={<Receipt size={11} className="text-pink-500" />} optional
               hint="海外発行カードの利用明細はアーティスト名の漢字部分が表示されないため、英字表記を個別に指定できます。未入力ならアーティスト名から自動生成">

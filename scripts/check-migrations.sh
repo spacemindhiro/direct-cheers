@@ -53,7 +53,10 @@ order)
 converge)
   # このブランチの中で削除されたDB変更（＝最終形に書き直した古い分。STGには反映済み）
   # --no-renames: 古い分と最終形の中身が似ていると git は「名前変更」と扱い、削除として拾えないため
-  DELETED=$(git log --no-renames --diff-filter=D --name-only --format= "$BASE..HEAD" -- "$DIR/" | sort -u)
+  # --full-history: CI の HEAD は PR のマージコミット（main＋develop）。削除済みファイルはマージコミットにも
+  #   main 側の親にも無いため、git は既定の履歴簡略化で main 側だけを辿り、develop 側の削除コミットを
+  #   見落とす（2026-10-19 PR#176 で「bad revision '^:…'」になった）。全経路を辿らせる
+  DELETED=$(git log --full-history --no-renames --diff-filter=D --name-only --format= "$BASE..HEAD" -- "$DIR/" | sort -u)
   if [ -z "$DELETED" ]; then
     echo "✅ 書き直したDB変更なし（本番とSTGの反映順は同じ。構造比較は不要）"
     exit 0
@@ -87,7 +90,8 @@ converge)
 
   echo "🔄 STGの順番（削除した古いDB変更も含めて日付順）でDBを作り直します"
   for f in $DELETED; do
-    c=$(git log -1 --no-renames --diff-filter=D --format=%H "$BASE..HEAD" -- "$f")
+    c=$(git log -1 --full-history --no-renames --diff-filter=D --format=%H "$BASE..HEAD" -- "$f")
+    [ -n "$c" ] || { echo "❌ $f を削除したコミットが見つかりません"; exit 1; }
     git show "$c^:$f" >"$WORKDIR/$f"
     RESTORED="$RESTORED $f"
     echo "   + $f"

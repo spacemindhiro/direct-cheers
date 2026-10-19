@@ -25,7 +25,8 @@ export const SERVICE_TERMS_VERSIONS: LegalVersion[] = [
   { version: '2026-10-08a', effectiveFrom: '2026-10-08T03:00:13Z', summary: '第9条（通信の秘密）・第10条（応援メッセージの取扱い）を新設' },
   // PR #139
   { version: '2026-10-08b', effectiveFrom: '2026-10-08T03:58:58Z', summary: '第8条（禁止事項）にメッセージ送信に関する禁止事項を追加' },
-  { version: '2026-10-08c', effectiveFrom: null, summary: '第1条：同意の場面（会員登録・オンライン決済）と対面タッチ決済の扱いを明記' },
+  // develop→main リリースPR。仮の時刻（PR作成時）。本番反映後に Production デプロイ完了時刻へ訂正する
+  { version: '2026-10-08c', effectiveFrom: '2026-10-19T14:00:00Z', summary: '第1条：同意の場面（会員登録・オンライン決済）と対面タッチ決済の扱いを明記' },
 ];
 
 export const PRIVACY_POLICY_VERSIONS: LegalVersion[] = [

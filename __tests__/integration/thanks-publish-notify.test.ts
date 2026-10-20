@@ -27,6 +27,7 @@ import { POST as thanksPOST } from "@/app/api/qr/[qrConfigId]/thanks/route";
 let organizerId: string;
 let artistId: string;
 let buyerAId: string;
+let otherArtistId: string;
 let buyerBId: string;
 let eventId: string;
 let qrConfigId: string;
@@ -75,7 +76,9 @@ beforeAll(async () => {
   artistId = await insertProfile({ role: "artist", displayName: "夜更けの配信者", email: `artist-thx-${ts}@test.local` });
   buyerAId = await insertProfile({ role: "user", displayName: "買った人A", email: `buyer-a-thx-${ts}@test.local` });
   buyerBId = await insertProfile({ role: "user", displayName: "買った人B", email: `buyer-b-thx-${ts}@test.local` });
-  cleanup.profileIds.push(organizerId, artistId, buyerAId, buyerBId);
+  // このQRの宛先ではない出演者（同じイベントに出ていても設定はできない）
+  otherArtistId = await insertProfile({ role: "artist", displayName: "別の出演者", email: `artist2-thx-${ts}@test.local` });
+  cleanup.profileIds.push(organizerId, artistId, buyerAId, buyerBId, otherArtistId);
 
   // 宛先の表示名はカードと同じ規則（artist名義なら artist_name）で解決される
   await testAdmin.from("profiles").update({ artist_name: "Luna Orbit" }).eq("profile_id", artistId);
@@ -169,12 +172,27 @@ describe("TC-THANKS-NOTIFY サンクス特典の公開通知", () => {
     expect(row!.published_at).toBe(null);
   });
 
-  it("TC-THANKS-NOTIFY-05: 権限のない人が公開しようとしても通知は入らない（403）", async () => {
+  it("TC-THANKS-NOTIFY-05: 購入者が公開しようとしても403・通知は入らない", async () => {
     mockAuth(buyerAId, "user");
     const res = await post({ thanks_message: "乗っ取り", publish: true });
     expect(res.status).toBe(403);
 
     expect((await notifs(buyerAId)).length).toBe(0);
     expect((await notifs(buyerBId)).length).toBe(0);
+  });
+
+  it("TC-THANKS-NOTIFY-06: 宛先でない出演者が公開しようとしても403・内容は変わらない", async () => {
+    mockAuth(organizerId, "organizer");
+    await post({ thanks_message: "主催者が入れた内容", publish: true });
+
+    mockAuth(otherArtistId, "artist");
+    const res = await post({ thanks_message: "別の出演者が書き換え", publish: true });
+    expect(res.status).toBe(403);
+
+    const { data: row } = await testAdmin
+      .from("qr_config_thanks").select("thanks_message").eq("qr_config_id", qrConfigId).single();
+    expect(row!.thanks_message).toBe("主催者が入れた内容");
+    // 403 の分で通知が増えていない（主催者の公開ぶんの1件だけ）
+    expect((await notifs(buyerAId)).length).toBe(1);
   });
 });

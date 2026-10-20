@@ -72,6 +72,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const s of sessions) await s.close().catch(() => {});
+  await testAdmin.from("passkey_credentials").delete().in("profile_id", ids.profiles);
+  await testAdmin.from("provisional_users").delete().eq("email", email("u"));
   await testAdmin.from("qr_config_thanks").delete().in("qr_config_id", ids.qrs);
   await cleanupTestData({ transactionIds: ids.txs, qrConfigIds: ids.qrs, eventIds: ids.events });
   await testAdmin.from("products").delete().in("product_id", ids.products);
@@ -106,5 +108,32 @@ describe("TC-CHEERY-MCP-USER: my_cheers", () => {
   it("送っていない人", async () => {
     const r = await (await mcpAs("org", "organizer")).tools.find((t) => t.name === "my_cheers")!.run({});
     expect(r.content).toBe("まだチアを送っていません。");
+  });
+});
+
+describe("TC-CHEERY-MCP-USER: my_account", () => {
+  it("一般ユーザー：パスキー・Stripe Link（同じメールの登録）。口座の欄は出さない", async () => {
+    await testAdmin.from("passkey_credentials").insert({ profile_id: P.u, credential_id: `cred_mcpu_${ts}`, public_key: "x", counter: 0 });
+    await testAdmin.from("provisional_users").upsert({ email: email("u"), stripe_customer_id: `cus_mcpu_${ts}` }, { onConflict: "email" });
+    const r = await (await mcpAs("u", "user")).tools.find((t) => t.name === "my_account")!.run({});
+    expect(r.content).toBe([
+      "アカウントの状態",
+      "  - ロール: 一般ユーザー",
+      "  - パスキー: 1台の端末に登録済み",
+      "  - Stripe Link: 登録済み",
+    ].join("\n"));
+  });
+
+  it("アーティスト：口座の審査状況（審査中）と出金停止。別の人のパスキー・Linkは数えない", async () => {
+    await testAdmin.from("profiles").update({ stripe_connect_id: `acct_mcpu_${ts}`, verification_status: "pending", balance_frozen: true }).eq("profile_id", P.dj);
+    const r = await (await mcpAs("dj", "artist")).tools.find((t) => t.name === "my_account")!.run({});
+    expect(r.content).toBe([
+      "アカウントの状態",
+      "  - ロール: アーティスト",
+      "  - パスキー: 未登録（アカウント管理の「パスキー管理」から登録できます）",
+      "  - Stripe Link: 未登録（ダッシュボードの「Stripe Linkにカードを登録する」から登録できます）",
+      "  - 売上受取口座: 口座開設審査中（運営による最終承認待ち）",
+      "  - 出金: 口座が凍結されているため停止中",
+    ].join("\n"));
   });
 });

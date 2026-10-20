@@ -8,6 +8,7 @@ import { MY_EVENTS, myEvents } from "./tools/my-events";
 import { MY_PAYOUT_BALANCE, myPayoutBalance } from "./tools/my-payout";
 import { MY_LINEUPS, myLineups } from "./tools/my-lineups";
 import { MY_CHEERS, myCheers } from "./tools/my-cheers";
+import { MY_ACCOUNT, myAccount } from "./tools/my-account";
 import { MY_INCOME, myIncome } from "./tools/my-income";
 import { MY_PAYOUT_HISTORY, myPayoutHistory } from "./tools/my-payout-history";
 
@@ -32,6 +33,13 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       MY_TICKETS.name,
       { title: MY_TICKETS.title, description: MY_TICKETS.description, inputSchema: MY_TICKETS.inputSchema, annotations: readOnly },
       async (input) => safe(() => myTickets(ctx, input)),
+    );
+  }
+  if (allowed(MY_ACCOUNT.minRole)) {
+    server.registerTool(
+      MY_ACCOUNT.name,
+      { title: MY_ACCOUNT.title, description: MY_ACCOUNT.description, inputSchema: MY_ACCOUNT.inputSchema, annotations: readOnly },
+      async () => safe(() => myAccount(ctx)),
     );
   }
   if (allowed(MY_CHEERS.minRole)) {

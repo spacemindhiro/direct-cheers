@@ -122,6 +122,8 @@ export async function insertTransaction(params: {
   reconciled?: boolean;
   destinationTransferId?: string | null;
   stripePiSequence?: number;
+  senderProfileId?: string | null;
+  senderEmail?: string | null;
 }): Promise<string> {
   const id = params.transactionId ?? newId();
   const { error } = await testAdmin.from("transactions").insert({
@@ -140,6 +142,8 @@ export async function insertTransaction(params: {
     reconciled_at: params.reconciled !== false ? new Date().toISOString() : null,
     destination_transfer_id: params.destinationTransferId ?? null,
     stripe_pi_sequence: params.stripePiSequence ?? 0,
+    sender_profile_id: params.senderProfileId ?? null,
+    sender_email: params.senderEmail ?? null,
   });
   if (error) throw new Error(`トランザクション挿入失敗: ${error.message}`);
   return id;

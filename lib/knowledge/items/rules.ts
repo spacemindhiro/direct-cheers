@@ -115,6 +115,8 @@ export const RULES_ITEMS: KnowledgeItem[] = [
     kind: "section",
     id: "rules.account-terms",
     minRole: "artist",
+    tier: "detail",
+    indexHint: "QRを掲示できる場所（会場内と公式配信だけ。SNSなどは不可）・独自の決済窓口の禁止・休眠口座の閉鎖・コンテンツの権利",
     title: "口座を持つ人の主なルール（利用規約）",
     sources: ["lib/terms.ts"],
     body: [
@@ -166,6 +168,8 @@ export const RULES_ITEMS: KnowledgeItem[] = [
     kind: "section",
     id: "rules.organizer-terms",
     minRole: "organizer",
+    tier: "detail",
+    indexHint: "自分のカードでのテスト決済（循環決済）の禁止・架空イベントの禁止・中止の手続きと費用負担・開催実績の提出義務",
     title: "オーガナイザーの主なルール（追加約款）",
     sources: ["lib/terms.ts"],
     body: [

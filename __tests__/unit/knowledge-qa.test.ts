@@ -1,13 +1,14 @@
 /**
  * TC-KNOWLEDGE-QA: 答え合わせ質問集（lib/knowledge/qa-set.ts）とロール別の知識
  *
- * AIを呼ばずに確かめられる部分：そのロールに渡す知識に「答えの根拠が入っている」こと、
+ * AIを呼ばずに確かめられる部分：そのロールの AI の手の届く知識（毎回渡す要点＋knowledge_detail で読める詳細）に
+ * 「答えの根拠が入っている」こと、
  * 「入っていてはいけない文言（上位ロール向け・内部情報）が無い」こと。
  * 仕様変更で知識集の文言が変わり答えの根拠が消えたら、ここで落ちる。
  */
 import { describe, it, expect } from "vitest";
 import { QA_SET, GLOBAL_FORBIDDEN } from "@/lib/knowledge/qa-set";
-import { knowledgeTextForRole } from "@/lib/knowledge/assemble";
+import { fullKnowledgeTextForRole as knowledgeTextForRole } from "@/lib/knowledge/assemble";
 import type { KnowledgeRole } from "@/lib/knowledge/types";
 
 const ROLES: KnowledgeRole[] = ["user", "artist", "organizer", "agent", "admin"];

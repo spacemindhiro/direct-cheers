@@ -11,6 +11,8 @@ import { MY_CHEERS, myCheers } from "./tools/my-cheers";
 import { MY_ACCOUNT, myAccount } from "./tools/my-account";
 import { MY_INCOME, myIncome } from "./tools/my-income";
 import { MY_PAYOUT_HISTORY, myPayoutHistory } from "./tools/my-payout-history";
+import { KNOWLEDGE_DETAIL, knowledgeDetail } from "./tools/knowledge-detail";
+import { detailIndexForRole } from "@/lib/knowledge/assemble";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
 
@@ -28,6 +30,14 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
   const allowed = (minRole: string) => roleRank(ctx.role) >= roleRank(minRole);
   const readOnly = { readOnlyHint: true, openWorldHint: false };
 
+  // 詳細の項目が1つも無いロールには渡さない（存在しない ID で無駄に呼ばれるため）
+  if (allowed(KNOWLEDGE_DETAIL.minRole) && detailIndexForRole(ctx.role) !== "") {
+    server.registerTool(
+      KNOWLEDGE_DETAIL.name,
+      { title: KNOWLEDGE_DETAIL.title, description: KNOWLEDGE_DETAIL.description, inputSchema: KNOWLEDGE_DETAIL.inputSchema, annotations: readOnly },
+      async (input) => safe(() => knowledgeDetail(ctx, input)),
+    );
+  }
   if (allowed(MY_TICKETS.minRole)) {
     server.registerTool(
       MY_TICKETS.name,

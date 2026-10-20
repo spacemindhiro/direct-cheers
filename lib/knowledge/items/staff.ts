@@ -7,6 +7,8 @@ export const STAFF_ITEMS: KnowledgeItem[] = [
     kind: "section",
     id: "agent.role",
     minRole: "agent",
+    tier: "detail",
+    indexHint: "エージェントの役割と義務（代理でできる業務・一次対応の義務・辞退や引き継ぎ・連帯責任・対面での約款確認）",
     title: "エージェントの役割",
     sources: ["lib/terms.ts"],
     body: [

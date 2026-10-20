@@ -112,16 +112,16 @@ afterAll(async () => {
 describe("TC-CHEERY-MCP-A: ロールごとのツール一覧（tools/list）", () => {
   it("user は my_tickets だけ。artist は出演・出金も。organizer・agent は my_events も", async () => {
     expect((await mcpAs("user", "user")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_account", "my_cheers"]);
-    expect((await mcpAs("artist", "artist")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_account", "my_cheers", "my_lineups", "my_payout_balance", "my_payout_history", "my_income"]);
-    expect((await mcpAs("orgA", "organizer")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_account", "my_cheers", "my_lineups", "my_payout_balance", "my_payout_history", "my_income", "my_events"]);
-    expect((await mcpAs("agentG", "agent")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_account", "my_cheers", "my_lineups", "my_payout_balance", "my_payout_history", "my_income", "my_events"]);
+    expect((await mcpAs("artist", "artist")).tools.map((t) => t.name)).toEqual(["knowledge_detail", "my_tickets", "my_account", "my_cheers", "my_lineups", "my_payout_balance", "my_payout_history", "my_income"]);
+    expect((await mcpAs("orgA", "organizer")).tools.map((t) => t.name)).toEqual(["knowledge_detail", "my_tickets", "my_account", "my_cheers", "my_lineups", "my_payout_balance", "my_payout_history", "my_income", "my_events"]);
+    expect((await mcpAs("agentG", "agent")).tools.map((t) => t.name)).toEqual(["knowledge_detail", "my_tickets", "my_account", "my_cheers", "my_lineups", "my_payout_balance", "my_payout_history", "my_income", "my_events"]);
   });
 
   it("ツールの入力に「誰のデータか」を指定する項目が無い", async () => {
     const s = await mcpAs("orgA", "organizer");
     for (const t of s.tools) {
       const props = Object.keys((t.inputSchema as any).properties ?? {});
-      expect(`${t.name}:${props.filter((p) => /profile|user|email|organizer|agent|id/i.test(p)).join(",")}`).toBe(`${t.name}:`);
+      expect(`${t.name}:${props.filter((p) => /profile|user|email|organizer|agent|artist|owner|person/i.test(p)).join(",")}`).toBe(`${t.name}:`);
     }
   });
 });

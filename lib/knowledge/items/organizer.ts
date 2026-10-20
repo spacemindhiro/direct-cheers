@@ -307,6 +307,8 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     kind: "section",
     id: "organizer.dayof.checklist",
     minRole: "organizer",
+    tier: "detail",
+    indexHint: "前日まで・開場前・開場中・トラブル時（Apple Payが出ない・カードリーダーが繋がらない→QR自己決済に切り替え・電波が弱い）・終了後の時系列チェックリスト",
     title: "当日オペレーション（時系列）",
     help: { tab: "organizer", group: "dayof", icon: "ListChecks", subtitle: "Day-of Checklist" },
     body: [

@@ -28,6 +28,12 @@ type ItemBase = {
   exceptRoles?: KnowledgeRole[];
   // 内容の根拠になっているコード。仕様が変わったときに直す箇所を辿るためのもの
   sources?: string[];
+  // チアリー(AI)への渡し方。core（既定）＝毎回システムプロンプトに入れる／detail＝目次だけ入れ、
+  // 本文は AI が必要なときに MCP ツール knowledge_detail で読む（毎回渡す量を抑えて精度を保つため）。
+  // ヘルプ画面の表示には影響しない
+  tier?: "core" | "detail";
+  // detail の項目の目次に添える「中に何が書いてあるか」。AI が質問と関係あると気づけるよう、具体的な話題を並べる
+  indexHint?: string;
 };
 
 export type KnowledgeSection = ItemBase & {

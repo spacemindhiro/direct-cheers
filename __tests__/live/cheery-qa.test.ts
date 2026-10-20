@@ -14,6 +14,8 @@ import { modelFor, costUsd, MAX_OUTPUT_TOKENS } from "@/lib/ai/config";
 import { providerFor } from "@/lib/ai/providers";
 import { buildStableSystem, buildVolatileSystem } from "@/lib/ai/prompt";
 import { addUsage, emptyUsage } from "@/lib/ai/types";
+import { connectDcMcp } from "@/lib/mcp/in-process";
+import { testAdmin } from "../helpers/db-reset";
 
 const LIVE = process.env.CHEERY_LIVE === "1";
 const LIVE_BUDGET_USD = 0.2;
@@ -27,7 +29,7 @@ if (LIVE) {
   }
 }
 
-const results: { id: string; role: string; q: string; answer: string; hits: string[]; misses: string[]; costUsd: number; finish: string }[] = [];
+const results: { id: string; role: string; q: string; answer: string; hits: string[]; misses: string[]; costUsd: number; finish: string; detail: string }[] = [];
 let spent = 0;
 
 describe.skipIf(!LIVE)("TC-CHEERY-LIVE: 質問集を実際のAIに投げる", () => {
@@ -53,6 +55,7 @@ describe.skipIf(!LIVE)("TC-CHEERY-LIVE: 質問集を実際のAIに投げる", ()
         `- 含まれていた: ${r.hits.join(" / ") || "なし"}`,
         `- 含まれていなかった: ${r.misses.join(" / ") || "なし"}`,
         `- 費用: $${r.costUsd.toFixed(6)}・終わり方: ${r.finish}`,
+        `- 読んだ詳細: ${r.detail || "なし"}`,
         "",
       ]),
     ].join("\n");
@@ -64,21 +67,26 @@ describe.skipIf(!LIVE)("TC-CHEERY-LIVE: 質問集を実際のAIに投げる", ()
     it(`${c.id}（${c.role}）${c.q}`, async () => {
       if (spent > LIVE_BUDGET_USD) return; // 予算を超えたら残りは飛ばす
       const provider = providerFor(spec!.provider);
+      // 本番と同じく MCP 経由で知識集の詳細を読めるようにする（本人のデータを読むツールは質問集には関係しないので渡さない）
+      const mcp = await connectDcMcp({ userId: "00000000-0000-0000-0000-000000000000", email: null, role: c.role, supabase: testAdmin, admin: testAdmin });
+      const tools = mcp.tools.filter((t) => t.name === "knowledge_detail");
+      const usedTools: string[] = [];
       let answer = "";
       const r = await provider.run({
         model: spec!.model,
         systemStable: buildStableSystem(c.role),
         systemVolatile: buildVolatileSystem(undefined),
         turns: [{ role: "user", text: c.q }],
-        tools: [],
+        tools: tools.map((t) => ({ ...t, run: async (input: Record<string, unknown>) => { usedTools.push(JSON.stringify(input)); return t.run(input); } })),
         maxOutputTokens: MAX_OUTPUT_TOKENS,
-        maxToolRounds: 1,
+        maxToolRounds: 4,
         onText: (d) => { answer += d; },
       });
+      await mcp.close();
       const cost = costUsd(spec!, addUsage(emptyUsage(), r.usage));
       spent += cost;
       const hits = c.expect.filter((e) => answer.includes(e));
-      results.push({ id: c.id, role: c.role, q: c.q, answer, hits, misses: c.expect.filter((e) => !answer.includes(e)), costUsd: cost, finish: r.finish });
+      results.push({ id: c.id, role: c.role, q: c.q, answer, hits, misses: c.expect.filter((e) => !answer.includes(e)), costUsd: cost, finish: r.finish, detail: usedTools.join(" ") });
       expect(answer.length > 0).toBe(true);
     }, 60_000);
   }

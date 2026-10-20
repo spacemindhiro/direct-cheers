@@ -286,3 +286,31 @@ describe("TC-KNOWLEDGE: ロール別の組み立て（AIに渡す範囲）", () 
     expect(text.includes("{{")).toBe(false);
   });
 });
+
+describe("TC-KNOWLEDGE: 要点（core）と詳細（detail）", () => {
+  it("詳細の本文はシステムプロンプト用の知識に入らず、目次（ID と見出し）だけが入る", async () => {
+    const { knowledgeTextForRole, fullKnowledgeTextForRole } = await import("@/lib/knowledge/assemble");
+    const text = knowledgeTextForRole("organizer");
+    expect(text.includes("### オーガナイザーの主なルール（追加約款）")).toBe(false);
+    expect(text.includes("- rules.organizer-terms：オーガナイザーの主なルール（追加約款）（自分のカードでのテスト決済（循環決済）の禁止・")).toBe(true);
+    expect(text.includes("## 詳細の目次（本文は knowledge_detail で ID を指定して読む）")).toBe(true);
+    expect(fullKnowledgeTextForRole("organizer").includes("### オーガナイザーの主なルール（追加約款）")).toBe(true);
+  });
+
+  it("目次もロールで絞る（user の目次にオーガナイザー・エージェント向けの詳細は出ない）", async () => {
+    const { detailIndexForRole } = await import("@/lib/knowledge/assemble");
+    expect(detailIndexForRole("user")).toBe("");
+    expect(detailIndexForRole("artist")).toBe("## 詳細の目次（本文は knowledge_detail で ID を指定して読む）\n- rules.account-terms：口座を持つ人の主なルール（利用規約）（QRを掲示できる場所（会場内と公式配信だけ。SNSなどは不可）・独自の決済窓口の禁止・休眠口座の閉鎖・コンテンツの権利）");
+    expect(detailIndexForRole("organizer").includes("agent.role")).toBe(false);
+    expect(detailIndexForRole("agent").includes("- agent.role：エージェントの役割")).toBe(true);
+  });
+
+  it("詳細を ID で読む：ロールに見せてよい項目だけ。上位ロール向けは ID を言い当てても読めない", async () => {
+    const { knowledgeDetailForRole, itemText } = await import("@/lib/knowledge/assemble");
+    const terms = KNOWLEDGE_ITEMS.find((i) => i.id === "rules.organizer-terms")!;
+    expect(knowledgeDetailForRole("organizer", ["rules.organizer-terms"])).toBe(itemText(terms));
+    expect(knowledgeDetailForRole("user", ["rules.organizer-terms"])).toBe("### rules.organizer-terms\n（この ID の項目はありません）");
+    expect(knowledgeDetailForRole("organizer", ["agent.role"])).toBe("### agent.role\n（この ID の項目はありません）");
+    expect(knowledgeDetailForRole("organizer", ["nope"])).toBe("### nope\n（この ID の項目はありません）");
+  });
+});

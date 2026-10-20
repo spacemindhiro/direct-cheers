@@ -2,6 +2,7 @@ import { fmtDate } from "@/lib/display-tz";
 import { Suspense } from 'react';
 import { createClient, getUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchLineupRows, visibleLineupInvites, type LineupInvite, type LineupRow } from '@/lib/lineup-invites';
 import { Heart, Loader2, UserPlus, Calendar, BarChart2, ArrowDownToLine, ClipboardCheck, Mic2, HeartHandshake, TrendingUp, Ticket, Layers, MessageSquare, Smartphone, CreditCard, AlertTriangle, ChevronRight, CheckCircle2, FileText, RotateCcw, Activity, Landmark, Search } from 'lucide-react';
 import Link from 'next/link';
 import { AddToHomeScreen } from '@/components/add-to-homescreen';
@@ -267,13 +268,7 @@ async function DashboardContent() {
       : Promise.resolve({ count: 0, data: null }),
 
     isPerformerRole
-      ? admin.from('event_artists').select(`
-          event_artist_id, event_id, status, invite_message,
-          event:events!event_id(
-            title, venue, start_at, end_at, organizer_profile_id, deleted_at, lifecycle_status,
-            organizer:profiles!organizer_profile_id(display_name)
-          )
-        `).eq('artist_profile_id', user!.id).is('deleted_at', null).order('created_at', { ascending: false })
+      ? fetchLineupRows(admin, user!.id)
       : Promise.resolve({ data: null }),
 
     !isAdmin
@@ -412,50 +407,9 @@ async function DashboardContent() {
   const pendingCancellationCount = cancelCountResult.count ?? 0;
 
   const now = new Date().toISOString();
-  // 下書きのイベントで、まだ出演依頼の通知が来ていないもの（主催者側の「依頼予定」）は出演者に見せない
-  const draftLineupEventIds = isPerformerRole
-    ? ((lineupResult.data as any[]) ?? []).filter((r) => r.status === 'pending' && r.event?.lifecycle_status === 'draft').map((r) => r.event_id as string)
-    : [];
-  const invitedDraftEventIds = new Set<string>();
-  if (draftLineupEventIds.length > 0) {
-    const { data: invitedNotifs } = await admin.from('notifications').select('metadata')
-      .eq('profile_id', user!.id).eq('type', 'lineup_invite')
-      .in('metadata->>event_id', draftLineupEventIds);
-    for (const n of (invitedNotifs ?? []) as { metadata: any }[]) {
-      if (n.metadata?.event_id) invitedDraftEventIds.add(n.metadata.event_id);
-    }
-  }
-
-  const lineupInvites: {
-    event_artist_id: string;
-    event_id: string;
-    status: 'pending' | 'confirmed';
-    invite_message?: string | null;
-    event: { title: string; venue: string; start_at: string; organizer_profile_id: string; organizer_name: string } | null;
-  }[] = isPerformerRole
-    ? ((lineupResult.data as any[]) ?? [])
-        // event_artists.deleted_at は招待自体の削除フラグであり、紐づくイベントが
-        // 削除(events.deleted_at)・中止(lifecycle_status='cancelled')されたかは別軸。
-        // イベント削除・中止処理はevent_artists側を連動更新しないため、ここで
-        // JOIN先イベントの状態を見て除外しないと「出演予定」に残り続けてしまう
-        .filter((r) => !(r.event?.deleted_at || r.event?.lifecycle_status === 'cancelled'))
-        .filter((r) => !(r.status === 'pending' && r.event?.lifecycle_status === 'draft' && !invitedDraftEventIds.has(r.event_id)))
-        .filter((r) => r.status === 'pending' || (r.status === 'confirmed' && (!r.event?.end_at || r.event.end_at > now)))
-        .map((r) => ({
-          event_artist_id: r.event_artist_id,
-          event_id: r.event_id,
-          status: r.status as 'pending' | 'confirmed',
-          invite_message: r.invite_message ?? null,
-          event: r.event
-            ? {
-                title: r.event.title,
-                venue: r.event.venue,
-                start_at: r.event.start_at,
-                organizer_profile_id: r.event.organizer_profile_id,
-                organizer_name: r.event.organizer?.display_name ?? 'オーガナイザー',
-              }
-            : null,
-        }))
+  // 出演依頼・出演予定の見せ方（依頼予定は出演者に見せない等）は lib/lineup-invites.ts（チアリー(AI)と共用）
+  const lineupInvites: LineupInvite[] = isPerformerRole
+    ? await visibleLineupInvites(admin, user!.id, (lineupResult.data as LineupRow[] | null) ?? [], now)
     : [];
 
   const roleLabelMap: Record<string, string> = {

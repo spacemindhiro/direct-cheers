@@ -17,6 +17,7 @@
  * | 主催者                         | 他の主催者のイベント           | ―          | ×         |
  * | 担当でない別のエージェント      | 他人の担当イベント             | ―          | ×         |
  * | 一般ユーザー・アーティスト      | ―                            | ○          | ×（ツール自体が無い） |
+ * （my_lineups・my_payout_balance の表は cheery-mcp-artist.test.ts）
  * 返さない項目：チケットのコード（入場用QRの値）・お客様のメールアドレス・内部ID
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -109,11 +110,11 @@ afterAll(async () => {
 });
 
 describe("TC-CHEERY-MCP-A: ロールごとのツール一覧（tools/list）", () => {
-  it("user・artist は my_tickets だけ。organizer・agent は my_events も", async () => {
+  it("user は my_tickets だけ。artist は出演・出金も。organizer・agent は my_events も", async () => {
     expect((await mcpAs("user", "user")).tools.map((t) => t.name)).toEqual(["my_tickets"]);
-    expect((await mcpAs("artist", "artist")).tools.map((t) => t.name)).toEqual(["my_tickets"]);
-    expect((await mcpAs("orgA", "organizer")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_events"]);
-    expect((await mcpAs("agentG", "agent")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_events"]);
+    expect((await mcpAs("artist", "artist")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_lineups", "my_payout_balance"]);
+    expect((await mcpAs("orgA", "organizer")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_lineups", "my_payout_balance", "my_events"]);
+    expect((await mcpAs("agentG", "agent")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_lineups", "my_payout_balance", "my_events"]);
   });
 
   it("ツールの入力に「誰のデータか」を指定する項目が無い", async () => {

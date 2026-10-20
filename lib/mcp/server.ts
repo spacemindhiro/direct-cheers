@@ -5,6 +5,8 @@ import { roleRank } from "@/lib/role-rank";
 import type { DcMcpContext } from "./context";
 import { MY_TICKETS, myTickets } from "./tools/my-tickets";
 import { MY_EVENTS, myEvents } from "./tools/my-events";
+import { MY_PAYOUT_BALANCE, myPayoutBalance } from "./tools/my-payout";
+import { MY_LINEUPS, myLineups } from "./tools/my-lineups";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
 
@@ -27,6 +29,20 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       MY_TICKETS.name,
       { title: MY_TICKETS.title, description: MY_TICKETS.description, inputSchema: MY_TICKETS.inputSchema, annotations: readOnly },
       async (input) => safe(() => myTickets(ctx, input)),
+    );
+  }
+  if (allowed(MY_LINEUPS.minRole)) {
+    server.registerTool(
+      MY_LINEUPS.name,
+      { title: MY_LINEUPS.title, description: MY_LINEUPS.description, inputSchema: MY_LINEUPS.inputSchema, annotations: readOnly },
+      async () => safe(() => myLineups(ctx)),
+    );
+  }
+  if (allowed(MY_PAYOUT_BALANCE.minRole)) {
+    server.registerTool(
+      MY_PAYOUT_BALANCE.name,
+      { title: MY_PAYOUT_BALANCE.title, description: MY_PAYOUT_BALANCE.description, inputSchema: MY_PAYOUT_BALANCE.inputSchema, annotations: readOnly },
+      async () => safe(() => myPayoutBalance(ctx)),
     );
   }
   if (allowed(MY_EVENTS.minRole)) {

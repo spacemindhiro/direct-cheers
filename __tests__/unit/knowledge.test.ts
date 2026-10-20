@@ -91,9 +91,10 @@ describe("TC-KNOWLEDGE: 自動採番と相互参照", () => {
       "③ 口座登録",
       "④ 出演依頼を受ける",
       "⑤ チアの受け取り方",
-      "⑥ 収益確認",
-      "⑦ 出金",
-      "⑧ 統計",
+      "⑥ サンクス特典（お返し）を届ける",
+      "⑦ 収益確認",
+      "⑧ 出金",
+      "⑨ 統計",
     ]);
     expect(helpSections("organizer", "prep").map((s) => helpTitle(s))).toEqual([
       "① 招待リンクから登録する",
@@ -106,11 +107,12 @@ describe("TC-KNOWLEDGE: 自動採番と相互参照", () => {
       "⑧ QRを作成する（スタンダード／メッセージ）",
       "⑨ エントランスQRを作成する",
       "⑩ QRを印刷する",
-      "⑪ 売上を見る・決済を取り消す",
-      "⑫ エビデンス提出",
-      "⑬ 売上・精算の確認",
-      "⑭ 出金",
-      "⑮ イベントの中止",
+      "⑪ サンクス特典（お返し）を設定する",
+      "⑫ 売上を見る・決済を取り消す",
+      "⑬ エビデンス提出",
+      "⑭ 売上・精算の確認",
+      "⑮ 出金",
+      "⑯ イベントの中止",
     ]);
     expect(helpSections("organizer", "dayof").map((s) => helpTitle(s))).toEqual([
       "① 印刷したQRだけで運用する",
@@ -126,8 +128,8 @@ describe("TC-KNOWLEDGE: 自動採番と相互参照", () => {
   it("参照の3つの書き方", () => {
     expect(refLabel("organizer.lineup-invite", "title")).toBe("「⑤ 出演依頼」");
     expect(refLabel("organizer.dayof.print-only", "no")).toBe("①");
-    expect(refLabel("organizer.evidence", "group")).toBe("準備・機能グループの⑫");
-    expect(refLabel("organizer.sales-cancel", "group")).toBe("準備・機能グループの⑪");
+    expect(refLabel("organizer.evidence", "group")).toBe("準備・機能グループの⑬");
+    expect(refLabel("organizer.sales-cancel", "group")).toBe("準備・機能グループの⑫");
     expect(refLabel("organizer.bank", "group")).toBe("準備・機能グループの③");
   });
 
@@ -259,7 +261,7 @@ describe("TC-KNOWLEDGE: ロール別の組み立て（AIに渡す範囲）", () 
     const evidence = KNOWLEDGE_ITEMS.find((i) => i.id === "organizer.evidence")!;
     expect(itemText(evidence)).toBe(
       [
-        "### エビデンス提出（ヘルプ：オーガナイザー＞準備・機能 ⑫）",
+        "### エビデンス提出（ヘルプ：オーガナイザー＞準備・機能 ⑬）",
         "イベント終了後、「開催証跡を提出して承認依頼する」から、写真（最大10枚）・動員数・コメント（任意）を提出します。",
         "- 提出しただけでは自動で精算されません。運営が証跡を確認したうえで精算処理が実行されます",
         "- 差し戻された場合はダッシュボードに通知が表示され、再提出できます",
@@ -281,7 +283,7 @@ describe("TC-KNOWLEDGE: ロール別の組み立て（AIに渡す範囲）", () 
       "当日スタッフが手元で見る前提の、時間順のチェックリストです。①〜③の機能説明とあわせてご覧ください。",
       "【前日まで】",
     ]);
-    expect(text.includes("（準備・機能グループの⑫参照）")).toBe(true);
+    expect(text.includes("（準備・機能グループの⑬参照）")).toBe(true);
     expect(text.includes("[[")).toBe(false);
     expect(text.includes("{{")).toBe(false);
   });

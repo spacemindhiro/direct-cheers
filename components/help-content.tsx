@@ -29,6 +29,7 @@ import {
   CreditCard,
   MessageCircleHeart,
   DoorOpen,
+  Gift,
 } from "lucide-react";
 import { TutorialVideoButton } from "./tutorial-video-button";
 import { TUTORIAL_VIDEO_IDS } from "@/lib/tutorial-videos";
@@ -45,7 +46,7 @@ export type HelpRole = HelpTab;
 const ICONS: Record<HelpIconName, typeof Zap> = {
   KeyRound, Heart, Ticket, Layers, UserCog, CalendarPlus, QrCode, ScanLine, FileCheck2, Landmark, Wallet,
   TrendingUp, UserPlus, Mic2, CheckCircle2, BarChart2, XCircle, Zap, ListChecks, Printer, CreditCard,
-  MessageCircleHeart, DoorOpen,
+  MessageCircleHeart, DoorOpen, Gift,
 };
 
 const ICON_TONE: Record<HelpIconTone, string> = {

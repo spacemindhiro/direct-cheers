@@ -179,6 +179,27 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
   },
   {
     kind: "section",
+    id: "organizer.thanks",
+    minRole: "organizer",
+    title: "サンクス特典（お返し）を設定する",
+    help: { tab: "organizer", group: "prep", icon: "Gift", subtitle: "Thanks Gift" },
+    sources: ["components/qr-thanks-editor.tsx", "app/api/qr/[qrConfigId]/thanks/route.ts", "app/[locale]/dashboard/events/[eventId]/qr/[qrConfigId]/page.tsx"],
+    body: [
+      { type: "p", text: "QRごとに、そのQRで支払った人だけに届くお返し（サンクス特典）を設定できます。QR詳細画面の「✦ Thanks Gift」で設定します。設定できるのは、イベントのオーガナイザー・担当エージェントと、そのQRの宛先になっているアーティスト本人です。" },
+      {
+        type: "ul",
+        items: [
+          "メッセージ・特典リンク URL（限定動画・音源・ダウンロードページなど）・画像 URL（カード裏面に表示する画像）を入れられます",
+          "「下書き保存」ではまだ届きません。「公開する」を押すと、そのQRで支払いが完了した人のカードコレクションで、カードの裏面に表示されます。公開より前に応援してくれた人にも届きます",
+          "公開すると、Direct Cheers のアカウントで応援した人のダッシュボードに「お返しが届いています」というお知らせが表示されます。Apple Wallet に追加済みのカードも新しい内容に更新されます（通知音などは鳴りません）",
+          "公開後に内容を直したときは「変更を反映する」、取り下げるときは「非公開」を押します",
+          "同じQRで応援した人全員に同じ内容が届きます。一人ひとりに宛てたメッセージではありません",
+        ],
+      },
+    ],
+  },
+  {
+    kind: "section",
     id: "organizer.sales-cancel",
     minRole: "organizer",
     title: "売上を見る・決済を取り消す",

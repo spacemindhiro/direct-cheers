@@ -42,6 +42,7 @@ export const QA_SET: QaCase[] = [
   { id: "a07", role: "artist", q: "出金残高が凍結中になっている", expect: ["チャージバック", "凍結"], forbid: ARTIST_FORBID },
   { id: "a08", role: "artist", q: "急ぎでお金が要るので早く出金したい", expect: ["短く"], forbid: ARTIST_FORBID },
   { id: "a09", role: "artist", q: "QRを自分のSNSに載せていい？", expect: ["SNS", "できません"], forbid: ARTIST_FORBID },
+  { id: "a10", role: "artist", q: "応援してくれた人にお礼の特典を送りたい", expect: ["Thanks Gift", "公開する"], forbid: ARTIST_FORBID },
 
   // ── オーガナイザー ──
   { id: "o01", role: "organizer", q: "エビデンスの提出期限は？", expect: ["7日以内"], forbid: ORGANIZER_FORBID },
@@ -59,6 +60,7 @@ export const QA_SET: QaCase[] = [
   { id: "o13", role: "organizer", q: "イベントが終わった後もチアは受け付ける？", expect: ["終了予定時刻"], forbid: ORGANIZER_FORBID },
   { id: "o15", role: "organizer", q: "承認依頼中のイベントのQRで先にチケットを売れる？", expect: ["受け付けません"], forbid: ORGANIZER_FORBID },
   { id: "o14", role: "organizer", q: "タッチ決済のカードリーダーが繋がらない", expect: ["切り替え"], forbid: ORGANIZER_FORBID },
+  { id: "o16", role: "organizer", q: "サンクス特典を公開したらお客さんに通知される？", expect: ["お返しが届いています"], forbid: ORGANIZER_FORBID },
 
   // ── エージェント ──
   { id: "g01", role: "agent", q: "代理で作った下書きは主催者に見えている？", expect: ["主催者に確認を依頼"], forbid: AGENT_FORBID },

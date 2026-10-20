@@ -6,7 +6,7 @@ export type HelpGroup = "prep" | "dayof";
 export const HELP_ICON_NAMES = [
   "KeyRound", "Heart", "Ticket", "Layers", "UserCog", "CalendarPlus", "QrCode", "ScanLine", "FileCheck2",
   "Landmark", "Wallet", "TrendingUp", "UserPlus", "Mic2", "CheckCircle2", "BarChart2", "XCircle", "Zap",
-  "ListChecks", "Printer", "CreditCard", "MessageCircleHeart", "DoorOpen",
+  "ListChecks", "Printer", "CreditCard", "MessageCircleHeart", "DoorOpen", "Gift",
 ] as const;
 export type HelpIconName = (typeof HELP_ICON_NAMES)[number];
 

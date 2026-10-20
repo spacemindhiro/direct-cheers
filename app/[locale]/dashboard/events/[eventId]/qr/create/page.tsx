@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getEventAccess } from "@/lib/event-access";
 import { QRCreateForm } from "@/components/qr-create-form";
 import { getFeeConfig } from "@/lib/fee-config";
 import { Loader2 } from "lucide-react";
@@ -39,6 +40,10 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
     .single();
 
   if (!event) notFound();
+  // このイベントを操作できる人（主催者・エージェント・admin。lib/event-access.ts）以外には存在しない扱い。
+  // 以前はロールしか見ておらず、他の主催者のイベントでも開けた
+  const access = await getEventAccess(adminForEvent, eventId, user.id, profile?.role);
+  if (!access?.canOperate) notFound();
   if (!["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status)) {
     redirect(`/dashboard/events/${eventId}`);
   }

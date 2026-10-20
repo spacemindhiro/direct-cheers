@@ -161,3 +161,36 @@ describe("TC-TERMINAL-PAIRING-A: /api/entrance/terminal/payment-intent — targe
     await testAdmin.from("display_devices").delete().eq("event_id", otherEventId);
   });
 });
+
+describe("TC-TERMINAL-PAIRING-B: 決済を受け付けないイベント状態ではタッチ決済も作らない", () => {
+  // QR自己決済（lib/purchase-window.ts の CLOSED_LIFECYCLES）と同じ状態で止める
+  for (const status of ["draft", "review_requested", "cancelled", "settled"]) {
+    it(`TC-TERMINAL-PAIRING-B: ${status} → 400・Stripeに何も作らない`, async () => {
+      await testAdmin.from("events").update({ lifecycle_status: status }).eq("event_id", eventId);
+      captured.piCreateParams = undefined;
+      try {
+        const res = await paymentIntentPOST(piReq({ product_id: productId, quantity: 1, target_device_id: displayDeviceId }));
+        const data = await res.json();
+        expect(res.status).toBe(400);
+        expect(data.error).toBe("このイベントは現在決済を受け付けていません");
+        expect(captured.piCreateParams).toBeUndefined();
+      } finally {
+        await testAdmin.from("events").update({ lifecycle_status: "published" }).eq("event_id", eventId);
+      }
+    });
+  }
+
+  for (const status of ["published", "ongoing", "ended"]) {
+    it(`TC-TERMINAL-PAIRING-B: ${status} → 200`, async () => {
+      await testAdmin.from("events").update({ lifecycle_status: status }).eq("event_id", eventId);
+      captured.piCreateParams = undefined;
+      try {
+        const res = await paymentIntentPOST(piReq({ product_id: productId, quantity: 1, target_device_id: displayDeviceId }));
+        expect(res.status).toBe(200);
+        expect(captured.piCreateParams?.metadata?.target_device_id).toBe(displayDeviceId);
+      } finally {
+        await testAdmin.from("events").update({ lifecycle_status: "published" }).eq("event_id", eventId);
+      }
+    });
+  }
+});

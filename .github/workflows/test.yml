@@ -57,6 +57,17 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/check-access-matrix.mjs
 
+      # ── 2.2. 知識集の直し忘れ（main への PR のみ）────────────────────
+      # ヘルプとチアリー(AI)が古い仕様を案内しないよう、知識集の項目が根拠にしているコード（sources）を
+      # 変えたのに文面が変わっていない PR を止める。詳細は scripts/check-knowledge-drift.mjs
+      - name: Check knowledge base drift
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/check-knowledge-drift.mjs
+
       - name: Install dependencies (npm ci)
         run: npm ci
 

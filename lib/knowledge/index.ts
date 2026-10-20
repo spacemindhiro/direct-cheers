@@ -5,8 +5,11 @@ import { HELP_TABS, HELP_GROUPS, type HelpTab, type HelpGroup } from "./placemen
 import { USER_ITEMS } from "./items/user";
 import { ARTIST_ITEMS } from "./items/artist";
 import { ORGANIZER_ITEMS } from "./items/organizer";
+import { RULES_ITEMS } from "./items/rules";
+import { STAFF_ITEMS } from "./items/staff";
 
-export const KNOWLEDGE_ITEMS: KnowledgeItem[] = [...USER_ITEMS, ...ARTIST_ITEMS, ...ORGANIZER_ITEMS];
+// AI専用（help なし）の項目はヘルプの採番に影響しない。AIに渡す順は仕組みの説明→ロール別の操作の順
+export const KNOWLEDGE_ITEMS: KnowledgeItem[] = [...RULES_ITEMS, ...USER_ITEMS, ...ARTIST_ITEMS, ...ORGANIZER_ITEMS, ...STAFF_ITEMS];
 
 const CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
 

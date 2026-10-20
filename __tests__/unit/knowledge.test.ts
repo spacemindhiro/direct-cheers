@@ -200,32 +200,51 @@ describe("TC-KNOWLEDGE: 記法の分解", () => {
 describe("TC-KNOWLEDGE: ロール別の組み立て（AIに渡す範囲）", () => {
   const idsFor = (role: string | null | undefined) => itemsForRole(role).map((i) => i.id);
   const byPrefix = (p: string) => KNOWLEDGE_ITEMS.filter((i) => i.id.startsWith(p)).map((i) => i.id);
+  // AI専用の仕組み説明（rules.*）・スタッフ向け（staff.ts）の、ロールごとの期待値。並びは KNOWLEDGE_ITEMS の順
+  const RULES_USER = ["rules.what-is-dc", "rules.price-and-fees", "rules.payment-timing", "rules.cancel-policy", "rules.card-statement", "rules.contact"];
+  const RULES_ARTIST = ["rules.hold-period", "rules.chargeback", "rules.account-terms"];
+  const RULES_ORGANIZER = ["rules.event-lifecycle", "rules.organizer-terms", "rules.organizer-receipt"];
+  const AGENT = ["agent.role", "agent.approve", "agent.cancel-approve", "agent.proxy-draft", "agent.handoff", "agent.deadline-warning"];
+  const USER_IDS = [...RULES_USER, ...byPrefix("user.")];
+  const ARTIST_IDS = [...RULES_USER, ...RULES_ARTIST, ...byPrefix("user."), ...byPrefix("artist.")];
+  const ORGANIZER_IDS = [...RULES_USER, ...RULES_ARTIST, ...RULES_ORGANIZER, ...byPrefix("user."), ...byPrefix("artist."), ...byPrefix("organizer.").filter((id) => id !== "organizer.needs-agent"), "organizer.needs-agent"];
 
-  it("user は一般ユーザー向けだけ", () => {
-    expect(idsFor("user")).toEqual(byPrefix("user."));
+  it("user は仕組み説明（全員向け）＋一般ユーザー向けだけ", () => {
+    expect(idsFor("user")).toEqual(USER_IDS);
   });
 
-  it("artist は一般ユーザー＋アーティスト", () => {
-    expect(idsFor("artist")).toEqual([...byPrefix("user."), ...byPrefix("artist.")]);
+  it("artist は user の範囲＋アーティスト向け", () => {
+    expect(idsFor("artist")).toEqual(ARTIST_IDS);
   });
 
-  it("organizer・agent・admin は全項目（上位互換）", () => {
-    const all = KNOWLEDGE_ITEMS.map((i) => i.id);
-    expect(idsFor("organizer")).toEqual(all);
-    expect(idsFor("agent")).toEqual(all);
-    expect(idsFor("admin")).toEqual(all);
+  it("organizer はエージェント・運営向けを含まない", () => {
+    expect(idsFor("organizer")).toEqual(ORGANIZER_IDS);
+  });
+
+  it("agent は organizer の範囲＋エージェント向け、運営向けは含まない", () => {
+    const expected = KNOWLEDGE_ITEMS.map((i) => i.id).filter((id) => [...ORGANIZER_IDS, ...AGENT].includes(id));
+    expect(idsFor("agent")).toEqual(expected);
+    expect(idsFor("agent").includes("admin.duties")).toBe(false);
+  });
+
+  it("admin は全項目", () => {
+    expect(idsFor("admin")).toEqual(KNOWLEDGE_ITEMS.map((i) => i.id));
   });
 
   it("ロール不明・未設定は一番下（user）扱いにする", () => {
-    expect(idsFor(null)).toEqual(byPrefix("user."));
-    expect(idsFor(undefined)).toEqual(byPrefix("user."));
-    expect(idsFor("superuser")).toEqual(byPrefix("user."));
+    expect(idsFor(null)).toEqual(USER_IDS);
+    expect(idsFor(undefined)).toEqual(USER_IDS);
+    expect(idsFor("superuser")).toEqual(USER_IDS);
   });
 
   it("user に渡す文書に、上位ロール向けの見出しが1つも含まれない", () => {
     const text = knowledgeTextForRole("user");
+    const headings = text.split("\n").filter((l) => l.startsWith("### "));
     const upper = KNOWLEDGE_ITEMS.filter((i) => i.kind === "section" && i.minRole !== "user") as KnowledgeSection[];
-    for (const s of upper) expect(`${s.id}:${text.includes(`### ${s.title}（`)}`).toBe(`${s.id}:false`);
+    for (const s of upper) {
+      const hit = headings.some((h) => h === `### ${s.title}` || h.startsWith(`### ${s.title}（`));
+      expect(`${s.id}:${hit}`).toBe(`${s.id}:false`);
+    }
     expect(text.includes("出金管理")).toBe(false);
   });
 

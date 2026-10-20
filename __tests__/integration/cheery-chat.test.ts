@@ -32,7 +32,7 @@ import type { ChatRequest } from "@/lib/ai/types";
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const ts = Date.now();
-const SPEC = MODELS["anthropic:claude-haiku-5-5"];
+const SPEC = MODELS["openai:gpt-6-luna"];
 const FUTURE = new Date("2099-01-15T03:00:00Z"); // 2099-01（実在しない月）
 const FUTURE_P = jstPeriod(FUTURE);
 const profileIds: string[] = [];
@@ -175,9 +175,9 @@ describe("TC-CHEERY-CHAT-C: /api/cheery/chat", () => {
       },
     });
   }
-  beforeAll(() => { process.env.ANTHROPIC_API_KEY = "test-key"; });
+  beforeAll(() => { process.env.OPENAI_API_KEY = "test-key"; });
   afterAll(async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
     await testAdmin.from("cheery_usage_daily").delete().in("profile_id", profileIds).eq("usage_date", today);
   });
 
@@ -204,9 +204,9 @@ describe("TC-CHEERY-CHAT-C: /api/cheery/chat", () => {
 
   it("C-04: APIキー未設定 → 503（利用回数は消費しない）", async () => {
     asUser(userId);
-    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
     const res = await POST(chatReq({ turns: [{ role: "user", text: "こんにちは" }] }));
-    process.env.ANTHROPIC_API_KEY = "test-key";
+    process.env.OPENAI_API_KEY = "test-key";
     expect(res.status).toBe(503);
     expect(await usageRow(userId, today)).toBe(null);
   });
@@ -226,7 +226,7 @@ describe("TC-CHEERY-CHAT-C: /api/cheery/chat", () => {
     // AIに渡したのは伏せ字にした文・画面の名前
     expect(captured?.turns).toEqual([{ role: "user", text: "出金はいつ？電話は[電話番号]" }]);
     expect(captured?.systemVolatile?.includes("「出金管理」の画面")).toBe(true);
-    expect(captured?.model).toBe("claude-haiku-5-5");
+    expect(captured?.model).toBe("gpt-6-luna");
   });
 
   it("C-06: ロールはサーバーで読む（送られた role は無視）。user には organizer 以上の知識を渡さない", async () => {

@@ -43,17 +43,19 @@ describe("TC-CHEERY-CORE: 伏せ字", () => {
 });
 
 describe("TC-CHEERY-CORE: モデル設定と費用", () => {
-  it("既定は Claude Haiku 5.5", () => {
-    expect(modelFor("faq", {}).key).toBe("anthropic:claude-haiku-5-5");
-    expect(modelFor("draft", {}).model).toBe("claude-haiku-5-5");
+  it("既定は OpenAI gpt-6-luna", () => {
+    expect(modelFor("faq", {}).key).toBe("openai:gpt-6-luna");
+    expect(modelFor("draft", {}).model).toBe("gpt-6-luna");
+    expect(modelFor("faq", {}).provider).toBe("openai");
   });
 
-  it("環境変数で登録済みのモデルに切り替えられる", () => {
+  it("環境変数で登録済みのモデルに切り替えられる（Anthropic に戻す）", () => {
     expect(modelFor("faq", { CHEERY_MODEL_FAQ: "anthropic:claude-haiku-5-5" }).provider).toBe("anthropic");
+    expect(modelFor("faq", { CHEERY_MODEL_FAQ: "" }).key).toBe("openai:gpt-6-luna");
   });
 
   it("単価を登録していないモデルは使えない（月の上限を守れないため）", () => {
-    expect(() => modelFor("faq", { CHEERY_MODEL_FAQ: "openai:gpt-6-luna" })).toThrow("チアリーのモデル設定が不正です（単価未登録）: CHEERY_MODEL_FAQ=openai:gpt-6-luna");
+    expect(() => modelFor("faq", { CHEERY_MODEL_FAQ: "openai:gpt-4o-mini" })).toThrow("チアリーのモデル設定が不正です（単価未登録）: CHEERY_MODEL_FAQ=openai:gpt-4o-mini");
     expect(() => modelFor("draft", { CHEERY_MODEL_DRAFT: "nonsense" })).toThrow("CHEERY_MODEL_DRAFT=nonsense");
   });
 
@@ -64,6 +66,9 @@ describe("TC-CHEERY-CORE: モデル設定と費用", () => {
     expect(costUsd(spec, { inputTokens: 0, cacheReadTokens: 1_000_000, cacheWriteTokens: 0, outputTokens: 0 })).toBeCloseTo(0.01, 10);
     expect(costUsd(spec, { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 1_000_000, outputTokens: 0 })).toBeCloseTo(0.125, 10);
     expect(costUsd(spec, { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 1_000_000 })).toBeCloseTo(0.5, 10);
+    // gpt-6-luna も同じ単価（公式の料金ページ：入力$0.10・キャッシュ読み$0.01・書き込み$0.125・出力$0.50）
+    const luna = MODELS["openai:gpt-6-luna"];
+    expect(costUsd(luna, { inputTokens: 1_000_000, cacheReadTokens: 1_000_000, cacheWriteTokens: 1_000_000, outputTokens: 1_000_000 })).toBeCloseTo(0.1 + 0.01 + 0.125 + 0.5, 10);
     // 要件の概算：入力1.5万＋出力500 ≒ $0.002
     expect(costUsd(spec, { inputTokens: 15_000, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 500 })).toBeCloseTo(0.00175, 10);
   });

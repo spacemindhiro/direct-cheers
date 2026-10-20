@@ -135,18 +135,19 @@ function fakeOpenAI(replies: { text?: string; completion: any }[]) {
   };
   return { client: client as any, sent };
 }
-const oUsage = (prompt: number, completion: number, cached = 0) => ({ prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion, prompt_tokens_details: { cached_tokens: cached } });
+const oUsage = (prompt: number, completion: number, cached = 0, written = 0) => ({ prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion, prompt_tokens_details: { cached_tokens: cached, cache_write_tokens: written } });
 
 describe("TC-CHEERY-PROVIDER: OpenAI", () => {
-  it("store:false・使用量の取得を指定し、キャッシュ分は入力から差し引く", async () => {
-    const { client, sent } = fakeOpenAI([{ text: "はい", completion: { choices: [{ finish_reason: "stop", message: { content: "はい", refusal: null } }], usage: oUsage(1000, 20, 800) } }]);
+  it("store:false・reasoning_effort:none・使用量の取得を指定し、キャッシュ読み・書き込みは入力から差し引く", async () => {
+    const { client, sent } = fakeOpenAI([{ text: "はい", completion: { choices: [{ finish_reason: "stop", message: { content: "はい", refusal: null } }], usage: oUsage(1000, 20, 800, 150) } }]);
     const r = req();
     const result = await createOpenAIProvider(client).run(r);
     expect(sent[0].store).toBe(false);
+    expect(sent[0].reasoning_effort).toBe("none");
     expect(sent[0].stream_options).toEqual({ include_usage: true });
     expect(sent[0].messages[0]).toEqual({ role: "system", content: "STABLE\n\nVOLATILE" });
     expect(r.texts).toEqual(["はい"]);
-    expect(result).toEqual({ finish: "end", usage: { inputTokens: 200, cacheReadTokens: 800, cacheWriteTokens: 0, outputTokens: 20 } });
+    expect(result).toEqual({ finish: "end", usage: { inputTokens: 50, cacheReadTokens: 800, cacheWriteTokens: 150, outputTokens: 20 } });
   });
 
   it("ツール呼び出しを実行して結果を返す", async () => {

@@ -28,12 +28,23 @@ export const MODELS: Record<string, ModelSpec> = {
     cacheReadMultiplier: 0.1,
     cacheWriteMultiplier: 1.25,
   },
-  // OpenAI（gpt-6-luna 等）は公式の料金ページで単価を確認してから登録する
+  // 2026-10-21 公式の料金ページで確認（https://developers.openai.com/api/docs/pricing）：
+  // 入力 $0.10 / キャッシュ読み $0.01 / キャッシュ書き込み $0.125 / 出力 $0.50（100万トークンあたり、入力27.2万トークン以下）
+  "openai:gpt-6-luna": {
+    key: "openai:gpt-6-luna",
+    provider: "openai",
+    model: "gpt-6-luna",
+    inputUsdPerMTok: 0.1,
+    outputUsdPerMTok: 0.5,
+    cacheReadMultiplier: 0.1,
+    cacheWriteMultiplier: 1.25,
+  },
 };
 
+// 既定は OpenAI（Hiro 2026-10-21：チャージ済みの OpenAI で動作確認・答え合わせを始める）
 export const DEFAULT_MODEL: Record<AiPurpose, string> = {
-  faq: "anthropic:claude-haiku-5-5",
-  draft: "anthropic:claude-haiku-5-5",
+  faq: "openai:gpt-6-luna",
+  draft: "openai:gpt-6-luna",
 };
 
 const ENV_KEY: Record<AiPurpose, string> = { faq: "CHEERY_MODEL_FAQ", draft: "CHEERY_MODEL_DRAFT" };

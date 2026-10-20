@@ -677,6 +677,16 @@ describe("TC-PAY-WINDOW: 期限切れ・削除済み・受付終了のQRはAPI�
     await expectRejected(qrId, prodId, 409, "closed");
   });
 
+  it("W-03b: 承認待ち（review_requested）イベント → 409 closed（承認されていなければ下書きと同じ）", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - HOUR), endAt: new Date(now() + HOUR), lifecycle: "review_requested" });
+    await expectRejected(qrId, prodId, 409, "closed");
+  });
+
+  it("W-03c: 承認後（published）の同じ時間帯 → 200（承認待ちだけを止めている）", async () => {
+    const { qrId, prodId } = await makeQr({ startAt: new Date(now() - HOUR), endAt: new Date(now() + HOUR), lifecycle: "published" });
+    await expectAccepted(qrId, prodId);
+  });
+
   it("W-04: 精算済み（settled）イベント → 409 closed", async () => {
     const { qrId, prodId } = await makeQr({ startAt: new Date(now() - 5 * HOUR), endAt: new Date(now() - 4 * HOUR), lifecycle: "settled" });
     await expectRejected(qrId, prodId, 409, "closed");

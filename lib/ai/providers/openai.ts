@@ -1,6 +1,5 @@
 // OpenAI で会話を1回分実行する。store: false で OpenAI 側に会話を保存させない（requirements.md 5.1）。
 import OpenAI from "openai";
-import { z } from "zod";
 import { addUsage, emptyUsage, runTool, type ChatProvider, type ChatRequest, type ChatResult, type ChatUsage } from "../types";
 
 function usageOf(u: OpenAI.CompletionUsage | undefined): ChatUsage {
@@ -14,7 +13,7 @@ export function createOpenAIProvider(client: OpenAI = new OpenAI()): ChatProvide
     async run(req: ChatRequest): Promise<ChatResult> {
       const tools: OpenAI.Chat.ChatCompletionTool[] = req.tools.map((t) => ({
         type: "function",
-        function: { name: t.name, description: t.description, parameters: z.toJSONSchema(t.input) as Record<string, unknown> },
+        function: { name: t.name, description: t.description, parameters: t.inputSchema },
       }));
       // OpenAI は先頭が同じなら自動でキャッシュされるので、変わらない部分を前に置く
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [

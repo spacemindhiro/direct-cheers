@@ -7,6 +7,7 @@ import Link from "next/link";
 import { DigitalTicket } from "@/components/digital-ticket";
 import { WelcomeCheerPicker } from "@/components/welcome-cheer-picker";
 import { ListPager } from "@/components/list-pager";
+import { ticketOwnershipFilter } from "@/lib/ticket-ownership";
 
 const PAGE_SIZE = 20;
 
@@ -36,16 +37,11 @@ async function TicketsContent({
     )
   `;
 
-  // 持ち主の条件が2本立てなのは、ゲスト購入時に holder_profile_id が NULL のまま
-  // 発行されるため。あとから同じメアドで登録しても tickets を埋め直す処理は無く
-  // （埋めるのは TouchPay の card_fingerprint 経由のRPCのみ）、登録前に買った
-  // チケットは email 側でしか拾えない。
+  // 持ち主の条件は lib/ticket-ownership.ts（チアリー(AI)と共用）。
   // 以前は2本のクエリを連結していたが、それぞれ独立にソートされるだけで全体の
   // 並びが保証されず、かつ件数が増えると .limit() で黙って切り捨てられていた。
   // 1本の or にまとめてDB側で並べ替え・ページングする。
-  const ownership = user.email
-    ? `holder_profile_id.eq.${user.id},and(email.eq."${user.email}",holder_profile_id.is.null)`
-    : `holder_profile_id.eq.${user.id}`;
+  const ownership = ticketOwnershipFilter(user.id, user.email);
 
   const { data: list, count } = await admin
     .from("tickets")

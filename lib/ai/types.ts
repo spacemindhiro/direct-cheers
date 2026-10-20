@@ -1,14 +1,13 @@
 // チアリー(AI) のプロバイダー共通の型。Anthropic / OpenAI の違いは providers/ の中に閉じ込める。
-import type { z } from "zod";
-
 export type ChatTurn = { role: "user" | "assistant"; text: string };
 
-// AIが呼べる機能（本人の実データを読むもの）。run は本人の権限のまま実行すること
+// AIが呼べる機能。DC のデータに触るものはすべて DC の MCP サーバー（lib/mcp）のツールで、
+// ここにはその一覧（MCP の tools/list）と呼び出し口（tools/call）が入る。入力の検査は MCP サーバー側で行う
 export type AiTool = {
   name: string;
   description: string;
-  input: z.ZodType<Record<string, unknown>>;
-  run: (input: Record<string, unknown>) => Promise<string>;
+  inputSchema: Record<string, unknown>; // JSON Schema
+  run: (input: Record<string, unknown>) => Promise<{ content: string; isError: boolean }>;
 };
 
 export type ChatUsage = {
@@ -55,14 +54,14 @@ export function addUsage(a: ChatUsage, b: ChatUsage): ChatUsage {
   };
 }
 
-// ツールの入力を検査して実行する。モデルの出力は信用しない（型が合わなければ実行せずエラーを返す）
+// AIが求めた機能を呼ぶ。モデルの出力は信用しない（オブジェクトでなければ呼ばない。中身の検査は MCP サーバー側）
 export async function runTool(tools: AiTool[], name: string, rawInput: unknown): Promise<{ content: string; isError: boolean }> {
   const tool = tools.find((t) => t.name === name);
   if (!tool) return { content: `未知の機能です: ${name}`, isError: true };
-  const parsed = tool.input.safeParse(rawInput ?? {});
-  if (!parsed.success) return { content: "入力の形式が正しくありません", isError: true };
+  const input = rawInput ?? {};
+  if (typeof input !== "object" || Array.isArray(input)) return { content: "入力の形式が正しくありません", isError: true };
   try {
-    return { content: await tool.run(parsed.data), isError: false };
+    return await tool.run(input as Record<string, unknown>);
   } catch {
     // 例外の中身（データが含まれうる）はAIにもログにも出さない
     return { content: "データの取得に失敗しました", isError: true };

@@ -5,6 +5,7 @@ import { ChatBody, FINISH_NOTES, INPUT_MESSAGES, LIMIT_MESSAGES, prepareTurns, r
 import { modelFor } from "@/lib/ai/config";
 import { providerFor } from "@/lib/ai/providers";
 import { sendCheeryMonthlyStopEmail } from "@/lib/email/notification";
+import { connectDcMcp } from "@/lib/mcp/in-process";
 
 export const maxDuration = 60;
 
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     admin,
     provider: providerFor(spec.provider),
     spec,
-    tools: [],
+    tools: [], // 利用枠を確保したあとに、本人用の MCP をつないで入れる
     notifyMonthlyStop: async ({ month, limitJpy }) => {
       const { data: admins } = await admin.from("profiles").select("profile_id").eq("role", "admin").limit(1);
       const adminId = admins?.[0]?.profile_id;
@@ -50,6 +51,10 @@ export async function POST(req: Request) {
 
   const reserved = await reserve(deps, user.id);
   if (reserved !== "ok") return NextResponse.json({ error: LIMIT_MESSAGES[reserved], reason: reserved }, { status: 429 });
+
+  // DC のデータに触る機能は、すべて本人用の MCP サーバー（lib/mcp）を通す。本人とロールはここで固定する
+  const mcp = await connectDcMcp({ userId: user.id, email: user.email ?? null, role: role ?? "user", supabase, admin });
+  deps.tools = mcp.tools;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -70,6 +75,7 @@ export async function POST(req: Request) {
           (err as { status?: number })?.status ?? "");
         controller.enqueue(encoder.encode("\n\n（うまく答えられませんでした。少し時間をおいてもう一度お試しください）"));
       } finally {
+        await mcp.close().catch(() => {});
         controller.close();
       }
     },

@@ -5,7 +5,6 @@
  *   OpenAI：store:false・使用量（キャッシュ分の差し引き）・ツールの繰り返し
  */
 import { describe, it, expect } from "vitest";
-import { z } from "zod";
 import { createAnthropicProvider } from "@/lib/ai/providers/anthropic";
 import { createOpenAIProvider } from "@/lib/ai/providers/openai";
 import type { AiTool, ChatRequest } from "@/lib/ai/types";
@@ -26,11 +25,16 @@ function req(over: Partial<ChatRequest> = {}): ChatRequest & { texts: string[] }
   };
 }
 
+// MCP のツールを模したもの（入力の検査は MCP サーバー側の役目なので、ここでは limit>10 をエラーとして返す）
 const echoTool = (calls: unknown[]): AiTool => ({
   name: "my_events",
   description: "自分のイベント",
-  input: z.object({ limit: z.number().int().max(10) }),
-  run: async (input) => { calls.push(input); return `events:${input.limit}`; },
+  inputSchema: { type: "object", properties: { limit: { type: "integer", maximum: 10 } } },
+  run: async (input) => {
+    if (typeof input.limit !== "number" || input.limit > 10) return { content: "入力の形式が正しくありません", isError: true };
+    calls.push(input);
+    return { content: `events:${input.limit}`, isError: false };
+  },
 });
 
 // ── Anthropic の偽クライアント ──
@@ -86,7 +90,7 @@ describe("TC-CHEERY-PROVIDER: Anthropic", () => {
     expect(result).toEqual({ finish: "end", usage: { inputTokens: 150, cacheReadTokens: 900, cacheWriteTokens: 900, outputTokens: 30 } });
   });
 
-  it("ツールの入力が型に合わなければ実行せず、エラーとして返す", async () => {
+  it("ツールがエラーを返したら is_error を付けて返す", async () => {
     const calls: unknown[] = [];
     const { client, sent } = fakeAnthropic([
       { msg: { content: [{ type: "tool_use", id: "tu1", name: "my_events", input: { limit: 999 } }], stop_reason: "tool_use", usage: aUsage(1, 1) } },

@@ -1,6 +1,5 @@
 // Anthropic（Claude）で会話を1回分実行する。ツール（本人の実データ取得）があれば、決めた回数まで繰り返す。
 import Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod";
 import { addUsage, emptyUsage, runTool, type ChatProvider, type ChatRequest, type ChatResult, type ChatUsage } from "../types";
 
 function usageOf(u: Anthropic.Usage): ChatUsage {
@@ -19,7 +18,7 @@ export function createAnthropicProvider(client: Anthropic = new Anthropic()): Ch
       const tools: Anthropic.Tool[] = req.tools.map((t) => ({
         name: t.name,
         description: t.description,
-        input_schema: z.toJSONSchema(t.input) as Anthropic.Tool.InputSchema,
+        input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
         eager_input_streaming: true,
       }));
       // 人格・ルール・知識集はロールごとに同じなのでキャッシュする。今の画面などはその後ろに置く

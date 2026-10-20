@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkConnectCapabilities } from "@/lib/stripe-check";
 import { canOperateEvent } from "@/lib/event-operator";
 import { SOLD_OUT_MESSAGE, TERMINAL_HOLD_TTL_SEC, holdStock, releaseStock } from "@/lib/stock-hold";
+import { CLOSED_LIFECYCLES } from "@/lib/purchase-window";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -71,13 +72,20 @@ export async function POST(req: Request) {
 
   const { data: qrc } = await admin
     .from("qr_configs")
-    .select("qr_config_id, touchpay_enabled, event:events!event_id(organizer_profile_id, agent_id, venue)")
+    .select("qr_config_id, touchpay_enabled, event:events!event_id(organizer_profile_id, agent_id, venue, lifecycle_status)")
     .eq("product_id", product_id)
     .is("deleted_at", null)
     .maybeSingle();
 
   if (!qrc?.touchpay_enabled) {
     return NextResponse.json({ error: "この商品は対面タッチ決済が許可されていません" }, { status: 400 });
+  }
+
+  // QR自己決済（evaluatePurchaseWindow）と同じく、下書き・承認待ち・中止・精算済みのイベントでは決済を起こさない。
+  // 以前はこの経路だけイベント状態を見ておらず、精算済み・中止のイベントでもスタッフ操作で決済が作れた
+  const lifecycleStatus = (qrc.event as unknown as { lifecycle_status: string | null } | null)?.lifecycle_status;
+  if (!lifecycleStatus || (CLOSED_LIFECYCLES as readonly string[]).includes(lifecycleStatus)) {
+    return NextResponse.json({ error: "このイベントは現在決済を受け付けていません" }, { status: 400 });
   }
 
   // サインアップQRを表示すべき子機を1台に絞るため必須。ペアリングされていない

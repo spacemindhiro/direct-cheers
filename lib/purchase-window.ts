@@ -7,8 +7,12 @@
  * APIは実際の関所であり、判定ロジックを各所に書き写すと食い違いがまた生まれるため一元化する。
  */
 
-/** 新規の決済・予約を一切受け付けないイベント状態 */
-export const CLOSED_LIFECYCLES = ["draft", "cancelled", "settled"] as const;
+/**
+ * 新規の決済・予約を一切受け付けないイベント状態。
+ * 承認待ち（review_requested）は「承認されていなければ下書きと同じ」（2026-10-20 オーナー決定）。
+ * QR自体は確認用として下書き・承認待ちでも作れる（app/api/qr/create）が、決済は通さない。
+ */
+export const CLOSED_LIFECYCLES = ["draft", "review_requested", "cancelled", "settled"] as const;
 
 /** 当日決済（チア・メッセージ・当日券等）の受付はイベント終了からこの時間まで */
 export const POST_EVENT_GRACE_MS = 3 * 60 * 60 * 1000;

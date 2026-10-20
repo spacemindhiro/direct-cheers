@@ -143,12 +143,12 @@ export function QRThanksEditor({ qrConfigId }: Props) {
           <p className="text-[10px] text-slate-600">カード裏面に表示するサンクス画像</p>
         </div>
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-wrap gap-3 pt-2">
           <button
             type="button"
             onClick={() => handleSave()}
             disabled={saving || !hasContent}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl font-black text-xs uppercase tracking-widest whitespace-nowrap transition-all disabled:opacity-50"
           >
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
             下書き保存
@@ -159,7 +159,7 @@ export function QRThanksEditor({ qrConfigId }: Props) {
               type="button"
               onClick={() => handleSave(true)}
               disabled={saving || !hasContent}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(236,72,153,0.25)] hover:brightness-110 transition-all disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-xl font-black text-xs uppercase tracking-widest whitespace-nowrap shadow-[0_0_20px_rgba(236,72,153,0.25)] hover:brightness-110 transition-all disabled:opacity-50"
             >
               {saving ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />}
               公開する
@@ -170,7 +170,7 @@ export function QRThanksEditor({ qrConfigId }: Props) {
                 type="button"
                 onClick={() => handleSave(true)}
                 disabled={saving}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
+                className="flex-1 min-w-[9rem] flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-xs uppercase tracking-widest whitespace-nowrap transition-all disabled:opacity-50"
               >
                 {saving ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                 変更を反映する
@@ -179,7 +179,7 @@ export function QRThanksEditor({ qrConfigId }: Props) {
                 type="button"
                 onClick={() => handleSave(false)}
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-red-500/20 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl font-black text-xs uppercase tracking-widest whitespace-nowrap hover:bg-red-500/20 transition-all disabled:opacity-50"
               >
                 {saving ? <Loader2 size={12} className="animate-spin" /> : <EyeOff size={12} />}
                 非公開

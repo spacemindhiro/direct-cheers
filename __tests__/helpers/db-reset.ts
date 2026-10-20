@@ -45,36 +45,61 @@ export async function cleanupTestData(ctx: {
   eventIds?: string[];
   profileIds?: string[];
 }): Promise<void> {
-  if (ctx.payoutRequestIds?.length) {
-    await admin.from("payout_requests").delete().in("request_id", ctx.payoutRequestIds);
+  // テストが把握していない子の行（API・アプリが作った QR・決済・配分の明細など）も、親から辿って一緒に消す。
+  // 子が残ると親の削除が外部キーで失敗し、架空の決済の行が溜まって後のテスト（自動キャンセル等）を壊すため
+  const eventIds = [...new Set(ctx.eventIds ?? [])];
+  const qrIds = new Set(ctx.qrConfigIds ?? []);
+  for (const id of await selectIds("qr_configs", "qr_config_id", "event_id", eventIds)) qrIds.add(id);
+  const txIds = new Set(ctx.transactionIds ?? []);
+  for (const id of await selectIds("transactions", "transaction_id", "qr_config_id", [...qrIds])) txIds.add(id);
+  const qrs = [...qrIds];
+  const txs = [...txIds];
+
+  const errors: string[] = [];
+  const del = async (table: string, column: string, ids: string[] | undefined) => {
+    if (!ids?.length) return;
+    for (let i = 0; i < ids.length; i += 200) {
+      const { error } = await admin.from(table).delete().in(column, ids.slice(i, i + 200));
+      if (error) errors.push(`${table}.${column}: ${error.message}`);
+    }
+  };
+
+  await del("payout_requests", "request_id", ctx.payoutRequestIds);
+  await del("debt_claims", "claim_id", ctx.debtClaimIds);
+  await del("debt_claims", "original_transaction_id", txs);
+  await del("settle_transfers", "stripe_transfer_id", ctx.settleTransferIds);
+  await del("settle_transfers", "event_id", eventIds);
+  await del("transaction_distributions", "transaction_distribution_id", ctx.distributionIds);
+  await del("transaction_distributions", "transaction_id", txs);
+  await del("transaction_distributions", "event_id", eventIds);
+  await del("receipts", "transaction_id", txs);
+  await del("asset_access_logs", "transaction_id", txs);
+  await del("invitation_codes", "transaction_id", txs);
+  await del("invitation_codes", "qr_config_id", qrs);
+  await del("invitation_codes", "event_id", eventIds);
+  await del("tickets", "event_id", eventIds);
+  await del("transactions", "transaction_id", txs);
+  await del("event_evidences", "evidence_id", ctx.evidenceIds);
+  await del("settlement_summaries", "summary_id", ctx.summaryIds);
+  await del("settlement_summaries", "event_id", eventIds);
+  await del("qr_config_targets", "qr_config_id", qrs);
+  await del("qr_configs", "qr_config_id", qrs);
+  await del("products", "event_id", eventIds);
+  await del("distribution_configs", "event_id", eventIds);
+  await del("event_artists", "event_id", eventIds);
+  await del("events", "event_id", eventIds);
+  await del("profiles", "profile_id", ctx.profileIds);
+
+  // 削除の失敗を握りつぶさない（以前は黙って失敗し、ローカルDBに残りかすが溜まっていた）
+  if (errors.length) throw new Error(`cleanupTestData: 削除に失敗\n${errors.join("\n")}`);
+}
+
+async function selectIds(table: string, idColumn: string, column: string, ids: string[]): Promise<string[]> {
+  const out: string[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await admin.from(table).select(idColumn).in(column, ids.slice(i, i + 200));
+    if (error) throw new Error(`cleanupTestData: ${table} の検索に失敗: ${error.message}`);
+    for (const row of (data ?? []) as unknown as Record<string, string>[]) out.push(row[idColumn]);
   }
-  if (ctx.debtClaimIds?.length) {
-    await admin.from("debt_claims").delete().in("claim_id", ctx.debtClaimIds);
-  }
-  if (ctx.settleTransferIds?.length) {
-    await admin.from("settle_transfers").delete().in("stripe_transfer_id", ctx.settleTransferIds);
-  }
-  if (ctx.distributionIds?.length) {
-    await admin.from("transaction_distributions").delete().in("transaction_distribution_id", ctx.distributionIds);
-  }
-  if (ctx.transactionIds?.length) {
-    await admin.from("transactions").delete().in("transaction_id", ctx.transactionIds);
-  }
-  if (ctx.evidenceIds?.length) {
-    await admin.from("event_evidences").delete().in("evidence_id", ctx.evidenceIds);
-  }
-  if (ctx.summaryIds?.length) {
-    await admin.from("settlement_summaries").delete().in("summary_id", ctx.summaryIds);
-  }
-  if (ctx.qrConfigIds?.length) {
-    await admin.from("qr_config_targets").delete().in("qr_config_id", ctx.qrConfigIds);
-    await admin.from("qr_configs").delete().in("qr_config_id", ctx.qrConfigIds);
-  }
-  if (ctx.eventIds?.length) {
-    await admin.from("event_artists").delete().in("event_id", ctx.eventIds);
-    await admin.from("events").delete().in("event_id", ctx.eventIds);
-  }
-  if (ctx.profileIds?.length) {
-    await admin.from("profiles").delete().in("profile_id", ctx.profileIds);
-  }
+  return out;
 }

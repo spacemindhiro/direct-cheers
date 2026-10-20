@@ -73,6 +73,7 @@ describe("TC-AUTOCANCEL-B: 7日超過・未settled → 自動キャンセル実�
   let eventId: string;
   let transactionId: string;
   let piId: string;
+  let qrConfigId: string;
 
   beforeAll(async () => {
     const ts = Date.now();
@@ -93,7 +94,7 @@ describe("TC-AUTOCANCEL-B: 7日超過・未settled → 自動キャンセル実�
     cleanup.eventIds.push(eventId);
     await testAdmin.from("events").update({ lifecycle_status: "published" }).eq("event_id", eventId);
 
-    const qrConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
+    qrConfigId = await insertQrConfig({ eventId, creatorProfileId: organizerProfileId, recipientProfileId: organizerProfileId });
     cleanup.qrConfigIds.push(qrConfigId);
 
     const pi = await createTestPaymentIntent({ amount: 5_000, organizerConnectId });
@@ -111,7 +112,10 @@ describe("TC-AUTOCANCEL-B: 7日超過・未settled → 自動キャンセル実�
     cleanup.transactionIds.push(transactionId);
   }, 60_000);
 
-  it("TC-AUTOCANCEL-B-01: 実行 → cancelledEvents=1・cancelledTx=1・errors=0", async () => {
+  // 応答の件数（cancelledEvents・errors 等）は DB 全体の集計で、共有のローカルDBでは他のテストの行も数えてしまう。
+  // そのため件数ではなく、このテストが作った行の状態で確かめる。
+  // イベントは配下の決済が1件でもエラーになると cancelled にならない作りなので、B-04 が「この決済でエラーなし」の確認を兼ねる
+  it("TC-AUTOCANCEL-B-01: 実行 → 200・success・この決済だけが cancelled（他の行の件数に左右されない）", async () => {
     const { secret, restore } = withCronSecret();
     const req = new Request("http://localhost/api/cron/auto-cancel-unsettled", {
       method: "GET",
@@ -123,9 +127,8 @@ describe("TC-AUTOCANCEL-B: 7日超過・未settled → 自動キャンセル実�
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.cancelledEvents).toBe(1);
-    expect(data.cancelledTx).toBe(1);
-    expect(data.errors).toBe(0);
+    const { data: txs } = await testAdmin.from("transactions").select("transaction_id, status").eq("qr_config_id", qrConfigId);
+    expect(txs).toEqual([{ transaction_id: transactionId, status: "cancelled" }]);
   }, 30_000);
 
   it("TC-AUTOCANCEL-B-02: StripeのPIがcanceledになる(資金移動ゼロで解放)", async () => {
@@ -154,18 +157,25 @@ describe("TC-AUTOCANCEL-B: 7日超過・未settled → 自動キャンセル実�
     expect((notif?.metadata as any)?.event_id).toBe(eventId);
   });
 
-  it("TC-AUTOCANCEL-B-06: 2回目実行 → 既にcancelled済みのため対象外(cancelledEvents=0)", async () => {
+  it("TC-AUTOCANCEL-B-06: 2回目実行 → 既にcancelled済みのため対象外(通知は1件のまま)", async () => {
     const { secret, restore } = withCronSecret();
     const req = new Request("http://localhost/api/cron/auto-cancel-unsettled", {
       method: "GET",
       headers: { authorization: `Bearer ${secret}` },
     });
     const res = await autoCancelGET(req);
-    const data = await res.json();
     restore();
 
     expect(res.status).toBe(200);
-    expect(data.cancelledEvents).toBe(0);
+    // 2回目で処理されていれば通知が2件になる
+    const { count } = await testAdmin
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("profile_id", organizerProfileId)
+      .eq("type", "event_auto_cancelled");
+    expect(count).toBe(1);
+    const { data: ev } = await testAdmin.from("events").select("lifecycle_status").eq("event_id", eventId).single();
+    expect(ev?.lifecycle_status).toBe("cancelled");
   }, 30_000);
 });
 
@@ -341,7 +351,7 @@ describe("TC-AUTOCANCEL-E: PayPay等(succeeded)・7日超過 → refund + debt_c
     cleanup.transactionIds.push(transactionId);
   }, 60_000);
 
-  it("TC-AUTOCANCEL-E-01: 実行 → cancelledEvents=1・debtRecorded=1・errors=0", async () => {
+  it("TC-AUTOCANCEL-E-01: 実行 → このイベントが cancelled・債権が1件だけ計上", async () => {
     const { secret, restore } = withCronSecret();
     const req = new Request("http://localhost/api/cron/auto-cancel-unsettled", {
       method: "GET",
@@ -351,10 +361,16 @@ describe("TC-AUTOCANCEL-E: PayPay等(succeeded)・7日超過 → refund + debt_c
     const data = await res.json();
     restore();
 
+    // 件数は DB 全体の集計なので、このテストの行で確かめる（B-01 のコメント参照）
     expect(res.status).toBe(200);
-    expect(data.cancelledEvents).toBe(1);
-    expect(data.errors).toBe(0);
-    expect(data.debtRecorded).toBe(1);
+    expect(data.success).toBe(true);
+    const { data: ev } = await testAdmin.from("events").select("lifecycle_status").eq("event_id", eventId).single();
+    expect(ev?.lifecycle_status).toBe("cancelled");
+    const { count } = await testAdmin
+      .from("debt_claims")
+      .select("*", { count: "exact", head: true })
+      .eq("original_transaction_id", transactionId);
+    expect(count).toBe(1);
   }, 30_000);
 
   it("TC-AUTOCANCEL-E-02: transactions.status='refunded' に更新される", async () => {

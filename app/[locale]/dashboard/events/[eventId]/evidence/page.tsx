@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getEventAccess } from "@/lib/event-access";
 import { EvidenceUploadForm } from "@/components/evidence-upload-form";
 import { Loader2, Calendar, MapPin, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
@@ -26,7 +27,12 @@ async function EvidencePageContent({
     .single();
 
   if (!event) notFound();
-  if (event.organizer_profile_id !== user.id) redirect("/dashboard");
+  // 提出できるのは、このイベントを操作できる人（主催者・担当エージェント・admin。lib/event-access.ts）。
+  // 提出API・写真のアップロード（ストレージ）・イベント詳細の「証跡を提出」ボタンと同じ範囲。
+  // 以前は主催者本人しか通さず、担当エージェントがボタンを押しても提出画面に入れなかった（代理提出ができなかった）
+  const { data: profile } = await supabase.from("profiles").select("role").eq("profile_id", user.id).maybeSingle();
+  const access = await getEventAccess(admin, eventId, user.id, profile?.role);
+  if (!access?.canOperate) redirect("/dashboard");
 
   const hasEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
 

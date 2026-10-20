@@ -12,12 +12,7 @@
 import { NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getMonthBoundsUtc, getPreviousMonthBounds } from "@/lib/accounting/date-utils";
-
-// Hiro個人の確定申告用に、admin(Owner Hiro)プロフィールへ合算するHiro自身の
-// 他プロフィールID。現状agent/organizer/artistロールの実運用アカウントはHiro本人の
-// ものしか存在しないため、admin判定時に固定で合算する（DBに人物リンク機構は作らない）。
-const HIRO_LINKED_PROFILE_IDS = ["a7407a12-20fa-49e3-b201-416f438a89cd"];
+import { getIncomeSummary } from "@/lib/income-summary";
 
 export async function GET(req: Request) {
   const supabase = await createClient();
@@ -34,22 +29,16 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const qYear = url.searchParams.get("year");
   const qMonth = url.searchParams.get("month");
-  const bounds =
-    qYear && qMonth
-      ? getMonthBoundsUtc(parseInt(qYear, 10), parseInt(qMonth, 10))
-      : getPreviousMonthBounds();
+  // 集計とロール別スコープは lib/income-summary.ts（チアリー(AI)と共用）
+  const { bounds, summary: data, error } = await getIncomeSummary(
+    createAdminClient(),
+    user.id,
+    profile.role,
+    qYear && qMonth ? parseInt(qYear, 10) : undefined,
+    qYear && qMonth ? parseInt(qMonth, 10) : undefined,
+  );
 
-  const profileIds =
-    profile.role === "admin" ? [user.id, ...HIRO_LINKED_PROFILE_IDS] : [user.id];
-
-  const admin = createAdminClient();
-  const { data, error } = await admin.rpc("get_role_income_summary", {
-    p_profile_ids: profileIds,
-    p_start_utc: bounds.startUtc.toISOString(),
-    p_end_utc: bounds.endUtc.toISOString(),
-  });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error }, { status: 500 });
 
   return NextResponse.json({
     role: profile.role,

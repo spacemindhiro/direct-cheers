@@ -57,7 +57,7 @@ beforeAll(async () => {
   const add = async (key: string, qr: string, product: string, gross: number, minutesAgo: number, extra: Record<string, unknown>) => {
     const id = await insertTransaction({ qrConfigId: qr, grossAmount: gross, netAmount: gross, stripeFee: 0, platformFee: 0, stripePaymentIntentId: `pi_mcpu_${ts}_${key}` , status: (extra.status as string) ?? "completed" });
     created[key] = new Date(Date.now() - minutesAgo * 60_000).toISOString();
-    const { status: _s, ...rest } = extra;
+    const rest = Object.fromEntries(Object.entries(extra).filter(([k]) => k !== "status"));
     await testAdmin.from("transactions").update({ product_id: product, created_at: created[key], ...rest }).eq("transaction_id", id);
     ids.txs.push(id);
   };

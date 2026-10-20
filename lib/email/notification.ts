@@ -400,3 +400,26 @@ export async function sendProxyEventCreatedEmail(opts: {
     `),
   );
 }
+
+// ================================================================
+// チアリー(AI) の月額上限に達して止めた → admin
+// ================================================================
+export async function sendCheeryMonthlyStopEmail(opts: {
+  to: string;
+  month: string;
+  limitJpy: number;
+}) {
+  await send(
+    opts.to,
+    `【Direct Cheers】チアリー(AI)を停止しました（${opts.month} の月額上限）`,
+    layout(`
+      <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">チアリー(AI)を停止しました</h1>
+      <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin:0 0 20px">
+        ${opts.month} の AI 利用料の概算が月額上限（${opts.limitJpy.toLocaleString("ja-JP")}円）に達したため、今月は全員のチアリー(AI)を止めました。翌月1日（日本時間）に自動で再開します。
+      </p>
+      <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin:0 0 20px">
+        想定外の使われ方（大量のアカウント作成など）がないか確認してください。
+      </p>
+    `),
+  );
+}

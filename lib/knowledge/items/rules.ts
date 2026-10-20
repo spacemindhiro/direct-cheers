@@ -33,11 +33,11 @@ export const RULES_ITEMS: KnowledgeItem[] = [
     id: "rules.payment-timing",
     minRole: "user",
     title: "支払いが確定するタイミング（オーソリ）",
-    sources: ["app/api/pay/cheers/route.ts", "app/api/admin/events/[eventId]/capture-all/route.ts", "app/api/cron/entrance-auth/route.ts"],
+    sources: ["app/api/pay/cheers/route.ts", "app/api/admin/events/[eventId]/capture-all/route.ts", "app/api/cron/entrance-auth/route.ts", "app/api/entrance/reserve/route.ts"],
     body: [
       { type: "p", text: "チアやチケットの決済は、購入した時点ではカードの利用枠を確保する「オーソリ（与信）」の状態です。実際の請求は、イベントが開催されたことを運営が確認してから確定します。" },
       { type: "p", text: "このため、イベントが中止になった場合は、確保していた枠が取り消されるだけで、お客様に請求は発生しません。カード会社のアプリなどで一時的に「利用（未確定）」と表示されることがありますが、取り消されれば消えます。" },
-      { type: "p", text: "前売事後確定タイプ（5日前確定）の入場チケットは、予約時にはカードを保存するだけで、イベントの5日前に自動で決済されます。前売即時確定タイプの入場チケットは、予約時にその場で決済されます。" },
+      { type: "p", text: "前売事後確定タイプ（5日前確定）の入場チケットは、予約時にはカードを保存するだけで、イベントの5日前に自動でオーソリされます（5日を切ってから予約した場合は予約時にオーソリ）。前売即時確定タイプ（即時確定）の入場チケットだけは、予約したその場で請求が確定するため、イベントが中止になった場合は返金になります。" },
     ],
   },
   {

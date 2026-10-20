@@ -8,6 +8,7 @@ import { FollowButton } from "@/components/follow-button";
 import { resolveCheerCardIdentity } from "@/lib/statement-descriptor";
 import { Loader2, Layers } from "lucide-react";
 import { ListPager } from "@/components/list-pager";
+import { applyCheerCollectionFilters } from "@/lib/cheer-collection";
 
 const PAGE_SIZE = 20;
 
@@ -36,20 +37,10 @@ async function CollectionContent({
     qr_config:qr_configs!qr_config_id(qr_config_id, image_url, recipient_profile_id, recipient_name_context, event:events!event_id(title, organizer_profile_id))
   `;
 
-  // 以前は sender_profile_id と sender_email で2本引いてJS側で重複排除・絞り込み・
-  // 再ソートしていた。1本の or にまとめてDB側で完結させる（重複排除も不要になる）。
-  // 2つ目の or はウェルカムチア（2階、stripe_pi_sequence=1）の未確定分の除外。
-  // 購入者が演者を確定するまで出さない。確定前に出すとデフォルト（主催者）宛の
-  // 状態が見えてしまい「後で選べる」という設計意図が崩れる。
-  // stripe_pi_sequence は NOT NULL DEFAULT 0 なので neq.1 で取りこぼしは出ない。
-  const { data: cards, count } = await admin
-    .from("transactions")
-    .select(query, { count: "exact" })
-    .eq("status", "completed")
-    .neq("transaction_type", "invitation")
-    .or(`sender_profile_id.eq.${user.id},sender_email.eq."${userEmail}"`)
-    .not("product.type", "in", "(entrance,custom)")
-    .or("stripe_pi_sequence.neq.1,welcome_cheer_locked_at.not.is.null")
+  // 絞り込み（本人が送ったもの・確定前のウェルカムチアを除く等）は lib/cheer-collection.ts（チアリー(AI)と共用）
+  const { data: cards, count } = await applyCheerCollectionFilters(
+    admin.from("transactions").select(query, { count: "exact" }), user.id, userEmail,
+  )
     .order("created_at", { ascending: false })
     // created_at は一意でないためタイブレーカーを付けてページ間の重複・欠落を防ぐ
     .order("transaction_id", { ascending: true })

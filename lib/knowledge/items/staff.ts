@@ -120,18 +120,21 @@ export const STAFF_ITEMS: KnowledgeItem[] = [
       "app/api/admin/users/[profileId]/approve/route.ts",
       "app/api/admin/refund/route.ts",
       "app/api/events/[eventId]/approve/route.ts",
+      "components/admin-nav.tsx",
+      "app/[locale]/admin/settlements/page.tsx",
     ],
     body: [
       {
         type: "ul",
         items: [
-          "口座開設の最終承認（Stripeでの本人確認が終わった人を受取可能にする）",
-          "開催証跡の確認と精算。証跡が無いイベントや、未照合の決済が残っているイベントは精算できません",
-          "開催証跡の差し戻し（コメント必須）",
-          "精算済みになった後の返金",
-          "エージェントが主催者を兼ねるイベント（自主開催）の公開承認",
+          "口座開設の最終承認（Stripeでの本人確認が終わった人を受取可能にする）：管理画面の「口座審査」",
+          "開催証跡の確認と精算：管理画面の「Settlements」（精算管理）。証跡が無いイベントや、未照合の決済が残っているイベントは精算できません。未照合の決済は「Reconcile」（照合管理）で照合します",
+          "開催証跡の差し戻し（コメント必須）：「Settlements」（精算管理）から",
+          "精算済みになった後の返金：管理画面の「Refunds」（返金管理）",
+          "エージェントが主催者を兼ねるイベント（自主開催）の公開承認：そのイベントの詳細画面から",
         ],
       },
+      { type: "p", text: "運営は DC を運営している本人なので、support@direct-cheers.com（運営自身の窓口）を案内する必要はありません。" },
     ],
   },
 ];

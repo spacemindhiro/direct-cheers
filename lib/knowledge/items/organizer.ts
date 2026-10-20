@@ -9,6 +9,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "招待リンクから登録する",
     help: { tab: "organizer", group: "prep", icon: "UserPlus", subtitle: "Invite Registration", video: "o-01" },
+    sources: ["components/invite-accept-client.tsx", "app/[locale]/invite/[token]/page.tsx", "app/api/invitations/[token]/accept/route.ts", "app/api/invitations/[token]/claim/route.ts"],
     body: [
       { type: "p", text: "エージェント／運営やほかのオーガナイザーから招待リンクが届いた場合、リンクを開いて「登録して受け取る」を押すだけで、追加のメール確認なしにその場でアカウント作成からログインまで完了します。" },
       { type: "p", text: "すでにDirect Cheersに登録済みの場合は、ログインするだけで招待を受け取れます。" },
@@ -20,6 +21,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "プロフィールを設定する",
     help: { tab: "organizer", group: "prep", icon: "UserCog", subtitle: "Organizer Profile", video: "o-02-1" },
+    sources: ["app/[locale]/dashboard/profile/page.tsx", "app/api/profile/route.ts"],
     body: [
       { type: "p", text: "「プロフィール」で、主催者名・主催者用画像・活動団体名・紹介文・海外カード明細用の英字表記を設定できます。イベントやQR、お客様のカード利用明細に表示される情報です。" },
       {
@@ -37,6 +39,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "口座登録",
     help: { tab: "organizer", group: "prep", icon: "Landmark", subtitle: "Bank Setup", video: "o-02" },
+    sources: ["app/[locale]/dashboard/profile/page.tsx", "app/[locale]/dashboard/profile/bank-setup/page.tsx", "lib/bank-status.ts", "app/api/stripe/connect/onboarding/route.ts"],
     body: [
       { type: "p", text: "「プロフィール」の口座登録から、Stripe Connectでの本人確認・口座登録に進みます（種別選択→氏名→生年月日・電話→住所→事業情報の5ステップ）。" },
       { type: "p", text: "Stripe側の手続き完了後は「口座開設審査中」となり、運営（オーナー）による最終承認をお待ちいただきます。承認されると受け取りが可能になります。" },
@@ -54,6 +57,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "イベントを作成する",
     help: { tab: "organizer", group: "prep", icon: "CalendarPlus", subtitle: "Events", video: "o-03" },
+    sources: ["components/event-create-form.tsx", "app/[locale]/dashboard/events/create/page.tsx", "app/api/events/create/route.ts"],
     body: [
       { type: "p", text: "「新規イベント作成」からタイトル・会場・開始/終了日時・出演アーティストを入力して作成します（作成直後は「下書き」状態です）。" },
       {
@@ -71,6 +75,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "出演依頼",
     help: { tab: "organizer", group: "prep", icon: "UserPlus", subtitle: "Lineup Invitations", video: "o-04" },
+    sources: ["components/event-create-form.tsx", "components/event-edit-form.tsx", "app/api/events/create/route.ts", "app/api/events/[eventId]/route.ts", "app/api/events/[eventId]/lineup/[artistId]/route.ts", "components/lineup-invitations.tsx"],
     body: [
       { type: "p", text: "すでにDirect Cheersに登録済みのアーティストをイベントに呼ぶための機能です。" },
       {
@@ -89,6 +94,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "会員招待",
     help: { tab: "organizer", group: "prep", icon: "UserPlus", iconTone: "indigo", subtitle: "Invitations（招待管理）", video: "o-05" },
+    sources: ["components/invitations-section.tsx", "components/invite-create-form.tsx", "app/[locale]/dashboard/invitations/page.tsx", "app/api/invitations/route.ts"],
     body: [
       { type: "p", text: "まだ「アーティスト」ロールを持っていない人を、新規にアーティストとして招待するための、出演依頼とは別の機能です。招待には2つのやり方があります。" },
       {
@@ -108,6 +114,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "公開の承認を依頼する",
     help: { tab: "organizer", group: "prep", icon: "CheckCircle2", subtitle: "Publish Approval", video: "o-06" },
+    sources: ["components/event-request-review-button.tsx", "app/api/events/[eventId]/request-review/route.ts"],
     body: [
       { type: "p", text: "イベント詳細ページの「エージェントに承認依頼を送る」を押すと、公開の承認を依頼できます（「承認待ち」状態になります）。" },
       {
@@ -125,6 +132,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "QRを作成する（スタンダード／メッセージ）",
     help: { tab: "organizer", group: "prep", icon: "QrCode", subtitle: "QR Config", video: "o-07" },
+    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts"],
     body: [
       { type: "p", text: "イベント詳細ページの「QR 作成」から、チア／チケット用のQRコードを商品タイプ別に発行します。" },
       {
@@ -144,6 +152,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "エントランスQRを作成する",
     help: { tab: "organizer", group: "prep", icon: "DoorOpen", subtitle: "Entrance QR", video: "o-11" },
+    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts", "lib/purchase-window.ts"],
     body: [
       { type: "p", text: "入場チケットをQRで販売するときは、「QR 作成」で商品タイプ「エントランス」を選びます。" },
       {
@@ -165,6 +174,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "QRを印刷する",
     help: { tab: "organizer", group: "prep", icon: "Printer", subtitle: "Print QR", video: "o-08" },
+    sources: ["components/qr-display.tsx"],
     body: [{ type: "p", text: "QR詳細画面の「印刷する」から、会場掲示用の高解像度QRを印刷できます。" }],
   },
   {
@@ -173,6 +183,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "売上を見る・決済を取り消す",
     help: { tab: "organizer", group: "prep", icon: "ScanLine", subtitle: "Sales & Cancellation", video: "o-09" },
+    sources: ["components/event-detail-tabs.tsx", "app/api/events/[eventId]/transactions/[transactionId]/cancel/route.ts"],
     body: [
       { type: "p", text: "誤操作・誤販売があった場合は、イベント詳細の「売上・決済」タブ（決済ログ）から自分のイベントの決済を取り消せます。売上自体もこのタブでリアルタイムに確認できます。" },
       {
@@ -214,6 +225,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "売上・精算の確認",
     help: { tab: "organizer", group: "prep", icon: "TrendingUp", subtitle: "Statistics / Income / Settlement" },
+    sources: ["components/settlement-report-client.tsx", "app/[locale]/dashboard/events/[eventId]/settlement/page.tsx", "app/[locale]/dashboard/income/page.tsx"],
     body: [
       {
         type: "ul",
@@ -244,6 +256,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "イベントの中止",
     help: { tab: "organizer", group: "prep", icon: "XCircle", iconTone: "red", subtitle: "Cancellation" },
+    sources: ["app/[locale]/dashboard/events/[eventId]/page.tsx", "app/api/events/[eventId]/cancel/route.ts"],
     body: [
       { type: "p", text: "イベント詳細ページの「中止申請」から中止の手続きができます。" },
       {
@@ -265,6 +278,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "印刷したQRだけで運用する",
     help: { tab: "organizer", group: "dayof", icon: "Printer", subtitle: "Print-Only Setup", video: "d-01" },
+    sources: ["components/qr-display.tsx"],
     body: [
       { type: "p", text: "表示用タブレット（子機）を用意できない場合は、印刷したQRコードを会場に掲示するだけで運用できます。" },
       {
@@ -282,6 +296,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "入場スキャナで検札する",
     help: { tab: "organizer", group: "dayof", icon: "ScanLine", subtitle: "Check-in Scanner", video: "d-02" },
+    sources: ["components/checkin-client.tsx", "app/api/entrance/checkin/route.ts"],
     body: [
       { type: "p", text: "スタッフが対応できる場合は「入場スキャナを起動」からカメラでお客様のチケットQRを読み取り、「入場OK」「入場済みです」「無効なチケット」等を即座に判定できます。" },
     ],
@@ -292,6 +307,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "タッチ決済・子機/親機を使う",
     help: { tab: "organizer", group: "dayof", icon: "Zap", subtitle: "Touch Pay & Devices" },
+    sources: ["components/touch-pay-client.tsx", "app/[locale]/dashboard/events/[eventId]/checkin/touch-pay/page.tsx", "components/scanner-qr-client.tsx"],
     body: [
       {
         type: "ul",
@@ -311,6 +327,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     indexHint: "前日まで・開場前・開場中・トラブル時（Apple Payが出ない・カードリーダーが繋がらない→QR自己決済に切り替え・電波が弱い）・終了後の時系列チェックリスト",
     title: "当日オペレーション（時系列）",
     help: { tab: "organizer", group: "dayof", icon: "ListChecks", subtitle: "Day-of Checklist" },
+    sources: ["components/checkin-client.tsx", "components/touch-pay-client.tsx", "components/qr-display.tsx", "components/evidence-upload-form.tsx"],
     body: [
       { type: "p", text: "当日スタッフが手元で見る前提の、時間順のチェックリストです。[[organizer.dayof.print-only|no]]〜[[organizer.dayof.touchpay|no]]の機能説明とあわせてご覧ください。" },
       {
@@ -372,6 +389,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     id: "organizer.faq.publish",
     minRole: "organizer",
     help: { tab: "organizer" },
+    sources: ["components/event-request-review-button.tsx", "app/api/events/[eventId]/request-review/route.ts", "app/api/events/[eventId]/approve/route.ts"],
     q: "イベントを作成したらすぐ公開されますか？",
     a: "いいえ。作成直後は「下書き」で、「エージェントに承認依頼を送る」を押して承認されるまで一般には公開されません。",
   },
@@ -380,6 +398,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     id: "organizer.faq.refund",
     minRole: "organizer",
     help: { tab: "organizer" },
+    sources: ["components/event-detail-tabs.tsx", "app/api/events/[eventId]/transactions/[transactionId]/cancel/route.ts"],
     q: "お客様への返金はオーガナイザーが行いますか？",
     a: "はい、できます。精算前のイベントであれば、イベント詳細の「売上・決済」タブ（決済ログ）から自分のイベントの決済を取り消せます（オーソリ中のものは取消、キャプチャ済みのものは返金）。イベントが「精算済み」になった後の返金のみ、運営（admin）が対応します。",
   },
@@ -388,6 +407,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     id: "organizer.faq.presale",
     minRole: "organizer",
     help: { tab: "organizer" },
+    sources: ["app/api/events/[eventId]/cancel/route.ts", "lib/purchase-window.ts"],
     q: "前売り分はどうなりますか？",
     a: "ほとんどのカード決済は「オーソリのみ」で保留されているため、イベント中止が承認されると自動的に取り消され、お客様に負担はかかりません。前売即時確定タイプ（即時確定）の入場チケットなど既にキャプチャ済みのものは自動では取り消されないため、決済ログから個別に取消（返金）してください。",
   },
@@ -396,6 +416,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     id: "organizer.faq.evidence-wait",
     minRole: "organizer",
     help: { tab: "organizer" },
+    sources: ["components/evidence-upload-form.tsx", "app/api/events/[eventId]/evidence/reject/route.ts", "app/api/events/[eventId]/settle/route.ts"],
     q: "エビデンスを提出したのに精算されません",
     a: "提出後は運営による確認を経て精算処理が実行されるため、反映まで日数がかかることがあります。差し戻された場合はダッシュボードの通知から再提出してください。",
   },

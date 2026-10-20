@@ -8,6 +8,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "支払い方法の準備（いちばん大事）",
     help: { tab: "user", icon: "Zap", subtitle: "Payment Speed" },
+    sources: ["app/[locale]/dashboard/page.tsx", "components/link-setup-form.tsx"],
     body: [
       { type: "p", text: "決済をスムーズに行うために、以下のいずれかを最初に設定しておくことを強くおすすめします。ダッシュボードのトップにも同じ案内が表示されます。" },
       {
@@ -27,6 +28,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "Stripe Link にカードを登録する",
     help: { tab: "user", icon: "CreditCard", subtitle: "Stripe Link", video: "u-04" },
+    sources: ["components/link-setup-form.tsx", "app/[locale]/link-setup/page.tsx", "app/api/stripe/link-setup/route.ts"],
     body: [
       { type: "p", text: "イベント当日にカード番号を打ち込まずに支払えるようにしておく設定です。LINEの中のブラウザなどApple Payが使えない場面でも使えます。" },
       {
@@ -47,6 +49,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "会員登録・ログイン",
     help: { tab: "user", icon: "KeyRound", subtitle: "Member Access" },
+    sources: ["components/login-form.tsx", "app/[locale]/dashboard/passkeys/page.tsx", "app/api/auth/send-magic-link/route.ts"],
     body: [
       { type: "p", text: "「パスキー」（顔認証・指紋認証）を登録しておくと、次回からはメールアドレスの入力なしで一瞬にログインできます。まだの方は「アカウント管理」の「パスキー管理」から登録しておくことを強くおすすめします。" },
       {
@@ -66,6 +69,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "チアを送る・チケットを購入する",
     help: { tab: "user", icon: "Heart", subtitle: "Send Cheers", video: "u-01" },
+    sources: ["app/c/[qrConfigId]/page.tsx", "components/cheers-payment-form.tsx", "app/api/pay/cheers/route.ts"],
     body: [
       { type: "p", text: "会場に掲示されているQRコードを読み取ると、アーティストやイベントの専用ページが開きます。" },
       {
@@ -86,6 +90,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "メッセージ付きで応援する",
     help: { tab: "user", icon: "MessageCircleHeart", subtitle: "Cheer Message", video: "u-02" },
+    sources: ["app/c/[qrConfigId]/thanks/page.tsx", "app/api/pay/message/route.ts"],
     body: [
       { type: "p", text: "主催者が「メッセージ」タイプで作ったQRでは、応援と一緒にアーティストへひと言メッセージを送れます。" },
       {
@@ -105,6 +110,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "マイチケットの使い方",
     help: { tab: "user", icon: "Ticket", subtitle: "Wallet" },
+    sources: ["components/digital-ticket.tsx", "app/[locale]/tickets/page.tsx"],
     body: [
       { type: "p", text: "ダッシュボードの「マイチケット」から、購入したチケットをQRコード付きのデジタルチケットで確認できます。" },
       {
@@ -138,6 +144,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "アカウント設定",
     help: { tab: "user", icon: "UserCog", subtitle: "Account" },
+    sources: ["app/[locale]/dashboard/account/page.tsx", "app/[locale]/dashboard/passkeys/page.tsx"],
     body: [
       {
         type: "ul",
@@ -154,6 +161,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     id: "user.faq.apple-pay",
     minRole: "user",
     help: { tab: "user" },
+    sources: ["components/cheers-payment-form.tsx"],
     q: "Apple Payのボタンが出てきません",
     a: "LINEなどアプリ内ブラウザで開いている場合、その仕様上Apple Payは使用できません。画面右上などのメニューから「他のブラウザで開く」を選び、SafariやChromeなど通常のブラウザで開き直してください。",
   },
@@ -162,6 +170,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     id: "user.faq.login-mail",
     minRole: "user",
     help: { tab: "user" },
+    sources: ["components/login-form.tsx", "app/api/auth/send-magic-link/route.ts"],
     q: "ログインリンクのメールが届きません",
     a: "迷惑メールフォルダをご確認ください。それでも届かない場合は、ログイン画面から再度メールアドレスを入力して送信し直してください。",
   },
@@ -170,6 +179,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     id: "user.faq.merge",
     minRole: "user",
     help: { tab: "user" },
+    sources: ["app/[locale]/dashboard/account/page.tsx", "app/api/account/merge-request/route.ts", "app/api/account/merge-confirm/route.ts"],
     q: "複数のメールアドレスで応援してしまいました",
     a: "「アカウント管理」の「応援履歴を統合」から、まとめたいメールアドレスを入力して確認メールを送ると、履歴を1つのアカウントにまとめられます。",
   },
@@ -178,6 +188,7 @@ export const USER_ITEMS: KnowledgeItem[] = [
     id: "user.faq.ticket-cancel",
     minRole: "user",
     help: { tab: "user" },
+    sources: ["components/digital-ticket.tsx", "app/api/entrance/reservations/[reservationId]/cancel/route.ts"],
     q: "購入したチケットをキャンセルしたい",
     a: "事前確定型（5日前確定）のチケットのみ、マイチケット画面からイベント5日前までキャンセルできます。それ以外のチケットタイプは購入後のキャンセルに対応していません。",
   },

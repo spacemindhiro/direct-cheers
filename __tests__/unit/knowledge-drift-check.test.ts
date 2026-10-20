@@ -56,6 +56,12 @@ describe("TC-KNOWLEDGE-DRIFT: 項目の切り出し", () => {
       }
     }
   });
+
+  // sources が無い項目は、画面や仕様が変わっても直し忘れを検知できない（PR182 のサンクス特典のお知らせが素通りした）
+  it("すべての項目に sources（案内の根拠のコード）がある", () => {
+    const without = KNOWLEDGE_ITEMS.filter((i) => !i.sources?.length).map((i) => i.id);
+    expect(without).toEqual([]);
+  });
 });
 
 describe("TC-KNOWLEDGE-DRIFT: 直し忘れの判定", () => {

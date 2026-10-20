@@ -8,6 +8,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     minRole: "artist",
     title: "招待リンクから登録する",
     help: { tab: "artist", icon: "UserPlus", subtitle: "Invite Registration", video: "a-01" },
+    sources: ["components/invite-accept-client.tsx", "app/[locale]/invite/[token]/page.tsx", "app/api/invitations/[token]/accept/route.ts", "app/api/invitations/[token]/claim/route.ts"],
     body: [
       { type: "p", text: "オーガナイザーから招待リンクが届いた場合、リンクを開いて「登録して受け取る」を押すだけで、追加のメール確認なしにその場でアカウント作成からログインまで完了します。" },
       { type: "p", text: "すでにDirect Cheersに登録済みの場合は、ログインするだけで招待を受け取れます。" },
@@ -19,6 +20,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     minRole: "artist",
     title: "プロフィール設定",
     help: { tab: "artist", icon: "Mic2", subtitle: "Profile", video: "a-02" },
+    sources: ["app/[locale]/dashboard/profile/page.tsx", "app/api/profile/route.ts"],
     body: [
       { type: "p", text: "「プロフィール」の基本情報（表示名・アバター）に加えて、アーティスト専用の項目を設定できます。" },
       {
@@ -39,6 +41,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     minRole: "artist",
     title: "口座登録",
     help: { tab: "artist", icon: "Landmark", subtitle: "Bank Setup", video: "a-03" },
+    sources: ["app/[locale]/dashboard/profile/page.tsx", "app/[locale]/dashboard/profile/bank-setup/page.tsx", "lib/bank-status.ts", "app/api/stripe/connect/onboarding/route.ts"],
     body: [
       { type: "p", text: "「プロフィール」の「口座登録・本人確認を始める」から、Stripe Connectでの本人確認・口座登録に進めます。" },
       {
@@ -57,6 +60,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     minRole: "artist",
     title: "出演依頼を受ける",
     help: { tab: "artist", icon: "CheckCircle2", subtitle: "Lineup Invitations", video: "a-04" },
+    sources: ["components/lineup-invitations.tsx", "app/api/events/[eventId]/lineup/[artistId]/route.ts", "lib/lineup-invites.ts"],
     body: [
       { type: "p", text: "オーガナイザーからイベントへの出演依頼が届くと、ダッシュボードホームに「出演（依頼 N件）」のカードが表示されます。" },
       {
@@ -76,6 +80,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     minRole: "artist",
     title: "チアの受け取り方",
     help: { tab: "artist", icon: "Heart", subtitle: "Cheers Card", video: "a-05" },
+    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts", "app/[locale]/dashboard/events/[eventId]/qr/[qrConfigId]/page.tsx"],
     body: [
       { type: "p", text: "アーティスト個人が常時使える「マイQR」はありません。チア用のQRコードは、出演するイベントごとにオーガナイザーが発行し、そこに配分先の1人としてあなたが登録される仕組みです。" },
       {
@@ -94,6 +99,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     minRole: "artist",
     title: "収益確認",
     help: { tab: "artist", icon: "TrendingUp", subtitle: "Income" },
+    sources: ["components/income-summary-client.tsx", "app/[locale]/dashboard/income/page.tsx", "lib/income-summary.ts", "app/api/income-summary/route.ts", "app/api/income-summary/csv/route.ts"],
     body: [
       { type: "p", text: "「収支レポート」（Income）で、確定申告・青色申告記帳用の月次内訳を確認できます。" },
       {
@@ -133,6 +139,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     minRole: "artist",
     title: "統計",
     help: { tab: "artist", icon: "BarChart2", subtitle: "Statistics" },
+    sources: ["app/[locale]/dashboard/statistics/page.tsx", "components/profile-tabs.tsx", "app/api/profile/stats/route.ts"],
     body: [
       { type: "p", text: "「プロフィール」の「統計」タブから、これまで送ったチアの累計に加えて、これまで受け取ったチアの件数・総流通額・手数料控除後の受取額（概算）を確認できます。" },
     ],
@@ -142,6 +149,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     id: "artist.faq.my-qr",
     minRole: "artist",
     help: { tab: "artist" },
+    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts"],
     q: "自分専用のQRコードを作れますか？",
     a: "いいえ、アーティスト個人の常設QRはありません。出演するイベントごとにオーガナイザーが発行するQRの中に、配分先として登録されます。",
   },
@@ -159,6 +167,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     id: "artist.faq.bank-pending",
     minRole: "artist",
     help: { tab: "artist" },
+    sources: ["lib/bank-status.ts", "app/[locale]/dashboard/profile/page.tsx", "app/api/admin/users/[profileId]/approve/route.ts"],
     q: "口座登録したのに『受取可能』にならない",
     a: "Stripe側の本人確認完了後、オーナー（運営）による最終審査が必要です。「口座開設審査中」の間はこの審査待ちの状態です。",
   },

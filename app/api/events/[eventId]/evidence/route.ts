@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getEventAccess } from "@/lib/event-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEvidenceSubmittedEmail } from "@/lib/email/notification";
 
@@ -126,6 +127,12 @@ export async function GET(
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // 証跡を見られるのはこのイベントを操作できる人だけ（lib/event-access.ts）。
+  // DB の読み取りルールはエージェントなら全イベント分を読めてしまうため、ここで絞る
+  const { data: me } = await supabase.from("profiles").select("role").eq("profile_id", user.id).maybeSingle();
+  const access = await getEventAccess(createAdminClient(), eventId, user.id, me?.role);
+  if (!access?.canOperate) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { data, error } = await supabase
     .from("event_evidences")

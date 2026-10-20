@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getEventAccess } from "@/lib/event-access";
 import { TouchPayClient } from "@/components/touch-pay-client";
 import { resolveTerminalLocationId } from "@/lib/stripe-terminal-location";
 import { Loader2 } from "lucide-react";
@@ -30,6 +31,10 @@ async function TouchPayContent({ params }: { params: Promise<{ eventId: string }
     .single();
 
   if (!event) notFound();
+  // このイベントを操作できる人（主催者・エージェント・admin。lib/event-access.ts）以外には存在しない扱い。
+  // 以前はロールしか見ておらず、他の主催者のイベントでも開けた
+  const access = await getEventAccess(admin, eventId, user.id, profile?.role);
+  if (!access?.canOperate) notFound();
 
   // venue_idがあれば会場マスタからLocationを解決（未作成なら遅延作成）、
   // 無い（venue_id未設定の既存イベント）場合は従来の環境変数にフォールバックする

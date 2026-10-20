@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getEventAccess } from "@/lib/event-access";
 import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, Pencil, CheckCircle2, ScanLine } from "lucide-react";
 import { EventEndButton } from "@/components/event-end-button";
 import Link from "next/link";
@@ -66,6 +67,9 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     .single();
 
   if (!event) notFound();
+  // 関係者（主催者・エージェント・出演者・admin）以外には存在しない扱い（lib/event-access.ts）
+  const access = await getEventAccess(adminClient, eventId, user.id, profile?.role);
+  if (!access?.canView) notFound();
 
   // このイベントの承認/中止通知を既読化（詳細ページを開いた時点で消し込み）
   await adminClient

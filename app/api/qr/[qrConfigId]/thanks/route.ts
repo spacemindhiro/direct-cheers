@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWalletPush } from "@/lib/apple-wallet-push";
+import { resolveCheerCardIdentity } from "@/lib/statement-descriptor";
 
 // GET: 購入済みユーザーが特典を取得（transaction_id で購入検証）
 export async function GET(
@@ -58,6 +59,59 @@ export async function GET(
   return NextResponse.json({ unlocked: false, thanks: null });
 }
 
+// 公開時に、このQRで支払った人へアプリ内のお知らせを入れる。
+// Wallet の更新は無音（changeMessage を付けていない）で、カード裏面も開かないと気づけないため、
+// お返しが届いたことはここで知らせる。
+// 「変更を反映する」を続けて押しても増えないよう、未読が残っている人には入れ直さない。
+async function notifyBuyers(
+  admin: ReturnType<typeof createAdminClient>,
+  qrConfigId: string,
+  recipient: { profileId: string | null; nameContext: "organizer" | "artist" },
+  txRows: { sender_profile_id: string | null }[],
+) {
+  const buyerIds = [...new Set(txRows.map((t) => t.sender_profile_id).filter(Boolean) as string[])];
+  if (buyerIds.length === 0) return;
+
+  const { data: unread } = await admin
+    .from("notifications")
+    .select("profile_id")
+    .eq("type", "thanks_published")
+    .eq("is_read", false)
+    .in("profile_id", buyerIds)
+    .filter("metadata->>qr_config_id", "eq", qrConfigId);
+  const already = new Set((unread ?? []).map((n) => n.profile_id));
+  const targets = buyerIds.filter((id) => !already.has(id));
+  if (targets.length === 0) return;
+
+  let fromName = "アーティスト";
+  if (recipient.profileId) {
+    const { data: rp } = await admin
+      .from("profiles")
+      .select("display_name, artist_name, organizer_name")
+      .eq("profile_id", recipient.profileId)
+      .maybeSingle();
+    // カードに出る名前と同じ規則で解決する（主催者名義/演者名義の区別込み）
+    fromName = resolveCheerCardIdentity({
+      recipientNameContext: recipient.nameContext,
+      recipient: rp
+        ? { organizerName: rp.organizer_name, artistName: rp.artist_name, displayName: rp.display_name }
+        : null,
+      fallbackName: "アーティスト",
+    }).name;
+  }
+
+  const { error } = await admin.from("notifications").insert(
+    targets.map((profile_id) => ({
+      profile_id,
+      type: "thanks_published",
+      title: "お返しが届いています",
+      body: `${fromName} からサンクス特典が届きました。カードの裏面で確認できます`,
+      metadata: { qr_config_id: qrConfigId },
+    })),
+  );
+  if (error) console.error("[thanks/notify]", error.message);
+}
+
 // POST: オーガナイザー・エージェントが特典を設定
 export async function POST(
   req: Request,
@@ -74,7 +128,7 @@ export async function POST(
   // QR → event のオーガナイザー・エージェント確認
   const { data: qr } = await admin
     .from("qr_configs")
-    .select("event_id, creator_profile_id, recipient_profile_id")
+    .select("event_id, creator_profile_id, recipient_profile_id, recipient_name_context")
     .eq("qr_config_id", qrConfigId)
     .is("deleted_at", null)
     .single();
@@ -144,14 +198,24 @@ export async function POST(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // publish時: ウォレット登録済みデバイスにpush（awaitして確実に完了させる）
+  // publish時: 購入者へのお知らせ＋ウォレット登録済みデバイスにpush（awaitして確実に完了させる）
   if (body.publish) {
     try {
       const { data: txRows } = await admin
         .from("transactions")
-        .select("transaction_id")
+        .select("transaction_id, sender_profile_id")
         .eq("qr_config_id", qrConfigId)
         .eq("status", "completed");
+
+      await notifyBuyers(
+        admin,
+        qrConfigId,
+        {
+          profileId: qr.recipient_profile_id,
+          nameContext: ((qr.recipient_name_context as "organizer" | "artist" | null) ?? "artist"),
+        },
+        txRows ?? [],
+      );
 
       const serialNumbers = (txRows ?? []).map((t) => t.transaction_id);
       if (serialNumbers.length > 0) {

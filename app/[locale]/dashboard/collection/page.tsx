@@ -27,6 +27,14 @@ async function CollectionContent({
   const admin = createAdminClient();
   const userEmail = user.email!;
 
+  // サンクス特典の通知はここで消し込む（カードの裏面を見られる画面に来た時点で用は済んでいる）
+  await admin
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("profile_id", user.id)
+    .eq("type", "thanks_published")
+    .eq("is_read", false);
+
   // products を !inner にしているのは、商品種別の除外をJS側ではなくDB側で効かせるため。
   // JS側で絞るとページごとの件数が不揃いになり、総件数も正しく出せない。
   const query = `

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getEventAccess } from "@/lib/event-access";
 import { QRDisplay } from "@/components/qr-display";
 import { WalletCheerPreview } from "@/components/wallet-cheer-preview";
 import { WalletTicketPreview } from "@/components/wallet-ticket-preview";
@@ -64,6 +65,9 @@ async function QRDetailContent({
   );
   const isRecipient = qr.recipient_profile_id === user.id;
   const canEdit = isAdmin || isOrganizer || isAgent;
+  // 関係者（lib/event-access.ts）と、このQRの宛先以外には存在しない扱い
+  const access = await getEventAccess(createAdminClient(), eventId, user.id, profile?.role);
+  if (!access?.canView && !isRecipient) notFound();
 
   // 配分対象候補: オーガナイザー + 出演依頼済みアーティスト（rejected/deleted以外）
   // 表示名・画像は名義（organizer_name/artist_name、organizer_avatar_url/artist_avatar_url）

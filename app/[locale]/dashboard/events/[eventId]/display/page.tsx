@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getEventAccess } from "@/lib/event-access";
 import { QRBoardDisplay } from "@/components/qr-board-display";
 import { QrBoardErrorBoundary } from "@/components/qr-board-error-boundary";
 
@@ -29,6 +30,10 @@ async function DisplayContent({ params }: { params: Promise<{ eventId: string }>
     .single();
 
   if (!event) notFound();
+  // このイベントを操作できる人（主催者・エージェント・admin。lib/event-access.ts）以外には存在しない扱い。
+  // 以前はロールしか見ておらず、他の主催者のイベントでも開けた
+  const access = await getEventAccess(admin, eventId, user.id, profile?.role);
+  if (!access?.canOperate) notFound();
 
   return (
     <QrBoardErrorBoundary>

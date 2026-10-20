@@ -4,12 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { releaseStockForTransactions } from "@/lib/stock-hold";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
 // check-auth-expiry の警告基準(イベント開始から7日)と同じ締切。
 // 警告だけで終わらせず、締切そのものに達したら自動でオーソリ取消・イベント中止まで実行する。
-const AUTH_EXPIRE_DAYS = 7;
+import { AUTH_EXPIRE_DAYS } from "@/lib/settlement-deadline";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 // Vercel Cron/GitHub Actions から呼ばれる。Authorization ヘッダーで保護。
 export async function GET(req: Request) {

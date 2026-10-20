@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { saveCronReport } from "@/lib/cron-report";
-
-const AUTH_EXPIRE_DAYS = 7;
-const WARN_DAYS_BEFORE = 2;
+import { AUTH_EXPIRE_DAYS, AUTH_EXPIRE_WARN_DAYS_BEFORE as WARN_DAYS_BEFORE } from "@/lib/settlement-deadline";
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");

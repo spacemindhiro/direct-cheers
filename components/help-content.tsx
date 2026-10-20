@@ -32,59 +32,41 @@ import {
 } from "lucide-react";
 import { TutorialVideoButton } from "./tutorial-video-button";
 import { TUTORIAL_VIDEO_IDS } from "@/lib/tutorial-videos";
+import { helpSections, helpFaqs, helpTitle, HELP_TABS, HELP_GROUPS, type HelpTab, type HelpGroup } from "@/lib/knowledge";
+import { parseMarkup } from "@/lib/knowledge/markup";
+import type { KnowledgeBlock, KnowledgeSection, HelpIconTone } from "@/lib/knowledge/types";
+import type { HelpIconName } from "@/lib/knowledge/placement";
 
-// オーガナイザー向け操作解説動画（O系列）。IDはlib/tutorial-videos.tsが単一の正。
-// 未アップロードの間は空文字にしておく（TutorialVideoButtonが自動で非表示にする）
-const ORGANIZER_TUTORIAL_VIDEOS: Record<string, string> = {
-  inviteRegister: TUTORIAL_VIDEO_IDS["o-01"],
-  profileSetup: TUTORIAL_VIDEO_IDS["o-02-1"],
-  bankSetup: TUTORIAL_VIDEO_IDS["o-02"],
-  createEvent: TUTORIAL_VIDEO_IDS["o-03"],
-  inviteArtist: TUTORIAL_VIDEO_IDS["o-04"],
-  inviteUnregistered: TUTORIAL_VIDEO_IDS["o-05"],
-  requestApproval: TUTORIAL_VIDEO_IDS["o-06"],
-  createQr: TUTORIAL_VIDEO_IDS["o-07"],
-  printQr: TUTORIAL_VIDEO_IDS["o-08"],
-  venueOps: TUTORIAL_VIDEO_IDS["o-09"],
-  submitEvidence: TUTORIAL_VIDEO_IDS["o-10"],
-  createEntranceQr: TUTORIAL_VIDEO_IDS["o-11"],
+// ヘルプの中身は lib/knowledge/items/ が単一の正（チアリー(AI)と共有）。ここは見た目だけを持つ。
+// 項目の追加・文言の修正・並べ替えは items 側で行う（①②…と相互参照の番号は自動で振り直される）。
+
+export type HelpRole = HelpTab;
+
+const ICONS: Record<HelpIconName, typeof Zap> = {
+  KeyRound, Heart, Ticket, Layers, UserCog, CalendarPlus, QrCode, ScanLine, FileCheck2, Landmark, Wallet,
+  TrendingUp, UserPlus, Mic2, CheckCircle2, BarChart2, XCircle, Zap, ListChecks, Printer, CreditCard,
+  MessageCircleHeart, DoorOpen,
 };
 
-// 当日運用向け操作解説動画（D系列）
-const DAY_OF_TUTORIAL_VIDEOS: Record<string, string> = {
-  printOnly: TUTORIAL_VIDEO_IDS["d-01"],
-  scanner: TUTORIAL_VIDEO_IDS["d-02"],
+const ICON_TONE: Record<HelpIconTone, string> = {
+  pink: "text-pink-500",
+  indigo: "text-indigo-400",
+  red: "text-red-400",
 };
 
-// 一般ユーザー向け操作解説動画（U系列）
-const USER_TUTORIAL_VIDEOS: Record<string, string> = {
-  linkSetup: TUTORIAL_VIDEO_IDS["u-04"],
-  scanAndCheer: TUTORIAL_VIDEO_IDS["u-01"],
-  messageCheer: TUTORIAL_VIDEO_IDS["u-02"],
-};
-
-// アーティスト向け操作解説動画（A系列）
-const ARTIST_TUTORIAL_VIDEOS: Record<string, string> = {
-  inviteRegister: TUTORIAL_VIDEO_IDS["a-01"],
-  profileSetup: TUTORIAL_VIDEO_IDS["a-02"],
-  bankSetup: TUTORIAL_VIDEO_IDS["a-03"],
-  lineupApprove: TUTORIAL_VIDEO_IDS["a-04"],
-  cheersCard: TUTORIAL_VIDEO_IDS["a-05"],
-  payout: TUTORIAL_VIDEO_IDS["a-08"],
-};
-
-const ORGANIZER_GROUPS: { id: "prep" | "dayof"; label: string }[] = [
-  { id: "prep", label: "準備・機能" },
-  { id: "dayof", label: "当日の運用" },
-];
-
-export type HelpRole = "user" | "organizer" | "artist";
-
-const TABS: { id: HelpRole; label: string }[] = [
-  { id: "user", label: "一般ユーザー" },
-  { id: "artist", label: "アーティスト" },
-  { id: "organizer", label: "オーガナイザー" },
-];
+// 本文の記法（太字・強調・リンク・定数・相互参照）をReact要素にする
+function Rich({ text }: { text: string }) {
+  return (
+    <>
+      {parseMarkup(text).map((tok, i) => {
+        if (tok.t === "text") return tok.v;
+        if (tok.t === "b") return <b key={i}>{tok.v}</b>;
+        if (tok.t === "hl") return <span key={i} className="text-indigo-300">{tok.v}</span>;
+        return <a key={i} href={tok.href} className="text-indigo-300 underline">{tok.v}</a>;
+      })}
+    </>
+  );
+}
 
 function Section({
   icon,
@@ -147,6 +129,63 @@ function Phase({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function Warn({ tone, title, text }: { tone: "amber" | "red"; title: string; text: string }) {
+  return (
+    <div className={tone === "amber" ? "bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mt-2" : "bg-red-500/10 border border-red-500/20 rounded-xl p-3 mt-2"}>
+      <p className={tone === "amber" ? "text-[11px] font-black text-amber-400" : "text-[11px] font-black text-red-400"}>
+        <Rich text={`⚠ ${title}`} />
+      </p>
+      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+        <Rich text={text} />
+      </p>
+    </div>
+  );
+}
+
+function Block({ block }: { block: KnowledgeBlock }) {
+  switch (block.type) {
+    case "p":
+      return <p><Rich text={block.text} /></p>;
+    case "ul":
+      return (
+        <ul className="list-disc pl-4 space-y-1">
+          {block.items.map((s, i) => <li key={i}><Rich text={s} /></li>)}
+        </ul>
+      );
+    case "warn":
+      return <Warn tone={block.tone} title={block.title} text={block.text} />;
+    case "phase":
+      return (
+        <Phase label={block.label}>
+          {block.items.map((s, i) => <li key={i}><Rich text={s} /></li>)}
+        </Phase>
+      );
+  }
+}
+
+function KnowledgeSectionCard({ section }: { section: KnowledgeSection }) {
+  const help = section.help!;
+  const Icon = ICONS[help.icon];
+  return (
+    <Section
+      icon={<Icon size={16} className={ICON_TONE[help.iconTone ?? "pink"]} />}
+      title={helpTitle(section)}
+      subtitle={help.subtitle}
+      videoId={help.video ? TUTORIAL_VIDEO_IDS[help.video] : undefined}
+    >
+      {section.body.map((b, i) => <Block key={i} block={b} />)}
+    </Section>
+  );
+}
+
+function SectionList({ tab, group }: { tab: HelpTab; group?: HelpGroup }) {
+  return (
+    <div className="space-y-4">
+      {helpSections(tab, group).map((s) => <KnowledgeSectionCard key={s.id} section={s} />)}
+    </div>
+  );
+}
+
 function Faq({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -155,608 +194,52 @@ function Faq({ q, a }: { q: string; a: string }) {
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
       >
-        <span className="text-xs font-bold text-white">{q}</span>
+        <span className="text-xs font-bold text-white"><Rich text={q} /></span>
         <ChevronDown
           size={14}
           className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
       {open && (
-        <p className="px-4 pb-3 text-[11px] text-slate-400 leading-relaxed">{a}</p>
+        <p className="px-4 pb-3 text-[11px] text-slate-400 leading-relaxed"><Rich text={a} /></p>
       )}
     </div>
   );
 }
 
-function UserGuide() {
+function FaqList({ tab }: { tab: HelpTab }) {
   return (
-    <div className="space-y-4">
-      <Section
-        icon={<Zap size={16} className="text-pink-500" />}
-        title="① 支払い方法の準備（いちばん大事）"
-        subtitle="Payment Speed"
-      >
-        <p>決済をスムーズに行うために、以下のいずれかを最初に設定しておくことを強くおすすめします。ダッシュボードのトップにも同じ案内が表示されます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>
-            <b>Apple Pay</b>（iPhone）: 「ウォレット」アプリでカードを登録しておくと、決済画面でワンタッチで支払えます。ただし
-            <b>LINEなどアプリ内ブラウザではApple Payは使えません</b>
-          </li>
-          <li><b>Google Pay</b>（Android）: 「Google ウォレット」アプリでカードを登録しておくと同様にワンタッチで支払えます</li>
-          <li><b>Stripe Link</b>: メールアドレスとカードを登録しておくと、どんな環境でもワンタッチで決済できます。<b>Apple Pay/Google Payが使えない場面のバックアップとして特におすすめです</b>（登録方法は「② Stripe Link にカードを登録する」）</li>
-          <li>いずれも未設定の場合はカード番号の手入力でも決済できますが、毎回入力が必要でイベント当日は時間がかかります。手入力の決済画面には「将来の支払いのためにカード情報を保存する」というチェックボックスが表示されるので、ここにチェックを入れておくと次回以降はカード番号の再入力が不要になります</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<CreditCard size={16} className="text-pink-500" />}
-        title="② Stripe Link にカードを登録する"
-        subtitle="Stripe Link"
-        videoId={USER_TUTORIAL_VIDEOS.linkSetup}
-      >
-        <p>イベント当日にカード番号を打ち込まずに支払えるようにしておく設定です。LINEの中のブラウザなどApple Payが使えない場面でも使えます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>ダッシュボードの「Stripe Linkにカードを登録する」（または「/link-setup」）を開きます</li>
-          <li>カード番号・有効期限・セキュリティコードを入力し、国（カードを発行した国）を選びます。カード情報はStripeが預かり、Direct Cheers側には送られません</li>
-          <li><b>携帯電話番号と氏名は必ず入力してください</b>。「オプション」と表示されていますが、空のままだとStripe Linkのアカウントは作られず、カードを保存しただけになります（メールアドレスはログイン中のものが自動で入っています）</li>
-          <li>「カードを登録する」を押し、携帯電話にショートメッセージで認証コードが届いたら入力します</li>
-          <li>「登録完了」と表示されれば終わりです。ダッシュボードの表示が「Stripe Link 登録済み」に変わり、次回からは決済画面でワンタッチで支払えます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<KeyRound size={16} className="text-pink-500" />}
-        title="③ 会員登録・ログイン"
-        subtitle="Member Access"
-      >
-        <p>「パスキー」（顔認証・指紋認証）を登録しておくと、次回からはメールアドレスの入力なしで一瞬にログインできます。まだの方は「アカウント管理」の「パスキー管理」から登録しておくことを強くおすすめします。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>パスキーは端末ごとに登録が必要です。複数の端末（スマートフォン・PCなど）を使う場合は、それぞれの端末で登録しておくと便利です</li>
-          <li>専用の会員登録という手続きはありません。チアやチケットを初めて購入した時点で、入力したメールアドレスをもとに自動的にアカウントが作成されています</li>
-          <li>パスキーに対応していない端末では、ログイン画面でメールアドレスを入力し「ログインリンクを送る」を押すとメールが届くので、本文中のリンクをタップしてログインできます（パスコードの入力は不要です）</li>
-          <li>Googleアカウントでもログインできます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<Heart size={16} className="text-pink-500" />}
-        title="④ チアを送る・チケットを購入する"
-        subtitle="Send Cheers"
-        videoId={USER_TUTORIAL_VIDEOS.scanAndCheer}
-      >
-        <p>会場に掲示されているQRコードを読み取ると、アーティストやイベントの専用ページが開きます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>金額はあらかじめ決まっている場合と、スライダーで自分で選べる場合があります（イベントによっては人数・杯数の指定も）</li>
-          <li>初めて利用する端末ではメールアドレスの入力が必要ですが、一度入力すればその端末では次回から自動的に呼び出され、入力画面自体が表示されなくなります。ログイン済みの場合は完全に固定され、未ログインでも同じ端末なら自動入力されます（別の方が使う場合のみ「変更」から入力し直せます）</li>
-          <li>「¥○○ を応援する」（チケットの場合は「購入する」）ボタンを押すと決済に進みます</li>
-          <li>Apple Pay・Google Pay・クレジットカードに対応しています</li>
-          <li>初めて入力したメールアドレスでアカウントが自動作成されるため、事前の会員登録は不要です</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<MessageCircleHeart size={16} className="text-pink-500" />}
-        title="⑤ メッセージ付きで応援する"
-        subtitle="Cheer Message"
-        videoId={USER_TUTORIAL_VIDEOS.messageCheer}
-      >
-        <p>主催者が「メッセージ」タイプで作ったQRでは、応援と一緒にアーティストへひと言メッセージを送れます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>QRを読み取って応援する流れは「④ チアを送る・チケットを購入する」と同じです</li>
-          <li>決済が終わると、cheers!カードの下に「メッセージを送る」欄が表示されます</li>
-          <li>ニックネーム（任意）とメッセージを入力して「送る」を押すと、「メッセージを送りました！」と表示されアーティストに届きます</li>
-          <li>メッセージを書かずに「スキップ」することもできます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<Ticket size={16} className="text-pink-500" />}
-        title="⑥ マイチケットの使い方"
-        subtitle="Wallet"
-      >
-        <p>ダッシュボードの「マイチケット」から、購入したチケットをQRコード付きのデジタルチケットで確認できます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>会場の入口でスタッフにこのQRコードを見せるだけで入場できます（印刷は不要です）</li>
-          <li>入場が完了すると券面が「入場済み」の表示に変わります</li>
-          <li>「Apple Walletに追加」ボタンで、iPhoneのWalletアプリからも表示できます</li>
-          <li>事前確定型（5日前確定）のチケットのみ、イベント5日前まで「キャンセルする」が可能です</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<Layers size={16} className="text-pink-500" />}
-        title="⑦ カードコレクション・応援履歴"
-        subtitle="Collection"
-      >
-        <p>ダッシュボードの「Cheers History」で、これまで応援した金額やコメントの履歴を確認できます（直近20件のダイジェスト表示）。過去分もすべて遡って見たい場合は「カードコレクション」をご利用ください（全期間、ページ送りで確認できます）。</p>
-        <p>「カードコレクション」では、応援したアーティストのカードをまとめて振り返れます。</p>
-        <p>応援先のアーティストやオーガナイザーがお礼のメッセージを用意している場合、該当するカードに「メッセージが届いています」と表示されます。カードをタップすると裏返り、メッセージや特典リンクを確認できます（同じQRコードで応援した方には共通の内容が届く仕組みで、個人宛てではありません）。</p>
-      </Section>
-
-      <Section
-        icon={<UserCog size={16} className="text-pink-500" />}
-        title="⑧ アカウント設定"
-        subtitle="Account"
-      >
-        <ul className="list-disc pl-4 space-y-1">
-          <li>「アカウント管理」の「応援履歴を統合」から、うっかり別のメールアドレスで応援してしまった履歴を今のアカウントにまとめられます</li>
-          <li>パスキーに対応していない端末のために、「アカウント管理」からパスワード（8文字以上）を設定できます</li>
-          <li>「パスキー管理」から、登録済みデバイスの確認・名称変更・削除・追加ができます</li>
-        </ul>
-      </Section>
-
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 shrink-0">
-            <HelpCircle size={16} className="text-indigo-400" />
-          </div>
-          <p className="text-sm font-black text-white">よくある質問</p>
+    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 shrink-0">
+          <HelpCircle size={16} className="text-indigo-400" />
         </div>
-        <div className="space-y-2">
-          <Faq
-            q="Apple Payのボタンが出てきません"
-            a="LINEなどアプリ内ブラウザで開いている場合、その仕様上Apple Payは使用できません。画面右上などのメニューから「他のブラウザで開く」を選び、SafariやChromeなど通常のブラウザで開き直してください。"
-          />
-          <Faq
-            q="ログインリンクのメールが届きません"
-            a="迷惑メールフォルダをご確認ください。それでも届かない場合は、ログイン画面から再度メールアドレスを入力して送信し直してください。"
-          />
-          <Faq
-            q="複数のメールアドレスで応援してしまいました"
-            a="「アカウント管理」の「応援履歴を統合」から、まとめたいメールアドレスを入力して確認メールを送ると、履歴を1つのアカウントにまとめられます。"
-          />
-          <Faq
-            q="購入したチケットをキャンセルしたい"
-            a="事前確定型（5日前確定）のチケットのみ、マイチケット画面からイベント5日前までキャンセルできます。それ以外のチケットタイプは購入後のキャンセルに対応していません。"
-          />
-        </div>
+        <p className="text-sm font-black text-white">よくある質問</p>
+      </div>
+      <div className="space-y-2">
+        {helpFaqs(tab).map((f) => <Faq key={f.id} q={f.q} a={f.a} />)}
       </div>
     </div>
   );
 }
 
-function ArtistGuide() {
+// 一般ユーザー・アーティスト：項目の下によくある質問
+function SimpleGuide({ tab }: { tab: HelpTab }) {
   return (
     <div className="space-y-4">
-      <Section
-        icon={<UserPlus size={16} className="text-pink-500" />}
-        title="① 招待リンクから登録する"
-        subtitle="Invite Registration"
-        videoId={ARTIST_TUTORIAL_VIDEOS.inviteRegister}
-      >
-        <p>オーガナイザーから招待リンクが届いた場合、リンクを開いて「登録して受け取る」を押すだけで、追加のメール確認なしにその場でアカウント作成からログインまで完了します。</p>
-        <p>すでにDirect Cheersに登録済みの場合は、ログインするだけで招待を受け取れます。</p>
-      </Section>
-
-      <Section
-        icon={<Mic2 size={16} className="text-pink-500" />}
-        title="② プロフィール設定"
-        subtitle="Profile"
-        videoId={ARTIST_TUTORIAL_VIDEOS.profileSetup}
-      >
-        <p>「プロフィール」の基本情報（表示名・アバター）に加えて、アーティスト専用の項目を設定できます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>「アーティスト名（DJ名）」: ラインナップやWallet、お客様のカード利用明細にも表示されます。未入力なら表示名が使われます</li>
-          <li>「アーティスト用の画像」: 演者名義のチアで使われるカード画像（未設定なら基本のアバター画像を使用）</li>
-          <li>「海外カード明細用の英字表記」: 海外発行カードでは漢字部分が表示されないため、未入力の場合はアーティスト名から自動生成されます</li>
-          <li>「クレジット表記」「所属団体」「出演ジャンル / 演目」「紹介文」も任意で設定できます</li>
-          <li>入力後は「保存する」を押してください</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<Landmark size={16} className="text-pink-500" />}
-        title="③ 口座登録"
-        subtitle="Bank Setup"
-        videoId={ARTIST_TUTORIAL_VIDEOS.bankSetup}
-      >
-        <p>「プロフィール」の「口座登録・本人確認を始める」から、Stripe Connectでの本人確認・口座登録に進めます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>種別選択・氏名・生年月日・住所・事業情報の5ステップに沿って入力し、最後に「Stripeで口座登録」からStripe側の画面で本人確認と口座登録を行います</li>
-          <li>Stripe側の手続き完了後は「口座開設審査中」と表示され、オーナー（運営）による最終承認をお待ちいただく形になります。承認されると「審査完了 — 受取可能」に変わります</li>
-          <li>口座登録が未完了の間にイベントの精算が行われても、あなたへの送金が失われることはありません。口座登録が完了するまで送金がいったん保留され、審査完了後に自動的に送金されます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<CheckCircle2 size={16} className="text-pink-500" />}
-        title="④ 出演依頼を受ける"
-        subtitle="Lineup Invitations"
-        videoId={ARTIST_TUTORIAL_VIDEOS.lineupApprove}
-      >
-        <p>オーガナイザーからイベントへの出演依頼が届くと、ダッシュボードホームに「出演（依頼 N件）」のカードが表示されます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>カードにはイベント名・会場・日付、依頼元のオーガナイザー名、メッセージ（あれば）が表示されます（ステータス「出演依頼 — 承認待ち」）</li>
-          <li>「承認」を押すと「出演確定」バッジに変わり、そのイベントの詳細ページに遷移できるようになります</li>
-          <li>「辞退」を押すとその場で依頼が取り下げられます</li>
-          <li>出演依頼をきっかけに、オーガナイザーとのメッセージ画面（DM）が自動的に作られます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<Heart size={16} className="text-pink-500" />}
-        title="⑤ チアの受け取り方"
-        subtitle="Cheers Card"
-        videoId={ARTIST_TUTORIAL_VIDEOS.cheersCard}
-      >
-        <p>アーティスト個人が常時使える「マイQR」はありません。チア用のQRコードは、出演するイベントごとにオーガナイザーが発行し、そこに配分先の1人としてあなたが登録される仕組みです。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>出演確定したイベントのQR詳細画面で、「✦ Cheersカード」と「✦ 配分設定」（自分の配分比率、閲覧のみ）を確認できます</li>
-          <li>カード画像を変更できるのは、そのQRの宛先が自分になっている場合だけです。配分先に入っているだけでは変更できません</li>
-          <li>金額のレンジや商品タイプ、QRコード自体の作成・編集はオーガナイザーが行います</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<TrendingUp size={16} className="text-pink-500" />}
-        title="⑥ 収益確認"
-        subtitle="Income"
-      >
-        <p>「収支レポート」（Income）で、確定申告・青色申告記帳用の月次内訳を確認できます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>「ダイレクト着金」カードに、着金純額・取消額（あれば）・未出金Stripe残高が表示されます</li>
-          <li>集計は着金日基準（現金主義）です。実際にStripe Connect口座へ送金された日を収入計上日としており、決済確定日や出金申請日とは異なります。未出金の残高は収入額に含まれません</li>
-          <li>「CSVダウンロード」で月次データを書き出せます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<Wallet size={16} className="text-pink-500" />}
-        title="⑦ 出金"
-        subtitle="Payout"
-        videoId={ARTIST_TUTORIAL_VIDEOS.payout}
-      >
-        <p>「出金管理」（Payout）で、残高を「無料出金可能」「出金可能」「保留中」「凍結中」の4区分で確認し、出金申請ができます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>売上は決済が行われてから2週間（14日）後に出金可能になります。振込手数料として¥500が差し引かれます</li>
-          <li>決済から120日を超えた分は、月1回に限り振込手数料無料で出金できます。対象の残高がある場合は出金画面に無料枠として案内されます</li>
-          <li>出金可能額がある場合のみ、スライダーで金額を指定して「¥○○ を出金する」ボタンから申請できます</li>
-          <li>運営の承認を待つ必要はありません。申請するとその場で銀行への振込手続きが始まります。銀行に届くまでは1〜4営業日（土日祝を除く）で、申請直後の画面と「出金履歴」に入金予定日が表示されます</li>
-          <li>チャージバック（クレジットカード会社への異議申し立て）が発生すると、該当額が「凍結中」に区分され、出金が一時停止されます。回数は画面上部に表示されます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<BarChart2 size={16} className="text-pink-500" />}
-        title="⑧ 統計"
-        subtitle="Statistics"
-      >
-        <p>「プロフィール」の「統計」タブから、これまで送ったチアの累計に加えて、これまで受け取ったチアの件数・総流通額・手数料控除後の受取額（概算）を確認できます。</p>
-      </Section>
-
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 shrink-0">
-            <HelpCircle size={16} className="text-indigo-400" />
-          </div>
-          <p className="text-sm font-black text-white">よくある質問</p>
-        </div>
-        <div className="space-y-2">
-          <Faq
-            q="自分専用のQRコードを作れますか？"
-            a="いいえ、アーティスト個人の常設QRはありません。出演するイベントごとにオーガナイザーが発行するQRの中に、配分先として登録されます。"
-          />
-          <Faq
-            q="出金はいつからできますか？"
-            a="決済が行われてから2週間（14日）後に出金可能になります（振込手数料¥500が差し引かれます）。「出金管理」で「◯月◯日以降に出金可能」と表示されます。"
-          />
-          <Faq
-            q="口座登録したのに『受取可能』にならない"
-            a="Stripe側の本人確認完了後、オーナー（運営）による最終審査が必要です。「口座開設審査中」の間はこの審査待ちの状態です。"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OrganizerPrepGuide() {
-  return (
-    <div className="space-y-4">
-      <Section
-        icon={<UserPlus size={16} className="text-pink-500" />}
-        title="① 招待リンクから登録する"
-        subtitle="Invite Registration"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.inviteRegister}
-      >
-        <p>エージェント／運営やほかのオーガナイザーから招待リンクが届いた場合、リンクを開いて「登録して受け取る」を押すだけで、追加のメール確認なしにその場でアカウント作成からログインまで完了します。</p>
-        <p>すでにDirect Cheersに登録済みの場合は、ログインするだけで招待を受け取れます。</p>
-      </Section>
-
-      <Section
-        icon={<UserCog size={16} className="text-pink-500" />}
-        title="② プロフィールを設定する"
-        subtitle="Organizer Profile"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.profileSetup}
-      >
-        <p>「プロフィール」で、主催者名・主催者用画像・活動団体名・紹介文・海外カード明細用の英字表記を設定できます。イベントやQR、お客様のカード利用明細に表示される情報です。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>DJなどとして自分自身も出演する（オーガナイザー兼アーティスト）場合は、「DJとして出演する場合」でアーティスト名・アーティスト用画像・英字表記を別途設定できます（紹介文は主催者情報と共通です）</li>
-          <li>入力後は「保存する」を押してください</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<Landmark size={16} className="text-pink-500" />}
-        title="③ 口座登録"
-        subtitle="Bank Setup"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.bankSetup}
-      >
-        <p>「プロフィール」の口座登録から、Stripe Connectでの本人確認・口座登録に進みます（種別選択→氏名→生年月日・電話→住所→事業情報の5ステップ）。</p>
-        <p>Stripe側の手続き完了後は「口座開設審査中」となり、運営（オーナー）による最終承認をお待ちいただきます。承認されると受け取りが可能になります。</p>
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mt-2">
-          <p className="text-[11px] font-black text-amber-400">⚠ 口座登録が未完了だとQRの決済が失敗します</p>
-          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-            決済はオーガナイザーのStripe Connectアカウントを経由するため、QR自体は口座登録前でも作成できますが、口座登録・審査が完了していないとそのイベントのすべての決済がエラーになり受け付けられません。イベントを公開する前に、必ず口座登録を完了させてください。
-          </p>
-        </div>
-      </Section>
-
-      <Section
-        icon={<CalendarPlus size={16} className="text-pink-500" />}
-        title="④ イベントを作成する"
-        subtitle="Events"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.createEvent}
-      >
-        <p>「新規イベント作成」からタイトル・会場・開始/終了日時・出演アーティストを入力して作成します（作成直後は「下書き」状態です）。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>出演アーティストは、コネクション済みのアーティストから選ぶか、「+ 新規アーティストに依頼」で検索して依頼メッセージを添えて招待できます（詳しくは「⑤ 出演依頼」参照）</li>
-          <li>「下書き」の間は、作成者本人がイベントを削除できます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<UserPlus size={16} className="text-pink-500" />}
-        title="⑤ 出演依頼"
-        subtitle="Lineup Invitations"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.inviteArtist}
-      >
-        <p>すでにDirect Cheersに登録済みのアーティストをイベントに呼ぶための機能です。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>イベントの作成・編集画面の中で行います。コネクション済みのアーティストから選ぶか、名前検索して依頼メッセージを添えて送ります</li>
-          <li>依頼を受けたアーティストのダッシュボードに「出演依頼」として通知され、承諾されると「出演確定」になります</li>
-          <li>出演依頼をきっかけに、アーティストとのメッセージ画面（DM）が自動的に作られます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<UserPlus size={16} className="text-indigo-400" />}
-        title="⑥ 会員招待"
-        subtitle="Invitations（招待管理）"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.inviteUnregistered}
-      >
-        <p>まだ「アーティスト」ロールを持っていない人を、新規にアーティストとして招待するための、出演依頼とは別の機能です。招待には2つのやり方があります。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li><b>すでにDirect Cheersに登録済みの人を招待する場合</b>: 名前で検索して選ぶと、その人のアカウントに招待が届きます（一般ユーザーとして使っていた人をアーティストに切り替える場合など）</li>
-          <li><b>まだDirect Cheersに登録していない人を招待する場合</b>: 相手のメールアドレスを直接入力して招待リンクを発行します（有効期限30日、メールも自動送信されます。まれに失敗した場合は招待リンクを手動で共有してください）。リンクを踏むとその場でアカウントが作成され、アーティストとして登録されます</li>
-          <li>いずれの場合も、招待を承諾した時点でロールが「アーティスト」に切り替わります（すでにより上位のロールを持っている人には影響しません）</li>
-          <li>先にアーティストを招待して登録してもらってから、上記「⑤ 出演依頼」で個別のイベントに呼ぶ、という順序で使います</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<CheckCircle2 size={16} className="text-pink-500" />}
-        title="⑦ 公開の承認を依頼する"
-        subtitle="Publish Approval"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.requestApproval}
-      >
-        <p>イベント詳細ページの「エージェントに承認依頼を送る」を押すと、公開の承認を依頼できます（「承認待ち」状態になります）。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>担当エージェント／運営が承認すると「公開済み」になります。自分がエージェントを兼ねる場合は自己承認できず、運営の承認が必要です</li>
-          <li>「承認待ち」の間も、作成者本人がイベントを削除できます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<QrCode size={16} className="text-pink-500" />}
-        title="⑧ QRを作成する（スタンダード／メッセージ）"
-        subtitle="QR Config"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.createQr}
-      >
-        <p>イベント詳細ページの「QR 作成」から、チア／チケット用のQRコードを商品タイプ別に発行します。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>商品タイプは「スタンダード」「メッセージ」「エントランス」「カスタム（バウチャー／ドリンクチケット）」。企画・承認前のタイプにはロックがかかり「エージェントと企画・承認後に解放」と表示されます</li>
-          <li>価格は「ワンプライス」または「レンジ」（スライダーで金額幅・単位を指定）から選べます</li>
-          <li>配分設定で、受け取り先（主催者名義／演者名義）ごとに比率（%）を割り当てます（合計100%が必須）</li>
-          <li>入場チケット（エントランス）の作り方は「⑨ エントランスQRを作成する」を参照してください</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<DoorOpen size={16} className="text-pink-500" />}
-        title="⑨ エントランスQRを作成する"
-        subtitle="Entrance QR"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.createEntranceQr}
-      >
-        <p>入場チケットをQRで販売するときは、「QR 作成」で商品タイプ「エントランス」を選びます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>決済タイプは3つあります: <b>前売事後確定タイプ（5日前確定）</b>は予約時にカードを保存し5日前に自動決済（販売開始・終了日時を入力）、<b>前売即時確定タイプ（即時確定）</b>は予約時に即時決済（中止時の返金手数料リスクはオーガナイザー負担のため、販売上限数の入力が必須）、<b>当日決済タイプ</b>は事前予約なしで当日のタッチ決済またはQR自己決済のみです</li>
-          <li>ラベルはお客様や親機の画面に出る商品名です（例: 当日券）。エントランスの金額は1つに固定で、スライダーでは選べません</li>
-          <li>当日決済タイプでも「当日決済タイプでも在庫管理する」をオンにすると、販売枚数に上限を設けられます</li>
-          <li>「対面タッチ決済を許可する」をオンにすると、当日この商品を親機のカードリーダーで販売できます</li>
-          <li>「ウェルカムチアを含める」で、入場料の一部を演者へのチアとして切り出せます。候補に出るのは、同じ金額のチアQRをすでに用意している演者だけです（1円でも違うと出ません）</li>
-          <li>配分先の合計が100%になっていることを確認して「QRを作成」を押せば完成です。作ったQRの詳細画面の「招待チケット発行」から、関係者向けの招待チケットも発行できます</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<Printer size={16} className="text-pink-500" />}
-        title="⑩ QRを印刷する"
-        subtitle="Print QR"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.printQr}
-      >
-        <p>QR詳細画面の「印刷する」から、会場掲示用の高解像度QRを印刷できます。</p>
-      </Section>
-
-      <Section
-        icon={<ScanLine size={16} className="text-pink-500" />}
-        title="⑪ 売上を見る・決済を取り消す"
-        subtitle="Sales & Cancellation"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.venueOps}
-      >
-        <p>誤操作・誤販売があった場合は、イベント詳細の「売上・決済」タブ（決済ログ）から自分のイベントの決済を取り消せます。売上自体もこのタブでリアルタイムに確認できます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>ほとんどのカード決済はオーソリ取消（資金移動なし）で済みますが、前売即時確定タイプ（即時確定）の入場チケットなど既にキャプチャ済みのものは返金となり決済手数料はオーガナイザー負担です</li>
-          <li>この取消はイベントが「精算済み」になる前のみ可能で、精算後の返金は運営（admin）のみが対応します</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<FileCheck2 size={16} className="text-pink-500" />}
-        title="⑫ エビデンス提出"
-        subtitle="Evidence"
-        videoId={ORGANIZER_TUTORIAL_VIDEOS.submitEvidence}
-      >
-        <p>イベント終了後、「開催証跡を提出して承認依頼する」から、写真（最大10枚）・動員数・コメント（任意）を提出します。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>提出しただけでは自動で精算されません。運営が証跡を確認したうえで精算処理が実行されます</li>
-          <li>差し戻された場合はダッシュボードに通知が表示され、再提出できます</li>
-        </ul>
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mt-2">
-          <p className="text-[11px] font-black text-red-400">⚠ 提出・精算の期限はイベント開始から7日以内です</p>
-          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-            開始から5日目（期限の2日前）に、担当エージェントへ「オーソリ期限が迫っています」の警告通知が届きます。
-            7日を過ぎても精算が完了していない場合、システムが自動的にそのイベントの決済をすべて取り消し（カード決済はオーソリ取消、決済済みのものは返金）、イベント自体も「中止」扱いになります。
-            返金にかかった決済手数料はオーガナイザー負担として計上されるため、証跡提出と精算は早めに進めてください。
-          </p>
-        </div>
-      </Section>
-
-      <Section
-        icon={<TrendingUp size={16} className="text-pink-500" />}
-        title="⑬ 売上・精算の確認"
-        subtitle="Statistics / Income / Settlement"
-      >
-        <ul className="list-disc pl-4 space-y-1">
-          <li>「統計」: 送ったチア・受取配分の累計サマリー（参考値）</li>
-          <li>「収支レポート」（Income）: 確定申告・青色申告記帳用の月次内訳（着金日基準）</li>
-          <li>「確定精算レポート」: イベントが「精算済み」になった後に見られる、QR別・受取人別の正式な確定レポート（配分額は自動算出で手動変更不可）</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<Wallet size={16} className="text-pink-500" />}
-        title="⑭ 出金"
-        subtitle="Payout"
-      >
-        <p>「出金管理」で「出金可能」「保留中」「凍結中」の残高を確認できます。売上は決済が行われてから2週間（14日）後に出金可能になり、振込手数料¥500が差し引かれます。</p>
-        <p>決済から120日を超えた分は、月1回に限り振込手数料無料で出金できます。対象の残高がある場合は出金画面に無料枠として案内されます。</p>
-        <p>チャージバックが発生すると該当額が「凍結中」に区分され、出金が一時停止されます。</p>
-      </Section>
-
-      <Section
-        icon={<XCircle size={16} className="text-red-400" />}
-        title="⑮ イベントの中止"
-        subtitle="Cancellation"
-      >
-        <p>イベント詳細ページの「中止申請」から中止の手続きができます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>「下書き」「承認待ち」の段階であれば、承認不要でそのまま「中止」になります</li>
-          <li>「公開済み」「開催中」の段階では「中止申請中」となり、担当エージェント（または運営）の承認を経て初めて「中止」が確定します。却下された場合は「公開済み」に戻ります</li>
-          <li>中止が承認されると、まだキャプチャされていないカード決済（オーソリ中のもの。ほとんどのカード決済がこれに該当します）はシステムが自動的に取り消し、お客様に負担はかかりません</li>
-          <li>前売即時確定タイプ（即時確定）の入場チケットなど、既にキャプチャ済みで決済が完了しているものは自動では取り消されないため、イベント詳細の「売上・決済」タブ（決済ログ）から個別に取消（返金）が必要です</li>
-        </ul>
-      </Section>
-    </div>
-  );
-}
-
-function OrganizerDayOfGuide() {
-  return (
-    <div className="space-y-4">
-      <Section
-        icon={<Printer size={16} className="text-pink-500" />}
-        title="① 印刷したQRだけで運用する"
-        subtitle="Print-Only Setup"
-        videoId={DAY_OF_TUTORIAL_VIDEOS.printOnly}
-      >
-        <p>表示用タブレット（子機）を用意できない場合は、印刷したQRコードを会場に掲示するだけで運用できます。</p>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>QR詳細画面の「印刷する」から会場掲示用の高解像度QRを出力し、テーブルや壁に貼っておけば、お客様がご自身のスマートフォンで読み取って直接決済できます。子機や親機パネルの設置は不要です</li>
-          <li>
-            タイムテーブルに合わせてQR表示を自動切替したい場合は子機用タブレットが必要になりますが、
-            <span className="text-indigo-300">表示用タブレットのレンタルも承っています</span>
-            。ご希望の場合は
-            <a href="mailto:support@direct-cheers.com" className="text-indigo-300 underline">support@direct-cheers.com</a>
-            または担当エージェントまでご相談ください
-          </li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<ScanLine size={16} className="text-pink-500" />}
-        title="② 入場スキャナで検札する"
-        subtitle="Check-in Scanner"
-        videoId={DAY_OF_TUTORIAL_VIDEOS.scanner}
-      >
-        <p>スタッフが対応できる場合は「入場スキャナを起動」からカメラでお客様のチケットQRを読み取り、「入場OK」「入場済みです」「無効なチケット」等を即座に判定できます。</p>
-      </Section>
-
-      <Section
-        icon={<Zap size={16} className="text-pink-500" />}
-        title="③ タッチ決済・子機/親機を使う"
-        subtitle="Touch Pay & Devices"
-      >
-        <ul className="list-disc pl-4 space-y-1">
-          <li>「対面タッチ決済」（Touch Pay、タッチ決済用アプリが必要）は、Bluetoothカードリーダーを接続し、対象商品（QR作成時に「対面タッチ決済を許可する」をONにしたもの）をその場で決済できます。決済完了後、初めてのお客様には子機のQRコードを読み取ってもらいます。専用機材（カードリーダー）のレンタルとエージェントの現地帯同が必要になるため、利用したい場合は事前にご相談ください</li>
-          <li>「親機パネル」では接続中の子機（タブレット等の表示端末）にタイムテーブルでQRを自動配信でき、「子機モード」はその表示専用のキオスク画面です</li>
-          <li>「ダッシュボード」の「別端末でログイン」機能は、スタッフ用タブレットなど別端末にQRでログインさせるためのもので、入場スキャナとは別機能です</li>
-        </ul>
-      </Section>
-
-      <Section
-        icon={<ListChecks size={16} className="text-pink-500" />}
-        title="④ 当日オペレーション（時系列）"
-        subtitle="Day-of Checklist"
-      >
-        <p>当日スタッフが手元で見る前提の、時間順のチェックリストです。①〜③の機能説明とあわせてご覧ください。</p>
-
-        <Phase label="前日まで">
-          <li><b>口座登録が「審査完了 — 受取可能」になっているか確認</b>。未完了だと当日のすべての決済がエラーになります（準備・機能グループの③参照）</li>
-          <li>QR詳細画面の「印刷する」から掲示用QRを印刷。汚れ・紛失に備えて予備を数枚</li>
-          <li>子機タブレットを使う場合：親機パネルでタイムテーブルを登録し、子機にはダッシュボードの「別端末でログイン」のQRでログインさせておく（子機にパスキーは登録しない）</li>
-          <li>タッチ決済を使う場合：<b>カードリーダーのファームウェア更新を前日までに済ませる</b>。初回接続時に必須更新が自動で走り、数分〜10分以上かかります。更新中は電源を切らず、Wi-Fiの安定した場所で行ってください。当日現地で初めて接続するのは避けてください</li>
-          <li>開催証跡用に<b>「当日写真を撮る担当」を決める</b>。写真がないとイベント終了後の精算に進めません（準備・機能グループの⑫参照）</li>
-        </Phase>
-
-        <Phase label="開場前（現地）">
-          <li>QRをテーブル・壁・受付に掲示。電波の弱い会場では、入口付近でスタッフのスマホから1回テスト決済して、決済画面が開くか確認</li>
-          <li>子機：表示を確認し、画面の自動ロックをOFF、充電を確保</li>
-          <li>タッチ決済：Touch Pay画面の「カードリーダーに接続」で接続。接続中に端末側でペア設定のダイアログが出たら<b>すぐ承認</b>してください（放置すると接続に失敗します）。子機が起動していないとサインアップQRを出せないので、先に子機を起動</li>
-          <li>入場スキャナ：受付スタッフのスマホでイベント詳細の「入場スキャナを起動」を開き、カメラの使用を許可</li>
-        </Phase>
-
-        <Phase label="開場中">
-          <li>入場：お客様のチケットQRを読み取り、結果で対応を分けます。<b>「入場OK」</b>→通す／<b>「入場済みです」</b>→すでに入場済み。本人確認のうえ判断／<b>「無効なチケット」</b>→キャンセル済みや失効。決済し直してもらう</li>
-          <li>当日券（タッチ決済）：商品と人数を選ぶ →「カードをタッチしてください」でお客様にカードやスマホをかざしてもらう → 完了。<b>初めてのお客様には子機のサインアップQRを読み取ってもらい</b>、cheers!カードを受け取れるようにします</li>
-          <li>売上はイベント詳細の「売上・決済」タブでリアルタイムに確認できます</li>
-          <li>誤販売はその場で「売上・決済」タブから取消（精算前ならオーガナイザー自身で可能。準備・機能グループの⑪参照）</li>
-        </Phase>
-
-        <Phase label="トラブル時">
-          <li>お客様「Apple Payのボタンが出ない」→ LINEなどアプリ内ブラウザで開いています。メニューの「他のブラウザで開く」からSafari／Chromeで開き直してもらう</li>
-          <li>お客様「メールが届かない」→ 迷惑メールフォルダを確認。なければログイン画面から再送</li>
-          <li>親機・子機がログアウトした → ダッシュボードの「別端末でログイン」のQRを読ませて再ログイン</li>
-          <li>カードリーダーが見つからない（30秒待っても接続しない）→ リーダーの電源を入れ直して「カードリーダーに接続」をやり直す。復旧しなければ<b>QR自己決済に切り替えて続行</b>（機材なしで運用できます）</li>
-          <li>会場の電波が弱い → QR自己決済はお客様自身の回線で動くので影響を受けにくい。回線が必要なのはスタッフ側（子機・親機・入場スキャナ・タッチ決済）だけです</li>
-        </Phase>
-
-        <Phase label="終了後（その場で）">
-          <li>撮った写真と動員数を、できればその日のうちに「開催証跡を提出して承認依頼する」から提出</li>
-          <li><b>開催から7日以内に精算が完了しないと、決済がすべて自動取消されイベントは中止扱いになります</b>（準備・機能グループの⑫参照）。提出を後回しにしないでください</li>
-        </Phase>
-      </Section>
+      {helpSections(tab).map((s) => <KnowledgeSectionCard key={s.id} section={s} />)}
+      <FaqList tab={tab} />
     </div>
   );
 }
 
 function OrganizerGuide() {
-  const [group, setGroup] = useState<"prep" | "dayof">("prep");
+  const [group, setGroup] = useState<HelpGroup>("prep");
 
   return (
     <div className="space-y-4">
       <div className="flex gap-2 bg-slate-900 border border-slate-800 rounded-2xl p-1">
-        {ORGANIZER_GROUPS.map((g) => (
+        {HELP_GROUPS.organizer.map((g) => (
           <button
             key={g.id}
             type="button"
@@ -770,34 +253,9 @@ function OrganizerGuide() {
         ))}
       </div>
 
-      {group === "prep" ? <OrganizerPrepGuide /> : <OrganizerDayOfGuide />}
+      <SectionList key={group} tab="organizer" group={group} />
 
-      <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 shrink-0">
-            <HelpCircle size={16} className="text-indigo-400" />
-          </div>
-          <p className="text-sm font-black text-white">よくある質問</p>
-        </div>
-        <div className="space-y-2">
-          <Faq
-            q="イベントを作成したらすぐ公開されますか？"
-            a="いいえ。作成直後は「下書き」で、「エージェントに承認依頼を送る」を押して承認されるまで一般には公開されません。"
-          />
-          <Faq
-            q="お客様への返金はオーガナイザーが行いますか？"
-            a="はい、できます。精算前のイベントであれば、イベント詳細の「売上・決済」タブ（決済ログ）から自分のイベントの決済を取り消せます（オーソリ中のものは取消、キャプチャ済みのものは返金）。イベントが「精算済み」になった後の返金のみ、運営（admin）が対応します。"
-          />
-          <Faq
-            q="前売り分はどうなりますか？"
-            a="ほとんどのカード決済は「オーソリのみ」で保留されているため、イベント中止が承認されると自動的に取り消され、お客様に負担はかかりません。前売即時確定タイプ（即時確定）の入場チケットなど既にキャプチャ済みのものは自動では取り消されないため、決済ログから個別に取消（返金）してください。"
-          />
-          <Faq
-            q="エビデンスを提出したのに精算されません"
-            a="提出後は運営による確認を経て精算処理が実行されるため、反映まで日数がかかることがあります。差し戻された場合はダッシュボードの通知から再提出してください。"
-          />
-        </div>
-      </div>
+      <FaqList tab="organizer" />
     </div>
   );
 }
@@ -810,7 +268,7 @@ export function HelpContent({
   visibleRoles: HelpRole[];
 }) {
   const [tab, setTab] = useState<HelpRole>(defaultRole);
-  const tabs = TABS.filter((t) => visibleRoles.includes(t.id));
+  const tabs = HELP_TABS.filter((t) => visibleRoles.includes(t.id));
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
@@ -838,9 +296,7 @@ export function HelpContent({
         </div>
       )}
 
-      {tab === "user" && <UserGuide />}
-      {tab === "organizer" && <OrganizerGuide />}
-      {tab === "artist" && <ArtistGuide />}
+      {tab === "organizer" ? <OrganizerGuide /> : <SimpleGuide key={tab} tab={tab} />}
 
       <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-start gap-3">
         <Mail size={14} className="text-slate-500 mt-0.5 shrink-0" />

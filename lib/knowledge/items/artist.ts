@@ -1,0 +1,165 @@
+import type { KnowledgeItem } from "../types";
+
+// アーティスト向け（ヘルプ「アーティスト」タブ）
+export const ARTIST_ITEMS: KnowledgeItem[] = [
+  {
+    kind: "section",
+    id: "artist.invite-register",
+    minRole: "artist",
+    title: "招待リンクから登録する",
+    help: { tab: "artist", icon: "UserPlus", subtitle: "Invite Registration", video: "a-01" },
+    body: [
+      { type: "p", text: "オーガナイザーから招待リンクが届いた場合、リンクを開いて「登録して受け取る」を押すだけで、追加のメール確認なしにその場でアカウント作成からログインまで完了します。" },
+      { type: "p", text: "すでにDirect Cheersに登録済みの場合は、ログインするだけで招待を受け取れます。" },
+    ],
+  },
+  {
+    kind: "section",
+    id: "artist.profile",
+    minRole: "artist",
+    title: "プロフィール設定",
+    help: { tab: "artist", icon: "Mic2", subtitle: "Profile", video: "a-02" },
+    body: [
+      { type: "p", text: "「プロフィール」の基本情報（表示名・アバター）に加えて、アーティスト専用の項目を設定できます。" },
+      {
+        type: "ul",
+        items: [
+          "「アーティスト名（DJ名）」: ラインナップやWallet、お客様のカード利用明細にも表示されます。未入力なら表示名が使われます",
+          "「アーティスト用の画像」: 演者名義のチアで使われるカード画像（未設定なら基本のアバター画像を使用）",
+          "「海外カード明細用の英字表記」: 海外発行カードでは漢字部分が表示されないため、未入力の場合はアーティスト名から自動生成されます",
+          "「クレジット表記」「所属団体」「出演ジャンル / 演目」「紹介文」も任意で設定できます",
+          "入力後は「保存する」を押してください",
+        ],
+      },
+    ],
+  },
+  {
+    kind: "section",
+    id: "artist.bank",
+    minRole: "artist",
+    title: "口座登録",
+    help: { tab: "artist", icon: "Landmark", subtitle: "Bank Setup", video: "a-03" },
+    body: [
+      { type: "p", text: "「プロフィール」の「口座登録・本人確認を始める」から、Stripe Connectでの本人確認・口座登録に進めます。" },
+      {
+        type: "ul",
+        items: [
+          "種別選択・氏名・生年月日・住所・事業情報の5ステップに沿って入力し、最後に「Stripeで口座登録」からStripe側の画面で本人確認と口座登録を行います",
+          "Stripe側の手続き完了後は「口座開設審査中」と表示され、オーナー（運営）による最終承認をお待ちいただく形になります。承認されると「審査完了 — 受取可能」に変わります",
+          "口座登録が未完了の間にイベントの精算が行われても、あなたへの送金が失われることはありません。口座登録が完了するまで送金がいったん保留され、審査完了後に自動的に送金されます",
+        ],
+      },
+    ],
+  },
+  {
+    kind: "section",
+    id: "artist.lineup",
+    minRole: "artist",
+    title: "出演依頼を受ける",
+    help: { tab: "artist", icon: "CheckCircle2", subtitle: "Lineup Invitations", video: "a-04" },
+    body: [
+      { type: "p", text: "オーガナイザーからイベントへの出演依頼が届くと、ダッシュボードホームに「出演（依頼 N件）」のカードが表示されます。" },
+      {
+        type: "ul",
+        items: [
+          "カードにはイベント名・会場・日付、依頼元のオーガナイザー名、メッセージ（あれば）が表示されます（ステータス「出演依頼 — 承認待ち」）",
+          "「承認」を押すと「出演確定」バッジに変わり、そのイベントの詳細ページに遷移できるようになります",
+          "「辞退」を押すとその場で依頼が取り下げられます",
+          "出演依頼をきっかけに、オーガナイザーとのメッセージ画面（DM）が自動的に作られます",
+        ],
+      },
+    ],
+  },
+  {
+    kind: "section",
+    id: "artist.cheers-card",
+    minRole: "artist",
+    title: "チアの受け取り方",
+    help: { tab: "artist", icon: "Heart", subtitle: "Cheers Card", video: "a-05" },
+    body: [
+      { type: "p", text: "アーティスト個人が常時使える「マイQR」はありません。チア用のQRコードは、出演するイベントごとにオーガナイザーが発行し、そこに配分先の1人としてあなたが登録される仕組みです。" },
+      {
+        type: "ul",
+        items: [
+          "出演確定したイベントのQR詳細画面で、「✦ Cheersカード」と「✦ 配分設定」（自分の配分比率、閲覧のみ）を確認できます",
+          "カード画像を変更できるのは、そのQRの宛先が自分になっている場合だけです。配分先に入っているだけでは変更できません",
+          "金額のレンジや商品タイプ、QRコード自体の作成・編集はオーガナイザーが行います",
+        ],
+      },
+    ],
+  },
+  {
+    kind: "section",
+    id: "artist.income",
+    minRole: "artist",
+    title: "収益確認",
+    help: { tab: "artist", icon: "TrendingUp", subtitle: "Income" },
+    body: [
+      { type: "p", text: "「収支レポート」（Income）で、確定申告・青色申告記帳用の月次内訳を確認できます。" },
+      {
+        type: "ul",
+        items: [
+          "「ダイレクト着金」カードに、着金純額・取消額（あれば）・未出金Stripe残高が表示されます",
+          "集計は着金日基準（現金主義）です。実際にStripe Connect口座へ送金された日を収入計上日としており、決済確定日や出金申請日とは異なります。未出金の残高は収入額に含まれません",
+          "「CSVダウンロード」で月次データを書き出せます",
+        ],
+      },
+    ],
+  },
+  {
+    kind: "section",
+    id: "artist.payout",
+    minRole: "artist",
+    title: "出金",
+    help: { tab: "artist", icon: "Wallet", subtitle: "Payout", video: "a-08" },
+    sources: ["lib/payout-config.ts"],
+    body: [
+      { type: "p", text: "「出金管理」（Payout）で、残高を「無料出金可能」「出金可能」「保留中」「凍結中」の4区分で確認し、出金申請ができます。" },
+      {
+        type: "ul",
+        items: [
+          "売上は決済が行われてから{{HOLD_PERIOD}}後に出金可能になります。振込手数料として¥{{TRANSFER_FEE}}が差し引かれます",
+          "決済から{{FEE_WAIVER_DAYS}}日を超えた分は、月{{FREE_POOL_MONTHLY_LIMIT}}回に限り振込手数料無料で出金できます。対象の残高がある場合は出金画面に無料枠として案内されます",
+          "出金可能額がある場合のみ、スライダーで金額を指定して「¥○○ を出金する」ボタンから申請できます",
+          "運営の承認を待つ必要はありません。申請するとその場で銀行への振込手続きが始まります。銀行に届くまでは1〜4営業日（土日祝を除く）で、申請直後の画面と「出金履歴」に入金予定日が表示されます",
+          "チャージバック（クレジットカード会社への異議申し立て）が発生すると、該当額が「凍結中」に区分され、出金が一時停止されます。回数は画面上部に表示されます",
+        ],
+      },
+    ],
+  },
+  {
+    kind: "section",
+    id: "artist.stats",
+    minRole: "artist",
+    title: "統計",
+    help: { tab: "artist", icon: "BarChart2", subtitle: "Statistics" },
+    body: [
+      { type: "p", text: "「プロフィール」の「統計」タブから、これまで送ったチアの累計に加えて、これまで受け取ったチアの件数・総流通額・手数料控除後の受取額（概算）を確認できます。" },
+    ],
+  },
+  {
+    kind: "faq",
+    id: "artist.faq.my-qr",
+    minRole: "artist",
+    help: { tab: "artist" },
+    q: "自分専用のQRコードを作れますか？",
+    a: "いいえ、アーティスト個人の常設QRはありません。出演するイベントごとにオーガナイザーが発行するQRの中に、配分先として登録されます。",
+  },
+  {
+    kind: "faq",
+    id: "artist.faq.payout-when",
+    minRole: "artist",
+    help: { tab: "artist" },
+    sources: ["lib/payout-config.ts"],
+    q: "出金はいつからできますか？",
+    a: "決済が行われてから{{HOLD_PERIOD}}後に出金可能になります（振込手数料¥{{TRANSFER_FEE}}が差し引かれます）。「出金管理」で「◯月◯日以降に出金可能」と表示されます。",
+  },
+  {
+    kind: "faq",
+    id: "artist.faq.bank-pending",
+    minRole: "artist",
+    help: { tab: "artist" },
+    q: "口座登録したのに『受取可能』にならない",
+    a: "Stripe側の本人確認完了後、オーナー（運営）による最終審査が必要です。「口座開設審査中」の間はこの審査待ちの状態です。",
+  },
+];

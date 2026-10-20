@@ -368,7 +368,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* PayPay警告 + Stripe Link案内 */}
+            {/* アプリ内ブラウザの注意 + Stripe Link案内 */}
             <div className="space-y-4">
               <div className="flex items-start gap-4 p-5 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
                 <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 shrink-0 mt-0.5">
@@ -377,8 +377,8 @@ export default function LandingPage() {
                 <div className="space-y-1.5">
                   <p className="text-sm font-black text-amber-400">⚠️ 重要なご注意</p>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    イベントのプランによっては、<span className="text-amber-300 font-bold">PayPayがご利用いただけない会場</span>がございます。
-                    Apple / Google Pay をお持ちでない方や、普段PayPayをご利用の方は、当日現場で慌てないために、いまのうちに対策しておくことを強くお勧めします。
+                    LINEなどの<span className="text-amber-300 font-bold">アプリ内ブラウザで開くと、Apple Payはご利用いただけません</span>。
+                    Apple / Google Pay をお持ちでない方も含め、当日現場で慌てないために、いまのうちに対策しておくことを強くお勧めします。
                   </p>
                 </div>
               </div>
@@ -401,7 +401,7 @@ export default function LandingPage() {
                       <CheckCircle2 size={11} className="text-emerald-500" /> カード情報の再入力不要
                     </span>
                     <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      <CheckCircle2 size={11} className="text-emerald-500" /> PayPay不可の会場でも安心
+                      <CheckCircle2 size={11} className="text-emerald-500" /> アプリ内ブラウザでも使える
                     </span>
                   </div>
                 </div>

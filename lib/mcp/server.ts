@@ -14,6 +14,7 @@ import { MY_PAYOUT_HISTORY, myPayoutHistory } from "./tools/my-payout-history";
 import { KNOWLEDGE_DETAIL, knowledgeDetail } from "./tools/knowledge-detail";
 import { MY_STATS, STATS_HIDDEN_ROLES, myStats } from "./tools/my-stats";
 import { MY_QR_TARGETS, myQrTargets } from "./tools/my-qr-targets";
+import { MY_INVITATIONS, myInvitations } from "./tools/my-invitations";
 import { detailIndexForRole } from "@/lib/knowledge/assemble";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
@@ -101,6 +102,13 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       MY_INCOME.name,
       { title: MY_INCOME.title, description: MY_INCOME.description, inputSchema: MY_INCOME.inputSchema, annotations: readOnly },
       async (input) => safe(() => myIncome(ctx, input)),
+    );
+  }
+  if (allowed(MY_INVITATIONS.minRole)) {
+    server.registerTool(
+      MY_INVITATIONS.name,
+      { title: MY_INVITATIONS.title, description: MY_INVITATIONS.description, inputSchema: MY_INVITATIONS.inputSchema, annotations: readOnly },
+      async (input) => safe(() => myInvitations(ctx, input)),
     );
   }
   if (allowed(MY_EVENTS.minRole)) {

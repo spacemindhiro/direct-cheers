@@ -2,6 +2,7 @@
 
 import { DISPLAY_TZ } from "@/lib/display-tz";
 import { useState, useTransition } from "react";
+import { invitationStatusLabel, type InvitationStatusLabel } from "@/lib/invitation-status";
 import {
   Clock,
   CheckCircle,
@@ -33,20 +34,18 @@ export type InvitationRow = {
   target_profile?: { display_name: string | null } | null;
 };
 
+// 状態の判定はチアリー(AI) の my_invitations と共用（lib/invitation-status.ts）
+const STATUS_STYLE: Record<InvitationStatusLabel, { className: string; icon: React.ReactNode }> = {
+  "受諾済み・ログイン可": { className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", icon: <CheckCircle size={12} /> },
+  "受諾済み": { className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", icon: <CheckCircle size={12} /> },
+  "期限切れ": { className: "text-slate-500 bg-slate-800 border-slate-700", icon: <XCircle size={12} /> },
+  "閲覧済み": { className: "text-blue-400 bg-blue-500/10 border-blue-500/20", icon: <Eye size={12} /> },
+  "未開封": { className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20", icon: <Clock size={12} /> },
+};
+
 function resolveStatus(inv: InvitationRow) {
-  if (inv.status === "accepted") {
-    return inv.accepted_by
-      ? { label: "受諾済み・ログイン可", className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", icon: <CheckCircle size={12} /> }
-      : { label: "受諾済み", className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", icon: <CheckCircle size={12} /> };
-  }
-  const isExpired = inv.status === "expired" || new Date(inv.expires_at) < new Date();
-  if (isExpired) {
-    return { label: "期限切れ", className: "text-slate-500 bg-slate-800 border-slate-700", icon: <XCircle size={12} /> };
-  }
-  if (inv.viewed_at) {
-    return { label: "閲覧済み", className: "text-blue-400 bg-blue-500/10 border-blue-500/20", icon: <Eye size={12} /> };
-  }
-  return { label: "未開封", className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20", icon: <Clock size={12} /> };
+  const label = invitationStatusLabel(inv);
+  return { label, ...STATUS_STYLE[label] };
 }
 
 function InvitationItem({

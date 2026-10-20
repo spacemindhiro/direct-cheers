@@ -9,6 +9,7 @@ import { MY_PAYOUT_BALANCE, myPayoutBalance } from "./tools/my-payout";
 import { MY_LINEUPS, myLineups } from "./tools/my-lineups";
 import { MY_CHEERS, myCheers } from "./tools/my-cheers";
 import { MY_INCOME, myIncome } from "./tools/my-income";
+import { MY_PAYOUT_HISTORY, myPayoutHistory } from "./tools/my-payout-history";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
 
@@ -52,6 +53,13 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       MY_PAYOUT_BALANCE.name,
       { title: MY_PAYOUT_BALANCE.title, description: MY_PAYOUT_BALANCE.description, inputSchema: MY_PAYOUT_BALANCE.inputSchema, annotations: readOnly },
       async () => safe(() => myPayoutBalance(ctx)),
+    );
+  }
+  if (allowed(MY_PAYOUT_HISTORY.minRole)) {
+    server.registerTool(
+      MY_PAYOUT_HISTORY.name,
+      { title: MY_PAYOUT_HISTORY.title, description: MY_PAYOUT_HISTORY.description, inputSchema: MY_PAYOUT_HISTORY.inputSchema, annotations: readOnly },
+      async () => safe(() => myPayoutHistory(ctx)),
     );
   }
   if (allowed(MY_INCOME.minRole)) {

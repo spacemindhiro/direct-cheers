@@ -112,9 +112,9 @@ afterAll(async () => {
 describe("TC-CHEERY-MCP-A: ロールごとのツール一覧（tools/list）", () => {
   it("user は my_tickets だけ。artist は出演・出金も。organizer・agent は my_events も", async () => {
     expect((await mcpAs("user", "user")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_cheers"]);
-    expect((await mcpAs("artist", "artist")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_cheers", "my_lineups", "my_payout_balance", "my_income"]);
-    expect((await mcpAs("orgA", "organizer")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_cheers", "my_lineups", "my_payout_balance", "my_income", "my_events"]);
-    expect((await mcpAs("agentG", "agent")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_cheers", "my_lineups", "my_payout_balance", "my_income", "my_events"]);
+    expect((await mcpAs("artist", "artist")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_cheers", "my_lineups", "my_payout_balance", "my_payout_history", "my_income"]);
+    expect((await mcpAs("orgA", "organizer")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_cheers", "my_lineups", "my_payout_balance", "my_payout_history", "my_income", "my_events"]);
+    expect((await mcpAs("agentG", "agent")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_cheers", "my_lineups", "my_payout_balance", "my_payout_history", "my_income", "my_events"]);
   });
 
   it("ツールの入力に「誰のデータか」を指定する項目が無い", async () => {

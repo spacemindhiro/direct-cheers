@@ -7,6 +7,8 @@
  * | アーティストR | 自分のダイレクト着金・未出金残高              | エージェント報酬・プラットフォーム純利（区分ごと出さない）・他人の着金 |
  * | エージェントG | 自分のダイレクト着金・エージェント報酬        | プラットフォーム純利 |
  * | 一般ユーザー  | （ツール自体が無い）                          | ―            |
+ *
+ * アクセス範囲表（my_payout_history）：本人の出金申請だけ。他人の申請・振込ID・口座情報は出さない
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient } from "@supabase/supabase-js";
@@ -14,6 +16,8 @@ import { testAdmin, cleanupTestData } from "../helpers/db-reset";
 import { insertProfile, deleteAuthUsers, insertEvent, insertQrConfig, insertTransaction, insertDistribution, insertSettleTransfer } from "../helpers/seed";
 import { connectDcMcp, type DcMcpSession } from "@/lib/mcp/in-process";
 import { jstPeriod } from "@/lib/ai/limits";
+import { jstDateTime } from "@/lib/mcp/format";
+import { getPayoutHistory } from "@/lib/payout-history";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -94,5 +98,40 @@ describe("TC-CHEERY-MCP-INCOME: my_income", () => {
 
   it("一般ユーザーにはツールが無い", async () => {
     expect((await mcpAs("u", "user")).tools.some((t) => t.name === "my_income")).toBe(false);
+  });
+});
+
+describe("TC-CHEERY-MCP-INCOME: my_payout_history", () => {
+  it("本人の出金申請だけ（振込IDは出さない）", async () => {
+    const { data } = await testAdmin.from("payout_requests").select("created_at").eq("profile_id", P.r).single();
+    const r = (await mcpAs("r", "artist")).tools.find((t) => t.name === "my_payout_history")!;
+    expect((await r.run({})).content).toBe([
+      "出金の履歴 1件（新しい順）。銀行への着金まで1〜4営業日（土日祝を除く）",
+      `1. ${jstDateTime(data!.created_at)} に申請`,
+      "  - 申請額: ¥1,200",
+      "  - 振込手数料: ¥500",
+      "  - 振込額: ¥700",
+      "  - 状態: 完了（振込手続き済み）",
+    ].join("\n"));
+  });
+
+  it("申請の無い人", async () => {
+    const r = (await mcpAs("v", "artist")).tools.find((t) => t.name === "my_payout_history")!;
+    expect((await r.run({})).content).toBe("出金の履歴はありません。");
+  });
+
+  it("入金予定日は直近10日以内の申請だけ Stripe に問い合わせる（口座が無ければ問い合わせない）", async () => {
+    await testAdmin.from("payout_requests").update({ stripe_transfer_id: "po_recent" }).eq("profile_id", P.r);
+    const { error } = await testAdmin.from("payout_requests").insert({ profile_id: P.r, requested_amount: 3000, stripe_fee_deducted: 0, net_payout_amount: 3000, status: "completed", stripe_transfer_id: "po_old", created_at: new Date(Date.now() - 11 * 24 * 60 * 60 * 1000).toISOString() });
+    if (error) throw error;
+    const asked: string[] = [];
+    const fake = async (id: string, acct: string) => { asked.push(`${id}@${acct}`); return { arrival_date: 1793145600 }; };
+    const { history, arrivalDates } = await getPayoutHistory(testAdmin, P.r, "acct_test", new Date(), fake);
+    expect(asked).toEqual(["po_recent@acct_test"]);
+    expect(history.length).toBe(2);
+    expect([...arrivalDates.values()]).toEqual([1793145600]);
+    const none: string[] = [];
+    await getPayoutHistory(testAdmin, P.r, null, new Date(), async (id) => { none.push(id); return { arrival_date: 1 }; });
+    expect(none).toEqual([]);
   });
 });

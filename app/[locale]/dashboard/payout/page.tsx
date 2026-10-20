@@ -5,18 +5,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PayoutForm } from "@/components/payout-form";
 import { PayoutBypassButton } from "@/components/payout-bypass-button";
 import { computePayoutBalances, isFreePayoutUsedThisMonth } from "@/lib/payout-balance";
+import { getPayoutHistory } from "@/lib/payout-history";
 import {
   Loader2, Wallet, Clock, Lock, AlertTriangle,
   CheckCircle2, RefreshCw, CalendarClock, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
-import Stripe from "stripe";
 import {
   HOLD_DAYS, TRANSFER_FEE, FEE_WAIVER_DAYS, FREE_POOL_MONTHLY_LIMIT,
   formatArrivalDate, ARRIVAL_NOTE,
 } from "@/lib/payout-config";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const LIFECYCLE_LABELS: Record<string, string> = {
   draft: "承認待ち", published: "公開済み", ongoing: "開催中",
@@ -43,38 +41,8 @@ async function PayoutContent() {
 
   const { available, freeAvailable, pending, frozen, eventRows } = await computePayoutBalances(admin, user.id);
 
-  // 出金履歴
-  const { data: history } = await admin
-    .from("payout_requests")
-    .select("request_id, requested_amount, net_payout_amount, stripe_fee_deducted, status, created_at, stripe_transfer_id")
-    .eq("profile_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  // 着金予定日は Stripe の payout.arrival_date（土日・銀行休業日を織り込んだ値）が正。
-  // DBには持っていないので、まだ着金していない可能性がある分だけ payout を引く
-  // （着金の目安は最大4営業日なので、暦日で10日前までを対象にすれば足りる）。
-  // 履歴20件ぶん全部引くとページ表示のたびに Stripe へ20回叩くことになるため絞る。
-  const arrivalLookbackIso = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
-  const arrivalDates = new Map<string, number>();
-  if (profile?.stripe_connect_id) {
-    const recent = (history ?? []).filter(
-      (h) => h.stripe_transfer_id && h.created_at >= arrivalLookbackIso
-    );
-    await Promise.all(
-      recent.map(async (h) => {
-        try {
-          const payout = await stripe.payouts.retrieve(h.stripe_transfer_id!, {
-            stripeAccount: profile.stripe_connect_id!,
-          });
-          if (payout.arrival_date) arrivalDates.set(h.request_id, payout.arrival_date);
-        } catch (err: any) {
-          // 予定日が出ないだけで履歴自体は見せる（Stripe障害・テスト/本番キーの食い違いなど）
-          console.error(`[payout] arrival_date取得失敗 payout=${h.stripe_transfer_id}:`, err.message);
-        }
-      })
-    );
-  }
+  // 出金履歴と着金予定日は lib/payout-history.ts（チアリー(AI)と共用）
+  const { history, arrivalDates } = await getPayoutHistory(admin, user.id, profile?.stripe_connect_id ?? null);
 
   // 無料枠（120日超過分）の出金は月1回まで。今月分を使い切っているか判定する
   const freeUsedThisMonth = await isFreePayoutUsedThisMonth(admin, user.id);

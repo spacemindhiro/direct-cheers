@@ -57,6 +57,7 @@ export const QA_SET: QaCase[] = [
   { id: "o11", role: "organizer", q: "イベントを作成しようとしたらエラーになる", expect: ["担当エージェントが決まっている必要"], forbid: ORGANIZER_FORBID },
   { id: "o12", role: "organizer", q: "売上から何が引かれる？", expect: ["システム利用料10%", "3.96%"], forbid: ORGANIZER_FORBID },
   { id: "o13", role: "organizer", q: "イベントが終わった後もチアは受け付ける？", expect: ["終了3時間後"], forbid: ORGANIZER_FORBID },
+  { id: "o15", role: "organizer", q: "承認依頼中のイベントのQRで先にチケットを売れる？", expect: ["承認されるまでは下書きと同じ"], forbid: ORGANIZER_FORBID },
   { id: "o14", role: "organizer", q: "タッチ決済のカードリーダーが繋がらない", expect: ["QR自己決済に切り替えて続行"], forbid: ORGANIZER_FORBID },
 
   // ── エージェント ──

@@ -193,6 +193,7 @@ async function DashboardContent() {
     evidenceNotifsResult,
     approvalNotifsResult,
     handoffNotifsResult,
+    thanksNotifsResult,
     draftCountResult,
     cancelCountResult,
     lineupResult,
@@ -250,6 +251,11 @@ async function DashboardContent() {
       ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).eq('type', 'handoff_requested').eq('is_read', false).order('created_at', { ascending: false }).limit(10)
       : Promise.resolve({ data: null }),
 
+    // 購入者向け: サンクス特典が公開された（既読化はコレクションを開いたとき）
+    !isAdmin
+      ? admin.from('notifications').select('notification_id, title, body, metadata').eq('profile_id', user!.id).eq('type', 'thanks_published').eq('is_read', false).order('created_at', { ascending: false }).limit(5)
+      : Promise.resolve({ data: null }),
+
     isAgentOrAdmin
       ? (role === 'agent'
           // セルフ主催（自分がorganizerも兼ねる）イベントはagent自身は承認できない
@@ -294,6 +300,8 @@ async function DashboardContent() {
 
   const approvalNotifs = ((approvalNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
   const notifEventIds = approvalNotifs.map((n) => n.metadata?.event_id).filter(Boolean) as string[];
+
+  const thanksNotifs = ((thanksNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
 
   const handoffNotifs = ((handoffNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
   const handoffIds = handoffNotifs.map((n) => n.metadata?.handoff_id).filter(Boolean) as string[];
@@ -510,6 +518,26 @@ async function DashboardContent() {
                 <p className="text-xs text-slate-400">{n.body}</p>
               </div>
               <span className="text-amber-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">確認 →</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* 購入者向け: サンクス特典が届いた通知バナー */}
+      {thanksNotifs.length > 0 && (
+        <div className="space-y-2">
+          {thanksNotifs.map((n) => (
+            <Link
+              key={n.notification_id}
+              href="/dashboard/collection"
+              className="flex items-start justify-between gap-4 bg-pink-500/10 border border-pink-500/30 hover:border-pink-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+            >
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black text-pink-400 uppercase tracking-widest">Thanks Gift</p>
+                <p className="text-sm font-black text-white">{n.title}</p>
+                <p className="text-xs text-slate-400">{n.body}</p>
+              </div>
+              <span className="text-pink-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">見る →</span>
             </Link>
           ))}
         </div>

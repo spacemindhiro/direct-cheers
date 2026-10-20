@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Gift, Save, Eye, EyeOff, Loader2, CheckCircle, Link, Image, MessageSquare, Wallet } from "lucide-react";
+import { Gift, Save, Eye, EyeOff, Loader2, CheckCircle, Link, Image, MessageSquare, RefreshCw } from "lucide-react";
 
 type Props = {
   qrConfigId: string;
@@ -172,8 +172,8 @@ export function QRThanksEditor({ qrConfigId }: Props) {
                 disabled={saving}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50"
               >
-                {saving ? <Loader2 size={12} className="animate-spin" /> : <Wallet size={12} />}
-                Walletに通知
+                {saving ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                変更を反映する
               </button>
               <button
                 type="button"

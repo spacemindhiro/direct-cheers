@@ -164,7 +164,7 @@ describe("TC-EVIDENCE-B: events/evidence/reject POST — 差戻し", () => {
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
 
-    const { data: summary } = await testAdmin.from("settlement_summaries").select("is_approved_for_payout").eq("event_id", endedEventId).maybeSingle();
+    const { data: summary } = await testAdmin.from("settlement_summaries").select("summary_id, is_approved_for_payout").eq("event_id", endedEventId).maybeSingle();
     expect(summary?.is_approved_for_payout).toBe(false);
     if (summary) cleanup.summaryIds.push(summary.summary_id);
   });

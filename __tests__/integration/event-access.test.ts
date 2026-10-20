@@ -23,8 +23,12 @@
  * | 出演者（依頼予定＝通知なし）     | 下書き                   | ×             | ×                |
  * | 出演者（依頼済み＝通知あり）     | 下書き                   | ○             | ×                |
  * | （存在しないイベント）           | ―                        | null          | null             |
+ *
+ * 証跡（event_evidences）の DB 直接の読み取り（RLS）：admin・主催者・担当エージェントだけ。
+ * 担当でないエージェント・出演者・一般ユーザー・他の主催者は 0 件（2026-10-21 までロールが agent なら全件読めた）
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { createClient as createSbClient } from "@supabase/supabase-js";
 import { testAdmin, cleanupTestData } from "../helpers/db-reset";
 import { insertProfile, deleteAuthUsers, insertEvent, insertEventArtist } from "../helpers/seed";
 import { getEventAccess } from "@/lib/event-access";
@@ -139,6 +143,29 @@ describe("TC-EVENT-ACCESS-C: 証跡の一覧API", () => {
       const res = await evidenceGET(req(), ctx());
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ evidences: [] });
+    });
+  }
+});
+
+describe("TC-EVENT-ACCESS-D: 証跡の DB 直接の読み取り（RLS）", () => {
+  let evidenceId: string;
+  beforeAll(async () => {
+    const { data, error } = await testAdmin.from("event_evidences").insert({ event_id: PUB, submitted_by: P.org, photo_paths: [] }).select("evidence_id").single();
+    if (error) throw error;
+    evidenceId = data.evidence_id;
+  });
+  afterAll(async () => { await testAdmin.from("event_evidences").delete().eq("evidence_id", evidenceId); });
+
+  async function rowsAs(who: string) {
+    const c = createSbClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error } = await c.auth.signInWithPassword({ email: `ea-${who}-${ts}@test.local`, password: "TestPass123!" });
+    if (error) throw error;
+    const { data } = await c.from("event_evidences").select("evidence_id").eq("event_id", PUB);
+    return (data ?? []).length;
+  }
+  for (const [who, n] of [["org", 1], ["agent", 1], ["admin", 1], ["otherAgent", 0], ["confirmed", 0], ["user", 0], ["otherOrg", 0]] as const) {
+    it(`${who} → ${n}件`, async () => {
+      expect(`${who}:${await rowsAs(who)}`).toBe(`${who}:${n}`);
     });
   }
 });

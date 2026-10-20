@@ -12,6 +12,7 @@ import { MY_ACCOUNT, myAccount } from "./tools/my-account";
 import { MY_INCOME, myIncome } from "./tools/my-income";
 import { MY_PAYOUT_HISTORY, myPayoutHistory } from "./tools/my-payout-history";
 import { KNOWLEDGE_DETAIL, knowledgeDetail } from "./tools/knowledge-detail";
+import { MY_STATS, STATS_HIDDEN_ROLES, myStats } from "./tools/my-stats";
 import { detailIndexForRole } from "@/lib/knowledge/assemble";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
@@ -57,6 +58,13 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       MY_CHEERS.name,
       { title: MY_CHEERS.title, description: MY_CHEERS.description, inputSchema: MY_CHEERS.inputSchema, annotations: readOnly },
       async (input) => safe(() => myCheers(ctx, input)),
+    );
+  }
+  if (allowed(MY_STATS.minRole) && !STATS_HIDDEN_ROLES.includes(ctx.role)) {
+    server.registerTool(
+      MY_STATS.name,
+      { title: MY_STATS.title, description: MY_STATS.description, inputSchema: MY_STATS.inputSchema, annotations: readOnly },
+      async () => safe(() => myStats(ctx)),
     );
   }
   if (allowed(MY_LINEUPS.minRole)) {

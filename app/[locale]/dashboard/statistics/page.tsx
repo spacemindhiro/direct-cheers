@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getFeeConfig } from "@/lib/fee-config";
+import { computeProfileStats } from "@/lib/profile-stats";
 import { Heart, Zap, TrendingUp, BarChart2 } from "lucide-react";
 import Link from "next/link";
 import { ProfileTabs } from "@/components/profile-tabs";
@@ -23,75 +23,17 @@ async function StatisticsContent() {
   if (!profile) redirect("/onboarding/profile");
   if (profile.role === "admin") redirect("/dashboard");
 
-  const admin = createAdminClient();
   const role = profile.role as string;
-  const isEarner = ["artist", "organizer", "agent"].includes(role);
-
-  // ── ユーザー送信チア（全件） ──────────────────────────────
   const { data: userEmail } = await supabase.auth.getUser();
-  const email = userEmail?.user?.email ?? "";
-
-  const [byProfileRaw, byEmailRaw] = await Promise.all([
-    admin
-      .from("transactions")
-      .select("transaction_id, total_gross_amount")
-      .eq("sender_profile_id", user.id)
-      .eq("status", "completed")
-      .neq("transaction_type", "invitation"),
-    email
-      ? admin
-          .from("transactions")
-          .select("transaction_id, total_gross_amount")
-          .eq("sender_email", email)
-          .eq("status", "completed")
-          .neq("transaction_type", "invitation")
-      : Promise.resolve({ data: [] }),
-  ]);
-
-  const seen = new Set<string>();
-  const allMySentTxs: { transaction_id: string; total_gross_amount: number }[] = [];
-  for (const tx of [...(byProfileRaw.data ?? []), ...((byEmailRaw as any).data ?? [])]) {
-    if (!seen.has(tx.transaction_id)) {
-      seen.add(tx.transaction_id);
-      allMySentTxs.push(tx as any);
-    }
-  }
-  const totalSentCount  = allMySentTxs.length;
-  const totalSentAmount = allMySentTxs.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
-
-  // ── 受取側（artist / organizer / agent） ────────────────
-  let totalReceivedAmount = 0;
-  let totalReceivedTxCount = 0;
-  let artistGross = 0;
-  let artistNet   = 0;
-  let artistTxCount = 0;
-
-  if (isEarner) {
-    const { data: distData } = await admin
-      .from("transaction_distributions")
-      .select("actual_amount, transaction:transactions!transaction_id(status)")
-      .eq("profile_id", user.id)
-      .is("deleted_at", null);
-
-    const completedDists = (distData ?? []).filter(
-      (d) => (d.transaction as any)?.status === "completed"
-    );
-    totalReceivedAmount  = completedDists.reduce((s, d) => s + (d.actual_amount ?? 0), 0);
-    totalReceivedTxCount = completedDists.length;
-  }
-
-  // ロールは上位互換のため、organizer/agentに上がった後もartist時代の受取明細は表示し続ける
-  if (isEarner) {
-    const { net_rate } = await getFeeConfig();
-    const { data: salesData } = await supabase
-      .from("transactions")
-      .select("total_gross_amount, product:products!product_id(artist_id)")
-      .eq("status", "completed");
-    const myTxs = (salesData ?? []).filter((tx: any) => tx.product?.artist_id === user.id);
-    artistTxCount = myTxs.length;
-    artistGross   = myTxs.reduce((s: number, tx: any) => s + (tx.total_gross_amount ?? 0), 0);
-    artistNet     = Math.floor(artistGross * net_rate);
-  }
+  // 集計はチアリー(AI) の my_stats と共用（lib/profile-stats.ts）
+  const stats = await computeProfileStats(createAdminClient(), supabase, { userId: user.id, email: userEmail?.user?.email ?? null, role });
+  const totalSentCount = stats.sent.count;
+  const totalSentAmount = stats.sent.amount;
+  const totalReceivedTxCount = stats.received?.count ?? 0;
+  const totalReceivedAmount = stats.received?.amount ?? 0;
+  const artistTxCount = stats.artist?.count ?? 0;
+  const artistGross = stats.artist?.gross ?? 0;
+  const artistNet = stats.artist?.netEstimate ?? 0;
 
   return (
     <div className="space-y-8 max-w-lg">

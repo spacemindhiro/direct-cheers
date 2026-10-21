@@ -1,5 +1,5 @@
 import { fmtDate } from "@/lib/display-tz";
-import type { DirectoryEvent, DirectoryProfile } from "@/lib/directory";
+import { REGISTRATION_STATUS_LABEL, VERIFICATION_STATUS_LABEL, type DirectoryEvent, type DirectoryProfile } from "@/lib/directory";
 import { UserCircle, CreditCard, Mic2, Calendar, Instagram, Globe, Music } from "lucide-react";
 
 // 照会の詳細表示。照会画面の詳細ページと、イベント作成・編集の出演者選択ポップアップで共用する。
@@ -19,18 +19,18 @@ const LIFECYCLE_LABELS: Record<string, string> = {
 };
 
 const REGISTRATION_LABELS: Record<string, { label: string; className: string }> = {
-  pending_onboarding: { label: "Stripe未完了", className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
-  pending_terms: { label: "規約未同意", className: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
-  pending_interview: { label: "面談待ち", className: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
-  active: { label: "承認済み", className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-  rejected: { label: "却下", className: "text-red-400 bg-red-500/10 border-red-500/20" },
+  pending_onboarding: { label: REGISTRATION_STATUS_LABEL.pending_onboarding, className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
+  pending_terms: { label: REGISTRATION_STATUS_LABEL.pending_terms, className: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
+  pending_interview: { label: REGISTRATION_STATUS_LABEL.pending_interview, className: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
+  active: { label: REGISTRATION_STATUS_LABEL.active, className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+  rejected: { label: REGISTRATION_STATUS_LABEL.rejected, className: "text-red-400 bg-red-500/10 border-red-500/20" },
 };
 
 const VERIFICATION_LABELS: Record<string, { label: string; className: string }> = {
-  unverified: { label: "未申請", className: "text-slate-400 bg-slate-500/10 border-slate-500/20" },
-  pending: { label: "審査中", className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
-  verified: { label: "承認済み", className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
-  rejected: { label: "却下", className: "text-red-400 bg-red-500/10 border-red-500/20" },
+  unverified: { label: VERIFICATION_STATUS_LABEL.unverified, className: "text-slate-400 bg-slate-500/10 border-slate-500/20" },
+  pending: { label: VERIFICATION_STATUS_LABEL.pending, className: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" },
+  verified: { label: VERIFICATION_STATUS_LABEL.verified, className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+  rejected: { label: VERIFICATION_STATUS_LABEL.rejected, className: "text-red-400 bg-red-500/10 border-red-500/20" },
 };
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {

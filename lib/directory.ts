@@ -20,6 +20,21 @@ const TARGET_ROLES: Record<DirectoryType, string[]> = {
   organizer: ["organizer", "agent"],
 };
 
+// 登録手続きの進み具合・口座審査の表示名（照会画面とチアリー(AI) の agent_organizers で共用）
+export const REGISTRATION_STATUS_LABEL: Record<string, string> = {
+  pending_onboarding: "Stripe未完了",
+  pending_terms: "規約未同意",
+  pending_interview: "面談待ち",
+  active: "承認済み",
+  rejected: "却下",
+};
+export const VERIFICATION_STATUS_LABEL: Record<string, string> = {
+  unverified: "未申請",
+  pending: "審査中",
+  verified: "承認済み",
+  rejected: "却下",
+};
+
 // 実績として数えるイベント状態（下書き・審査中・中止系は含めない）
 export const ACHIEVED_LIFECYCLES = ["published", "ongoing", "ended", "settled"];
 

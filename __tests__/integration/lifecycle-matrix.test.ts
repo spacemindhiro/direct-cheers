@@ -41,7 +41,6 @@ vi.mock("stripe", async (importOriginal) => {
 import { createClient } from "@/lib/supabase/server";
 import { POST as requestReviewPOST } from "@/app/api/events/[eventId]/request-review/route";
 import { POST as approvePOST } from "@/app/api/events/[eventId]/approve/route";
-import { POST as endPOST } from "@/app/api/events/[eventId]/end/route";
 import { POST as cancelPOST } from "@/app/api/events/[eventId]/cancel/route";
 import { POST as settlePOST } from "@/app/api/events/[eventId]/settle/route";
 import { POST as resetSettlePOST } from "@/app/api/admin/events/[eventId]/reset-settle/route";
@@ -152,21 +151,8 @@ describe("TC-LCM-B: approve — review_requested のみ可", () => {
   });
 });
 
-// ── TC-LCM-C: end の状態チェック ──────────────────────────────────────────
-describe("TC-LCM-C: end — published/ongoing のみ可", () => {
-  it.each([
-    ["draft",            400],
-    ["review_requested", 400],
-    ["ended",            400],
-    ["settled",          400],
-    ["cancelled",        400],
-  ])("status=%s → %i", async (status, expectedStatus) => {
-    const eventId = await makeEvent(status, `TC-LCM-C ${status}`);
-    mockAsOrganizer();
-    const res = await endPOST(new Request("http://localhost", { method: "POST" }), { params: Promise.resolve({ eventId }) });
-    expect(res.status).toBe(expectedStatus);
-  });
-});
+// TC-LCM-C（終了ボタン end の状態チェック）は終了ボタンの廃止（2026-10-22）で削除。
+// 終わりは締め時刻（終了3時間後）で判定する（__tests__/integration/event-close-unify.test.ts）
 
 // ── TC-LCM-D: cancel の状態チェック ───────────────────────────────────────
 describe("TC-LCM-D: cancel — ended/settled/cancelled は不可", () => {

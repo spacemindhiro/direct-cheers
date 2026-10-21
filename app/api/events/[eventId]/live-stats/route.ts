@@ -123,7 +123,7 @@ export async function GET(
   // レコードのため、決済ログには表示しない
   const { data: transactions } = await admin
     .from("transactions")
-    .select("transaction_id, total_gross_amount, stripe_fee, platform_fee, net_amount, created_at, qr_config_id, sender_name, sender_comment, sender_email, payment_method, product:products!product_id(type, name)")
+    .select("transaction_id, total_gross_amount, stripe_fee, platform_fee, net_amount, created_at, qr_config_id, sender_name, sender_comment, sender_email, payment_method, captured_at, product:products!product_id(type, name)")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed")
     .neq("transaction_type", "invitation")
@@ -239,6 +239,8 @@ export async function GET(
     product_type: (tx.product as any)?.type ?? null,
     product_name: (tx.product as any)?.name ?? null,
     payment_method: tx.payment_method ?? "card",
+    // キャプチャ済み（開催承認・タッチ決済の自動キャプチャ）なら、取消は返金になり手数料は主催者負担
+    captured: canCancel ? (tx as any).captured_at != null : false,
     recipient_name: qrRecipientMap.get(tx.qr_config_id) ?? null,
     my_net_amount: myDistByTx.get(tx.transaction_id) ?? null,
   }));

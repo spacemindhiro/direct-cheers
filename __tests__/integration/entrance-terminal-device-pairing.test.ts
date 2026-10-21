@@ -16,6 +16,7 @@ import {
   insertProfile,
   deleteAuthUsers,
   insertEvent,
+  ongoingEventWindow,
   insertProduct,
   insertQrConfig,
 } from "../helpers/seed";
@@ -90,7 +91,8 @@ beforeAll(async () => {
     role: "organizer", displayName: "子機ペアリングテスト主催者", email: `pairing-organizer-${ts}@test.local`,
   });
   cleanup.profileIds.push(organizerProfileId);
-  eventId = await insertEvent({ organizerProfileId, title: "TC-TERMINAL-PAIRING イベント" });
+  // タッチ決済も当日決済の受付期間（開始〜終了3時間後）しか通らない（2026-10-22）ので、開催中の日時にする
+  eventId = await insertEvent({ organizerProfileId, title: "TC-TERMINAL-PAIRING イベント", ...ongoingEventWindow() });
   cleanup.eventIds.push(eventId);
 
   productId = await insertProduct({

@@ -18,6 +18,7 @@ type TxItem = {
   product_type: string | null;
   product_name: string | null;
   payment_method: string | null;
+  captured?: boolean;
   recipient_name: string | null;
   my_net_amount: number | null;
 };
@@ -145,7 +146,9 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
     const label = tx.product_name ?? PRODUCT_TYPE_LABEL[tx.product_type ?? ""] ?? "決済";
     const feeNote = tx.payment_method === "paypay"
       ? "PayPay決済のため返金となり、決済手数料はオーガナイザー負担になります。"
-      : "カード決済のためオーソリ取消となり、手数料の負担はありません。";
+      : tx.captured
+        ? "売上が確定済みのため返金となり、決済手数料はオーガナイザー負担になります。"
+        : "カード決済のためオーソリ取消となり、手数料の負担はありません。";
     const who = tx.sender_name ?? tx.sender_email ?? "ゲスト";
     if (!confirm(`この決済を取り消しますか？\n\n${label} / ${who} / ${formatJPY(tx.total_gross_amount ?? 0)}\n\n${feeNote}`)) return;
 

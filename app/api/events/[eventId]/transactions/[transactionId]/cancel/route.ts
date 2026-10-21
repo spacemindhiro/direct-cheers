@@ -21,7 +21,9 @@ function parsePiId(raw: string | null): string | null {
 //
 // 現場での決済取り消し（誤操作・誤販売対応）。settle前のイベントに限定。
 //   - カード（requires_capture）: PI cancel。資金移動ゼロで損害なし。
-//   - PayPay等（succeeded）    : refund + debt_claims(stripe_fee) をorganizerに記録。
+//   - PayPay等・キャプチャ済みのカード（succeeded）: refund + debt_claims(stripe_fee) をorganizerに記録。
+//     タッチ決済は締め時刻かオーソリから24時間で自動キャプチャされる（app/api/cron/touchpay-capture）ので、
+//     それ以降の取消はこちらになる。
 // settle後の返金はadmin返金画面（/api/admin/refund）でのみ対応する。
 export async function POST(
   _req: Request,

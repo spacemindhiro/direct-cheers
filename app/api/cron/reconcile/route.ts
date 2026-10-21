@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 import { acquirePiLock, releasePiLock } from "@/lib/reconcile-lock";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
+import { POST_EVENT_GRACE_MS, RUNNING_LIFECYCLES } from "@/lib/purchase-window";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -18,22 +19,26 @@ export async function GET(req: Request) {
     const admin = createAdminClient();
     const now = new Date();
 
-    // ended（開催終了・未承認）または settled（精算承認済み）で未照合
-    // （reconciled_atが未設定）のイベントを取得。
-    // 精算承認(settle)は「全件照合済み」を前提条件として要求するため、
-    // 承認前のendedイベントの時点で照合を進めておく必要がある
-    // （settle = キャプチャ実行済み = 照合可能。以前はsettled済みのみを
-    // 対象にしていたため、承認前に自動で照合が進むことがなかった）。
+    // 締め時刻（終了3時間後＝当日決済の受付終了）を過ぎた精算前のイベント、または settled（精算承認済み）で
+    // 未照合（reconciled_atが未設定）のイベントを取得。
+    // 精算承認(settle)は「全件照合済み」を前提条件として要求するため、承認前の時点で照合を進めておく必要がある。
+    // 以前は lifecycle_status='ended'（終了ボタン）だけを見ており、終了ボタンを押し忘れたイベントは
+    // 自動で照合されず送金に進めなかった（2026-10-22。終了ボタンは廃止し、時刻で判定する）。
     // reconciled_atが立っているイベントは全transactionの照合が完了済み
     // のため対象から外し、運用が続いてイベントが積み上がっても対象件数を
     // 絞れるようにする。
-    const settledEvents = await fetchAllPages<{ event_id: string; title: string }>(
-      admin, "events", "event_id, title",
-      (q) => q.in("lifecycle_status", ["ended", "settled"]).is("reconciled_at", null),
+    const closedBeforeIso = new Date(now.getTime() - POST_EVENT_GRACE_MS).toISOString();
+    const settledEvents = await fetchAllPages<{ event_id: string; title: string; lifecycle_status: string }>(
+      admin, "events", "event_id, title, lifecycle_status",
+      (q) => q
+        .or(`lifecycle_status.eq.settled,and(lifecycle_status.in.(${RUNNING_LIFECYCLES.join(",")}),end_at.lt.${closedBeforeIso})`)
+        .is("reconciled_at", null),
     );
 
     const settledEventIds = settledEvents.map((e) => e.event_id);
     const eventTitleMap = new Map(settledEvents.map((e) => [e.event_id, e.title]));
+    // 精算前（開催承認＝キャプチャ前を含む）のイベント。未キャプチャは異常ではなく「承認待ち」
+    const unsettledEventIds = new Set(settledEvents.filter((e) => e.lifecycle_status !== "settled").map((e) => e.event_id));
     if (settledEventIds.length === 0) {
       console.log("[reconcile] no settled events, skip");
       await saveCronReport({ taskName: "照合バッチ", targetCount: 0, targetAmount: 0, successCount: 0, successAmount: 0, failedCount: 0, failedAmount: 0, failures: [] });
@@ -98,6 +103,8 @@ export async function GET(req: Request) {
     let matched = 0;
     let mismatched = 0;
     let errors = 0;
+    // 開催承認（キャプチャ）待ちで今回は照合しなかった行。照合件数・ログの対象からは除く
+    const pendingCaptureTxIds = new Set<string>();
     const reconcileFailures: FailureDetail[] = [];
     // バッチ実行ログ（reconciliation_logs.summary）用のスナップショット。
     // 後続実行で transactions テーブルの状態が変わっても、このログ行の明細は変化しない。
@@ -155,8 +162,16 @@ export async function GET(req: Request) {
         });
 
         // requires_capture（未キャプチャ）は settled イベントに存在してはならない
-        // → 資金が回収されないまま残っているリスク。明細に記録して管理者に知らせる
+        // → 資金が回収されないまま残っているリスク。明細に記録して管理者に知らせる。
+        // 精算前のイベントは開催承認（キャプチャ）待ちの正常な状態なので、エラーにせず次回に回す
+        // （エラーにすると承認前のイベントが毎朝すべて異常に並び、本物の異常が埋もれる）
         if (pi.status === "requires_capture") {
+          const groupEventId = qrToEventId.get(groupTxs[0]?.qr_config_id ?? "");
+          if (groupEventId && unsettledEventIds.has(groupEventId)) {
+            console.log(`[reconcile] pi=${piId} 開催承認（キャプチャ）待ちのためスキップ event=${groupEventId}`);
+            for (const tx of groupTxs) pendingCaptureTxIds.add(tx.transaction_id);
+            continue;
+          }
           for (const tx of groupTxs) {
             const eventId = qrToEventId.get(tx.qr_config_id!);
             const eventName = eventId ? (eventTitleMap.get(eventId) ?? eventId) : undefined;
@@ -361,10 +376,12 @@ export async function GET(req: Request) {
       }
     }
 
+    const checkedTargets = targets.filter((t) => !pendingCaptureTxIds.has(t.transaction_id));
+
     const { error: logErr } = await admin.from("reconciliation_logs").insert({
       run_at: now.toISOString(),
       target_date: now.toISOString().slice(0, 10),
-      total_checked: targets.length,
+      total_checked: checkedTargets.length,
       total_matched: matched,
       total_mismatched: mismatched,
       total_errors: errors,
@@ -376,20 +393,14 @@ export async function GET(req: Request) {
       console.error(`[reconcile] GROSS MISMATCH: ${mismatched} transactions — investigate immediately`);
     }
 
-    console.log(`[reconcile] done: checked=${targets.length} matched=${matched} mismatched=${mismatched} errors=${errors}`);
+    console.log(`[reconcile] done: checked=${checkedTargets.length} matched=${matched} mismatched=${mismatched} errors=${errors} pending_capture=${pendingCaptureTxIds.size}`);
 
-    const totalAmount = targets.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
-    const matchedAmount = targets
-      .filter((_, i) => {
-        // 簡易: mismatched/errors 以外は成功扱い
-        return true;
-      })
-      .reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
+    const totalAmount = checkedTargets.reduce((s, t) => s + (t.total_gross_amount ?? 0), 0);
 
     await saveCronReport({
       taskName:      "Stripe-DB照合バッチ",
       totalEvents:   touchedEventIds.length,
-      targetCount:   targets.length,
+      targetCount:   checkedTargets.length,
       targetAmount:  totalAmount,
       successCount:  matched,
       successAmount: totalAmount - reconcileFailures.reduce((s, f) => s + f.amount, 0),
@@ -398,7 +409,7 @@ export async function GET(req: Request) {
       failures:      reconcileFailures,
     });
 
-    return NextResponse.json({ success: true, checked: targets.length, matched, mismatched, errors });
+    return NextResponse.json({ success: true, checked: checkedTargets.length, matched, mismatched, errors, pending_capture: pendingCaptureTxIds.size });
   } catch (err: any) {
     console.error("[reconcile] unhandled error:", err?.message ?? err);
     return NextResponse.json({ error: err?.message ?? "unexpected error" }, { status: 500 });

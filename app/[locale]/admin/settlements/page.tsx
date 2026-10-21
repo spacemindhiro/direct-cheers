@@ -9,6 +9,8 @@ import { SettlementDetails, type TxGroup, type DistributionRow } from "@/compone
 import { AdminForcePayoutButton } from "@/components/admin-force-payout-button";
 import { AdminAuthExpiryActions } from "@/components/admin-auth-expiry-actions";
 import { CaptureAllButton } from "@/components/capture-all-button";
+import { ReconcileButton } from "@/components/reconcile-button";
+import { POST_EVENT_GRACE_MS } from "@/lib/purchase-window";
 import { Loader2, Calendar, MapPin, ImageIcon, CheckCircle2, Clock, AlertTriangle, ExternalLink, Zap } from "lucide-react";
 import { AdminBreadcrumb } from "@/components/admin-breadcrumb";
 import Link from "next/link";
@@ -30,18 +32,19 @@ async function SettlementsContent() {
 
   const { net_rate } = await getFeeConfig();
 
-  // 終了済みイベントを取得（公開済み・進行中のイベントでend_at経過 OR 手動終了・精算済み）
+  // 締め時刻（終了3時間後＝当日決済の受付終了）を過ぎたイベント OR 手動終了（終了ボタンは廃止済み・過去分）・精算済み。
+  // 証跡の提出・自動照合と同じ基準（lib/purchase-window.ts）
   // ※ draft/review_requested/cancelled等の未公開イベントはend_atが過去でも対象外
   const now = new Date();
   const AUTH_EXPIRE_DAYS = 7;
-  const nowIso = now.toISOString();
+  const closedBeforeIso = new Date(now.getTime() - POST_EVENT_GRACE_MS).toISOString();
   const { data: events } = await admin
     .from("events")
     .select(`
-      event_id, title, venue, start_at, end_at, lifecycle_status,
+      event_id, title, venue, start_at, end_at, lifecycle_status, capture_approved_at,
       organizer:profiles!organizer_profile_id(display_name)
     `)
-    .or(`lifecycle_status.in.(ended,settled),and(lifecycle_status.in.(published,ongoing),end_at.lt.${nowIso})`)
+    .or(`lifecycle_status.in.(ended,settled),and(lifecycle_status.in.(published,ongoing),end_at.lt.${closedBeforeIso})`)
     .order("end_at", { ascending: false })
     .limit(50);
 
@@ -176,7 +179,14 @@ async function SettlementsContent() {
             // 「承認完了」ではなく「送金待ち」——完了はsettleが成功しlifecycle_status='settled'
             // になった時点（このバッジはそれ以前の中間状態を示すためだけのもの）。
             const hasUnreconciled = qrIds.some((id) => hasUnreconciledRealTxByQr.get(id));
+            const unreconciledCount = qrIds.reduce(
+              (n, id) => n + (txsByQr.get(id) ?? []).filter((tx) => (tx as any).transaction_type !== "invitation" && !(tx as any).reconciled_at).length,
+              0,
+            );
             const readyToSettle = !settled && !isRejected && hasEvidence && gross > 0 && !hasUnreconciled;
+            // 開催承認（キャプチャ）は済んだが、照合がまだ。以前はこの段階を表す記録が無く、押しても「要承認」のままだった
+            const captureApproved = !!(event as any).capture_approved_at;
+            const awaitingReconcile = !settled && !isRejected && captureApproved && hasUnreconciled;
 
             // オーソリ期限（開催開始日 + 7日）
             const authExpiresAt = event.start_at
@@ -242,6 +252,8 @@ async function SettlementsContent() {
                         <span className="text-[9px] font-black text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">差戻し済み</span>
                       ) : readyToSettle ? (
                         <span className="text-[9px] font-black text-sky-400 bg-sky-500/10 border border-sky-500/20 rounded-full px-2 py-0.5 flex items-center gap-1"><CheckCircle2 size={9} />キャプチャ済み・送金待ち</span>
+                      ) : awaitingReconcile ? (
+                        <span className="text-[9px] font-black text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-full px-2 py-0.5 flex items-center gap-1"><CheckCircle2 size={9} />開催承認済み・照合待ち</span>
                       ) : hasEvidence ? (
                         <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-2 py-0.5 uppercase tracking-wider">要承認</span>
                       ) : (
@@ -269,7 +281,7 @@ async function SettlementsContent() {
 
                   {/* 精算ボタン */}
                   {!settled && !isRejected && hasEvidence && gross > 0 && (
-                    <SettleButton eventId={event.event_id} />
+                    <SettleButton eventId={event.event_id} captureApproved={captureApproved} />
                   )}
                 </div>
 
@@ -322,6 +334,16 @@ async function SettlementsContent() {
                   <div className="flex items-center gap-2 text-xs text-slate-600">
                     <Clock size={12} />
                     エビデンス未提出
+                  </div>
+                )}
+
+                {/* 開催承認済み・照合待ち：毎朝5:00の自動照合を待たずに、その場で照合できる */}
+                {awaitingReconcile && (
+                  <div className="flex items-center justify-between gap-3 border border-indigo-500/20 bg-indigo-500/5 rounded-xl p-3">
+                    <p className="text-[10px] text-indigo-200">
+                      開催承認（キャプチャ）済みです。照合が終わると送金できます（毎朝5:00に自動で照合）。
+                    </p>
+                    <ReconcileButton eventId={event.event_id} pendingCount={unreconciledCount} />
                   </div>
                 )}
 

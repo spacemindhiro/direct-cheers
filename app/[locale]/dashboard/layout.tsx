@@ -7,6 +7,8 @@ import { LogoutButton } from '@/components/logout-button';
 import { Loader2, UserCircle, MessageCircle, HelpCircle } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
+import { CheeryRoot } from '@/components/cheery/cheery-root';
+import { CheeryOpenButton } from '@/components/cheery/cheery-open-button';
 
 const STEP_UP_ROLES = ['artist', 'organizer', 'agent', 'admin'] as const;
 const STEP_UP_TTL_MS = 1440 * 60 * 1000; // 24時間
@@ -70,6 +72,7 @@ async function DashboardNav() {
 
   if (profile.role === 'admin') {
     return (
+      <>
       <nav className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-800 px-6 py-4 pt-[calc(1rem_+_env(safe-area-inset-top))]">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-6">
@@ -89,13 +92,17 @@ async function DashboardNav() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard/help"
-              className="w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
-              title="利用マニュアル"
-            >
-              <HelpCircle size={16} className="text-slate-400 hover:text-pink-500 transition-colors" />
-            </Link>
+            {isNativeApp ? (
+              <Link
+                href="/dashboard/help"
+                className="w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
+                title="利用マニュアル"
+              >
+                <HelpCircle size={16} className="text-slate-400 hover:text-pink-500 transition-colors" />
+              </Link>
+            ) : (
+              <CheeryOpenButton />
+            )}
             <Link
               href="/dashboard/messages"
               className="relative w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
@@ -126,6 +133,9 @@ async function DashboardNav() {
           </div>
         </div>
       </nav>
+      {/* チアリー(AI)。ヘッダー（backdrop-blur で position:fixed の基準になる）の外に置く */}
+      <CheeryRoot userId={user.id} role={profile.role} hidden={isNativeApp} />
+      </>
     );
   }
 
@@ -145,13 +155,17 @@ async function DashboardNav() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard/help"
-              className="w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
-              title="利用マニュアル"
-            >
-              <HelpCircle size={16} className="text-slate-400 hover:text-pink-500 transition-colors" />
-            </Link>
+            {isNativeApp ? (
+              <Link
+                href="/dashboard/help"
+                className="w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
+                title="利用マニュアル"
+              >
+                <HelpCircle size={16} className="text-slate-400 hover:text-pink-500 transition-colors" />
+              </Link>
+            ) : (
+              <CheeryOpenButton />
+            )}
             <Link
               href="/dashboard/messages"
               className="relative w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
@@ -185,6 +199,8 @@ async function DashboardNav() {
       {profile?.stripe_connect_id && profile?.stripe_restricted && (
         <StripeRestrictionBanner />
       )}
+      {/* チアリー(AI)。タッチ決済の親機アプリ（ネイティブ）の中では出さない（requirements.md 3章） */}
+      <CheeryRoot userId={user.id} role={profile.role} hidden={isNativeApp} />
     </>
   );
 }
@@ -209,7 +225,8 @@ export default function DashboardLayout({
       {/* 規約再同意の強制(components/terms-gate.tsx)はAIアシスタンス機能と同時に
           リリースするため一時的に外している。戻すときはここに
           <Suspense fallback={null}><TermsGate /></Suspense> を置き直す。 */}
-      <main className="max-w-5xl mx-auto px-6 py-10">
+      {/* 下の余白は、右下のチアリー(AI)の浮きボタンが一番下の要素に重ならないように */}
+      <main className="max-w-5xl mx-auto px-6 pt-10 pb-28">
         {children}
       </main>
     </div>

@@ -28,7 +28,7 @@ function blockText(b: KnowledgeBlock, items: KnowledgeItem[]): string {
 }
 
 // ヘルプ上の場所。「ヘルプ：オーガナイザー＞準備・機能 ⑫」
-function helpLocation(item: KnowledgeItem, items: KnowledgeItem[]): string | null {
+export function helpLocation(item: KnowledgeItem, items: KnowledgeItem[] = KNOWLEDGE_ITEMS): string | null {
   if (!item.help) return null;
   const tab = helpTabLabel(item.help.tab);
   if (item.kind === "faq") return `ヘルプ：${tab}＞よくある質問`;
@@ -36,9 +36,10 @@ function helpLocation(item: KnowledgeItem, items: KnowledgeItem[]): string | nul
   return `ヘルプ：${tab}${group ? `＞${group.label}` : ""} ${helpNumber(item.id, items)}`;
 }
 
+// 見出しの末尾の〔ID〕は、AI が答えの根拠を〔参照:ID〕で挙げるためのもの（画面はそこから行き先ボタン・動画カードを作る）
 export function itemText(item: KnowledgeItem, items: KnowledgeItem[] = KNOWLEDGE_ITEMS): string {
   const loc = helpLocation(item, items);
-  const suffix = loc ? `（${loc}）` : "";
+  const suffix = `${loc ? `（${loc}）` : ""}〔${item.id}〕`;
   if (item.kind === "faq") return `### Q. ${toPlainText(item.q, items)}${suffix}\nA. ${toPlainText(item.a, items)}`;
   return `### ${item.title}${suffix}\n${item.body.map((b) => blockText(b, items)).join("\n")}`;
 }

@@ -6,6 +6,7 @@ import { modelFor } from "@/lib/ai/config";
 import { providerFor } from "@/lib/ai/providers";
 import { sendCheeryMonthlyStopEmail } from "@/lib/email/notification";
 import { connectDcMcp } from "@/lib/mcp/in-process";
+import { REFS_SEPARATOR, extractRefs } from "@/lib/ai/refs";
 
 export const maxDuration = 60;
 
@@ -60,16 +61,19 @@ export async function POST(req: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
+        let answer = "";
         const result = await runAndRecord(deps, {
           profileId: user.id,
           role,
           turns: prepared.turns,
           screen: parsed.data.screen,
-          onText: (d) => controller.enqueue(encoder.encode(d)),
+          onText: (d) => { answer += d; controller.enqueue(encoder.encode(d)); },
           signal: req.signal,
         });
         const note = FINISH_NOTES[result.finish];
         if (note) controller.enqueue(encoder.encode(`\n\n${note}`));
+        // 答えの根拠に挙がった項目から、行き先ボタン・動画カードの材料を作って最後に付ける（本人のロールで見てよい項目だけ）
+        controller.enqueue(encoder.encode(`${REFS_SEPARATOR}${JSON.stringify({ refs: extractRefs(answer, role) })}`));
       } catch (err) {
         console.error("[cheery/chat] 応答に失敗:", (err as { constructor?: { name?: string } })?.constructor?.name ?? "unknown",
           (err as { status?: number })?.status ?? "");

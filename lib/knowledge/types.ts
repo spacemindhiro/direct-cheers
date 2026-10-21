@@ -34,6 +34,9 @@ type ItemBase = {
   tier?: "core" | "detail";
   // detail の項目の目次に添える「中に何が書いてあるか」。AI が質問と関係あると気づけるよう、具体的な話題を並べる
   indexHint?: string;
+  // チアリー(AI) の答えに出す「行き先ボタン」。その操作をする画面（URL にイベントIDなどを含まない固定の画面だけ）。
+  // AI には URL を作らせず、AI が根拠に挙げた項目のここから画面がボタンを作る
+  goto?: { href: string; label: string };
 };
 
 export type KnowledgeSection = ItemBase & {

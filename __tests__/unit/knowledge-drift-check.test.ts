@@ -57,6 +57,16 @@ describe("TC-KNOWLEDGE-DRIFT: 項目の切り出し", () => {
     }
   });
 
+  // 行き先ボタンの画面が実在する（ロケール付きの画面は app/[locale] の下にある）
+  it("goto（行き先ボタン）の画面がすべて実在する", () => {
+    for (const item of KNOWLEDGE_ITEMS) {
+      if (!item.goto) continue;
+      const href = item.goto.href;
+      const exists = [`app/[locale]${href}/page.tsx`, `app${href}/page.tsx`].some((f) => { try { readFileSync(f); return true; } catch { return false; } });
+      expect(`${item.id}:${href}:${href.startsWith("/") && !href.includes("[") && exists}`).toBe(`${item.id}:${href}:true`);
+    }
+  });
+
   // sources が無い項目は、画面や仕様が変わっても直し忘れを検知できない（PR182 のサンクス特典のお知らせが素通りした）
   it("すべての項目に sources（案内の根拠のコード）がある", () => {
     const without = KNOWLEDGE_ITEMS.filter((i) => !i.sources?.length).map((i) => i.id);

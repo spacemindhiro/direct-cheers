@@ -28,6 +28,7 @@ export const STAFF_ITEMS: KnowledgeItem[] = [
     kind: "section",
     id: "agent.approve",
     minRole: "agent",
+    goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "イベント公開の承認（エージェント）",
     sources: ["app/api/events/[eventId]/approve/route.ts"],
     body: [
@@ -45,6 +46,7 @@ export const STAFF_ITEMS: KnowledgeItem[] = [
     kind: "section",
     id: "agent.cancel-approve",
     minRole: "agent",
+    goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "中止申請の承認・却下（エージェント）",
     sources: ["app/api/events/[eventId]/cancel/route.ts"],
     body: [
@@ -56,6 +58,7 @@ export const STAFF_ITEMS: KnowledgeItem[] = [
     kind: "section",
     id: "agent.proxy-draft",
     minRole: "agent",
+    goto: { href: "/dashboard/events/create", label: "イベント作成を開く" },
     title: "主催者の代わりにイベントを下書きする",
     sources: ["app/api/events/create/route.ts", "app/api/events/[eventId]/proxy-notify/route.ts", "lib/proxy-draft.ts"],
     body: [
@@ -75,6 +78,7 @@ export const STAFF_ITEMS: KnowledgeItem[] = [
     kind: "section",
     id: "agent.handoff",
     minRole: "agent",
+    goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "担当の引き継ぎ（代打）",
     sources: ["app/api/events/[eventId]/handoff/route.ts", "lib/terms.ts"],
     body: [
@@ -94,6 +98,7 @@ export const STAFF_ITEMS: KnowledgeItem[] = [
     kind: "section",
     id: "agent.deadline-warning",
     minRole: "agent",
+    goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "精算期限の警告が届いたとき",
     sources: ["app/api/admin/check-auth-expiry/route.ts", "lib/settlement-deadline.ts"],
     body: [
@@ -115,6 +120,7 @@ export const STAFF_ITEMS: KnowledgeItem[] = [
     kind: "section",
     id: "admin.duties",
     minRole: "admin",
+    goto: { href: "/admin/settlements", label: "Settlements を開く" },
     title: "運営（admin）だけが行う操作",
     sources: [
       "app/api/events/[eventId]/settle/route.ts",

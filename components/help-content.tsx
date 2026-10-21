@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   HelpCircle,
   KeyRound,
@@ -33,9 +34,9 @@ import {
 } from "lucide-react";
 import { TutorialVideoButton } from "./tutorial-video-button";
 import { TUTORIAL_VIDEO_IDS } from "@/lib/tutorial-videos";
-import { helpSections, helpFaqs, helpTitle, HELP_TABS, HELP_GROUPS, type HelpTab, type HelpGroup } from "@/lib/knowledge";
+import { KNOWLEDGE_ITEMS, helpSections, helpFaqs, helpTitle, HELP_TABS, HELP_GROUPS, type HelpTab, type HelpGroup } from "@/lib/knowledge";
 import { parseMarkup } from "@/lib/knowledge/markup";
-import type { KnowledgeBlock, KnowledgeSection, HelpIconTone } from "@/lib/knowledge/types";
+import type { KnowledgeBlock, KnowledgeItem, KnowledgeSection, HelpIconTone } from "@/lib/knowledge/types";
 import type { HelpIconName } from "@/lib/knowledge/placement";
 
 // ヘルプの中身は lib/knowledge/items/ が単一の正（チアリー(AI)と共有）。ここは見た目だけを持つ。
@@ -70,21 +71,25 @@ function Rich({ text }: { text: string }) {
 }
 
 function Section({
+  id,
   icon,
   title,
   subtitle,
   videoId,
+  initialOpen = false,
   children,
 }: {
+  id?: string;
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   videoId?: string;
+  initialOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+    <div id={id ? `help-${id}` : undefined} className={`bg-slate-800 border rounded-2xl p-5 space-y-4 scroll-mt-24 ${initialOpen ? "border-pink-500/60" : "border-slate-700"}`}>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -164,11 +169,13 @@ function Block({ block }: { block: KnowledgeBlock }) {
   }
 }
 
-function KnowledgeSectionCard({ section }: { section: KnowledgeSection }) {
+function KnowledgeSectionCard({ section, focusId }: { section: KnowledgeSection; focusId?: string }) {
   const help = section.help!;
   const Icon = ICONS[help.icon];
   return (
     <Section
+      id={section.id}
+      initialOpen={section.id === focusId}
       icon={<Icon size={16} className={ICON_TONE[help.iconTone ?? "pink"]} />}
       title={helpTitle(section)}
       subtitle={help.subtitle}
@@ -179,18 +186,18 @@ function KnowledgeSectionCard({ section }: { section: KnowledgeSection }) {
   );
 }
 
-function SectionList({ tab, group }: { tab: HelpTab; group?: HelpGroup }) {
+function SectionList({ tab, group, focusId }: { tab: HelpTab; group?: HelpGroup; focusId?: string }) {
   return (
     <div className="space-y-4">
-      {helpSections(tab, group).map((s) => <KnowledgeSectionCard key={s.id} section={s} />)}
+      {helpSections(tab, group).map((s) => <KnowledgeSectionCard key={s.id} section={s} focusId={focusId} />)}
     </div>
   );
 }
 
-function Faq({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false);
+function Faq({ id, q, a, initialOpen = false }: { id: string; q: string; a: string; initialOpen?: boolean }) {
+  const [open, setOpen] = useState(initialOpen);
   return (
-    <div className="border border-slate-700 rounded-xl overflow-hidden">
+    <div id={`help-${id}`} className={`border rounded-xl overflow-hidden scroll-mt-24 ${initialOpen ? "border-pink-500/60" : "border-slate-700"}`}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
@@ -208,7 +215,7 @@ function Faq({ q, a }: { q: string; a: string }) {
   );
 }
 
-function FaqList({ tab }: { tab: HelpTab }) {
+function FaqList({ tab, focusId }: { tab: HelpTab; focusId?: string }) {
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-3">
       <div className="flex items-center gap-3">
@@ -218,24 +225,24 @@ function FaqList({ tab }: { tab: HelpTab }) {
         <p className="text-sm font-black text-white">よくある質問</p>
       </div>
       <div className="space-y-2">
-        {helpFaqs(tab).map((f) => <Faq key={f.id} q={f.q} a={f.a} />)}
+        {helpFaqs(tab).map((f) => <Faq key={f.id} id={f.id} q={f.q} a={f.a} initialOpen={f.id === focusId} />)}
       </div>
     </div>
   );
 }
 
 // 一般ユーザー・アーティスト：項目の下によくある質問
-function SimpleGuide({ tab }: { tab: HelpTab }) {
+function SimpleGuide({ tab, focusId }: { tab: HelpTab; focusId?: string }) {
   return (
     <div className="space-y-4">
-      {helpSections(tab).map((s) => <KnowledgeSectionCard key={s.id} section={s} />)}
-      <FaqList tab={tab} />
+      {helpSections(tab).map((s) => <KnowledgeSectionCard key={s.id} section={s} focusId={focusId} />)}
+      <FaqList tab={tab} focusId={focusId} />
     </div>
   );
 }
 
-function OrganizerGuide() {
-  const [group, setGroup] = useState<HelpGroup>("prep");
+function OrganizerGuide({ initialGroup = "prep", focusId }: { initialGroup?: HelpGroup; focusId?: string }) {
+  const [group, setGroup] = useState<HelpGroup>(initialGroup);
 
   return (
     <div className="space-y-4">
@@ -254,21 +261,34 @@ function OrganizerGuide() {
         ))}
       </div>
 
-      <SectionList key={group} tab="organizer" group={group} />
+      <SectionList key={group} tab="organizer" group={group} focusId={focusId} />
 
-      <FaqList tab="organizer" />
+      <FaqList tab="organizer" focusId={focusId} />
     </div>
   );
 }
 
-export function HelpContent({
+// ?item=<知識集の項目ID> が付いていれば、その項目のタブ・グループを選び、開いた状態でそこまでスクロールする
+// （チアリー(AI) の答えの「ヘルプで見る」ボタンから来る）。見られないタブの項目は無視する
+export function HelpContent(props: { defaultRole: HelpRole; visibleRoles: HelpRole[] }) {
+  const focusParam = useSearchParams().get("item");
+  const focus = KNOWLEDGE_ITEMS.find((i) => i.id === focusParam && i.help && props.visibleRoles.includes(i.help.tab));
+  return <HelpBody key={focus?.id ?? ""} {...props} focus={focus} />;
+}
+
+function HelpBody({
   defaultRole,
   visibleRoles,
+  focus,
 }: {
   defaultRole: HelpRole;
   visibleRoles: HelpRole[];
+  focus?: KnowledgeItem;
 }) {
-  const [tab, setTab] = useState<HelpRole>(defaultRole);
+  const [tab, setTab] = useState<HelpRole>(focus?.help?.tab ?? defaultRole);
+  useEffect(() => {
+    if (focus) document.getElementById(`help-${focus.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focus]);
   const tabs = HELP_TABS.filter((t) => visibleRoles.includes(t.id));
 
   return (
@@ -297,7 +317,9 @@ export function HelpContent({
         </div>
       )}
 
-      {tab === "organizer" ? <OrganizerGuide /> : <SimpleGuide key={tab} tab={tab} />}
+      {tab === "organizer"
+        ? <OrganizerGuide initialGroup={focus?.kind === "section" ? focus.help?.group : undefined} focusId={focus?.id} />
+        : <SimpleGuide key={tab} tab={tab} focusId={focus?.id} />}
 
       <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-start gap-3">
         <Mail size={14} className="text-slate-500 mt-0.5 shrink-0" />

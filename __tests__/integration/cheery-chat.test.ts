@@ -23,6 +23,7 @@ vi.mock("@/lib/email/notification", () => ({ sendCheeryMonthlyStopEmail: vi.fn(a
 
 import { createClient } from "@/lib/supabase/server";
 import { providerFor } from "@/lib/ai/providers";
+import { REFS_SEPARATOR } from "@/lib/cheery/stream";
 import { POST } from "@/app/api/cheery/chat/route";
 import { runAndRecord, type CheeryDeps } from "@/lib/ai/chat";
 import { reserveRequest, recordUsage, jstPeriod } from "@/lib/ai/limits";
@@ -217,7 +218,8 @@ describe("TC-CHEERY-CHAT-C: /api/cheery/chat", () => {
     const res = await POST(chatReq({ turns: [{ role: "user", text: "出金はいつ？電話は090-1234-5678" }], screen: "payout" }));
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
-    expect(await res.text()).toBe("出金は14日後です");
+    // 本文のあとに、行き先ボタン・動画カードの材料が区切り記号つきで付く（根拠の参照が無ければ空）
+    expect(await res.text()).toBe(`出金は14日後です${REFS_SEPARATOR}{"refs":[]}`);
     const row = await usageRow(userId, today);
     expect(Object.keys(row ?? {}).sort()).toEqual(["cache_read_tokens", "cache_write_tokens", "cost_usd", "input_tokens", "output_tokens", "profile_id", "request_count", "updated_at", "usage_date"]);
     expect([row?.request_count, Number(row?.input_tokens), Number(row?.cache_write_tokens), Number(row?.output_tokens)]).toEqual([1, 100, 2000, 50]);
@@ -240,6 +242,15 @@ describe("TC-CHEERY-CHAT-C: /api/cheery/chat", () => {
     await (await POST(chatReq({ turns: [{ role: "user", text: "エビデンスの期限は？" }] }))).text();
     expect(captured?.systemStable.includes("### エビデンス提出")).toBe(true);
     expect(captured?.systemStable.includes("### 担当の引き継ぎ（代打）")).toBe(false);
+  });
+
+  it("C-06b: 答えの〔参照〕は本人のロールで見てよい項目だけカードにする（上位ロール向けの ID を書かれても出さない）", async () => {
+    asUser(userId);
+    fakeProvider(["マイチケットで確認できます。\n", "〔参照:user.my-tickets,organizer.create-qr〕"]);
+    const body = await (await POST(chatReq({ turns: [{ role: "user", text: "チケットはどこ？" }] }))).text();
+    const [text, trailer] = body.split(REFS_SEPARATOR);
+    expect(text).toBe("マイチケットで確認できます。\n〔参照:user.my-tickets,organizer.create-qr〕");
+    expect((JSON.parse(trailer).refs as { id: string }[]).map((r) => r.id)).toEqual(["user.my-tickets"]);
   });
 
   it("C-07: AIが失敗しても、ログに会話の中身を出さない", async () => {

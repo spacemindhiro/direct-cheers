@@ -244,10 +244,14 @@ describe("TC-KNOWLEDGE: ロール別の組み立て（AIに渡す範囲）", () 
     const headings = text.split("\n").filter((l) => l.startsWith("### "));
     const upper = KNOWLEDGE_ITEMS.filter((i) => i.kind === "section" && i.minRole !== "user") as KnowledgeSection[];
     for (const s of upper) {
-      const hit = headings.some((h) => h === `### ${s.title}` || h.startsWith(`### ${s.title}（`));
+      const hit = headings.some((h) => h.startsWith(`### ${s.title}（`) || h.startsWith(`### ${s.title}〔`));
       expect(`${s.id}:${hit}`).toBe(`${s.id}:false`);
     }
     expect(text.includes("出金管理")).toBe(false);
+    // 検査そのものが効いている：ヘルプに載らない上位ロール向け項目の見出しを混ぜたら検出する
+    const staff = upper.find((s) => !s.help)!;
+    const polluted = `${text}\n### ${staff.title}〔${staff.id}〕`.split("\n").filter((l) => l.startsWith("### "));
+    expect(polluted.some((h) => h.startsWith(`### ${staff.title}〔`))).toBe(true);
   });
 
   it("exceptRoles に入れたロールには、上位でも渡さない", () => {
@@ -261,7 +265,7 @@ describe("TC-KNOWLEDGE: ロール別の組み立て（AIに渡す範囲）", () 
     const evidence = KNOWLEDGE_ITEMS.find((i) => i.id === "organizer.evidence")!;
     expect(itemText(evidence)).toBe(
       [
-        "### エビデンス提出（ヘルプ：オーガナイザー＞準備・機能 ⑬）",
+        "### エビデンス提出（ヘルプ：オーガナイザー＞準備・機能 ⑬）〔organizer.evidence〕",
         "イベント終了後、「開催証跡を提出して承認依頼する」から、写真（最大10枚）・動員数・コメント（任意）を提出します。",
         "- 提出しただけでは自動で精算されません。運営が証跡を確認したうえで精算処理が実行されます",
         "- 差し戻された場合はダッシュボードに通知が表示され、再提出できます",
@@ -271,7 +275,7 @@ describe("TC-KNOWLEDGE: ロール別の組み立て（AIに渡す範囲）", () 
     );
     const faq = KNOWLEDGE_ITEMS.find((i) => i.id === "artist.faq.payout-when")!;
     expect(itemText(faq)).toBe(
-      `### Q. 出金はいつからできますか？（ヘルプ：アーティスト＞よくある質問）\nA. 決済が行われてから2週間（14日）後に出金可能になります（振込手数料¥${TRANSFER_FEE}が差し引かれます）。「出金管理」で「◯月◯日以降に出金可能」と表示されます。`,
+      `### Q. 出金はいつからできますか？（ヘルプ：アーティスト＞よくある質問）〔artist.faq.payout-when〕\nA. 決済が行われてから2週間（14日）後に出金可能になります（振込手数料¥${TRANSFER_FEE}が差し引かれます）。「出金管理」で「◯月◯日以降に出金可能」と表示されます。`,
     );
   });
 
@@ -279,7 +283,7 @@ describe("TC-KNOWLEDGE: ロール別の組み立て（AIに渡す範囲）", () 
     const checklist = KNOWLEDGE_ITEMS.find((i) => i.id === "organizer.dayof.checklist")!;
     const text = itemText(checklist);
     expect(text.split("\n").slice(0, 3)).toEqual([
-      "### 当日オペレーション（時系列）（ヘルプ：オーガナイザー＞当日の運用 ④）",
+      "### 当日オペレーション（時系列）（ヘルプ：オーガナイザー＞当日の運用 ④）〔organizer.dayof.checklist〕",
       "当日スタッフが手元で見る前提の、時間順のチェックリストです。①〜③の機能説明とあわせてご覧ください。",
       "【前日まで】",
     ]);

@@ -15,6 +15,7 @@ import { KNOWLEDGE_DETAIL, knowledgeDetail } from "./tools/knowledge-detail";
 import { MY_STATS, STATS_HIDDEN_ROLES, myStats } from "./tools/my-stats";
 import { MY_QR_TARGETS, myQrTargets } from "./tools/my-qr-targets";
 import { MY_INVITATIONS, myInvitations } from "./tools/my-invitations";
+import { EVENT_DETAIL, eventDetail } from "./tools/event-detail";
 import { detailIndexForRole } from "@/lib/knowledge/assemble";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
@@ -116,6 +117,13 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       MY_EVENTS.name,
       { title: MY_EVENTS.title, description: MY_EVENTS.description, inputSchema: MY_EVENTS.inputSchema, annotations: readOnly },
       async (input) => safe(() => myEvents(ctx, input)),
+    );
+  }
+  if (allowed(EVENT_DETAIL.minRole)) {
+    server.registerTool(
+      EVENT_DETAIL.name,
+      { title: EVENT_DETAIL.title, description: EVENT_DETAIL.description, inputSchema: EVENT_DETAIL.inputSchema, annotations: readOnly },
+      async (input) => safe(() => eventDetail(ctx, input)),
     );
   }
   return server;

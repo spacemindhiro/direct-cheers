@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEventAccess } from "@/lib/event-access";
+import { eventActions, qrProductTypeLabel } from "@/lib/event-actions";
 import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, Pencil, CheckCircle2, ScanLine } from "lucide-react";
 import { EventEndButton } from "@/components/event-end-button";
 import Link from "next/link";
@@ -21,21 +22,6 @@ import { LiveSalesBoard } from "@/components/live-sales-board";
 import { EventPayPayToggle } from "@/components/event-paypay-toggle";
 import { EventDetailTabs } from "@/components/event-detail-tabs";
 import { EventAgentContact } from "@/components/event-agent-contact";
-
-// QR一覧の商品タイプ表示ラベル（type + entrance/customのpayment_type）
-const CUSTOM_SUBTYPE_LABELS: Record<string, string> = {
-  V: "バウチャー",
-  D: "ドリンクチケット",
-};
-
-function qrProductTypeLabel(type: string | undefined, paymentType: string | null | undefined): string {
-  if (!type) return "";
-  if (type === "standard") return "スタンダード";
-  if (type === "message") return "メッセージ";
-  if (type === "entrance") return `エントランス（${paymentType ?? "?"}）`;
-  if (type === "custom") return `カスタム（${CUSTOM_SUBTYPE_LABELS[paymentType ?? "V"] ?? paymentType ?? "V"}）`;
-  return type;
-}
 
 async function EventDetailContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -80,14 +66,29 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     .eq("is_read", false)
     .filter("metadata->>event_id", "eq", eventId);
 
-  const isAdmin = profile?.role === "admin";
-  // ロールではなく「このイベントとの関係」で判定する
-  const isEventOrganizer = event.organizer_profile_id === user.id;
-  const isEventAgent = event.agent_id === user.id && (profile?.role === "agent" || isAdmin);
   // ロールではなく「このイベントの出演者として招待されているか」で判定
-  const isLineupArtist = (event.event_artists ?? []).some(
+  const isLineupArtistHere = (event.event_artists ?? []).some(
     (ea: any) => ea.artist_profile_id === user.id && ea.deleted_at === null && ea.status !== "rejected"
   );
+
+  // 代打（エージェント引き継ぎ）
+  const { data: pendingHandoff } = await adminClient
+    .from("event_agent_handoffs")
+    .select(`
+      handoff_id, from_agent_id, to_agent_id,
+      to_agent:profiles!to_agent_id(display_name, organizer_name),
+      from_agent:profiles!from_agent_id(display_name, organizer_name)
+    `)
+    .eq("event_id", eventId)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  // 「この人が今できる操作」の判定はチアリー(AI) の event_detail と共用（lib/event-actions.ts）
+  const {
+    isAdmin, isEventOrganizer, isEventAgent, isLineupArtist, isSelfOrganized, hasEnded,
+    canRequestReview, canProxyNotify, canApprove, canCreateQR, canSubmitEvidence, canEndEvent,
+    canRequestCancel, canApproveCancellation, isHandoffCandidate, canRequestHandoff,
+  } = eventActions({ userId: user.id, role: profile?.role, event, isLineupArtist: isLineupArtistHere, pendingHandoff });
 
   const { data: allQrConfigs } = await adminClient
     .from("qr_configs")
@@ -110,11 +111,6 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
     const myQrIds = new Set((myTargets ?? []).map((t: any) => t.qr_config_id));
     qrConfigs = qrConfigs.filter((qr) => myQrIds.has(qr.qr_config_id));
   }
-  const canRequestReview = isEventOrganizer && event.lifecycle_status === "draft";
-  const isSelfOrganized = event.agent_id === event.organizer_profile_id;
-  // 担当エージェント（またはadmin）が主催者名義の下書きを主催者に送る（代理作成の確認依頼）
-  const canProxyNotify = (isEventAgent || isAdmin) && event.lifecycle_status === "draft" &&
-    !isSelfOrganized && event.organizer_profile_id !== user.id;
   const { data: lastProxyNotif } = canProxyNotify
     ? await adminClient.from("notifications").select("created_at")
         .eq("profile_id", event.organizer_profile_id).eq("type", "proxy_event_created")
@@ -127,40 +123,6 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       ? (await findUnsentLineupInvites(adminClient, eventId)).map((u) => u.artist_profile_id)
       : [],
   );
-  const canApprove = (isEventAgent || isAdmin) && event.lifecycle_status === "review_requested" &&
-    (!isSelfOrganized || isAdmin);
-  const canCreateQR = (isEventOrganizer || isEventAgent) &&
-    ["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status);
-  const hasEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
-  const canSubmitEvidence =
-    (isEventOrganizer || isEventAgent) &&
-    hasEnded && event.lifecycle_status !== "settled";
-  const canEndEvent = isEventOrganizer && ["published", "ongoing"].includes(event.lifecycle_status);
-
-  const cancellableStatuses = ["draft", "review_requested", "published", "ongoing"];
-  const canRequestCancel = isEventOrganizer &&
-    cancellableStatuses.includes(event.lifecycle_status);
-  const canApproveCancellation = (isEventAgent || isAdmin) &&
-    event.lifecycle_status === "cancellation_requested";
-
-  // 代打（エージェント引き継ぎ）
-  const HANDOFF_ELIGIBLE_STATUSES = ["review_requested", "published", "ongoing"];
-  const { data: pendingHandoff } = await adminClient
-    .from("event_agent_handoffs")
-    .select(`
-      handoff_id, from_agent_id, to_agent_id,
-      to_agent:profiles!to_agent_id(display_name, organizer_name),
-      from_agent:profiles!from_agent_id(display_name, organizer_name)
-    `)
-    .eq("event_id", eventId)
-    .eq("status", "pending")
-    .maybeSingle();
-
-  const isHandoffCandidate = pendingHandoff?.to_agent_id === user.id;
-  // 自主開催（エージェント自身が主催者）のイベントは承認がadminルートのため代打の対象外
-  const canRequestHandoff = isEventAgent && !isAdmin && !isSelfOrganized && !pendingHandoff &&
-    HANDOFF_ELIGIBLE_STATUSES.includes(event.lifecycle_status);
-
   const { data: candidateAgentRows } = canRequestHandoff
     ? await adminClient
         .from("profiles")

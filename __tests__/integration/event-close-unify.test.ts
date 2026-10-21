@@ -11,6 +11,8 @@
  *   E. タッチ決済は締め時刻かオーソリから24時間の早い方で自動キャプチャ。QR自己決済（オンライン）は待つ
  *   F. 締め時刻を過ぎて証跡が未提出なら、主催者に提出依頼・担当エージェントにフォロー依頼
  *      （自主催は admin へ）。期限2日前に催促。関係者以外には届かない
+ *   G. 売上ボードの「確定済み」表示：キャプチャ済み・PayPay・前売即時確定（エントランスB）と、同じ決済の
+ *      ウェルカムチアに付く。取消できる人（主催者・担当エージェント・admin）にだけ渡す
  *
  * Stripe はモック（PIごとの状態を piStore で持つ）。DB は共有のローカルDBなので、cron の応答の件数ではなく
  * このテストが作った行の状態で確かめる。
@@ -24,6 +26,8 @@ import {
   insertTransaction,
   insertProduct,
   insertEventEvidence,
+  insertEventArtist,
+  insertDistribution,
 } from "../helpers/seed";
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 
@@ -93,6 +97,7 @@ import { GET as reconcileGET } from "@/app/api/cron/reconcile/route";
 import { POST as captureAllPOST } from "@/app/api/admin/events/[eventId]/capture-all/route";
 import { GET as touchpayCaptureGET } from "@/app/api/cron/touchpay-capture/route";
 import { GET as evidenceRequestGET } from "@/app/api/cron/evidence-request/route";
+import { GET as liveStatsGET } from "@/app/api/events/[eventId]/live-stats/route";
 import { EVIDENCE_NOTIFICATION } from "@/lib/evidence-request";
 
 const H = 3600_000;
@@ -169,11 +174,11 @@ async function makeQr(eventId: string, opts: { touchpay?: boolean; productId?: s
   return qr;
 }
 
-async function makeTx(qrConfigId: string, piId: string, opts: { createdAt?: Date; reconciled?: boolean; amount?: number } = {}) {
+async function makeTx(qrConfigId: string, piId: string, opts: { createdAt?: Date; reconciled?: boolean; amount?: number; piSequence?: number } = {}) {
   const amount = opts.amount ?? 1000;
   const id = await insertTransaction({
     qrConfigId, grossAmount: amount, netAmount: amount - 140, stripeFee: 40, platformFee: 100,
-    stripePaymentIntentId: piId, reconciled: opts.reconciled ?? false,
+    stripePaymentIntentId: piId, reconciled: opts.reconciled ?? false, stripePiSequence: opts.piSequence,
   });
   cleanup.transactionIds.push(id);
   if (opts.createdAt) await testAdmin.from("transactions").update({ created_at: opts.createdAt.toISOString() }).eq("transaction_id", id);
@@ -575,5 +580,54 @@ describe("TC-CLOSE-F: 証跡提出の依頼・催促（cron/evidence-request）"
     // 提出で admin 宛ての「証跡提出」通知も増えるので、依頼の種類だけを見る
     const n = (await notifs(ev.normal)).filter((r) => r.type === EVIDENCE_NOTIFICATION.request || r.type === EVIDENCE_NOTIFICATION.requestFollow);
     expect(n.map((r) => [r.profile_id, r.is_read])).toEqual([[organizerId, true], [agentId, true]]);
+  });
+});
+
+// ── G. 売上ボードの「確定済み」表示 ─────────────────────────────────────
+describe("TC-CLOSE-G: 売上ボードの「確定済み」表示（live-stats の captured）", () => {
+  let e: string;
+  const tx: Record<string, string> = {};
+
+  beforeAll(async () => {
+    e = await makeEvent({ title: "TC-CLOSE-G 売上ボード", startAt: ago(1 * H), endAt: later(3 * H) });
+    const qr = await makeQr(e);
+    const entranceB = await insertProduct({ eventId: e, name: "前売B", type: "entrance", paymentType: "B", minAmount: 3000, maxAmount: 3000 });
+    const drink = await insertProduct({ eventId: e, name: "ウェルカムドリンク", type: "custom", paymentType: "D", minAmount: 500, maxAmount: 500 });
+    const mk = async (key: string, pi: string, patch: Record<string, unknown> = {}, piSequence = 0) => {
+      tx[key] = await makeTx(qr, pi, { piSequence });
+      if (Object.keys(patch).length) await testAdmin.from("transactions").update(patch).eq("transaction_id", tx[key]);
+    };
+    await mk("authorized", `pi_g_auth_${ts}`);
+    await mk("captured", `pi_g_cap_${ts}`, { captured_at: new Date().toISOString() });
+    await mk("paypay", `pi_g_pp_${ts}`, { payment_method: "paypay" });
+    // 前売即時確定（エントランスB）と、同じ決済にまとめて支払われたウェルカムチア
+    await mk("entranceB", `pi_g_b_${ts}`, { product_id: entranceB });
+    await mk("welcome", `pi_g_b_${ts}`, { product_id: drink }, 1);
+
+    // 出演者：自分宛ての配分がある決済だけ見える。キャプチャ済みでも「確定済み」は渡さない（取消できないため）
+    await insertEventArtist({ eventId: e, artistProfileId: artistId });
+    await insertDistribution({ transactionId: tx.captured, eventId: e, profileId: artistId, role: "artist", actualAmount: 500 });
+  }, 60_000);
+
+  async function capturedFlags(id: string, role: string) {
+    mockAs(id, role);
+    const res = await liveStatsGET(new Request(`http://localhost/api/events/${e}/live-stats`), { params: Promise.resolve({ eventId: e }) });
+    const data = await res.json();
+    return Object.fromEntries((data.recent_transactions as any[]).map((t) => [t.transaction_id, t.captured]));
+  }
+
+  it("TC-CLOSE-G-01: 主催者：キャプチャ済み・PayPay・エントランスB・同じ決済のウェルカムチアが確定済み、オーソリ中は違う", async () => {
+    const f = await capturedFlags(organizerId, "organizer");
+    expect([f[tx.authorized], f[tx.captured], f[tx.paypay], f[tx.entranceB], f[tx.welcome]]).toEqual([false, true, true, true, true]);
+  });
+
+  it("TC-CLOSE-G-02: 担当エージェントにも同じ表示", async () => {
+    const f = await capturedFlags(agentId, "agent");
+    expect([f[tx.authorized], f[tx.captured], f[tx.paypay], f[tx.entranceB], f[tx.welcome]]).toEqual([false, true, true, true, true]);
+  });
+
+  it("TC-CLOSE-G-03: 出演者には確定済みを渡さない（キャプチャ済みの決済でも false）", async () => {
+    const f = await capturedFlags(artistId, "artist");
+    expect(f).toEqual({ [tx.captured]: false });
   });
 });

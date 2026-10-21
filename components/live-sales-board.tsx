@@ -144,19 +144,26 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
 
   const handleCancelTx = useCallback(async (tx: TxItem) => {
     const label = tx.product_name ?? PRODUCT_TYPE_LABEL[tx.product_type ?? ""] ?? "決済";
-    const feeNote = tx.payment_method === "paypay"
-      ? "PayPay決済のため返金となり、決済手数料はオーガナイザー負担になります。"
-      : tx.captured
-        ? "売上が確定済みのため返金となり、決済手数料はオーガナイザー負担になります。"
-        : "カード決済のためオーソリ取消となり、手数料の負担はありません。";
     const who = tx.sender_name ?? tx.sender_email ?? "ゲスト";
-    if (!confirm(`この決済を取り消しますか？\n\n${label} / ${who} / ${formatJPY(tx.total_gross_amount ?? 0)}\n\n${feeNote}`)) return;
+    const url = `/api/events/${eventId}/transactions/${tx.transaction_id}/cancel`;
 
     setCancellingId(tx.transaction_id);
     try {
-      const res = await fetch(`/api/events/${eventId}/transactions/${tx.transaction_id}/cancel`, {
-        method: "POST",
-      });
+      // 取り消すとどうなるか（オーソリ取消か返金か）を、その時点のStripeの状態でサーバーに確かめてから確認を出す。
+      // 一覧の「確定済み」表示や決済手段からの推測では、即時確定の決済などで実際の処理と食い違うことがあった
+      const preview = await fetch(url);
+      const p = await preview.json();
+      if (!preview.ok) {
+        alert(p.error ?? "取り消せない決済です");
+        return;
+      }
+      const feeNote = p.mode === "refund"
+        ? `売上が確定済みのため返金になります。決済手数料${p.fee > 0 ? ` ${formatJPY(p.fee)}` : ""}はオーガナイザー負担になります。`
+        : "オーソリ（与信）の取消になり、手数料の負担はありません。";
+      const siblings = p.rows > 1 ? `\n（同じ決済にまとめて支払われた${p.rows}件がすべて取り消されます）` : "";
+      if (!confirm(`この決済を取り消しますか？\n\n${label} / ${who} / ${formatJPY(tx.total_gross_amount ?? 0)}\n\n${feeNote}${siblings}`)) return;
+
+      const res = await fetch(url, { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         alert(data.error ?? "取り消しに失敗しました");
@@ -442,6 +449,11 @@ export function LiveSalesBoard({ eventId }: { eventId: string }) {
                               <span> · {PRODUCT_TYPE_LABEL[tx.product_type]}</span>
                             )}
                             {tx.payment_method === "paypay" && <span> · PayPay</span>}
+                            {tx.captured && (
+                              <span className="ml-1 inline-block align-middle text-[9px] font-black text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-1 py-px">
+                                確定済み
+                              </span>
+                            )}
                             {tx.sender_email && <span> · {tx.sender_email}</span>}
                           </p>
                           {tx.sender_comment && (

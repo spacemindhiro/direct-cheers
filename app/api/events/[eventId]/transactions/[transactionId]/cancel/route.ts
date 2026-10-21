@@ -21,15 +21,27 @@ function parsePiId(raw: string | null): string | null {
 //
 // 現場での決済取り消し（誤操作・誤販売対応）。settle前のイベントに限定。
 //   - カード（requires_capture）: PI cancel。資金移動ゼロで損害なし。
-//   - PayPay等・キャプチャ済みのカード（succeeded）: refund + debt_claims(stripe_fee) をorganizerに記録。
+//   - PayPay・前売即時確定（エントランスB）・キャプチャ済みのカード（succeeded）:
+//     refund + debt_claims(stripe_fee) をorganizerに記録。
 //     タッチ決済は締め時刻かオーソリから24時間で自動キャプチャされる（app/api/cron/touchpay-capture）ので、
 //     それ以降の取消はこちらになる。
 // settle後の返金はadmin返金画面（/api/admin/refund）でのみ対応する。
-export async function POST(
-  _req: Request,
-  { params }: { params: Promise<{ eventId: string; transactionId: string }> }
-) {
-  const { eventId, transactionId } = await params;
+//
+// GET は同じ確認をしたうえで「取り消すとどうなるか」だけを返す（何も変更しない）。
+// 確認ダイアログの文言を、DBの記録ではなくその時点のStripeの状態で決めるため。
+// 以前は画面側が決済手段だけで文言を選び、即時確定の決済でも「手数料の負担はありません」と出ていた（2026-10-22）。
+
+type CancelTarget = {
+  admin: ReturnType<typeof createAdminClient>;
+  userId: string;
+  event: { event_id: string; organizer_profile_id: string | null; agent_id: string | null; lifecycle_status: string };
+  piId: string;
+  pi: Stripe.PaymentIntent;
+  allTxs: { transaction_id: string; stripe_fee: number | null }[];
+  allTxIds: string[];
+};
+
+async function loadCancelTarget(eventId: string, transactionId: string): Promise<CancelTarget | NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -122,6 +134,37 @@ export async function POST(
     return NextResponse.json({ error: `Stripe エラー: ${message}` }, { status: 404 });
   }
 
+  return { admin, userId: user.id, event, piId, pi, allTxs, allTxIds };
+}
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ eventId: string; transactionId: string }> }
+) {
+  const { eventId, transactionId } = await params;
+  const target = await loadCancelTarget(eventId, transactionId);
+  if (target instanceof NextResponse) return target;
+  const { pi, allTxs } = target;
+
+  if (pi.status === "requires_capture") {
+    return NextResponse.json({ mode: "cancel", fee: 0, rows: allTxs.length });
+  }
+  if (pi.status === "succeeded") {
+    const fee = allTxs.reduce((s, t) => s + Math.max(t.stripe_fee ?? 0, 0), 0);
+    return NextResponse.json({ mode: "refund", fee, rows: allTxs.length });
+  }
+  return NextResponse.json({ error: `取り消せないステータスです（${pi.status}）` }, { status: 400 });
+}
+
+export async function POST(
+  _req: Request,
+  { params }: { params: Promise<{ eventId: string; transactionId: string }> }
+) {
+  const { eventId, transactionId } = await params;
+  const target = await loadCancelTarget(eventId, transactionId);
+  if (target instanceof NextResponse) return target;
+  const { admin, userId, event, piId, pi, allTxs, allTxIds } = target;
+
   // ── カード（オーソリ中）: PI cancel。資金移動ゼロ。
   if (pi.status === "requires_capture") {
     await stripe.paymentIntents.cancel(piId);
@@ -142,7 +185,7 @@ export async function POST(
   if (pi.status === "succeeded") {
     const refund = await stripe.refunds.create({
       payment_intent: piId,
-      metadata: { reason: "onsite_cancel", cancelled_by: user.id },
+      metadata: { reason: "onsite_cancel", cancelled_by: userId },
     });
 
     // 兄弟行（1階・2階）それぞれの決済手数料を個別にdebt_claims計上する

@@ -22,6 +22,7 @@ import { AGENT_ORGANIZERS, agentOrganizers } from "./tools/agent-organizers";
 import { AGENT_HANDOFFS, agentHandoffs } from "./tools/agent-handoffs";
 import { AGENT_PROXY_DRAFTS, agentProxyDrafts } from "./tools/agent-proxy-drafts";
 import { MY_CONVERSATIONS, READ_CONVERSATION, listConversations, readConversation } from "./tools/messages";
+import { ADMIN_OVERVIEW, adminOverview } from "./tools/admin-overview";
 import { detailIndexForRole } from "@/lib/knowledge/assemble";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
@@ -179,6 +180,14 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       READ_CONVERSATION.name,
       { title: READ_CONVERSATION.title, description: READ_CONVERSATION.description, inputSchema: READ_CONVERSATION.inputSchema, annotations: readOnly },
       async (input) => safe(() => readConversation(ctx, input)),
+    );
+  }
+  // 運営向けは admin のセッションにだけ（上位互換の判定ではなく、ロールそのもので絞る）
+  if (ctx.role === "admin") {
+    server.registerTool(
+      ADMIN_OVERVIEW.name,
+      { title: ADMIN_OVERVIEW.title, description: ADMIN_OVERVIEW.description, inputSchema: ADMIN_OVERVIEW.inputSchema, annotations: readOnly },
+      async (input) => safe(() => adminOverview(ctx, input)),
     );
   }
   return server;

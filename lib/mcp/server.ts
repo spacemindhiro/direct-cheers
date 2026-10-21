@@ -18,6 +18,9 @@ import { MY_INVITATIONS, myInvitations } from "./tools/my-invitations";
 import { EVENT_DETAIL, eventDetail } from "./tools/event-detail";
 import { EVIDENCE_STATUS, evidenceStatus } from "./tools/evidence-status";
 import { SETTLEMENT_REPORT, settlementReport } from "./tools/settlement-report";
+import { AGENT_ORGANIZERS, agentOrganizers } from "./tools/agent-organizers";
+import { AGENT_HANDOFFS, agentHandoffs } from "./tools/agent-handoffs";
+import { AGENT_PROXY_DRAFTS, agentProxyDrafts } from "./tools/agent-proxy-drafts";
 import { detailIndexForRole } from "@/lib/knowledge/assemble";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
@@ -140,6 +143,27 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       SETTLEMENT_REPORT.name,
       { title: SETTLEMENT_REPORT.title, description: SETTLEMENT_REPORT.description, inputSchema: SETTLEMENT_REPORT.inputSchema, annotations: readOnly },
       async (input) => safe(() => settlementReport(ctx, input)),
+    );
+  }
+  if (allowed(AGENT_ORGANIZERS.minRole)) {
+    server.registerTool(
+      AGENT_ORGANIZERS.name,
+      { title: AGENT_ORGANIZERS.title, description: AGENT_ORGANIZERS.description, inputSchema: AGENT_ORGANIZERS.inputSchema, annotations: readOnly },
+      async (input) => safe(() => agentOrganizers(ctx, input)),
+    );
+  }
+  if (allowed(AGENT_HANDOFFS.minRole)) {
+    server.registerTool(
+      AGENT_HANDOFFS.name,
+      { title: AGENT_HANDOFFS.title, description: AGENT_HANDOFFS.description, inputSchema: AGENT_HANDOFFS.inputSchema, annotations: readOnly },
+      async (input) => safe(() => agentHandoffs(ctx, input)),
+    );
+  }
+  if (allowed(AGENT_PROXY_DRAFTS.minRole)) {
+    server.registerTool(
+      AGENT_PROXY_DRAFTS.name,
+      { title: AGENT_PROXY_DRAFTS.title, description: AGENT_PROXY_DRAFTS.description, inputSchema: AGENT_PROXY_DRAFTS.inputSchema, annotations: readOnly },
+      async (input) => safe(() => agentProxyDrafts(ctx, input)),
     );
   }
   return server;

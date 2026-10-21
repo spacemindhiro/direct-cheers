@@ -114,7 +114,7 @@ describe("TC-CHEERY-MCP-A: ロールごとのツール一覧（tools/list）", (
     expect((await mcpAs("user", "user")).tools.map((t) => t.name)).toEqual(["my_tickets", "my_account", "my_cheers", "my_stats"]);
     expect((await mcpAs("artist", "artist")).tools.map((t) => t.name)).toEqual(["knowledge_detail", "my_tickets", "my_account", "my_cheers", "my_stats", "my_lineups", "my_qr_targets", "my_payout_balance", "my_payout_history", "my_income"]);
     expect((await mcpAs("orgA", "organizer")).tools.map((t) => t.name)).toEqual(["knowledge_detail", "my_tickets", "my_account", "my_cheers", "my_stats", "my_lineups", "my_qr_targets", "my_payout_balance", "my_payout_history", "my_income", "my_invitations", "my_events", "event_detail", "evidence_status", "settlement_report"]);
-    expect((await mcpAs("agentG", "agent")).tools.map((t) => t.name)).toEqual(["knowledge_detail", "my_tickets", "my_account", "my_cheers", "my_stats", "my_lineups", "my_qr_targets", "my_payout_balance", "my_payout_history", "my_income", "my_invitations", "my_events", "event_detail", "evidence_status", "settlement_report"]);
+    expect((await mcpAs("agentG", "agent")).tools.map((t) => t.name)).toEqual(["knowledge_detail", "my_tickets", "my_account", "my_cheers", "my_stats", "my_lineups", "my_qr_targets", "my_payout_balance", "my_payout_history", "my_income", "my_invitations", "my_events", "event_detail", "evidence_status", "settlement_report", "agent_organizers", "agent_handoffs", "agent_proxy_drafts"]);
   });
 
   it("ツールの入力に「誰のデータか」を指定する項目が無い", async () => {

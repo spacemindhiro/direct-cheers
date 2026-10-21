@@ -8,7 +8,7 @@
 
 /** 精算期限（開始からの日数）。app/api/cron/auto-cancel-unsettled の AUTH_EXPIRE_DAYS と同じ値 */
 export const SETTLEMENT_DEADLINE_DAYS = 7;
-/** 催促は期限の何日前か。app/api/admin/check-auth-expiry の WARN_DAYS_BEFORE と同じ値 */
+/** 催促は期限の何日前か。誰の画面にも出ていなかった旧警告（check-auth-expiry の auth_expiring、2026-10-22 廃止）に代わる */
 export const EVIDENCE_REMINDER_DAYS_BEFORE = 2;
 
 const DAY_MS = 24 * 60 * 60 * 1000;

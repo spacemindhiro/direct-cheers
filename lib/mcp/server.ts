@@ -17,6 +17,7 @@ import { MY_QR_TARGETS, myQrTargets } from "./tools/my-qr-targets";
 import { MY_INVITATIONS, myInvitations } from "./tools/my-invitations";
 import { EVENT_DETAIL, eventDetail } from "./tools/event-detail";
 import { EVIDENCE_STATUS, evidenceStatus } from "./tools/evidence-status";
+import { SETTLEMENT_REPORT, settlementReport } from "./tools/settlement-report";
 import { detailIndexForRole } from "@/lib/knowledge/assemble";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
@@ -132,6 +133,13 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       EVIDENCE_STATUS.name,
       { title: EVIDENCE_STATUS.title, description: EVIDENCE_STATUS.description, inputSchema: EVIDENCE_STATUS.inputSchema, annotations: readOnly },
       async (input) => safe(() => evidenceStatus(ctx, input)),
+    );
+  }
+  if (allowed(SETTLEMENT_REPORT.minRole)) {
+    server.registerTool(
+      SETTLEMENT_REPORT.name,
+      { title: SETTLEMENT_REPORT.title, description: SETTLEMENT_REPORT.description, inputSchema: SETTLEMENT_REPORT.inputSchema, annotations: readOnly },
+      async (input) => safe(() => settlementReport(ctx, input)),
     );
   }
   return server;

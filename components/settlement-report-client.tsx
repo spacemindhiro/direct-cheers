@@ -3,6 +3,7 @@
 import { AlertTriangle, CheckCircle2, Lock, Printer, Shield, TrendingUp } from "lucide-react";
 import type { QRGroupRow, DebtClaimRow, EventRecipientRow, MessageRow } from "@/app/[locale]/dashboard/events/[eventId]/settlement/page";
 import { MessageListSection } from "@/components/message-list-section";
+import { distStatus } from "@/lib/dist-status";
 
 const yen  = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
 const pct  = (n: number, total: number) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : "—";
@@ -11,24 +12,22 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "運営", agent: "エージェント", organizer: "オーガナイザー", artist: "アーティスト",
 };
 
-// 配分行のステータス表示
-// 凍結 = CBで一部or全部が止まっている（決済単位）
-// ホールド = 14日待機中（正常）
-// 出金可 = ready
+// 配分行のステータス表示（判定はチアリー(AI) と共用：lib/dist-status.ts）
 function DistStatus({ d }: { d: { actual_amount: number; frozen_amount: number; hold_released: boolean } }) {
-  if (d.frozen_amount === 0) {
-    return d.hold_released
-      ? <span className="text-xs font-black text-emerald-400 print:text-emerald-700">✅ 出金可</span>
-      : <span className="text-xs font-black text-amber-400 print:text-amber-700">⏳ ホールド中</span>;
+  switch (distStatus(d)) {
+    case "ready":
+      return <span className="text-xs font-black text-emerald-400 print:text-emerald-700">✅ 出金可</span>;
+    case "hold":
+      return <span className="text-xs font-black text-amber-400 print:text-amber-700">⏳ ホールド中</span>;
+    case "frozen_all":
+      return <span className="text-xs font-black text-red-400 bg-red-950/50 border border-red-500/30 px-2 py-0.5 rounded-lg print:text-red-600">🔒 全額凍結（CB係争）</span>;
+    case "frozen_part":
+      return (
+        <span className="text-xs font-black text-orange-400 print:text-orange-600">
+          🔒 一部凍結 {yen(d.frozen_amount)}（CB係争）
+        </span>
+      );
   }
-  if (d.frozen_amount >= d.actual_amount) {
-    return <span className="text-xs font-black text-red-400 bg-red-950/50 border border-red-500/30 px-2 py-0.5 rounded-lg print:text-red-600">🔒 全額凍結（CB係争）</span>;
-  }
-  return (
-    <span className="text-xs font-black text-orange-400 print:text-orange-600">
-      🔒 一部凍結 {yen(d.frozen_amount)}（CB係争）
-    </span>
-  );
 }
 
 type Props = {

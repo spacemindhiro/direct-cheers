@@ -6,12 +6,11 @@
 //   - 売上は保存値の足し算（再計算しない）。全件をページ送りで取る
 // 返さないもの：お客様の名前・メールアドレス・コメント・決済ID・内部ID
 import { z } from "zod";
-import { getEventAccess } from "@/lib/event-access";
 import { eventActions, qrProductTypeLabel } from "@/lib/event-actions";
 import { findUnsentLineupInvites } from "@/lib/lineup-invite";
-import { hiddenProxyDraftIds } from "@/lib/proxy-draft";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import type { DcMcpContext } from "../context";
+import { pickOperableEvent } from "../event-pick";
 import { LIFECYCLE_LABEL, jstDateTime, lines, yen } from "../format";
 
 export const EVENT_DETAIL = {
@@ -25,41 +24,12 @@ export const EVENT_DETAIL = {
   },
 } as const;
 
-type EventRow = { event_id: string; title: string; start_at: string | null; lifecycle_status: string };
 type Tx = { qr_config_id: string; total_gross_amount: number | null; stripe_fee: number | null; platform_fee: number | null; net_amount: number | null };
 
-const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
-
-async function findEvents(ctx: DcMcpContext, query: string): Promise<EventRow[]> {
-  let q = ctx.admin.from("events").select("event_id, title, start_at, lifecycle_status").is("deleted_at", null).ilike("title", `%${escapeLike(query)}%`);
-  if (ctx.role !== "admin") {
-    q = q.or(`organizer_profile_id.eq.${ctx.userId},agent_id.eq.${ctx.userId}`);
-    const hidden = await hiddenProxyDraftIds(ctx.admin as never, ctx.userId);
-    if (hidden.length > 0) q = q.not("event_id", "in", `(${hidden.join(",")})`);
-  }
-  const { data, error } = await q.order("start_at", { ascending: false }).limit(20);
-  if (error) throw new Error("events");
-  // 画面と同じ判定で最終確認（操作できるイベントだけ）
-  const out: EventRow[] = [];
-  for (const e of (data ?? []) as EventRow[]) {
-    const access = await getEventAccess(ctx.admin as never, e.event_id, ctx.userId, ctx.role);
-    if (access?.canOperate) out.push(e);
-  }
-  return out;
-}
-
 export async function eventDetail(ctx: DcMcpContext, input: { event: string }): Promise<string> {
-  const query = input.event.trim();
-  const found = await findEvents(ctx, query);
-  if (found.length === 0) return `「${query}」に当てはまる、あなたが主催・担当するイベントは見つかりませんでした。`;
-  const exact = found.filter((e) => e.title === query);
-  const picked = exact.length === 1 ? exact[0] : found.length === 1 ? found[0] : null;
-  if (!picked) {
-    return [
-      `「${query}」に当てはまるイベントが${found.length}件あります。どれか分かる名前で指定してください。`,
-      ...found.slice(0, 5).map((e, i) => `${i + 1}. ${e.title}（${jstDateTime(e.start_at)}・${LIFECYCLE_LABEL[e.lifecycle_status] ?? e.lifecycle_status}）`),
-    ].join("\n");
-  }
+  const found = await pickOperableEvent(ctx, input.event);
+  if ("message" in found) return found.message;
+  const picked = found.event;
   const eventId = picked.event_id;
 
   const { data: event } = await ctx.admin

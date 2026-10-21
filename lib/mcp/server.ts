@@ -21,6 +21,7 @@ import { SETTLEMENT_REPORT, settlementReport } from "./tools/settlement-report";
 import { AGENT_ORGANIZERS, agentOrganizers } from "./tools/agent-organizers";
 import { AGENT_HANDOFFS, agentHandoffs } from "./tools/agent-handoffs";
 import { AGENT_PROXY_DRAFTS, agentProxyDrafts } from "./tools/agent-proxy-drafts";
+import { MY_CONVERSATIONS, READ_CONVERSATION, listConversations, readConversation } from "./tools/messages";
 import { detailIndexForRole } from "@/lib/knowledge/assemble";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
@@ -164,6 +165,20 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       AGENT_PROXY_DRAFTS.name,
       { title: AGENT_PROXY_DRAFTS.title, description: AGENT_PROXY_DRAFTS.description, inputSchema: AGENT_PROXY_DRAFTS.inputSchema, annotations: readOnly },
       async (input) => safe(() => agentProxyDrafts(ctx, input)),
+    );
+  }
+  if (allowed(MY_CONVERSATIONS.minRole)) {
+    server.registerTool(
+      MY_CONVERSATIONS.name,
+      { title: MY_CONVERSATIONS.title, description: MY_CONVERSATIONS.description, inputSchema: MY_CONVERSATIONS.inputSchema, annotations: readOnly },
+      async (input) => safe(() => listConversations(ctx, input)),
+    );
+  }
+  if (allowed(READ_CONVERSATION.minRole)) {
+    server.registerTool(
+      READ_CONVERSATION.name,
+      { title: READ_CONVERSATION.title, description: READ_CONVERSATION.description, inputSchema: READ_CONVERSATION.inputSchema, annotations: readOnly },
+      async (input) => safe(() => readConversation(ctx, input)),
     );
   }
   return server;

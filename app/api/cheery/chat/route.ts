@@ -9,6 +9,7 @@ import { providerFor } from "@/lib/ai/providers";
 import { sendCheeryMonthlyStopEmail } from "@/lib/email/notification";
 import { connectDcMcp } from "@/lib/mcp/in-process";
 import { REFS_SEPARATOR, extractRefs } from "@/lib/ai/refs";
+import { RESET_MARK } from "@/lib/cheery/stream";
 
 export const maxDuration = 60;
 
@@ -71,8 +72,10 @@ export async function POST(req: Request) {
           role,
           turns: prepared.turns,
           screen: parsed.data.screen,
-          // 本文に区切り記号が混ざると、画面がそこから先をカードの材料として読んでしまう（データに仕込まれた偽のカード）。必ず取り除く
-          onText: (d) => { const t = d.split(REFS_SEPARATOR).join(""); answer += t; controller.enqueue(encoder.encode(t)); },
+          // 本文に区切り記号・消す印が混ざると、画面がカードの材料として読んだり本文を消したりしてしまう（データに仕込まれた偽のカード）。必ず取り除く
+          onText: (d) => { const t = d.split(REFS_SEPARATOR).join("").split(RESET_MARK).join(""); answer += t; controller.enqueue(encoder.encode(t)); },
+          // ツールを呼ぶ前の前置きは画面から消し、参照（〔参照:…〕）も最後の答えから取る
+          onToolRound: () => { answer = ""; controller.enqueue(encoder.encode(RESET_MARK)); },
           signal: req.signal,
         });
         const note = FINISH_NOTES[result.finish];

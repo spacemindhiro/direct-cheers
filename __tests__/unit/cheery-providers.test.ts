@@ -20,6 +20,7 @@ function req(over: Partial<ChatRequest> = {}): ChatRequest & { texts: string[] }
     maxOutputTokens: 100,
     maxToolRounds: 3,
     onText: (d) => texts.push(d),
+    onToolRound: () => texts.push("<RESET>"),
     texts,
     ...over,
   };
@@ -88,6 +89,17 @@ describe("TC-CHEERY-PROVIDER: Anthropic", () => {
     expect(sent[0].tools[0].input_schema.properties.limit.type).toBe("integer");
     expect(sent[1].messages[2]).toEqual({ role: "user", content: [{ type: "tool_result", tool_use_id: "tu1", content: "events:3" }] });
     expect(result).toEqual({ finish: "end", usage: { inputTokens: 150, cacheReadTokens: 900, cacheWriteTokens: 900, outputTokens: 30 } });
+  });
+
+  it("ツールを呼ぶ周の前置きのあとに onToolRound を呼ぶ（画面が前置きを消す）。最後の周では呼ばない", async () => {
+    const calls: unknown[] = [];
+    const { client } = fakeAnthropic([
+      { text: "確認します", msg: { content: [{ type: "text", text: "確認します" }, { type: "tool_use", id: "tu1", name: "my_events", input: { limit: 1 } }], stop_reason: "tool_use", usage: aUsage(1, 1) } },
+      { text: "1件です", msg: { content: [{ type: "text", text: "1件です" }], stop_reason: "end_turn", usage: aUsage(1, 1) } },
+    ]);
+    const r = req({ tools: [echoTool(calls)] });
+    await createAnthropicProvider(client).run(r);
+    expect(r.texts).toEqual(["確認します", "<RESET>", "1件です"]);
   });
 
   it("ツールがエラーを返したら is_error を付けて返す", async () => {
@@ -161,6 +173,17 @@ describe("TC-CHEERY-PROVIDER: OpenAI", () => {
     expect(sent[0].tools[0].function.name).toBe("my_events");
     expect(sent[1].messages.at(-1)).toEqual({ role: "tool", tool_call_id: "c1", content: "events:2" });
     expect(result.usage).toEqual({ inputTokens: 30, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 10 });
+  });
+
+  it("ツールを呼ぶ周の前置きのあとに onToolRound を呼ぶ（画面が前置きを消す）。最後の周では呼ばない", async () => {
+    const calls: unknown[] = [];
+    const { client } = fakeOpenAI([
+      { text: "出演者を教えてください", completion: { choices: [{ finish_reason: "tool_calls", message: { content: "出演者を教えてください", refusal: null, tool_calls: [{ id: "c1", type: "function", function: { name: "my_events", arguments: "{\"limit\":1}" } }] } }], usage: oUsage(1, 1) } },
+      { text: "出演者を教えてください", completion: { choices: [{ finish_reason: "stop", message: { content: "出演者を教えてください", refusal: null } }], usage: oUsage(1, 1) } },
+    ]);
+    const r = req({ tools: [echoTool(calls)] });
+    await createOpenAIProvider(client).run(r);
+    expect(r.texts).toEqual(["出演者を教えてください", "<RESET>", "出演者を教えてください"]);
   });
 
   it("壊れた引数・拒否・長さ切れ", async () => {

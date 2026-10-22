@@ -51,6 +51,7 @@ export function createAnthropicProvider(client: Anthropic = new Anthropic()): Ch
         if (message.stop_reason === "max_tokens") return { usage, finish: "max_tokens" };
         if (message.stop_reason !== "tool_use" || toolUses.length === 0) return { usage, finish: "end" };
         if (round + 1 >= req.maxToolRounds) return { usage, finish: "tool_rounds" };
+        req.onToolRound?.();
 
         messages.push({ role: "assistant", content: message.content });
         const results: Anthropic.ToolResultBlockParam[] = [];

@@ -28,6 +28,9 @@ export type ChatRequest = {
   maxOutputTokens: number;
   maxToolRounds: number;
   onText: (delta: string) => void;
+  // その周がツールの呼び出しで終わった（その周の文章は前置きで、最後の答えでまた同じことを書く）。
+  // 画面は前置きを消して、最後の周の文章だけを残す（同じことを2回言ったように見えるのを防ぐ）
+  onToolRound?: () => void;
   signal?: AbortSignal;
 };
 

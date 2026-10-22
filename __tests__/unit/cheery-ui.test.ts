@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { screenOf, showFloatingButton } from "@/lib/cheery/screen";
-import { splitAnswer, stripRefs, REFS_SEPARATOR } from "@/lib/cheery/stream";
+import { splitAnswer, stripRefs, REFS_SEPARATOR, RESET_MARK } from "@/lib/cheery/stream";
 import { SCREEN_LABELS } from "@/lib/ai/prompt";
 
 describe("TC-CHEERY-UI: 画面の種類", () => {
@@ -68,6 +68,13 @@ describe("TC-CHEERY-UI: 応答の切り分け", () => {
     expect(splitAnswer("出金管理から申請します。\n〔参")).toEqual({ text: "出金管理から申請します。", refs: null, cards: null });
     expect(splitAnswer("出金管理から申請します。\n〔参照:artist.pa")).toEqual({ text: "出金管理から申請します。", refs: null, cards: null });
     expect(splitAnswer("出金管理から申請します。\n〔")).toEqual({ text: "出金管理から申請します。", refs: null, cards: null });
+  });
+
+  it("消す印より前（ツールを呼ぶ前の前置き）は出さない。流れてくる途中も同じ", () => {
+    expect(splitAnswer(`出演者を教えてください${RESET_MARK}`)).toEqual({ text: "", refs: null, cards: null });
+    expect(splitAnswer(`出演者を教えてください${RESET_MARK}出演者を`)).toEqual({ text: "出演者を", refs: null, cards: null });
+    expect(splitAnswer(`前置き${RESET_MARK}確認${RESET_MARK}出演者を教えてください${REFS_SEPARATOR}{"refs":[],"cards":[]}`))
+      .toEqual({ text: "出演者を教えてください", refs: [], cards: [] });
   });
 
   it("〔参照 以外の〔〕は本文として残す", () => {

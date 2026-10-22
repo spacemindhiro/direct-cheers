@@ -51,6 +51,7 @@ export function createOpenAIProvider(client: OpenAI = new OpenAI()): ChatProvide
         const calls = (choice.message.tool_calls ?? []).filter((c) => c.type === "function");
         if (choice.finish_reason !== "tool_calls" || calls.length === 0) return { usage, finish: "end" };
         if (round + 1 >= req.maxToolRounds) return { usage, finish: "tool_rounds" };
+        req.onToolRound?.();
 
         messages.push({ role: "assistant", content: choice.message.content ?? null, tool_calls: calls });
         for (const call of calls) {

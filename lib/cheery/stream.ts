@@ -5,6 +5,11 @@ import type { CheeryCard } from "@/lib/cheery/cards";
 
 // 本文には現れない制御文字
 export const REFS_SEPARATOR = "\u001e";
+// 「ここまでの本文を消す」印。AI がツールを呼ぶ前に書いた前置きを、最後の答えと入れ替えるため（app/api/cheery/chat）
+export const RESET_MARK = "\u001d";
+
+// 本文のうち、最後の消す印より後ろだけ
+const afterReset = (body: string) => body.slice(body.lastIndexOf(RESET_MARK) + 1);
 export const REF_PATTERN = /〔参照[:：]\s*([^〕]*)〕/g;
 
 // 本文から〔参照:…〕を取り除く。流れてくる途中で閉じていない〔参照… も隠す
@@ -19,7 +24,7 @@ export function stripRefs(text: string): string {
 // cards は確認カード（イベントの下書き・会場の登録）
 export function splitAnswer(raw: string): { text: string; refs: CheeryRef[] | null; cards: CheeryCard[] | null } {
   const i = raw.indexOf(REFS_SEPARATOR);
-  if (i < 0) return { text: stripRefs(raw), refs: null, cards: null };
+  if (i < 0) return { text: stripRefs(afterReset(raw)), refs: null, cards: null };
   let refs: CheeryRef[] | null = null;
   let cards: CheeryCard[] | null = null;
   try {
@@ -29,5 +34,5 @@ export function splitAnswer(raw: string): { text: string; refs: CheeryRef[] | nu
   } catch {
     refs = null;
   }
-  return { text: stripRefs(raw.slice(0, i)), refs, cards };
+  return { text: stripRefs(afterReset(raw.slice(0, i))), refs, cards };
 }

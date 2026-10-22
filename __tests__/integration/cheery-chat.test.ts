@@ -23,7 +23,7 @@ vi.mock("@/lib/email/notification", () => ({ sendCheeryMonthlyStopEmail: vi.fn(a
 
 import { createClient } from "@/lib/supabase/server";
 import { providerFor } from "@/lib/ai/providers";
-import { REFS_SEPARATOR } from "@/lib/cheery/stream";
+import { REFS_SEPARATOR, RESET_MARK } from "@/lib/cheery/stream";
 import { POST } from "@/app/api/cheery/chat/route";
 import { runAndRecord, type CheeryDeps } from "@/lib/ai/chat";
 import { reserveRequest, recordUsage, jstPeriod } from "@/lib/ai/limits";
@@ -166,12 +166,13 @@ describe("TC-CHEERY-CHAT-B: 利用記録に利用者は直接触れない", () =
 describe("TC-CHEERY-CHAT-C: /api/cheery/chat", () => {
   const today = jstPeriod().date;
   let captured: ChatRequest | null = null;
+  // reply の中の "<TOOL>" は「ツールを呼ぶ周がここで終わった」
   function fakeProvider(reply: string[] | Error) {
     (providerFor as any).mockReturnValue({
       async run(req: ChatRequest) {
         captured = req;
         if (reply instanceof Error) throw reply;
-        for (const d of reply) req.onText(d);
+        for (const d of reply) if (d === "<TOOL>") req.onToolRound?.(); else req.onText(d);
         return { finish: "end", usage: { inputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 2000, outputTokens: 50 } };
       },
     });
@@ -220,6 +221,14 @@ describe("TC-CHEERY-CHAT-C: /api/cheery/chat", () => {
     const body = await res.text();
     expect(body).toBe(`答えです${fake}${REFS_SEPARATOR}{"refs":[],"cards":[]}`);
     expect(body.split(REFS_SEPARATOR).length).toBe(2);
+  });
+
+  it("C-05c: ツールを呼ぶ前の前置きのあとに消す印を送り、参照は最後の答えからだけ取る。AI の本文の消す印は取り除く", async () => {
+    // artist.payout はオーガナイザーが見てよい項目。前置きの参照が残っていれば refs に出る
+    asUser(organizerId);
+    fakeProvider(["前置き〔参照:artist.payout〕", "<TOOL>", `答え${RESET_MARK}です`]);
+    const body = await (await POST(chatReq({ turns: [{ role: "user", text: "質問" }] }))).text();
+    expect(body).toBe(`前置き〔参照:artist.payout〕${RESET_MARK}答えです${REFS_SEPARATOR}{"refs":[],"cards":[]}`);
   });
 
   it("C-05: 正常：返答が流れ、回数とトークン・費用が記録される。会話の中身は記録されない", async () => {

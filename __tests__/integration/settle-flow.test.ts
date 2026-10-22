@@ -41,7 +41,6 @@ vi.mock("next/headers", () => ({
 }));
 
 import { createClient } from "@/lib/supabase/server";
-import { POST as endPOST } from "@/app/api/events/[eventId]/end/route";
 import { POST as reconcilePOST } from "@/app/api/admin/reconcile/event/route";
 import { POST as settlePOST } from "@/app/api/events/[eventId]/settle/route";
 
@@ -192,19 +191,7 @@ describe("TC-POST-PAY-01: イベント終了 → 照合 → ロック確認 → 
   }, 120_000);
 
   // A. イベント終了
-  it("A: イベント終了 → lifecycle_status が ended になる", async () => {
-    mockOrganizerAuth();
-    const req = new Request("http://localhost", { method: "POST" });
-    const res = await endPOST(req, { params: Promise.resolve({ eventId }) });
-    expect(res.status).toBe(200);
-
-    const { data: ev } = await testAdmin
-      .from("events")
-      .select("lifecycle_status")
-      .eq("event_id", eventId)
-      .single();
-    expect(ev?.lifecycle_status).toBe("ended");
-  });
+  // A（終了ボタンで ended にする）は終了ボタンの廃止（2026-10-22）で削除。照合・精算は lifecycle_status に依存しない
 
   // B. StripeログとDBの照合
   it("B: 照合実行 → amount_verified=true・reconciled_at セット・reconciliation_log 記録", async () => {

@@ -67,10 +67,13 @@ afterAll(async () => {
 
 // ── TC-EVIDENCE-A: evidence 提出 ─────────────────────────────────────────
 describe("TC-EVIDENCE-A: events/evidence POST — 提出", () => {
-  it("TC-EVIDENCE-A-01: ended イベントにエビデンス提出 → 200・DB保存", async () => {
-    const eventId = await insertEvent({ organizerProfileId, title: "TC-EVIDENCE-A-01" });
+  it("TC-EVIDENCE-A-01: 締め時刻（終了3時間後）を過ぎた公開中イベントにエビデンス提出 → 200・DB保存", async () => {
+    // 終了ボタン（lifecycle_status='ended'）は2026-10-22に廃止。状態は published のまま、時刻だけで提出できる
+    const eventId = await insertEvent({
+      organizerProfileId, title: "TC-EVIDENCE-A-01",
+      startAt: new Date(Date.now() - 8 * 3600_000), endAt: new Date(Date.now() - 4 * 3600_000),
+    });
     cleanup.eventIds.push(eventId);
-    await testAdmin.from("events").update({ lifecycle_status: "ended" }).eq("event_id", eventId);
 
     mockAs(organizerProfileId, "organizer");
     const req = new Request("http://localhost", {

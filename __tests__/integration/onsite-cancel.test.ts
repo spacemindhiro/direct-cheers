@@ -8,6 +8,9 @@
  *   B. PayPay相当（succeeded）: refund + debt_claims(stripe_fee) + TX refunded
  *   C. 権限: 主催organizer/担当agent/adminのみ。他人・artist・非担当agentは403
  *   D. ガード: settle_transfers存在・completed以外・イベント不一致は拒否
+ *   E. 事前確認（GET）: 取り消すとどうなるか（オーソリ取消／返金・手数料）を、その時点の Stripe の状態で返す。
+ *      何も変更しない。確認ダイアログの文言はこれで決める（2026-10-22。以前は画面が決済手段だけで推測し、
+ *      即時確定の決済でも「手数料の負担はありません」と出ていた）
  *
  * Stripe API は実際に呼び出す（テストモード）。DB は本物のローカル Supabase。
  */
@@ -40,7 +43,7 @@ vi.mock("next/headers", () => ({
 }));
 
 import { createClient } from "@/lib/supabase/server";
-import { POST as cancelPOST } from "@/app/api/events/[eventId]/transactions/[transactionId]/cancel/route";
+import { POST as cancelPOST, GET as cancelGET } from "@/app/api/events/[eventId]/transactions/[transactionId]/cancel/route";
 
 let organizerId: string;
 let agentId: string;
@@ -281,4 +284,77 @@ describe("TC-ONSITE-CANCEL-D: 不正状態のガード", () => {
     // 後続テストに影響しないよう削除
     await testAdmin.from("settle_transfers").delete().eq("event_id", eventId);
   });
+});
+
+// ── E. 事前確認（GET） ───────────────────────────────────────────────
+describe("TC-ONSITE-CANCEL-E: 事前確認は Stripe の状態で結果を返し、何も変更しない", () => {
+  function preview(evId: string, txId: string) {
+    return cancelGET(new Request("http://localhost"), { params: Promise.resolve({ eventId: evId, transactionId: txId }) });
+  }
+  async function seedCapturedTx(rows: { amount: number; stripeFee: number }[]): Promise<{ txIds: string[]; piId: string }> {
+    const total = rows.reduce((s, r) => s + r.amount, 0);
+    const pi = await createTestCapturedPaymentIntent({ amount: total });
+    const txIds: string[] = [];
+    for (const [i, r] of rows.entries()) {
+      // 同じPIの行は stripe_pi_sequence で区別する（1行目が入場券、2行目以降がウェルカムチア）
+      const txId = await insertTransaction({
+        qrConfigId, grossAmount: r.amount, netAmount: r.amount - r.stripeFee, stripeFee: r.stripeFee, platformFee: 0,
+        stripePaymentIntentId: pi.id, stripePiSequence: i,
+      });
+      cleanup.transactionIds.push(txId);
+      txIds.push(txId);
+    }
+    return { txIds, piId: pi.id };
+  }
+
+  it("TC-ONSITE-CANCEL-E-01: オーソリ中 → mode=cancel・手数料0。PIもDBも変わらない", async () => {
+    const { txId, piId } = await seedCardTx(1200);
+    mockAs(organizerId, "organizer");
+    const res = await preview(eventId, txId);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ mode: "cancel", fee: 0, rows: 1 });
+    expect((await stripe.paymentIntents.retrieve(piId)).status).toBe("requires_capture");
+    const { data: tx } = await testAdmin.from("transactions").select("status").eq("transaction_id", txId).single();
+    expect(tx!.status).toBe("completed");
+  }, 30_000);
+
+  it("TC-ONSITE-CANCEL-E-02: キャプチャ済み → mode=refund・手数料はDBの決済手数料。返金はしない", async () => {
+    const stripeFee = 79;
+    const { txIds, piId } = await seedCapturedTx([{ amount: 2000, stripeFee }]);
+    mockAs(agentId, "agent");
+    const res = await preview(eventId, txIds[0]);
+    expect(await res.json()).toEqual({ mode: "refund", fee: stripeFee, rows: 1 });
+    const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
+    expect((pi.latest_charge as any).amount_refunded).toBe(0);
+    const { count } = await testAdmin.from("debt_claims").select("claim_id", { count: "exact", head: true }).eq("original_transaction_id", txIds[0]);
+    expect(count).toBe(0);
+  }, 30_000);
+
+  it("TC-ONSITE-CANCEL-E-03: 同じ決済にまとめて支払われた行（ウェルカムチア）→ 件数と手数料の合計", async () => {
+    const { txIds } = await seedCapturedTx([{ amount: 3000, stripeFee: 118 }, { amount: 500, stripeFee: 19 }]);
+    mockAs(organizerId, "organizer");
+    // 2行目（ウェルカムチア側）から確認しても同じ結果
+    const res = await preview(eventId, txIds[1]);
+    expect(await res.json()).toEqual({ mode: "refund", fee: 118 + 19, rows: 2 });
+  }, 30_000);
+
+  it.each([
+    ["無関係の主催者", () => otherOrganizerId, "organizer"],
+    ["出演者", () => artistId, "artist"],
+  ])("TC-ONSITE-CANCEL-E-04: %s → 403（取消の可否も結果も見えない）", async (_label, id, role) => {
+    const { txId } = await seedCardTx(800);
+    mockAs(id(), role as string);
+    const res = await preview(eventId, txId);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Forbidden" });
+  }, 30_000);
+
+  it("TC-ONSITE-CANCEL-E-05: 別イベントの決済をこのイベント名義で確認 → 404", async () => {
+    const pi = await createTestPaymentIntent({ amount: 700, organizerConnectId });
+    const txId = await insertTransaction({ qrConfigId: otherQrConfigId, grossAmount: 700, netAmount: 600, stripeFee: 27, platformFee: 70, stripePaymentIntentId: pi.id });
+    cleanup.transactionIds.push(txId);
+    mockAs(organizerId, "organizer");
+    const res = await preview(eventId, txId);
+    expect(res.status).toBe(404);
+  }, 30_000);
 });

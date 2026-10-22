@@ -1,5 +1,6 @@
 // イベント詳細画面で「この人が今できる操作」の判定。画面（app/[locale]/dashboard/events/[eventId]/page.tsx）と
 // チアリー(AI) の event_detail で共用する。ボタンを出すかどうかの判定で、実際の権限は各 API が改めて確かめる。
+import { isEventClosed, RUNNING_LIFECYCLES } from "@/lib/purchase-window";
 
 export type EventActionInput = {
   userId: string;
@@ -21,7 +22,9 @@ export function eventActions(i: EventActionInput) {
   const isEventAgent = event.agent_id === userId && (i.role === "agent" || isAdmin);
   const isSelfOrganized = event.agent_id === event.organizer_profile_id;
   const status = event.lifecycle_status;
-  const hasEnded = new Date(event.end_at) < (i.now ?? new Date()) || status === "ended";
+  // 証跡は締め時刻（終了3時間後＝当日決済の受付終了）を過ぎてから。決済を受け付けている最中に
+  // 承認まで進まないようにする（lib/purchase-window.ts）。終了ボタンは2026-10-22に廃止
+  const hasEnded = isEventClosed(event.end_at, i.now) && (RUNNING_LIFECYCLES as readonly string[]).includes(status);
   return {
     isAdmin,
     isEventOrganizer,
@@ -34,8 +37,7 @@ export function eventActions(i: EventActionInput) {
     canProxyNotify: (isEventAgent || isAdmin) && status === "draft" && !isSelfOrganized && event.organizer_profile_id !== userId,
     canApprove: (isEventAgent || isAdmin) && status === "review_requested" && (!isSelfOrganized || isAdmin),
     canCreateQR: (isEventOrganizer || isEventAgent) && ["draft", "review_requested", "published", "ongoing"].includes(status),
-    canSubmitEvidence: (isEventOrganizer || isEventAgent) && hasEnded && status !== "settled",
-    canEndEvent: isEventOrganizer && ["published", "ongoing"].includes(status),
+    canSubmitEvidence: (isEventOrganizer || isEventAgent) && hasEnded,
     canRequestCancel: isEventOrganizer && CANCELLABLE_STATUSES.includes(status),
     canApproveCancellation: (isEventAgent || isAdmin) && status === "cancellation_requested",
     isHandoffCandidate: i.pendingHandoff?.to_agent_id === userId,

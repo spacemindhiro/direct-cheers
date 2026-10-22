@@ -122,7 +122,7 @@ export async function sendConnectReviewRequestEmail(opts: {
         <strong style="color:#ffffff">${opts.applicantName}</strong>（${opts.applicantRole}）がStripe審査を通過しました。
         管理画面から口座開設審査を行ってください。
       </p>
-      ${actionButton(`${SITE_URL}/dashboard/admin/connect-review/${opts.profileId}`, "審査画面を開く")}
+      ${actionButton(`${SITE_URL}/admin/connect-review/${opts.profileId}`, "審査画面を開く")}
     `),
   );
 }
@@ -146,7 +146,7 @@ export async function sendEvidenceSubmittedEmail(opts: {
         精算管理から内容を確認し、承認をお願いします。
       </p>
       ${eventBox(opts.eventTitle, `主催者：${opts.organizerName}`)}
-      ${actionButton(`${SITE_URL}/dashboard/admin/settlements`, "精算管理を開く")}
+      ${actionButton(`${SITE_URL}/admin/settlements`, "精算管理を開く")}
     `),
   );
 }
@@ -420,6 +420,51 @@ export async function sendCheeryMonthlyStopEmail(opts: {
       <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin:0 0 20px">
         想定外の使われ方（大量のアカウント作成など）がないか確認してください。
       </p>
+    `),
+  );
+}
+
+// ================================================================
+// 14. 開催証跡の提出依頼・催促 → 主催者／フォロー依頼 → 担当エージェント（自主催のイベントは admin）
+//     締め時刻（終了3時間後）を過ぎたら依頼、期限の2日前に未提出なら催促（app/api/cron/evidence-request）
+// ================================================================
+export async function sendEvidenceRequestEmail(opts: {
+  to: string;
+  eventId: string;
+  eventTitle: string;
+  organizerName: string;
+  deadlineLabel: string;
+  kind: "request" | "reminder";
+  audience: "organizer" | "follow";
+}) {
+  const isReminder = opts.kind === "reminder";
+  const isOrganizer = opts.audience === "organizer";
+  const subject = isOrganizer
+    ? `【Direct Cheers】${isReminder ? "【期限間近】" : ""}開催証跡を提出してください：${opts.eventTitle}`
+    : `【Direct Cheers】${isReminder ? "【期限間近】" : ""}開催証跡の提出をフォローしてください：${opts.eventTitle}`;
+  const heading = isOrganizer
+    ? (isReminder ? "開催証跡の提出期限が近づいています" : "開催証跡を提出してください")
+    : (isReminder ? "開催証跡がまだ提出されていません" : "開催証跡の提出をフォローしてください");
+  const lead = isOrganizer
+    ? "イベントおつかれさまでした。当日の写真と動員数を「開催証跡を提出して承認依頼する」から提出してください。提出すると運営が確認し、精算（各自の口座への送金）に進みます。"
+    : `<strong style="color:#ffffff">${opts.organizerName}</strong> さんのイベントが終わりました。開催証跡の提出が済むよう、主催者のフォローをお願いします。`;
+  const href = isOrganizer
+    ? `${SITE_URL}/dashboard/events/${opts.eventId}/evidence`
+    : `${SITE_URL}/dashboard/events/${opts.eventId}`;
+  await send(
+    opts.to,
+    subject,
+    layout(`
+      <h1 style="color:#ffffff;font-size:20px;font-weight:900;margin:0 0 16px">${heading}</h1>
+      <p style="color:#94a3b8;font-size:14px;line-height:1.8;margin:0 0 20px">${lead}</p>
+      ${eventBox(opts.eventTitle, `主催者：${opts.organizerName}`)}
+      <div style="background:#450a0a;border:1px solid #7f1d1d;border-radius:12px;padding:16px;margin:0 0 24px">
+        <p style="color:#fca5a5;font-size:13px;line-height:1.7;margin:0">
+          <strong>${opts.deadlineLabel}</strong> までに精算が完了しないと、このイベントの決済はすべて自動で取り消され、イベントは中止扱いになります。
+          運営の確認にも時間がかかるため、できるだけ早く提出してください。
+        </p>
+      </div>
+      ${actionButton(href, isOrganizer ? "開催証跡を提出する" : "イベントを確認する")}
     `),
   );
 }

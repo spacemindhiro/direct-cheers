@@ -10,6 +10,8 @@ import { LineupInvitations } from '@/components/lineup-invitations';
 import { FollowButton } from '@/components/follow-button';
 import { FollowerHero } from '@/components/follower-hero';
 import { PAYPAY_AVAILABLE } from '@/lib/fee-config';
+import { EVIDENCE_NOTIFICATION, EVIDENCE_NOTIFICATION_TYPES } from '@/lib/evidence-request';
+import { RUNNING_LIFECYCLES } from '@/lib/purchase-window';
 
 function AppleGooglePayLinks() {
   return (
@@ -293,6 +295,33 @@ async function DashboardContent() {
   const evidenceNotifs = ((evidenceNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
   const evidenceEventIds = evidenceNotifs.map((n) => n.metadata?.event_id).filter(Boolean) as string[];
 
+  // 開催証跡の提出依頼・催促（app/api/cron/evidence-request）。提出・送金で既読になる。
+  // 中止などで精算前の状態でなくなったイベントの分は出さない。同じイベント・同じ立場は催促（新しい方）だけ出す
+  type EvidenceRequestNotif = { notification_id: string; type: string; title: string; body: string; metadata: any };
+  let evidenceRequestNotifications: EvidenceRequestNotif[] = [];
+  if (isOrganizerOrAdmin || isAgentOrAdmin) {
+    const { data: reqRows } = await admin.from('notifications')
+      .select('notification_id, type, title, body, metadata')
+      .eq('profile_id', user!.id).in('type', EVIDENCE_NOTIFICATION_TYPES).eq('is_read', false)
+      .order('created_at', { ascending: false }).limit(20);
+    const rows = (reqRows ?? []) as EvidenceRequestNotif[];
+    const reqEventIds = [...new Set(rows.map((n) => n.metadata?.event_id).filter(Boolean))] as string[];
+    const { data: reqEvents } = reqEventIds.length > 0
+      ? await admin.from('events').select('event_id, lifecycle_status').in('event_id', reqEventIds)
+      : { data: [] as { event_id: string; lifecycle_status: string }[] };
+    const runningIds = new Set((reqEvents ?? [])
+      .filter((e) => (RUNNING_LIFECYCLES as readonly string[]).includes(e.lifecycle_status)).map((e) => e.event_id));
+    const seen = new Set<string>();
+    evidenceRequestNotifications = rows.filter((n) => {
+      const eid = n.metadata?.event_id;
+      const isOrganizerSide = n.type === EVIDENCE_NOTIFICATION.request || n.type === EVIDENCE_NOTIFICATION.reminder;
+      const key = `${eid}/${isOrganizerSide ? 'organizer' : 'follow'}`;
+      if (!eid || !runningIds.has(eid) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   const approvalNotifs = ((approvalNotifsResult.data ?? []) as { notification_id: string; title: string; body: string; metadata: any }[]);
   const notifEventIds = approvalNotifs.map((n) => n.metadata?.event_id).filter(Boolean) as string[];
 
@@ -514,6 +543,29 @@ async function DashboardContent() {
               <span className="text-violet-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">確認 →</span>
             </Link>
           ))}
+        </div>
+      )}
+
+      {/* 開催証跡の提出依頼（主催者）・フォロー依頼（担当エージェント／自主催は admin） */}
+      {evidenceRequestNotifications.length > 0 && (
+        <div className="space-y-2">
+          {evidenceRequestNotifications.map((n) => {
+            const isOrganizerSide = n.type === EVIDENCE_NOTIFICATION.request || n.type === EVIDENCE_NOTIFICATION.reminder;
+            return (
+              <Link
+                key={n.notification_id}
+                href={isOrganizerSide ? `/dashboard/events/${n.metadata.event_id}/evidence` : `/dashboard/events/${n.metadata.event_id}`}
+                className="flex items-start justify-between gap-4 bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/60 rounded-[1.5rem] px-5 py-4 transition-all"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">{isOrganizerSide ? '開催証跡の提出' : '開催証跡のフォロー'}</p>
+                  <p className="text-sm font-black text-white">{n.title}</p>
+                  <p className="text-xs text-slate-400">{n.body}</p>
+                </div>
+                <span className="text-amber-400 text-xs font-black uppercase tracking-widest shrink-0 mt-1">{isOrganizerSide ? '提出 →' : '確認 →'}</span>
+              </Link>
+            );
+          })}
         </div>
       )}
 

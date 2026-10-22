@@ -215,13 +215,15 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "売上を見る・決済を取り消す",
     help: { tab: "organizer", group: "prep", icon: "ScanLine", subtitle: "Sales & Cancellation", video: "o-09" },
-    sources: ["components/event-detail-tabs.tsx", "app/api/events/[eventId]/transactions/[transactionId]/cancel/route.ts"],
+    sources: ["components/event-detail-tabs.tsx", "components/live-sales-board.tsx", "app/api/events/[eventId]/transactions/[transactionId]/cancel/route.ts", "app/api/cron/touchpay-capture/route.ts"],
     body: [
       { type: "p", text: "誤操作・誤販売があった場合は、イベント詳細の「売上・決済」タブ（決済ログ）から自分のイベントの決済を取り消せます。売上自体もこのタブでリアルタイムに確認できます。" },
       {
         type: "ul",
         items: [
           "ほとんどのカード決済はオーソリ取消（資金移動なし）で済みますが、前売即時確定タイプ（即時確定）の入場チケットなど既にキャプチャ済みのものは返金となり決済手数料はオーガナイザー負担です",
+          "対面タッチ決済は、決済から{{TOUCHPAY_CAPTURE_HOURS}}時間後か、終了時刻の{{POST_EVENT_GRACE_HOURS}}時間後の早い方で売上が確定（キャプチャ）します。それより後の取消は返金になり、決済手数料はオーガナイザー負担です",
+          "決済ログで「確定済み」と付いている決済は、取り消すと返金になります（決済手数料はオーガナイザー負担）。取り消す前の確認画面にも、オーソリ取消か返金か、負担する手数料の額が表示されます",
           "この取消はイベントが「精算済み」になる前のみ可能で、精算後の返金は運営（admin）のみが対応します",
         ],
       },
@@ -234,12 +236,13 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "エビデンス提出",
     help: { tab: "organizer", group: "prep", icon: "FileCheck2", subtitle: "Evidence", video: "o-10" },
-    sources: ["lib/settlement-deadline.ts", "app/api/cron/auto-cancel-unsettled/route.ts", "app/api/admin/check-auth-expiry/route.ts", "components/evidence-upload-form.tsx"],
+    sources: ["lib/settlement-deadline.ts", "lib/purchase-window.ts", "app/api/cron/auto-cancel-unsettled/route.ts", "app/api/cron/evidence-request/route.ts", "components/evidence-upload-form.tsx"],
     body: [
-      { type: "p", text: "イベント終了後、「開催証跡を提出して承認依頼する」から、写真（最大10枚）・動員数・コメント（任意）を提出します。" },
+      { type: "p", text: "イベントの終了時刻の{{POST_EVENT_GRACE_HOURS}}時間後（当日決済の受付が終わる時刻）から、「開催証跡を提出して承認依頼する」で写真（最大10枚）・動員数・コメント（任意）を提出できます。" },
       {
         type: "ul",
         items: [
+          "提出できる時刻になると、オーガナイザーに「開催証跡を提出してください」、担当エージェントにフォローの依頼が、メールとダッシュボードのお知らせで届きます（決済のあったイベントのみ）",
           "提出しただけでは自動で精算されません。運営が証跡を確認したうえで精算処理が実行されます",
           "差し戻された場合はダッシュボードに通知が表示され、再提出できます",
         ],
@@ -248,7 +251,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
         type: "warn",
         tone: "red",
         title: "提出・精算の期限はイベント開始から{{AUTH_EXPIRE_DAYS}}日以内です",
-        text: "開始から{{AUTH_EXPIRE_WARN_DAY}}日目（期限の{{AUTH_EXPIRE_WARN_DAYS_BEFORE}}日前）に、担当エージェントへ「オーソリ期限が迫っています」の警告通知が届きます。 {{AUTH_EXPIRE_DAYS}}日を過ぎても精算が完了していない場合、システムが自動的にそのイベントの決済をすべて取り消し（カード決済はオーソリ取消、決済済みのものは返金）、イベント自体も「中止」扱いになります。 返金にかかった決済手数料はオーガナイザー負担として計上されるため、証跡提出と精算は早めに進めてください。",
+        text: "開始から{{AUTH_EXPIRE_WARN_DAY}}日目（期限の{{AUTH_EXPIRE_WARN_DAYS_BEFORE}}日前）になっても未提出の場合は、オーガナイザーと担当エージェントに、もう一度メールとお知らせが届きます。 {{AUTH_EXPIRE_DAYS}}日を過ぎても精算が完了していない場合、システムが自動的にそのイベントの決済をすべて取り消し（カード決済はオーソリ取消、決済済みのものは返金）、イベント自体も「中止」扱いになります。 返金にかかった決済手数料はオーガナイザー負担として計上されるため、証跡提出と精算は早めに進めてください。",
       },
     ],
   },
@@ -292,7 +295,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "イベントの中止",
     help: { tab: "organizer", group: "prep", icon: "XCircle", iconTone: "red", subtitle: "Cancellation" },
-    sources: ["app/[locale]/dashboard/events/[eventId]/page.tsx", "app/api/events/[eventId]/cancel/route.ts"],
+    sources: ["app/[locale]/dashboard/events/[eventId]/page.tsx", "app/api/events/[eventId]/cancel/route.ts", "app/api/cron/touchpay-capture/route.ts"],
     body: [
       { type: "p", text: "イベント詳細ページの「中止申請」から中止の手続きができます。" },
       {
@@ -300,7 +303,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
         items: [
           "「下書き」「承認待ち」の段階であれば、承認不要でそのまま「中止」になります",
           "「公開済み」「開催中」の段階では「中止申請中」となり、担当エージェント（または運営）の承認を経て初めて「中止」が確定します。却下された場合は「公開済み」に戻ります",
-          "中止が承認されると、まだキャプチャされていないカード決済（オーソリ中のもの。ほとんどのカード決済がこれに該当します）はシステムが自動的に取り消し、お客様に負担はかかりません",
+          "中止が承認されると、まだキャプチャされていないカード決済（オーソリ中のもの。ほとんどのカード決済がこれに該当します）はシステムが自動的に取り消し、お客様に負担はかかりません。対面タッチ決済は決済から{{TOUCHPAY_CAPTURE_HOURS}}時間で売上が確定するため、それ以降は返金になります",
           "前売即時確定タイプ（即時確定）の入場チケットなど、既にキャプチャ済みで決済が完了しているものは自動では取り消されないため、イベント詳細の「売上・決済」タブ（決済ログ）から個別に取消（返金）が必要です",
         ],
       },
@@ -346,12 +349,12 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "タッチ決済・子機/親機を使う",
     help: { tab: "organizer", group: "dayof", icon: "Zap", subtitle: "Touch Pay & Devices" },
-    sources: ["components/touch-pay-client.tsx", "app/[locale]/dashboard/events/[eventId]/checkin/touch-pay/page.tsx", "components/scanner-qr-client.tsx"],
+    sources: ["components/touch-pay-client.tsx", "app/[locale]/dashboard/events/[eventId]/checkin/touch-pay/page.tsx", "components/scanner-qr-client.tsx", "app/api/entrance/terminal/payment-intent/route.ts", "app/api/cron/touchpay-capture/route.ts"],
     body: [
       {
         type: "ul",
         items: [
-          "「対面タッチ決済」（Touch Pay、タッチ決済用アプリが必要）は、Bluetoothカードリーダーを接続し、対象商品（QR作成時に「対面タッチ決済を許可する」をONにしたもの）をその場で決済できます。決済完了後、初めてのお客様には子機のQRコードを読み取ってもらいます。専用機材（カードリーダー）のレンタルとエージェントの現地帯同が必要になるため、利用したい場合は事前にご相談ください",
+          "「対面タッチ決済」（Touch Pay、タッチ決済用アプリが必要）は、Bluetoothカードリーダーを接続し、対象商品（QR作成時に「対面タッチ決済を許可する」をONにしたもの）をその場で決済できます。決済完了後、初めてのお客様には子機のQRコードを読み取ってもらいます。受け付けるのは、QR自己決済と同じくイベントの開始時刻から終了時刻の{{POST_EVENT_GRACE_HOURS}}時間後までです。決済から{{TOUCHPAY_CAPTURE_HOURS}}時間後か締め時刻の早い方で売上が確定（キャプチャ）します。専用機材（カードリーダー）のレンタルとエージェントの現地帯同が必要になるため、利用したい場合は事前にご相談ください",
           "「親機パネル」では接続中の子機（タブレット等の表示端末）にタイムテーブルでQRを自動配信でき、「子機モード」はその表示専用のキオスク画面です",
           "「ダッシュボード」の「別端末でログイン」機能は、スタッフ用タブレットなど別端末にQRでログインさせるためのもので、入場スキャナとは別機能です",
         ],
@@ -397,7 +400,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
           "入場：お客様のチケットQRを読み取り、結果で対応を分けます。**「入場OK」**→通す／**「入場済みです」**→すでに入場済み。本人確認のうえ判断／**「無効なチケット」**→キャンセル済みや失効。決済し直してもらう",
           "当日券（タッチ決済）：商品と人数を選ぶ →「カードをタッチしてください」でお客様にカードやスマホをかざしてもらう → 完了。**初めてのお客様には子機のサインアップQRを読み取ってもらい**、cheers!カードを受け取れるようにします",
           "売上はイベント詳細の「売上・決済」タブでリアルタイムに確認できます",
-          "誤販売はその場で「売上・決済」タブから取消（精算前ならオーガナイザー自身で可能。[[organizer.sales-cancel|group]]参照）",
+          "誤販売はその場で「売上・決済」タブから取消（精算前ならオーガナイザー自身で可能。タッチ決済は{{TOUCHPAY_CAPTURE_HOURS}}時間以内ならオーソリ取消で手数料なし。[[organizer.sales-cancel|group]]参照）",
         ],
       },
       {
@@ -413,9 +416,9 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
       },
       {
         type: "phase",
-        label: "終了後（その場で）",
+        label: "終了後",
         items: [
-          "撮った写真と動員数を、できればその日のうちに「開催証跡を提出して承認依頼する」から提出",
+          "撮った写真と動員数を、終了時刻の{{POST_EVENT_GRACE_HOURS}}時間後から「開催証跡を提出して承認依頼する」で提出（提出できる時刻になるとメールとお知らせが届きます）。できればその日のうちに",
           "**開催から{{AUTH_EXPIRE_DAYS}}日以内に精算が完了しないと、決済がすべて自動取消されイベントは中止扱いになります**（[[organizer.evidence|group]]参照）。提出を後回しにしないでください",
         ],
       },
@@ -441,16 +444,16 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     help: { tab: "organizer" },
     sources: ["components/event-detail-tabs.tsx", "app/api/events/[eventId]/transactions/[transactionId]/cancel/route.ts"],
     q: "お客様への返金はオーガナイザーが行いますか？",
-    a: "はい、できます。精算前のイベントであれば、イベント詳細の「売上・決済」タブ（決済ログ）から自分のイベントの決済を取り消せます（オーソリ中のものは取消、キャプチャ済みのものは返金）。イベントが「精算済み」になった後の返金のみ、運営（admin）が対応します。",
+    a: "はい、できます。精算前のイベントであれば、イベント詳細の「売上・決済」タブ（決済ログ）から自分のイベントの決済を取り消せます（オーソリ中のものは取消、キャプチャ済みのものは返金。決済ログの「確定済み」の表示と、取り消す前の確認画面でどちらになるか分かります）。イベントが「精算済み」になった後の返金のみ、運営（admin）が対応します。",
   },
   {
     kind: "faq",
     id: "organizer.faq.presale",
     minRole: "organizer",
     help: { tab: "organizer" },
-    sources: ["app/api/events/[eventId]/cancel/route.ts", "lib/purchase-window.ts"],
+    sources: ["app/api/events/[eventId]/cancel/route.ts", "lib/purchase-window.ts", "app/api/cron/touchpay-capture/route.ts"],
     q: "前売り分はどうなりますか？",
-    a: "ほとんどのカード決済は「オーソリのみ」で保留されているため、イベント中止が承認されると自動的に取り消され、お客様に負担はかかりません。前売即時確定タイプ（即時確定）の入場チケットなど既にキャプチャ済みのものは自動では取り消されないため、決済ログから個別に取消（返金）してください。",
+    a: "ほとんどのカード決済は「オーソリのみ」で保留されているため、イベント中止が承認されると自動的に取り消され、お客様に負担はかかりません。前売即時確定タイプ（即時確定）の入場チケットや、決済から{{TOUCHPAY_CAPTURE_HOURS}}時間たった対面タッチ決済など、既にキャプチャ済みのものは自動では取り消されないため、決済ログから個別に取消（返金）してください。",
   },
   {
     kind: "faq",

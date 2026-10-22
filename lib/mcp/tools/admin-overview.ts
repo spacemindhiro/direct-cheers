@@ -1,7 +1,7 @@
 // admin_overview：運営（admin）向けの DC 全体の「対応待ち」の照会（requirements.md 7.3）。admin 以外には登録しない。
 //   条件は各管理画面に揃える：
 //   - 口座審査待ち：profiles.verification_status='pending'（ダッシュボードの「審査待ち」・口座審査画面）
-//   - 精算待ち：終了した／終了時刻を過ぎた公開中のイベントで未精算（Settlements 画面の対象）を、証跡の提出・差し戻しで分ける
+//   - 精算待ち：締め時刻（終了3時間後）を過ぎた公開中のイベントで未精算（Settlements 画面の対象）を、証跡の提出・差し戻しで分ける
 //   - 承認待ち・中止申請中のイベント
 //   - 照合：完了した決済（招待以外）のうち、未照合・金額不一致・照合エラー（Reconcile 画面の集計と同じ区分）
 //   - 振込の保留：pending_connect_transfers の pending（口座審査画面の「プールされている分配」）
@@ -9,6 +9,7 @@
 // 返さないもの：連絡先・決済ID・Stripe のID・お客様の名前
 import { z } from "zod";
 import { AUTH_EXPIRE_DAYS } from "@/lib/settlement-deadline";
+import { POST_EVENT_GRACE_MS } from "@/lib/purchase-window";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import type { DcMcpContext } from "../context";
 import { jstDateTime, lines, yen } from "../format";
@@ -34,8 +35,9 @@ export async function adminOverview(ctx: DcMcpContext, input: { detail?: number 
   const head = (table: string) => a.from(table).select("*", { count: "exact", head: true });
 
   // 精算待ち（Settlements 画面の対象のうち未精算）
+  const closedBeforeIso = new Date(now.getTime() - POST_EVENT_GRACE_MS).toISOString();
   const unsettled = await fetchAllPages<Ev>(a as never, "events", "event_id, title, start_at, end_at, lifecycle_status, agent_id, organizer_profile_id",
-    (q) => q.is("deleted_at", null).or(`lifecycle_status.eq.ended,and(lifecycle_status.in.(published,ongoing),end_at.lt.${now.toISOString()})`).order("end_at", { ascending: true }));
+    (q) => q.is("deleted_at", null).or(`lifecycle_status.eq.ended,and(lifecycle_status.in.(published,ongoing),end_at.lt.${closedBeforeIso})`).order("end_at", { ascending: true }));
   const ids = unsettled.map((e) => e.event_id);
   const withEvidence = new Set<string>();
   const rejected = new Set<string>();

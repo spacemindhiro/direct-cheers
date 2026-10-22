@@ -6,7 +6,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getEventAccess } from "@/lib/event-access";
 import { eventActions, qrProductTypeLabel } from "@/lib/event-actions";
 import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, Pencil, CheckCircle2, ScanLine } from "lucide-react";
-import { EventEndButton } from "@/components/event-end-button";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
 import { EventRequestReviewButton } from "@/components/event-request-review-button";
@@ -86,7 +85,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   // 「この人が今できる操作」の判定はチアリー(AI) の event_detail と共用（lib/event-actions.ts）
   const {
     isAdmin, isEventOrganizer, isEventAgent, isLineupArtist, isSelfOrganized, hasEnded,
-    canRequestReview, canProxyNotify, canApprove, canCreateQR, canSubmitEvidence, canEndEvent,
+    canRequestReview, canProxyNotify, canApprove, canCreateQR, canSubmitEvidence,
     canRequestCancel, canApproveCancellation, isHandoffCandidate, canRequestHandoff,
   } = eventActions({ userId: user.id, role: profile?.role, event, isLineupArtist: isLineupArtistHere, pendingHandoff });
 
@@ -380,9 +379,6 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       {/* 中止承認ボタン（エージェント） */}
       {canApproveCancellation && <EventCancelApproveButton eventId={eventId} />}
 
-      {/* イベント終了ボタン（オーガナイザー） */}
-      {canEndEvent && <EventEndButton eventId={eventId} />}
-
       {/* エビデンス提出ボタン（オーガナイザー） */}
       {canSubmitEvidence && (
         <Link
@@ -415,7 +411,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
       )}
 
       {/* 証跡確認リンク（admin） */}
-      {profile?.role === "admin" && hasEnded && evidenceCount > 0 && event.lifecycle_status !== "settled" && (
+      {profile?.role === "admin" && hasEnded && evidenceCount > 0 && (
         <Link
           href="/admin/settlements"
           className="flex items-center gap-3 bg-indigo-500/5 border border-indigo-500/20 hover:border-indigo-500/40 rounded-[1.5rem] p-5 transition-all group"

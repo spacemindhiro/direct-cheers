@@ -7,10 +7,9 @@ on:
     - cron: '0 20 * * *'  # 05:00 JST → reconcile
     - cron: '0 21 * * *'  # 06:00 JST → retry-pending-transfers
     - cron: '0 0 * * *'   # 09:00 JST → entrance-card-check
-    - cron: '0 1 * * *'   # 10:00 JST → check-auth-expiry
     - cron: '0 3 * * *'   # 12:00 JST → auto-cancel-unsettled
     - cron: '0 2 1 * *'   # 11:00 JST (毎月1日) → monthly-accounting
-    - cron: '0 * * * *'   # 毎時 → refund-expired-vouchers
+    - cron: '0 * * * *'   # 毎時 → refund-expired-vouchers / touchpay-capture / evidence-request
   workflow_dispatch:      # 手動実行も可能
 
 env:
@@ -87,30 +86,6 @@ jobs:
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "$PROD_URL/api/cron/entrance-card-check" \
-            -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
-          echo "HTTP $STATUS"
-          [ "$STATUS" = "200" ] || exit 1
-
-  auth-expiry-stg:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 1 * * *'
-    runs-on: ubuntu-latest
-    steps:
-      - name: 認証期限チェック - STG (10:00 JST)
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "$STG_URL/api/admin/check-auth-expiry" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
-          echo "HTTP $STATUS"
-          [ "$STATUS" = "200" ] || exit 1
-
-  auth-expiry-prod:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 1 * * *'
-    runs-on: ubuntu-latest
-    steps:
-      - name: 認証期限チェック - PROD (10:00 JST)
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "$PROD_URL/api/admin/check-auth-expiry" \
             -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
           echo "HTTP $STATUS"
           [ "$STATUS" = "200" ] || exit 1
@@ -207,6 +182,54 @@ jobs:
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "$PROD_URL/api/cron/refund-expired-vouchers" \
+            -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  touchpay-capture-stg:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 * * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: タッチ決済の自動キャプチャ - STG (毎時)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$STG_URL/api/cron/touchpay-capture" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  touchpay-capture-prod:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 * * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: タッチ決済の自動キャプチャ - PROD (毎時)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$PROD_URL/api/cron/touchpay-capture" \
+            -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  evidence-request-stg:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 * * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 開催証跡の提出依頼 - STG (毎時)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$STG_URL/api/cron/evidence-request" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $STATUS"
+          [ "$STATUS" = "200" ] || exit 1
+
+  evidence-request-prod:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 * * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 開催証跡の提出依頼 - PROD (毎時)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$PROD_URL/api/cron/evidence-request" \
             -H "Authorization: Bearer ${{ secrets.PROD_CRON_SECRET }}")
           echo "HTTP $STATUS"
           [ "$STATUS" = "200" ] || exit 1

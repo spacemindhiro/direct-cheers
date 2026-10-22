@@ -4,8 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { saveCronReport, type FailureDetail } from "@/lib/cron-report";
 import { fetchAllPages } from "@/lib/fetch-all-pages";
 import { releaseStockForTransactions } from "@/lib/stock-hold";
-// check-auth-expiry の警告基準(イベント開始から7日)と同じ締切。
-// 警告だけで終わらせず、締切そのものに達したら自動でオーソリ取消・イベント中止まで実行する。
+// 精算期限（イベント開始から AUTH_EXPIRE_DAYS 日）。期限2日前の催促は cron/evidence-request。
+// 催促だけで終わらせず、締切そのものに達したら自動でオーソリ取消・イベント中止まで実行する。
 import { AUTH_EXPIRE_DAYS } from "@/lib/settlement-deadline";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);

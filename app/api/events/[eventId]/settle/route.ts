@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 import { getFeeConfig } from "@/lib/fee-config";
 import { queuePendingTransfer } from "@/lib/pending-transfers";
+import { EVIDENCE_NOTIFICATION_TYPES } from "@/lib/evidence-request";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -561,7 +562,7 @@ export async function POST(
   await admin
     .from("notifications")
     .update({ is_read: true })
-    .eq("type", "evidence_submitted")
+    .in("type", ["evidence_submitted", ...EVIDENCE_NOTIFICATION_TYPES])
     .filter("metadata->>event_id", "eq", eventId);
 
   return NextResponse.json({

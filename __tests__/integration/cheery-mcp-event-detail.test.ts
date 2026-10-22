@@ -136,7 +136,7 @@ describe("TC-CHEERY-MCP-EVD: event_detail", () => {
   it("主催者：完全一致の名前で1件に決まり、画面と同じ範囲の売上・出演者・QR・できる操作を返す", async () => {
     expect(await detail(await mcpAs("org", "organizer"), `MCPE 夏祭り ${ts}`)).toBe(EXPECTED_BODY(
       "主催",
-      "あなたが今できる操作（イベント詳細画面）：QRを作る／イベントを終了する／中止を申請する／イベントを編集する",
+      "あなたが今できる操作（イベント詳細画面）：QRを作る／中止を申請する／イベントを編集する",
     ));
   });
 

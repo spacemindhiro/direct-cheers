@@ -17,6 +17,28 @@ export const CLOSED_LIFECYCLES = ["draft", "review_requested", "cancelled", "set
 /** 当日決済（チア・メッセージ・当日券等）の受付はイベント終了からこの時間まで */
 export const POST_EVENT_GRACE_MS = 3 * 60 * 60 * 1000;
 
+/** オーソリからこの時間が経ったタッチ決済は、締め時刻を待たずにキャプチャする（app/api/cron/touchpay-capture） */
+export const TOUCHPAY_CAPTURE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 締め時刻＝当日決済の受付が終わる時刻（終了時刻＋3時間）。
+ * 証跡の提出・自動照合・証跡提出の依頼通知・タッチ決済の自動キャプチャも、すべてこの時刻を基準にする。
+ * 以前は証跡の提出が「終了時刻」、自動照合が「終了ボタン（lifecycle_status='ended'）」基準で、
+ * 決済を受け付けている最中に承認まで進めたり、終了ボタンを押し忘れると照合が止まったりした（2026-10-22）。
+ */
+export function eventCloseAt(eventEndAt: string | Date): Date {
+  return new Date(new Date(eventEndAt).getTime() + POST_EVENT_GRACE_MS);
+}
+
+/** 締め時刻を過ぎたか。締め時刻ちょうどはまだ決済を受け付けている扱い（evaluatePurchaseWindow と同じ境界） */
+export function isEventClosed(eventEndAt: string | Date | null | undefined, now: Date = new Date()): boolean {
+  if (!eventEndAt) return false;
+  return now > eventCloseAt(eventEndAt);
+}
+
+/** 証跡の提出・自動照合の対象になるイベント状態（公開後〜精算前）。下書き・承認待ち・中止・精算済みは対象外 */
+export const RUNNING_LIFECYCLES = ["published", "ongoing", "ended"] as const;
+
 export type PurchaseWindowInput = {
   lifecycleStatus: string | null | undefined;
   eventStartAt: string | null | undefined;
@@ -63,9 +85,8 @@ export function evaluatePurchaseWindow(input: PurchaseWindowInput): PurchaseWind
   // それ以外は当日決済：イベント開始〜終了3時間後まで。日時が欠けているイベントは受け付けない
   if (!eventStartAt || !eventEndAt) return { ok: false, reason: "closed" };
   const eventStart = new Date(eventStartAt);
-  const eventEndPlusGrace = new Date(new Date(eventEndAt).getTime() + POST_EVENT_GRACE_MS);
   if (now < eventStart) return { ok: false, reason: "before_event", eventStart };
-  if (now > eventEndPlusGrace) return { ok: false, reason: "after_event" };
+  if (isEventClosed(eventEndAt, now)) return { ok: false, reason: "after_event" };
   return { ok: true };
 }
 

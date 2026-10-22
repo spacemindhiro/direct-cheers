@@ -99,11 +99,12 @@ export const STAFF_ITEMS: KnowledgeItem[] = [
     id: "agent.deadline-warning",
     minRole: "agent",
     goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
-    title: "精算期限の警告が届いたとき",
-    sources: ["app/api/admin/check-auth-expiry/route.ts", "lib/settlement-deadline.ts"],
+    title: "開催証跡のフォロー依頼が届いたとき",
+    sources: ["app/api/cron/evidence-request/route.ts", "lib/evidence-request.ts", "lib/settlement-deadline.ts"],
     body: [
-      { type: "p", text: "担当イベントが開始から{{AUTH_EXPIRE_WARN_DAY}}日目になっても精算が終わっていないと、「オーソリ期限が迫っています」の警告が届きます。{{AUTH_EXPIRE_DAYS}}日を過ぎると決済がすべて自動で取り消され、イベントは中止扱いになります（[[organizer.evidence]]）。" },
-      { type: "p", text: "主催者に開催証跡の提出を促してください。" },
+      { type: "p", text: "決済のあった担当イベントが締め時刻（終了時刻の{{POST_EVENT_GRACE_HOURS}}時間後）を過ぎると、主催者に開催証跡の提出依頼が、担当エージェントにフォローの依頼が、メールとダッシュボードのお知らせで届きます。開始から{{AUTH_EXPIRE_WARN_DAY}}日目になってもまだ提出がなければ、もう一度届きます。" },
+      { type: "p", text: "{{AUTH_EXPIRE_DAYS}}日を過ぎても精算が終わっていないと、決済がすべて自動で取り消され、イベントは中止扱いになります（[[organizer.evidence]]）。主催者に開催証跡の提出を促してください。" },
+      { type: "p", text: "エージェント自身が主催するイベントでは、主催者として提出依頼が届き、フォローの依頼は運営に届きます。" },
     ],
   },
   {
@@ -136,7 +137,7 @@ export const STAFF_ITEMS: KnowledgeItem[] = [
         type: "ul",
         items: [
           "口座開設の最終承認（Stripeでの本人確認が終わった人を受取可能にする）：管理画面の「口座審査」",
-          "開催証跡の確認と精算：管理画面の「Settlements」（精算管理）。証跡が無いイベントや、未照合の決済が残っているイベントは精算できません。未照合の決済は「Reconcile」（照合管理）で照合します",
+          "開催証跡の確認と精算：管理画面の「Settlements」（精算管理）。表示は「要承認」→「開催承認済み・照合待ち」→「送金待ち」と進みます。証跡が無いイベントや、未照合の決済が残っているイベントは精算できません。未照合の決済は毎朝5:00に自動で照合されるほか、開催承認の後なら精算管理のその場で、または「Reconcile」（照合管理）で照合できます",
           "開催証跡の差し戻し（コメント必須）：「Settlements」（精算管理）から",
           "精算済みになった後の返金：管理画面の「Refunds」（返金管理）",
           "エージェントが主催者を兼ねるイベント（自主開催）の公開承認：そのイベントの詳細画面から",

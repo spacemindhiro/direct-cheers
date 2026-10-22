@@ -9,7 +9,9 @@ import { useRouter } from "next/navigation";
 // チャージ情報が無いと成立しないため、開催承認→（cron/管理者による）照合→
 // 送金、という順で必ず進む。送金を先に押しても、未照合が残っていればエラー
 // メッセージが出るだけで実際には何も送金されない。
-export function SettleButton({ eventId }: { eventId: string }) {
+// captureApproved: 開催承認（全件キャプチャ）済みか（events.capture_approved_at）。以前は押した直後の
+// 画面上のチェックマークだけで、再読み込みすると未承認と見分けがつかなかった（2026-10-22）
+export function SettleButton({ eventId, captureApproved = false }: { eventId: string; captureApproved?: boolean }) {
   const router = useRouter();
   const [captureLoading, setCaptureLoading] = useState(false);
   const [settleLoading, setSettleLoading] = useState(false);
@@ -34,6 +36,11 @@ export function SettleButton({ eventId }: { eventId: string }) {
 
     if (!res.ok || data.error) {
       setCaptureError(data.error ?? "キャプチャに失敗しました");
+    } else if ((data.errors ?? 0) > 0) {
+      // 一部だけ失敗したときは開催承認済みにならない（再実行で残りを拾う）。以前は成功扱いで何も出なかった
+      const details = (data.errorDetails ?? []).map((e: { pi_id: string; error: string }) => `${e.pi_id}: ${e.error}`).join(" / ");
+      setCaptureError(`${data.errors}件キャプチャできませんでした（${data.captured ?? 0}件は成功）。${details}`);
+      router.refresh();
     } else {
       setCaptureDone(true);
       router.refresh();
@@ -100,14 +107,21 @@ export function SettleButton({ eventId }: { eventId: string }) {
   return (
     <div className="space-y-2 shrink-0">
       <div className="flex items-center gap-2 flex-wrap justify-end">
-        <button
-          onClick={handleCapture}
-          disabled={captureLoading || settleLoading || rejectLoading}
-          className="h-9 px-4 bg-sky-500 hover:brightness-110 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50 flex items-center gap-1.5"
-        >
-          {captureLoading ? <Loader2 size={13} className="animate-spin" /> : captureDone ? <CheckCircle2 size={13} /> : <Zap size={13} />}
-          開催承認
-        </button>
+        {captureApproved || captureDone ? (
+          <span className="h-9 px-4 bg-sky-500/10 border border-sky-500/30 text-sky-300 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-1.5">
+            <CheckCircle2 size={13} />
+            開催承認済み
+          </span>
+        ) : (
+          <button
+            onClick={handleCapture}
+            disabled={captureLoading || settleLoading || rejectLoading}
+            className="h-9 px-4 bg-sky-500 hover:brightness-110 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {captureLoading ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+            開催承認
+          </button>
+        )}
         <button
           onClick={handleSettle}
           disabled={captureLoading || settleLoading || rejectLoading}

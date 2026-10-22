@@ -90,7 +90,6 @@ export async function eventDetail(ctx: DcMcpContext, input: { event: string }): 
     a.canProxyNotify && "代理で作った下書きを主催者に送って確認を依頼する",
     a.canApprove && "公開を承認する",
     a.canCreateQR && "QRを作る",
-    a.canEndEvent && "イベントを終了する",
     a.canSubmitEvidence && "開催証跡を提出する",
     a.canRequestCancel && "中止を申請する",
     a.canApproveCancellation && "中止申請を承認・却下する",

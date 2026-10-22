@@ -322,6 +322,13 @@ describe("TC-CHEERY-DRAFT-3: 下書きの確認カードと作成", () => {
     expect(text.includes("出演者「ミラ」と完全に同じ名前の人はいません。")).toBe(true);
   });
 
+  it("3-02d: 出演者が空なら、AI に聞き返すよう返す（カードでは本人が「出演者なしで作る」を選ぶまで作れない）", async () => {
+    const s = await mcpAs("org", "organizer");
+    const text = await run(s, "prepare_event_draft", base);
+    expect(text.includes("- 出演者：なし（本人が「出演者なし」と言っていなければ、出演者がいるか聞き返してください。カードでは本人が「出演者なしで作る」を選ぶまで作れません）")).toBe(true);
+    expect(lastDraftCard(s).performers).toEqual([]);
+  });
+
   it("3-02c: 名義の主催者も、部分的にしか合わなければ決めずに聞き返す", async () => {
     const s = await mcpAs("ag", "agent");
     const text = await run(s, "prepare_event_draft", { ...base, organizer_name: "担当主催" });

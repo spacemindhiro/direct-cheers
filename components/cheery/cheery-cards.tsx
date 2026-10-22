@@ -233,7 +233,9 @@ function EventDraftView({ card, done, onDone, onNavigate }: { card: EventDraftCa
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const unresolved = picked.some((p) => p === "?");
+  // 出演者が空のカードは、本人が「出演者なしで作る」を選ぶまで作れない（AI が聞き返さなかったときも、本人が決める）
+  const [noPerformers, setNoPerformers] = useState(false);
+  const unresolved = picked.some((p) => p === "?") || (card.performers.length === 0 && !noPerformers);
 
   const create = async () => {
     setBusy(true);
@@ -259,7 +261,12 @@ function EventDraftView({ card, done, onDone, onNavigate }: { card: EventDraftCa
       <div className="flex gap-2 text-[11px]">
         <span className="w-14 shrink-0 text-slate-500">出演者</span>
         <div className="flex-1 min-w-0 space-y-1.5">
-          {card.performers.length === 0 && <span className="text-slate-200">なし</span>}
+          {card.performers.length === 0 && (done ? <span className="text-slate-200">なし</span> : (
+            <label className="flex items-center gap-1.5 text-slate-200">
+              <input type="checkbox" checked={noPerformers} onChange={(e) => setNoPerformers(e.target.checked)} />
+              出演者なしで作る（いる場合はチャットで名前を伝えてください）
+            </label>
+          ))}
           {card.performers.map((slot, i) => (
             <div key={i} className="space-y-1">
               {slotDecided(slot) ? (

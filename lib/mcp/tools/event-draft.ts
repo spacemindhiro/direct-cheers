@@ -140,7 +140,9 @@ export async function prepareEventDraft(ctx: DcMcpContext, input: PrepareInput):
       `- 開始：${jstDateTime(startAt)}${past}`,
       `- 終了：${jstDateTime(endAt)}`,
       `- 名義：${organizer.name}${organizer.profile_id ? "（代理。主催者に確認を依頼するまで主催者からは見えません）" : ""}`,
-      `- 出演者：${slots.length > 0 ? slots.map((s) => (slotDecided(s) ? s.options[0].name : `${s.query}（本人が選ぶまで決まりません）`)).join("、") : "なし"}`,
+      slots.length > 0
+        ? `- 出演者：${slots.map((s) => (slotDecided(s) ? s.options[0].name : `${s.query}（本人が選ぶまで決まりません）`)).join("、")}`
+        : "- 出演者：なし（本人が「出演者なし」と言っていなければ、出演者がいるか聞き返してください。カードでは本人が「出演者なしで作る」を選ぶまで作れません）",
       ...notes,
     ].join("\n"),
     cards: [card],

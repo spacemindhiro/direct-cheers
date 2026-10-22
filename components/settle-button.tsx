@@ -106,7 +106,7 @@ export function SettleButton({ eventId, captureApproved = false }: { eventId: st
 
   return (
     <div className="space-y-2 shrink-0">
-      <div className="flex items-center gap-2 flex-wrap justify-end">
+      <div className="flex items-center gap-2 flex-wrap sm:justify-end">
         {captureApproved || captureDone ? (
           <span className="h-9 px-4 bg-sky-500/10 border border-sky-500/30 text-sky-300 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-1.5">
             <CheckCircle2 size={13} />
@@ -141,7 +141,7 @@ export function SettleButton({ eventId, captureApproved = false }: { eventId: st
       </div>
 
       {showRejectForm && (
-        <div className="bg-slate-800 rounded-xl p-3 space-y-2 w-64 ml-auto">
+        <div className="bg-slate-800 rounded-xl p-3 space-y-2 w-full sm:w-64 sm:ml-auto">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest">差戻しコメント</p>
             <button onClick={() => { setShowRejectForm(false); setComment(""); setError(""); }}>
@@ -166,9 +166,9 @@ export function SettleButton({ eventId, captureApproved = false }: { eventId: st
         </div>
       )}
 
-      {captureError && <p className="text-xs text-red-400 text-right">開催承認: {captureError}</p>}
-      {settleError && <p className="text-xs text-red-400 text-right">送金: {settleError}</p>}
-      {error && <p className="text-xs text-red-400 text-right">{error}</p>}
+      {captureError && <p className="text-xs text-red-400 sm:text-right">開催承認: {captureError}</p>}
+      {settleError && <p className="text-xs text-red-400 sm:text-right">送金: {settleError}</p>}
+      {error && <p className="text-xs text-red-400 sm:text-right">{error}</p>}
     </div>
   );
 }

@@ -25,7 +25,7 @@ import { testAdmin } from "../helpers/db-reset";
 import { insertProfile, deleteAuthUsers } from "../helpers/seed";
 import { connectDcMcp, type DcMcpSession } from "@/lib/mcp/in-process";
 import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
-import type { EventDraftCard, VenueRegisterCard } from "@/lib/cheery/cards";
+import { slotDecided, type EventDraftCard, type VenueRegisterCard } from "@/lib/cheery/cards";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -287,14 +287,37 @@ describe("TC-CHEERY-DRAFT-3: 下書きの確認カードと作成", () => {
     expect(card.start_at).toBe("2026-12-10T10:00:00.000Z");
     expect(card.end_at).toBe("2026-12-10T13:00:00.000Z");
     expect(card.venue.venue_id).toBe(cleanup.venues[0]);
-    expect(card.performers).toEqual([{ query: `ミライ${ts}`, options: [{ profile_id: P.perf, name: `ミライ${ts}`, sub: null, connected: true }] }]);
+    expect(card.performers).toEqual([{ query: `ミライ${ts}`, exact: true, options: [{ profile_id: P.perf, name: `ミライ${ts}`, sub: null, connected: true }] }]);
     expect(await countRows("events", "title", base.title)).toBe(before);
   });
 
-  it("3-02: 同じ名前の人が2人いれば両方が候補になる（カードで本人が選ぶ）", async () => {
+  it("3-02: 同じ名前の人が2人いれば両方が候補になり、決まりにしない（聞き返す）", async () => {
     const s = await mcpAs("org", "organizer");
-    await run(s, "prepare_event_draft", { ...base, performers: [`同名${ts}`] });
-    expect(lastDraftCard(s).performers[0].options.map((o) => o.profile_id).sort()).toEqual([P.same1, P.same2].sort());
+    const text = await run(s, "prepare_event_draft", { ...base, performers: [`同名${ts}`] });
+    const slot = lastDraftCard(s).performers[0];
+    expect([slot.exact, slotDecided(slot)]).toEqual([true, false]);
+    expect(slot.options.map((o) => o.profile_id).sort()).toEqual([P.same1, P.same2].sort());
+    expect(text.includes(`- 出演者：同名${ts}（本人が選ぶまで決まりません）`)).toBe(true);
+    expect(text.includes(`出演者「同名${ts}」と同じ名前の人が2人います`)).toBe(true);
+    expect(text.includes("どの人か本人に聞き返してください")).toBe(true);
+  });
+
+  it("3-02b: 部分的にしか合わない人は、候補が1人でも決まりにしない（勝手に決めない）", async () => {
+    const s = await mcpAs("org", "organizer");
+    const text = await run(s, "prepare_event_draft", { ...base, performers: [`ミラ`] });
+    const slot = lastDraftCard(s).performers.find((p) => p.query === "ミラ")!;
+    expect(slot.exact).toBe(false);
+    expect(slot.options.map((o) => o.profile_id).includes(P.perf)).toBe(true);
+    expect(slotDecided(slot)).toBe(false);
+    expect(text.includes("- 出演者：ミラ（本人が選ぶまで決まりません）")).toBe(true);
+    expect(text.includes("出演者「ミラ」と完全に同じ名前の人はいません。")).toBe(true);
+  });
+
+  it("3-02c: 名義の主催者も、部分的にしか合わなければ決めずに聞き返す", async () => {
+    const s = await mcpAs("ag", "agent");
+    const text = await run(s, "prepare_event_draft", { ...base, organizer_name: "担当主催" });
+    expect(text).toBe(`「担当主催」と完全に同じ名前の主催者はいません。候補：担当主催${ts}。どの主催者か本人に聞き返し、決まったらその名前どおりに organizer_name を入れて呼び直してください。`);
+    expect(s.cards()).toEqual([]);
   });
 
   it("3-03: パスキー確認が24時間を過ぎていると、コネクションの無い人は探さない（DB15）", async () => {

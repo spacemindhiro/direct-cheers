@@ -32,8 +32,13 @@ export type VenuePinCard = {
 
 export type PerformerSlot = {
   query: string; // 本人が言った名前
-  options: { profile_id: string; name: string; sub: string | null; connected: boolean }[]; // 1人なら決まり、複数なら本人が選ぶ
+  // exact：候補が言われた名前と完全に同じ人か。決まりにするのは「完全に同じ人が1人だけ」のときだけで、
+  // それ以外（部分的に合う人だけ・同じ名前が複数）は本人が選ぶか「入れない」を選ぶまで作れない（勝手に決めない）
+  exact: boolean;
+  options: { profile_id: string; name: string; sub: string | null; connected: boolean }[];
 };
+
+export const slotDecided = (s: PerformerSlot) => s.exact && s.options.length === 1;
 
 export type EventDraftCard = {
   kind: "event_draft";

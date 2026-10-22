@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CalendarPlus, Check, ExternalLink, Loader2, LocateFixed, MapPin, PencilLine } from "lucide-react";
 import { jstDateTime } from "@/lib/mcp/format";
-import type { CardDone, CheeryCard, EventDraftCard, VenuePinCard, VenueRegisterCard } from "@/lib/cheery/cards";
+import { slotDecided, type CardDone, type CheeryCard, type EventDraftCard, type VenuePinCard, type VenueRegisterCard } from "@/lib/cheery/cards";
 
 type Handlers = {
   onDone: (cardId: string, done: CardDone, note: string) => void;
@@ -227,8 +227,9 @@ function VenuePinView({ card, done, onAddCard }: { card: VenuePinCard; done?: Ca
 // ── イベントの下書きの確認カード ──────────────────────────────
 
 function EventDraftView({ card, done, onDone, onNavigate }: { card: EventDraftCard; done?: CardDone } & Handlers) {
-  // 出演者：候補が1人なら決まり（外すこともできる）、複数なら本人が選ぶ（選ぶまで作れない）。"" は「入れない」
-  const [picked, setPicked] = useState<string[]>(() => card.performers.map((s) => (s.options.length === 1 ? s.options[0].profile_id : "?")));
+  // 出演者：言われた名前と完全に同じ人が1人だけなら決まり（外すこともできる）。それ以外は本人が選ぶか
+  // 「入れない」を選ぶまで作れない（勝手に決めない）。"?" は未選択、"" は「入れない」
+  const [picked, setPicked] = useState<string[]>(() => card.performers.map((s) => (slotDecided(s) ? s.options[0].profile_id : "?")));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -261,14 +262,16 @@ function EventDraftView({ card, done, onDone, onNavigate }: { card: EventDraftCa
           {card.performers.length === 0 && <span className="text-slate-200">なし</span>}
           {card.performers.map((slot, i) => (
             <div key={i} className="space-y-1">
-              {slot.options.length === 1 ? (
+              {slotDecided(slot) ? (
                 <label className="flex items-center gap-1.5 text-slate-200">
                   <input type="checkbox" disabled={!!done} checked={picked[i] !== ""} onChange={(e) => setPicked((p) => p.map((v, j) => (j === i ? (e.target.checked ? slot.options[0].profile_id : "") : v)))} />
                   {slot.options[0].name}{slot.options[0].sub ? <span className="text-slate-500">（{slot.options[0].sub}）</span> : null}
                 </label>
               ) : (
                 <>
-                  <p className="text-slate-400">「{slot.query}」に当てはまる人が{slot.options.length}人います。選んでください</p>
+                  <p className="text-slate-400">
+                    {slot.exact ? `「${slot.query}」という名前の人が${slot.options.length}人います。選んでください` : `「${slot.query}」と同じ名前の人はいません。この中にいれば選んでください`}
+                  </p>
                   {slot.options.map((o) => (
                     <label key={o.profile_id} className="flex items-center gap-1.5 text-slate-200">
                       <input type="radio" name={`${card.card_id}-${i}`} disabled={!!done} checked={picked[i] === o.profile_id} onChange={() => setPicked((p) => p.map((v, j) => (j === i ? o.profile_id : v)))} />

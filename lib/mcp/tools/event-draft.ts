@@ -11,7 +11,7 @@ import { allowedTypes, searchDirectory } from "@/lib/directory";
 import { connectedArtists, createEventDraft, proxyOrganizerOptions } from "@/lib/events/create-draft";
 import { searchVenues } from "@/lib/venues";
 import { claimCard, finishCard, releaseCard } from "@/lib/cheery/card-claim";
-import type { EventDraftCard, PerformerSlot } from "@/lib/cheery/cards";
+import { slotDecided, type EventDraftCard, type PerformerSlot } from "@/lib/cheery/cards";
 import type { DcMcpContext } from "../context";
 import { jstDateTime } from "../format";
 
@@ -51,7 +51,7 @@ export const PREPARE_EVENT_DRAFT = {
 
 type PrepareInput = { title: string; venue_name: string; start: string; end: string; organizer_name?: string; performers?: string[] };
 
-async function findPerformers(ctx: DcMcpContext, organizerId: string, query: string): Promise<PerformerSlot["options"]> {
+async function findPerformers(ctx: DcMcpContext, organizerId: string, query: string): Promise<Omit<PerformerSlot, "query">> {
   const q = query.trim().toLowerCase();
   const connected = (await connectedArtists(ctx.admin, organizerId))
     .filter((a) => a.display_name.toLowerCase().includes(q))
@@ -65,9 +65,10 @@ async function findPerformers(ctx: DcMcpContext, organizerId: string, query: str
   const all = [...found.values()];
   const exact = all.filter((a) => a.name.toLowerCase() === q);
   // 名前が完全に同じ人がいれば、その人たちだけを候補にする。コネクション済みを先に
-  return (exact.length > 0 ? exact : all)
+  const options = (exact.length > 0 ? exact : all)
     .sort((a, b) => Number(b.connected) - Number(a.connected) || a.name.localeCompare(b.name, "ja"))
     .slice(0, MAX_OPTIONS);
+  return { exact: exact.length > 0, options };
 }
 
 export async function prepareEventDraft(ctx: DcMcpContext, input: PrepareInput): Promise<DraftToolOutput> {
@@ -84,11 +85,13 @@ export async function prepareEventDraft(ctx: DcMcpContext, input: PrepareInput):
   if (orgName && (role === "agent" || role === "admin")) {
     const options = await proxyOrganizerOptions(ctx.admin, role, ctx.userId);
     const exact = options.filter((o) => o.name === orgName);
-    const partial = exact.length > 0 ? exact : options.filter((o) => o.name.includes(orgName));
+    const partial = options.filter((o) => o.name.includes(orgName));
     // 担当外の主催者は「見つからない」とだけ返す（他人の担当かどうかも言わない）
-    if (partial.length === 0) return { text: `代理で作れる主催者の中に「${orgName}」は見つかりません。` };
-    if (partial.length > 1) return { text: `「${orgName}」に当てはまる主催者が複数います：${partial.map((o) => o.name).join("、")}。どの主催者か本人に確かめてください。` };
-    organizer = { profile_id: partial[0].profile_id, name: partial[0].name };
+    if (exact.length === 0 && partial.length === 0) return { text: `代理で作れる主催者の中に「${orgName}」は見つかりません。` };
+    // 名義は完全に同じ名前の主催者が1人だけのときだけ決める。部分的に合うだけなら聞き返す（勝手に決めない）
+    if (exact.length === 0) return { text: `「${orgName}」と完全に同じ名前の主催者はいません。候補：${partial.map((o) => o.name).join("、")}。どの主催者か本人に聞き返し、決まったらその名前どおりに organizer_name を入れて呼び直してください。` };
+    if (exact.length > 1) return { text: `「${orgName}」という名前の主催者が${exact.length}人います。担当の主催者一覧（作成画面）で名義を選んで作ってもらってください。` };
+    organizer = { profile_id: exact[0].profile_id, name: exact[0].name };
   }
   const organizerId = organizer.profile_id ?? ctx.userId;
 
@@ -106,13 +109,16 @@ export async function prepareEventDraft(ctx: DcMcpContext, input: PrepareInput):
   const slots: PerformerSlot[] = [];
   const notes: string[] = [];
   for (const q of input.performers ?? []) {
-    const options = await findPerformers(ctx, organizerId, q);
+    const { exact, options } = await findPerformers(ctx, organizerId, q);
     if (options.length === 0) {
       notes.push(`出演者「${q}」は見つかりませんでした${ctx.stepUpFresh ? "" : "（コネクション済みの中だけを探しました）"}。下書きを作った後、イベントの編集画面で検索して追加できます。`);
       continue;
     }
-    slots.push({ query: q, options });
-    if (options.length > 1) notes.push(`出演者「${q}」に当てはまる人が${options.length}人います（${options.map((o) => o.name).join("、")}）。カードで本人に選んでもらいます。`);
+    const slot: PerformerSlot = { query: q, exact, options };
+    slots.push(slot);
+    // 決まりにしない出演者は、本人に聞き返す（勝手に決めない）
+    if (!exact) notes.push(`出演者「${q}」と完全に同じ名前の人はいません。候補：${options.map((o) => o.name).join("、")}。どの人か（入れないか）本人に聞き返してください。カードでも選べます。`);
+    else if (!slotDecided(slot)) notes.push(`出演者「${q}」と同じ名前の人が${options.length}人います（${options.map((o) => o.sub ? `${o.name}（${o.sub}）` : o.name).join("、")}）。どの人か本人に聞き返してください。カードでも選べます。`);
   }
 
   const card: EventDraftCard = {
@@ -134,7 +140,7 @@ export async function prepareEventDraft(ctx: DcMcpContext, input: PrepareInput):
       `- 開始：${jstDateTime(startAt)}${past}`,
       `- 終了：${jstDateTime(endAt)}`,
       `- 名義：${organizer.name}${organizer.profile_id ? "（代理。主催者に確認を依頼するまで主催者からは見えません）" : ""}`,
-      `- 出演者：${slots.length > 0 ? slots.map((s) => (s.options.length === 1 ? s.options[0].name : `${s.query}（要選択）`)).join("、") : "なし"}`,
+      `- 出演者：${slots.length > 0 ? slots.map((s) => (slotDecided(s) ? s.options[0].name : `${s.query}（本人が選ぶまで決まりません）`)).join("、") : "なし"}`,
       ...notes,
     ].join("\n"),
     cards: [card],

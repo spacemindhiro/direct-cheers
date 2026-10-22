@@ -1,8 +1,9 @@
 "use client";
 
 // チアリー(AI) の入口とパネル（requirements.md 9章）。ダッシュボードのレイアウトに1つだけ置く。
-// - 入口：ヘッダーの「?」（CheeryOpenButton）と右下の浮きボタン。画面下を使う画面では浮きボタンを出さない
+// - 入口：右下の浮きボタン。画面下を使う画面では出さない（ヘッダーの「?」は利用マニュアルへ直接行く）
 // - スマホは下から出るシート、PC は右側のパネル。後ろを暗くせず、画面を操作しながら読める
+//   スマホのシートは画面の大半を覆うので、利用マニュアル・ヘルプへのリンクを押したら閉じる（PC は開いたまま左に表示）
 // - 会話は端末にだけ保存（アカウントごと）。サーバーには毎回、端末の履歴を送る
 // - 答えの「行き先ボタン」「動画カード」は、サーバーが知識集から作った材料だけで出す（AI の書いた URL は使わない）
 // パネルには transform を付けない（中で開く動画のモーダル＝position:fixed がパネルの枠に閉じ込められるため）
@@ -15,7 +16,6 @@ import { screenOf, showFloatingButton } from "@/lib/cheery/screen";
 import { splitAnswer } from "@/lib/cheery/stream";
 import { clearConversation, loadConversation, saveConversation, type CheeryMessage } from "@/lib/cheery/storage";
 
-export const CHEERY_OPEN_EVENT = "cheery:open";
 const INPUT_MAX = 2000; // lib/ai/config.ts の入力上限と同じ
 
 const SUGGESTIONS: Record<string, string[]> = {
@@ -29,12 +29,6 @@ const SUGGESTIONS: Record<string, string[]> = {
 export function CheeryRoot({ userId, role, hidden }: { userId: string; role: string; hidden?: boolean }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const onOpen = () => setOpen(true);
-    window.addEventListener(CHEERY_OPEN_EVENT, onOpen);
-    return () => window.removeEventListener(CHEERY_OPEN_EVENT, onOpen);
-  }, []);
 
   if (hidden) return null;
   return (
@@ -105,6 +99,9 @@ function CheeryPanel({ userId, role, screen, onClose }: { userId: string; role: 
     }
   }, [busy, messages, screen]);
 
+  // スマホのシート（md 未満）のときだけ閉じる
+  const closeIfSheet = () => { if (!window.matchMedia("(min-width: 768px)").matches) onClose(); };
+
   const reset = () => {
     if (busy) return;
     clearConversation(userId);
@@ -125,7 +122,7 @@ function CheeryPanel({ userId, role, screen, onClose }: { userId: string; role: 
           <p className="text-sm font-black text-white">チアリー(AI)</p>
           <p className="text-[10px] text-slate-500 truncate">AIの案内係</p>
         </div>
-        <Link href="/dashboard/help" className="flex items-center gap-1 h-8 px-2.5 rounded-xl border border-slate-700 text-[10px] font-bold text-slate-300 hover:border-pink-500/50">
+        <Link href="/dashboard/help" onClick={closeIfSheet} className="flex items-center gap-1 h-8 px-2.5 rounded-xl border border-slate-700 text-[10px] font-bold text-slate-300 hover:border-pink-500/50">
           <BookOpen size={12} /> 利用マニュアル
         </Link>
         <button type="button" onClick={reset} disabled={busy || messages.length === 0} aria-label="会話を消す" className="w-8 h-8 rounded-xl border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white disabled:opacity-40">
@@ -151,7 +148,7 @@ function CheeryPanel({ userId, role, screen, onClose }: { userId: string; role: 
             </div>
           </div>
         )}
-        {messages.map((m, i) => <Bubble key={i} m={m} pending={busy && i === messages.length - 1} onNavigate={onClose} />)}
+        {messages.map((m, i) => <Bubble key={i} m={m} pending={busy && i === messages.length - 1} onNavigate={onClose} onHelp={closeIfSheet} />)}
       </div>
 
       <form
@@ -181,7 +178,7 @@ function CheeryPanel({ userId, role, screen, onClose }: { userId: string; role: 
   );
 }
 
-function Bubble({ m, pending, onNavigate }: { m: CheeryMessage; pending: boolean; onNavigate: () => void }) {
+function Bubble({ m, pending, onNavigate, onHelp }: { m: CheeryMessage; pending: boolean; onNavigate: () => void; onHelp: () => void }) {
   if (m.role === "user") {
     return (
       <div className="flex justify-end">
@@ -207,7 +204,7 @@ function Bubble({ m, pending, onNavigate }: { m: CheeryMessage; pending: boolean
               </Link>
             )}
             {r.help && (
-              <Link href={r.help.href} className="flex items-center gap-1 text-[11px] font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3 py-1.5">
+              <Link href={r.help.href} onClick={onHelp} className="flex items-center gap-1 text-[11px] font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3 py-1.5">
                 <HelpCircle size={11} /> {r.help.label}
               </Link>
             )}

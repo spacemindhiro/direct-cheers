@@ -8,7 +8,6 @@ import { Loader2, UserCircle, MessageCircle, HelpCircle } from 'lucide-react';
 import { StripeRestrictionBanner } from '@/components/stripe-restriction-banner';
 import { DashboardBreadcrumb } from '@/components/dashboard-breadcrumb';
 import { CheeryRoot } from '@/components/cheery/cheery-root';
-import { CheeryOpenButton } from '@/components/cheery/cheery-open-button';
 
 const STEP_UP_ROLES = ['artist', 'organizer', 'agent', 'admin'] as const;
 const STEP_UP_TTL_MS = 1440 * 60 * 1000; // 24時間
@@ -92,17 +91,13 @@ async function DashboardNav() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            {isNativeApp ? (
-              <Link
-                href="/dashboard/help"
-                className="w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
-                title="利用マニュアル"
-              >
-                <HelpCircle size={16} className="text-slate-400 hover:text-pink-500 transition-colors" />
-              </Link>
-            ) : (
-              <CheeryOpenButton />
-            )}
+            <Link
+              href="/dashboard/help"
+              className="w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
+              title="利用マニュアル"
+            >
+              <HelpCircle size={16} className="text-slate-400 hover:text-pink-500 transition-colors" />
+            </Link>
             <Link
               href="/dashboard/messages"
               className="relative w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
@@ -155,17 +150,13 @@ async function DashboardNav() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
-            {isNativeApp ? (
-              <Link
-                href="/dashboard/help"
-                className="w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
-                title="利用マニュアル"
-              >
-                <HelpCircle size={16} className="text-slate-400 hover:text-pink-500 transition-colors" />
-              </Link>
-            ) : (
-              <CheeryOpenButton />
-            )}
+            <Link
+              href="/dashboard/help"
+              className="w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"
+              title="利用マニュアル"
+            >
+              <HelpCircle size={16} className="text-slate-400 hover:text-pink-500 transition-colors" />
+            </Link>
             <Link
               href="/dashboard/messages"
               className="relative w-9 h-9 bg-slate-800 border border-slate-700 hover:border-pink-500/50 rounded-2xl flex items-center justify-center transition-all"

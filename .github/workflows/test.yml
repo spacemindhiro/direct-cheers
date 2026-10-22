@@ -42,7 +42,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '25.x'
+          # 本番（Vercel）と同じ系統に揃える。25.x はサポート切れで 2026-10-21 の Node.js 修正が出ていない
+          node-version: '24.x'
           cache: 'npm'
 
       # ── 2.1. アクセス範囲表（main への PR のみ）──────────────────────

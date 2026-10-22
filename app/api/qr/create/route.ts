@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
+import { isValidQrImageUrl } from "@/lib/image-source";
 
 // フォールバック（product_type_configs が取得できなかった場合）
 const PRODUCT_TYPE_FALLBACK: Record<string, { min: number; max: number; label: string }> = {
@@ -118,6 +119,11 @@ export async function POST(req: Request) {
   if (event.agent_id !== user.id && me?.role !== "admin" &&
       await isProxyDraftHiddenFrom(createAdminClient(), event.event_id, user.id)) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
+
+  // 画像は自分たちの Storage に上げたものだけ（外部URLはウォレットカード作成時にサーバーが取りに行くため）
+  if (!isValidQrImageUrl(image_url) || !isValidQrImageUrl(strip_image_url)) {
+    return NextResponse.json({ error: "画像の形式が不正です" }, { status: 400 });
   }
 
   // 有効期間バイパスはadmin限定

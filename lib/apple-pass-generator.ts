@@ -3,6 +3,7 @@ import forge from "node-forge";
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCheerCardIdentity } from "@/lib/statement-descriptor";
+import { isOwnStorageUrl } from "@/lib/image-source";
 import path from "path";
 import fs from "fs";
 
@@ -123,7 +124,8 @@ export async function generateTicketPassBuffer(ticketId: string): Promise<Buffer
   const bgColorHex  = statusBgHex  ?? qrDesign?.bg_color  ?? "#0f172a";
   const fgColorHex  = statusFgHex  ?? qrDesign?.fg_color  ?? "#ffffff";
   const lblColorHex = isSuspended ? "#92400e" : (qrDesign?.label_color ?? "#94a3b8");
-  const stripImageUrl = qrDesign?.strip_image_url ?? null;
+  // 自分たちの Storage 以外のURLは取りに行かず、既定の帯画像にする（lib/image-source.ts isOwnStorageUrl）
+  const stripImageUrl = isOwnStorageUrl(qrDesign?.strip_image_url, ["qr-images"]) ? qrDesign.strip_image_url : null;
 
   const passJson: Record<string, unknown> = {
     formatVersion: 1,
@@ -379,7 +381,8 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
   const logoPath = path.join(process.cwd(), "public", "logo-emblem.png");
   const logoBuffer = fs.readFileSync(logoPath);
 
-  const qrImageUrl = (tx.qr_config as any)?.image_url as string | null | undefined;
+  const rawQrImageUrl = (tx.qr_config as any)?.image_url as string | null | undefined;
+  const qrImageUrl = isOwnStorageUrl(rawQrImageUrl, ["qr-images"]) ? rawQrImageUrl : null;
   let strip2xRaw: Buffer;
   if (qrImageUrl) {
     const imgRes = await fetch(qrImageUrl, { cache: "no-store" });
@@ -410,7 +413,7 @@ export async function generatePassBuffer(transactionId: string): Promise<Buffer>
   );
 
   const makeLogoBuffer = async (size: number): Promise<Buffer> => {
-    if (recipientAvatarUrl) {
+    if (isOwnStorageUrl(recipientAvatarUrl, ["avatars"])) {
       try {
         const res = await fetch(recipientAvatarUrl, { cache: "no-store" });
         if (res.ok) {

@@ -11,6 +11,19 @@ export function isValidFlyerUrl(v: unknown): v is string | null {
   return v === null || (typeof v === "string" && v.startsWith(storagePublicPrefix("event-images")));
 }
 
+// サーバーが取りに行ってよい画像URLか（自分たちの Storage の公開画像だけ）。
+// 外部URLを取りに行かせると、攻撃者が用意したサーバーの応答をサーバー側で受け取って処理することになる
+// （内部ネットワークへの踏み台＝SSRF、Node.js の応答展開処理の脆弱性 CVE-2026-111497 等）。
+export function isOwnStorageUrl(v: unknown, buckets: readonly string[]): v is string {
+  return typeof v === "string" && buckets.some((b) => v.startsWith(storagePublicPrefix(b)));
+}
+
+// QR画像・帯画像（qr_configs.image_url / strip_image_url）として保存してよいか。
+// 画面からは必ず qr-images バケットに上げ直したURLが来る（宛先の画像・フライヤーを選んだ場合も切り抜いて上げ直す）
+export function isValidQrImageUrl(v: unknown): v is string | null {
+  return v === null || isOwnStorageUrl(v, ["qr-images"]);
+}
+
 export type AvatarSource = { url: string; originalUrl: string | null };
 
 /**

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
+import { isValidQrImageUrl } from "@/lib/image-source";
 
 async function getQRWithPermission(qrConfigId: string, userId: string) {
   const supabase = await createClient();
@@ -9,7 +10,7 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
 
   const { data: qr } = await admin
     .from("qr_configs")
-    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id, product_id, default_amount, touchpay_enabled, is_welcome_cheer_default")
+    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id, product_id, default_amount, touchpay_enabled, is_welcome_cheer_default, image_url, strip_image_url")
     .eq("qr_config_id", qrConfigId)
     .is("deleted_at", null)
     .single();
@@ -115,6 +116,13 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
+  // 画像は自分たちの Storage に上げたものだけ（外部URLはウォレットカード作成時にサーバーが取りに行くため）。
+  // 編集画面は変えていない画像もそのまま送り直すので、保存済みの値と同じなら通す
+  if ((image_url !== undefined && image_url !== qr.image_url && !isValidQrImageUrl(image_url)) ||
+      (strip_image_url !== undefined && strip_image_url !== qr.strip_image_url && !isValidQrImageUrl(strip_image_url))) {
+    return NextResponse.json({ error: "画像の形式が不正です" }, { status: 400 });
+  }
+
   // 有効期間バイパスはadmin限定
   if (bypass_validity !== undefined && !isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

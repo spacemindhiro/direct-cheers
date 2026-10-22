@@ -45,11 +45,11 @@ export const PREPARE_EVENT_DRAFT = {
     start: z.string().describe("開始（日本時間、例 2026-11-10T19:00）"),
     end: z.string().describe("終了（日本時間、例 2026-11-10T22:00）"),
     organizer_name: z.string().max(100).optional().describe("代理で作るときの名義の主催者名（エージェント・運営だけ。自分名義なら省く）"),
-    performers: z.array(z.string().min(1).max(100)).max(20).optional().describe("出演者の名前"),
+    performers: z.array(z.string().min(1).max(100)).max(20).describe("出演者の名前。本人に出演者を聞いて答えをもらってから呼ぶ。本人が「出演者なし」と言ったときだけ空の配列"),
   },
 } as const;
 
-type PrepareInput = { title: string; venue_name: string; start: string; end: string; organizer_name?: string; performers?: string[] };
+type PrepareInput = { title: string; venue_name: string; start: string; end: string; organizer_name?: string; performers: string[] };
 
 async function findPerformers(ctx: DcMcpContext, organizerId: string, query: string): Promise<Omit<PerformerSlot, "query">> {
   const q = query.trim().toLowerCase();
@@ -108,7 +108,7 @@ export async function prepareEventDraft(ctx: DcMcpContext, input: PrepareInput):
   // 出演者
   const slots: PerformerSlot[] = [];
   const notes: string[] = [];
-  for (const q of input.performers ?? []) {
+  for (const q of input.performers) {
     const { exact, options } = await findPerformers(ctx, organizerId, q);
     if (options.length === 0) {
       notes.push(`出演者「${q}」は見つかりませんでした${ctx.stepUpFresh ? "" : "（コネクション済みの中だけを探しました）"}。下書きを作った後、イベントの編集画面で検索して追加できます。`);

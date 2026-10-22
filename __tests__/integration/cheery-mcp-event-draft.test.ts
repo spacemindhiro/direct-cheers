@@ -267,7 +267,16 @@ describe("TC-CHEERY-DRAFT-2: 会場を探す・登録する", () => {
 
 // ── 3. 下書き ──
 describe("TC-CHEERY-DRAFT-3: 下書きの確認カードと作成", () => {
-  const base = { title: `チアリー下書き${ts}`, venue_name: EXISTING_VENUE, start: "2026-12-10T19:00", end: "2026-12-10T22:00" };
+  const base = { title: `チアリー下書き${ts}`, venue_name: EXISTING_VENUE, start: "2026-12-10T19:00", end: "2026-12-10T22:00", performers: [] as string[] };
+
+  it("3-00: 出演者の項目は省けない（本人に聞かずにカードを出させない）", async () => {
+    const s = await mcpAs("org", "organizer");
+    const { performers: _omit, ...noPerformers } = base;
+    void _omit;
+    const r = await s.tools.find((t) => t.name === "prepare_event_draft")!.run(noPerformers);
+    expect(r).toEqual({ content: "入力の形式が正しくありません", isError: true });
+    expect(s.cards()).toEqual([]);
+  });
 
   it("3-01: 確認カードには名前・日時だけが AI に渡り、ID はカードにだけ入る。読み取りでは行が増えない（DB7・DB8）", async () => {
     const s = await mcpAs("org", "organizer");

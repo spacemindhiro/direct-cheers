@@ -135,6 +135,7 @@ export async function prepareEventDraft(ctx: DcMcpContext, input: PrepareInput):
   return {
     text: [
       "下書きの確認カードを出しました。本人が［下書きを作る］を押すまで作られません。作っても、承認依頼を送るまで誰にも届きません。",
+      "出演者は、下書きを作ったあともイベントの編集画面で追加・変更できます（精算済みになるまで）。本人にもそう伝えてください。",
       `- タイトル：${card.title}`,
       `- 会場：${venue.name}（${card.venue.place}）`,
       `- 開始：${jstDateTime(startAt)}${past}`,

@@ -305,7 +305,7 @@ function EventDraftView({ card, done, onDone, onNavigate }: { card: EventDraftCa
       ) : (
         <>
           <p className={notice}>
-            まだ誰にも届いていません。出演依頼は承認依頼のときに送られます。
+            まだ誰にも届いていません。出演依頼は承認依頼のときに送られます。出演者は、下書きを作ったあともイベントの編集画面で追加・変更できます。
             {card.organizer.profile_id ? "代理の下書きは、主催者に確認を依頼するまで主催者からは見えません。" : ""}
           </p>
           {editing && (

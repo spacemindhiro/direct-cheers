@@ -148,3 +148,37 @@ export async function reverseGeocode(
     throw e;
   }
 }
+
+// 地域の文字（例「山梨県北杜市」）から地図の中心を引く（ピンを置く地図の初めの位置）。上限に来ていたら null（呼ばない）
+export async function geocodeArea(
+  admin: SupabaseClient,
+  profileId: string,
+  area: string,
+  opts: { fetch?: Fetch; apiKey?: string } = {},
+): Promise<{ latitude: number; longitude: number } | "not_found" | null> {
+  const apiKey = opts.apiKey ?? process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey) throw new Error("GOOGLE_PLACES_API_KEY が未設定");
+  const callId = await reserveGoogle(admin, "geocoding", profileId);
+  if (callId == null) return null;
+  try {
+    const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+    url.searchParams.set("address", area);
+    url.searchParams.set("language", "ja");
+    url.searchParams.set("region", "jp");
+    url.searchParams.set("key", apiKey);
+    const res = await (opts.fetch ?? fetch)(url.toString(), { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`geocode ${res.status}`);
+    const json = (await res.json()) as { status?: string; results?: { geometry?: { location?: { lat?: number; lng?: number } } }[] };
+    const loc = json.results?.[0]?.geometry?.location;
+    if (json.status === "ZERO_RESULTS" || typeof loc?.lat !== "number" || typeof loc?.lng !== "number") {
+      if (json.status !== "OK" && json.status !== "ZERO_RESULTS") throw new Error(`geocode ${json.status}`);
+      await finishGoogle(admin, callId, "not_found");
+      return "not_found";
+    }
+    await finishGoogle(admin, callId, "found");
+    return { latitude: loc.lat, longitude: loc.lng };
+  } catch (e) {
+    await finishGoogle(admin, callId, "error").catch(() => {});
+    throw e;
+  }
+}

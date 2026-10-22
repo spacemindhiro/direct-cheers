@@ -27,7 +27,14 @@ export function prepareTurns(turns: ChatTurn[]): PrepareResult {
   while (kept.length > 1 && kept.reduce((n, t) => n + t.text.length, 0) > HISTORY_MAX_CHARS) kept = kept.slice(1);
   // 会話はAIの発言から始められないので、先頭のAIの発言は落とす
   while (kept.length > 1 && kept[0].role !== "user") kept = kept.slice(1);
-  return { ok: true, turns: kept.map((t) => ({ role: t.role, text: maskSensitive(t.text) })) };
+  // 同じ話し手が続いたら1つにまとめる（確認カードが済んだときに画面が足す一行など。交互でないと受け付けない AI がある）
+  const merged: ChatTurn[] = [];
+  for (const t of kept) {
+    const last = merged[merged.length - 1];
+    if (last && last.role === t.role) last.text = `${last.text}\n${t.text}`;
+    else merged.push({ ...t });
+  }
+  return { ok: true, turns: merged.map((t) => ({ role: t.role, text: maskSensitive(t.text) })) };
 }
 
 export type CheeryDeps = {

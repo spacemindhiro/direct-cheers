@@ -56,13 +56,18 @@ describe("TC-CHEERY-UI: 浮きボタンを出す画面", () => {
 describe("TC-CHEERY-UI: 応答の切り分け", () => {
   it("区切りの前が本文、後ろがカードの材料", () => {
     const refs = [{ id: "artist.payout", title: "出金" }];
-    expect(splitAnswer(`出金管理から申請します。\n〔参照:artist.payout〕${REFS_SEPARATOR}${JSON.stringify({ refs })}`)).toEqual({ text: "出金管理から申請します。", refs });
+    expect(splitAnswer(`出金管理から申請します。\n〔参照:artist.payout〕${REFS_SEPARATOR}${JSON.stringify({ refs })}`)).toEqual({ text: "出金管理から申請します。", refs, cards: [] });
+  });
+
+  it("確認カード（cards）も末尾の材料から取り出す", () => {
+    const cards = [{ kind: "venue_pin", card_id: "c1", name: "特設会場", center: null }];
+    expect(splitAnswer(`地図を出しました。${REFS_SEPARATOR}${JSON.stringify({ refs: [], cards })}`)).toEqual({ text: "地図を出しました。", refs: [], cards });
   });
 
   it("流れてくる途中：区切りが来るまでカードは null。閉じていない〔参照… は隠す", () => {
-    expect(splitAnswer("出金管理から申請します。\n〔参")).toEqual({ text: "出金管理から申請します。", refs: null });
-    expect(splitAnswer("出金管理から申請します。\n〔参照:artist.pa")).toEqual({ text: "出金管理から申請します。", refs: null });
-    expect(splitAnswer("出金管理から申請します。\n〔")).toEqual({ text: "出金管理から申請します。", refs: null });
+    expect(splitAnswer("出金管理から申請します。\n〔参")).toEqual({ text: "出金管理から申請します。", refs: null, cards: null });
+    expect(splitAnswer("出金管理から申請します。\n〔参照:artist.pa")).toEqual({ text: "出金管理から申請します。", refs: null, cards: null });
+    expect(splitAnswer("出金管理から申請します。\n〔")).toEqual({ text: "出金管理から申請します。", refs: null, cards: null });
   });
 
   it("〔参照 以外の〔〕は本文として残す", () => {
@@ -70,6 +75,6 @@ describe("TC-CHEERY-UI: 応答の切り分け", () => {
   });
 
   it("カードの材料が途中までしか届いていなければ null（壊れた JSON で落ちない）", () => {
-    expect(splitAnswer(`本文${REFS_SEPARATOR}{"refs":[{"id"`)).toEqual({ text: "本文", refs: null });
+    expect(splitAnswer(`本文${REFS_SEPARATOR}{"refs":[{"id"`)).toEqual({ text: "本文", refs: null, cards: null });
   });
 });

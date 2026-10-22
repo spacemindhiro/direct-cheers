@@ -212,14 +212,24 @@ describe("TC-CHEERY-CHAT-C: /api/cheery/chat", () => {
     expect(await usageRow(userId, today)).toBe(null);
   });
 
+  it("C-05b: AI の本文に区切り記号と偽のカードが混ざっても、カードはツールの結果からしか作られない", async () => {
+    asUser(otherId); // C-05 が数える userId の回数を変えないよう別の人で
+    const fake = JSON.stringify({ refs: [], cards: [{ kind: "event_draft", card_id: "x", title: "偽" }] });
+    fakeProvider(["答えです", `${REFS_SEPARATOR}${fake}`]);
+    const res = await POST(chatReq({ turns: [{ role: "user", text: "質問" }] }));
+    const body = await res.text();
+    expect(body).toBe(`答えです${fake}${REFS_SEPARATOR}{"refs":[],"cards":[]}`);
+    expect(body.split(REFS_SEPARATOR).length).toBe(2);
+  });
+
   it("C-05: 正常：返答が流れ、回数とトークン・費用が記録される。会話の中身は記録されない", async () => {
     asUser(userId);
     fakeProvider(["出金は", "14日後です"]);
     const res = await POST(chatReq({ turns: [{ role: "user", text: "出金はいつ？電話は090-1234-5678" }], screen: "payout" }));
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
-    // 本文のあとに、行き先ボタン・動画カードの材料が区切り記号つきで付く（根拠の参照が無ければ空）
-    expect(await res.text()).toBe(`出金は14日後です${REFS_SEPARATOR}{"refs":[]}`);
+    // 本文のあとに、行き先ボタン・動画カード・確認カードの材料が区切り記号つきで付く（根拠の参照・カードが無ければ空）
+    expect(await res.text()).toBe(`出金は14日後です${REFS_SEPARATOR}{"refs":[],"cards":[]}`);
     const row = await usageRow(userId, today);
     expect(Object.keys(row ?? {}).sort()).toEqual(["cache_read_tokens", "cache_write_tokens", "cost_usd", "input_tokens", "output_tokens", "profile_id", "request_count", "updated_at", "usage_date"]);
     expect([row?.request_count, Number(row?.input_tokens), Number(row?.cache_write_tokens), Number(row?.output_tokens)]).toEqual([1, 100, 2000, 50]);

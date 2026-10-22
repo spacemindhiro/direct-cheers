@@ -23,6 +23,9 @@ import { AGENT_HANDOFFS, agentHandoffs } from "./tools/agent-handoffs";
 import { AGENT_PROXY_DRAFTS, agentProxyDrafts } from "./tools/agent-proxy-drafts";
 import { MY_CONVERSATIONS, READ_CONVERSATION, listConversations, readConversation } from "./tools/messages";
 import { ADMIN_OVERVIEW, adminOverview } from "./tools/admin-overview";
+import { FIND_VENUE, CHECK_VENUE_ADDRESS, VENUE_PIN, REGISTER_VENUE, findVenue, checkVenueAddress, venuePin, registerVenueTool } from "./tools/venue-tools";
+import { PREPARE_EVENT_DRAFT, CREATE_EVENT_DRAFT, prepareEventDraft, createEventDraftTool } from "./tools/event-draft";
+import { CARDS_META_KEY, type CheeryCard } from "@/lib/cheery/cards";
 import { detailIndexForRole } from "@/lib/knowledge/assemble";
 
 export const DC_MCP_SERVER_INFO = { name: "direct-cheers", version: "0.1.0" };
@@ -33,6 +36,25 @@ async function safe(run: () => Promise<string>) {
     return { content: [{ type: "text" as const, text: await run() }] };
   } catch {
     return { content: [{ type: "text" as const, text: "データの取得に失敗しました" }], isError: true };
+  }
+}
+
+// 確認カードを出すツール。AI には text だけが渡り、カードの材料（内部 ID を含む）は _meta で画面にだけ渡る（lib/mcp/in-process.ts）
+async function safeWithCards(run: () => Promise<{ text: string; cards?: CheeryCard[] }>) {
+  try {
+    const { text, cards } = await run();
+    return { content: [{ type: "text" as const, text }], _meta: { [CARDS_META_KEY]: cards ?? [] } };
+  } catch {
+    return { content: [{ type: "text" as const, text: "データの取得に失敗しました" }], isError: true };
+  }
+}
+
+// 書き込みのツールの結果は、画面に返す JSON（AI には渡らない）
+async function safeWrite(run: () => Promise<unknown>) {
+  try {
+    return { content: [{ type: "text" as const, text: JSON.stringify(await run()) }] };
+  } catch {
+    return { content: [{ type: "text" as const, text: JSON.stringify({ ok: false, error: "処理に失敗しました" }) }], isError: true };
   }
 }
 
@@ -181,6 +203,39 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       { title: READ_CONVERSATION.title, description: READ_CONVERSATION.description, inputSchema: READ_CONVERSATION.inputSchema, annotations: readOnly },
       async (input) => safe(() => readConversation(ctx, input)),
     );
+  }
+  // イベント作成（P5）。読み取り：会場を探す・住所を確かめる・ピンのカード・下書きの確認カード
+  const lookup = { readOnlyHint: true, openWorldHint: true }; // Google の地図サービスを呼ぶものがある
+  for (const [def, run] of [
+    [FIND_VENUE, (i: never) => findVenue(ctx, i)],
+    [CHECK_VENUE_ADDRESS, (i: never) => checkVenueAddress(ctx, i)],
+    [VENUE_PIN, (i: never) => venuePin(ctx, i)],
+    [PREPARE_EVENT_DRAFT, (i: never) => prepareEventDraft(ctx, i)],
+  ] as const) {
+    if (!allowed(def.minRole)) continue;
+    server.registerTool(
+      def.name,
+      { title: def.title, description: def.description, inputSchema: def.inputSchema, annotations: lookup },
+      async (input: unknown) => safeWithCards(() => (run as (i: unknown) => Promise<{ text: string; cards?: CheeryCard[] }>)(input)),
+    );
+  }
+  // 書き込みは、本人が確認カードのボタンを押したときだけ（AI との会話では tools/list にも出さない）
+  if (ctx.mode === "action") {
+    const write = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
+    if (allowed(REGISTER_VENUE.minRole)) {
+      server.registerTool(
+        REGISTER_VENUE.name,
+        { title: REGISTER_VENUE.title, description: REGISTER_VENUE.description, inputSchema: REGISTER_VENUE.inputSchema, annotations: write },
+        async (input) => safeWrite(() => registerVenueTool(ctx, input)),
+      );
+    }
+    if (allowed(CREATE_EVENT_DRAFT.minRole)) {
+      server.registerTool(
+        CREATE_EVENT_DRAFT.name,
+        { title: CREATE_EVENT_DRAFT.title, description: CREATE_EVENT_DRAFT.description, inputSchema: CREATE_EVENT_DRAFT.inputSchema, annotations: write },
+        async (input) => safeWrite(() => createEventDraftTool(ctx, input)),
+      );
+    }
   }
   // 運営向けは admin のセッションにだけ（上位互換の判定ではなく、ロールそのもので絞る）
   if (ctx.role === "admin") {

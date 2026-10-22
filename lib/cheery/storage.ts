@@ -1,8 +1,16 @@
 // チアリー(AI) の会話は端末にだけ保存する（requirements.md 5.4）。アカウントごとに分け、ログアウトで消す。
 // サーバーには保存しない（毎回、端末の履歴を送る）。
 import type { CheeryRef } from "@/lib/ai/refs";
+import type { CardDone, CheeryCard } from "@/lib/cheery/cards";
 
-export type CheeryMessage = { role: "user" | "assistant" | "error"; text: string; refs?: CheeryRef[] };
+// cards：確認カード（イベントの下書き・会場の登録）。done：ボタンを押して済んだカード（card_id ごと）
+export type CheeryMessage = {
+  role: "user" | "assistant" | "error";
+  text: string;
+  refs?: CheeryRef[];
+  cards?: CheeryCard[];
+  done?: Record<string, CardDone>;
+};
 
 const PREFIX = "cheery:v1:";
 const MAX_STORED = 60;

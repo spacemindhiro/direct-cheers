@@ -156,3 +156,38 @@ export async function createEventDraft(
 
   return { ok: true, eventId: event.event_id };
 }
+
+export type OrganizerOption = { profile_id: string; name: string };
+
+// 代理作成で名義に選べる主催者（作成画面と同じ範囲）。エージェントは自分が担当の主催者、admin は担当エージェントのいる主催者すべて。
+// organizer には代理が無いので空
+export async function proxyOrganizerOptions(admin: SupabaseClient, role: string | null | undefined, userId: string): Promise<OrganizerOption[]> {
+  if (role !== "agent" && role !== "admin") return [];
+  let q = admin
+    .from("profiles")
+    .select("profile_id, display_name, organizer_name")
+    .eq("role", "organizer")
+    .not("responsible_agent_id", "is", null)
+    .is("deleted_at", null);
+  if (role === "agent") q = q.eq("responsible_agent_id", userId);
+  const { data: organizers } = await q;
+  return (organizers ?? [])
+    .map((o) => ({ profile_id: o.profile_id as string, name: (o.organizer_name ?? o.display_name ?? "（名前未設定）") as string }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+}
+
+// 名義の主催者とコネクション済みのアーティスト（作成画面の最初の一覧と同じ）。
+// 相手の profiles はユーザー権限では読めない（自分の行のみ）ため admin クライアントで取り、名義の organizer_profile_id で絞る
+export async function connectedArtists(admin: SupabaseClient, organizerId: string): Promise<{ profile_id: string; display_name: string }[]> {
+  const { data: connections } = await admin
+    .from("connections")
+    .select("artist_profile_id, artist:profiles!artist_profile_id(display_name, artist_name)")
+    .eq("organizer_profile_id", organizerId)
+    .eq("status", "active")
+    .is("deleted_at", null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 埋め込みの型が配列/単体で揺れるため
+  return (connections ?? []).map((c: any) => ({
+    profile_id: c.artist_profile_id as string,
+    display_name: (c.artist?.artist_name ?? c.artist?.display_name ?? "Unknown") as string,
+  }));
+}

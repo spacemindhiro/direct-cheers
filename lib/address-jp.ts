@@ -40,8 +40,9 @@ export function cleanFormatted(formatted: string): string {
 }
 
 // Google の住所を、郵便番号の住所と照らし合わせて分ける。
-// 都道府県＋市区町村が郵便番号の住所と一致しないものは「合わない」として登録に進ませない
-export function splitAddress(formatted: string, postalRaw: string | null, zip: ZipArea | null): SplitResult {
+// 都道府県＋市区町村が郵便番号の住所と一致しないものは「合わない」として登録に進ませない。
+// allowEmptyLine1：ピンの位置から引いた住所は番地が無いことが多い（山の中など）ので、番地を空のまま返し、カードで目印を入れてもらう
+export function splitAddress(formatted: string, postalRaw: string | null, zip: ZipArea | null, opts: { allowEmptyLine1?: boolean } = {}): SplitResult {
   const postal = normalizePostal(postalRaw);
   if (!postal) return { ok: false, reason: "no_postal" };
   if (!zip) return { ok: false, reason: "zip_unknown" };
@@ -57,7 +58,7 @@ export function splitAddress(formatted: string, postalRaw: string | null, zip: Z
     rest = rest.slice(suburb.length);
   }
   const line1 = rest.trim();
-  if (!line1) return { ok: false, reason: "no_line1" };
+  if (!line1 && !opts.allowEmptyLine1) return { ok: false, reason: "no_line1" };
   return {
     ok: true,
     address: { postal_code: `${postal.slice(0, 3)}-${postal.slice(3)}`, prefecture: zip.prefecture, city: zip.city, town, line1 },

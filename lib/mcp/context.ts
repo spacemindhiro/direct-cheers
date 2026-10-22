@@ -12,5 +12,10 @@ export type DcMcpContext = {
   role: string;                 // profiles.role（サーバーで読んだもの）
   supabase: SupabaseClient;     // 本人のセッションのクライアント（RLS が効く）
   admin: SupabaseClient;        // service_role。本人に見せてよいと確かめた範囲の集計にだけ使う
+  // ダッシュボードのパスキー確認（dc_stepup、24時間）が済んでいるか。照会検索（出演者を探す）の条件
+  stepUpFresh?: boolean;
+  // chat：AI との会話（読み取りのツールだけ）。action：本人が確認カードのボタンを押したとき（書き込みのツールも出す）。
+  // 書き込みのツールは AI に渡さない（p5-design.md 3章）。action は /api/cheery/action だけが付ける
+  mode?: "chat" | "action";
   now?: Date;
 };

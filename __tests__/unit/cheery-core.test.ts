@@ -111,6 +111,19 @@ describe("TC-CHEERY-CORE: 会話の整え方", () => {
     const r = prepareTurns([u("電話は090-1234-5678"), a("承知しました"), u("口座1234567に")]);
     expect(r).toEqual({ ok: true, turns: [u("電話は[電話番号]"), a("承知しました"), u("口座[番号]に")] });
   });
+
+  it("同じ話し手が続いたら1つにまとめる（確認カードが済んだときに画面が足す一行など）", () => {
+    expect(prepareTurns([u("会場を探して"), a("カードを出しました"), a("（会場「X」を登録しました）"), u("次へ")]))
+      .toEqual({ ok: true, turns: [u("会場を探して"), a("カードを出しました\n（会場「X」を登録しました）"), u("次へ")] });
+    expect(prepareTurns([u("一つ目"), u("二つ目")])).toEqual({ ok: true, turns: [u("一つ目\n二つ目")] });
+  });
+});
+
+describe("TC-CHEERY-CORE: イベント作成の指示はオーガナイザー以上だけ", () => {
+  it("organizer・agent・admin には入り、user・artist には入らない", () => {
+    const has = (r: string) => buildStableSystem(r).includes("## イベントの下書き作成（この人はイベントを作れます）");
+    expect(["user", "artist", "organizer", "agent", "admin"].map(has)).toEqual([false, false, true, true, true]);
+  });
 });
 
 describe("TC-CHEERY-CORE: システムプロンプト", () => {

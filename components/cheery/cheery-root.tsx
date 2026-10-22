@@ -6,6 +6,8 @@
 //   スマホのシートは画面の大半を覆うので、利用マニュアル・ヘルプへのリンクを押したら閉じる（PC は開いたまま左に表示）
 // - 会話は端末にだけ保存（アカウントごと）。サーバーには毎回、端末の履歴を送る
 // - 答えの「行き先ボタン」「動画カード」は、サーバーが知識集から作った材料だけで出す（AI の書いた URL は使わない）
+// - 確認カード（イベントの下書き・会場の登録）は、サーバーがツールの結果から作った材料だけで出す。押したら /api/cheery/action。
+//   済んだことは会話に一行足す（次の質問で AI が分かるように）
 // パネルには transform を付けない（中で開く動画のモーダル＝position:fixed がパネルの枠に閉じ込められるため）
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -15,6 +17,8 @@ import { TutorialVideoButton } from "@/components/tutorial-video-button";
 import { screenOf, showFloatingButton } from "@/lib/cheery/screen";
 import { splitAnswer } from "@/lib/cheery/stream";
 import { clearConversation, loadConversation, saveConversation, type CheeryMessage } from "@/lib/cheery/storage";
+import type { CardDone, CheeryCard } from "@/lib/cheery/cards";
+import { CheeryCards } from "./cheery-cards";
 
 const INPUT_MAX = 2000; // lib/ai/config.ts の入力上限と同じ
 
@@ -89,8 +93,8 @@ function CheeryPanel({ userId, role, screen, onClose }: { userId: string; role: 
         const { value, done } = await reader.read();
         if (done) break;
         acc += decoder.decode(value, { stream: true });
-        const { text: shown, refs } = splitAnswer(acc);
-        setMessages([...next, { role: "assistant", text: shown, ...(refs?.length ? { refs } : {}) }]);
+        const { text: shown, refs, cards } = splitAnswer(acc);
+        setMessages([...next, { role: "assistant", text: shown, ...(refs?.length ? { refs } : {}), ...(cards?.length ? { cards } : {}) }]);
       }
     } catch {
       setMessages([...next, { role: "error", text: "うまくつながりませんでした。通信の状態を確かめて、もう一度お試しください" }]);
@@ -98,6 +102,18 @@ function CheeryPanel({ userId, role, screen, onClose }: { userId: string; role: 
       setBusy(false);
     }
   }, [busy, messages, screen]);
+
+  // カードのボタンが済んだ：そのカードに済みの印を付け、会話に一行足す
+  const markDone = (index: number) => (cardId: string, done: CardDone, note: string) => {
+    setMessages((prev) => [
+      ...prev.map((m, i) => (i === index ? { ...m, done: { ...m.done, [cardId]: done } } : m)),
+      { role: "assistant", text: note },
+    ]);
+  };
+  // ピンを置いたら、そのメッセージに会場の確認カードを足す
+  const addCard = (index: number) => (card: CheeryCard) => {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, cards: [...(m.cards ?? []), card] } : m)));
+  };
 
   // スマホのシート（md 未満）のときだけ閉じる
   const closeIfSheet = () => { if (!window.matchMedia("(min-width: 768px)").matches) onClose(); };
@@ -148,7 +164,10 @@ function CheeryPanel({ userId, role, screen, onClose }: { userId: string; role: 
             </div>
           </div>
         )}
-        {messages.map((m, i) => <Bubble key={i} m={m} pending={busy && i === messages.length - 1} onNavigate={onClose} onHelp={closeIfSheet} />)}
+        {messages.map((m, i) => (
+          <Bubble key={i} m={m} pending={busy && i === messages.length - 1} onNavigate={onClose} onHelp={closeIfSheet}
+            onDone={markDone(i)} onAddCard={addCard(i)} />
+        ))}
       </div>
 
       <form
@@ -178,7 +197,10 @@ function CheeryPanel({ userId, role, screen, onClose }: { userId: string; role: 
   );
 }
 
-function Bubble({ m, pending, onNavigate, onHelp }: { m: CheeryMessage; pending: boolean; onNavigate: () => void; onHelp: () => void }) {
+function Bubble({ m, pending, onNavigate, onHelp, onDone, onAddCard }: {
+  m: CheeryMessage; pending: boolean; onNavigate: () => void; onHelp: () => void;
+  onDone: (cardId: string, done: CardDone, note: string) => void; onAddCard: (card: CheeryCard) => void;
+}) {
   if (m.role === "user") {
     return (
       <div className="flex justify-end">
@@ -194,6 +216,9 @@ function Bubble({ m, pending, onNavigate, onHelp }: { m: CheeryMessage; pending:
       <div className="max-w-[95%] text-sm text-slate-200 bg-slate-800 border border-slate-700 rounded-2xl rounded-bl-md px-3 py-2 whitespace-pre-wrap break-words leading-relaxed">
         {m.text ? <Plain text={m.text} /> : pending ? <Loader2 size={14} className="animate-spin text-slate-500" /> : null}
       </div>
+      {m.cards && m.cards.length > 0 && !pending && (
+        <CheeryCards cards={m.cards} done={m.done} onDone={onDone} onAddCard={onAddCard} onNavigate={onNavigate} />
+      )}
       {m.refs?.map((r) => (
         <div key={r.id} className="max-w-[95%] bg-slate-950/60 border border-slate-800 rounded-2xl px-3 py-2.5 space-y-2">
           <p className="text-[11px] font-black text-slate-300">{r.title}</p>

@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EventCreateForm } from "@/components/event-create-form";
+import { connectedArtists as getConnectedArtists, proxyOrganizerOptions } from "@/lib/events/create-draft";
 import { Loader2 } from "lucide-react";
-import Link from "next/link";
 
 async function EventCreateContent({ searchParams }: { searchParams: Promise<{ organizer?: string }> }) {
   const supabase = await createClient();
@@ -22,40 +22,16 @@ async function EventCreateContent({ searchParams }: { searchParams: Promise<{ or
   // 登録手続きの進捗（status＝口座開設等）は作成できるかどうかに関係しない
   if (!["organizer", "agent", "admin"].includes(profile?.role ?? "")) redirect("/dashboard");
 
-  // エージェント/adminは担当主催者の名義で代理作成できる（審査申請は主催者本人）
+  // エージェント/adminは担当主催者の名義で代理作成できる（審査申請は主催者本人）。範囲はチアリー(AI) と共用（lib/events/create-draft.ts）
   const admin = createAdminClient();
-  let organizerOptions: { profile_id: string; name: string }[] = [];
-  if (profile?.role === "agent" || profile?.role === "admin") {
-    let q = admin
-      .from("profiles")
-      .select("profile_id, display_name, organizer_name")
-      .eq("role", "organizer")
-      .not("responsible_agent_id", "is", null)
-      .is("deleted_at", null);
-    if (profile.role === "agent") q = q.eq("responsible_agent_id", user.id);
-    const { data: organizers } = await q;
-    organizerOptions = (organizers ?? [])
-      .map((o) => ({ profile_id: o.profile_id, name: o.organizer_name ?? o.display_name ?? "（名前未設定）" }))
-      .sort((a, b) => a.name.localeCompare(b.name, "ja"));
-  }
+  const organizerOptions = await proxyOrganizerOptions(admin, profile?.role, user.id);
   const { organizer: requestedOrganizer } = await searchParams;
   const proxyOrganizerId = organizerOptions.some((o) => o.profile_id === requestedOrganizer)
     ? requestedOrganizer!
     : null;
 
-  // コネクション済みアーティストを取得。相手の profiles はユーザー権限では読めない（自分の行のみ）ため、
-  // 編集ページ（events/[eventId]/edit）と同じく admin クライアントで取得し、本人の organizer_profile_id で絞る
-  const { data: connections } = await admin
-    .from("connections")
-    .select("artist_profile_id, artist:profiles!artist_profile_id(display_name, artist_name)")
-    .eq("organizer_profile_id", proxyOrganizerId ?? user.id)
-    .eq("status", "active")
-    .is("deleted_at", null);
-
-  const connectedArtists = (connections ?? []).map((c) => ({
-    profile_id: c.artist_profile_id,
-    display_name: (c.artist as any)?.artist_name ?? (c.artist as any)?.display_name ?? "Unknown",
-  }));
+  // コネクション済みアーティスト（チアリー(AI) と共用）
+  const connectedArtists = await getConnectedArtists(admin, proxyOrganizerId ?? user.id);
 
   return (
     <div className="space-y-8">

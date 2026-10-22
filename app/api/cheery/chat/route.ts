@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { isStepUpFresh } from "@/lib/directory";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ChatBody, FINISH_NOTES, INPUT_MESSAGES, LIMIT_MESSAGES, prepareTurns, reserve, runAndRecord, type CheeryDeps } from "@/lib/ai/chat";
@@ -54,7 +56,9 @@ export async function POST(req: Request) {
   if (reserved !== "ok") return NextResponse.json({ error: LIMIT_MESSAGES[reserved], reason: reserved }, { status: 429 });
 
   // DC のデータに触る機能は、すべて本人用の MCP サーバー（lib/mcp）を通す。本人とロールはここで固定する
-  const mcp = await connectDcMcp({ userId: user.id, email: user.email ?? null, role: role ?? "user", supabase, admin });
+  // 出演者の照会検索は、ダッシュボードのパスキー確認（24時間）が済んでいるときだけ（directory/search と同じ判定）
+  const stepUpFresh = isStepUpFresh((await cookies()).get("dc_stepup")?.value);
+  const mcp = await connectDcMcp({ userId: user.id, email: user.email ?? null, role: role ?? "user", supabase, admin, stepUpFresh, mode: "chat" });
   deps.tools = mcp.tools;
 
   const encoder = new TextEncoder();
@@ -67,13 +71,15 @@ export async function POST(req: Request) {
           role,
           turns: prepared.turns,
           screen: parsed.data.screen,
-          onText: (d) => { answer += d; controller.enqueue(encoder.encode(d)); },
+          // 本文に区切り記号が混ざると、画面がそこから先をカードの材料として読んでしまう（データに仕込まれた偽のカード）。必ず取り除く
+          onText: (d) => { const t = d.split(REFS_SEPARATOR).join(""); answer += t; controller.enqueue(encoder.encode(t)); },
           signal: req.signal,
         });
         const note = FINISH_NOTES[result.finish];
         if (note) controller.enqueue(encoder.encode(`\n\n${note}`));
-        // 答えの根拠に挙がった項目から、行き先ボタン・動画カードの材料を作って最後に付ける（本人のロールで見てよい項目だけ）
-        controller.enqueue(encoder.encode(`${REFS_SEPARATOR}${JSON.stringify({ refs: extractRefs(answer, role) })}`));
+        // 答えの根拠に挙がった項目から、行き先ボタン・動画カードの材料を作って最後に付ける（本人のロールで見てよい項目だけ）。
+        // 確認カードは、ツールの結果（_meta）からだけ作る（AI の書いた文字からは作らない）
+        controller.enqueue(encoder.encode(`${REFS_SEPARATOR}${JSON.stringify({ refs: extractRefs(answer, role), cards: mcp.cards() })}`));
       } catch (err) {
         console.error("[cheery/chat] 応答に失敗:", (err as { constructor?: { name?: string } })?.constructor?.name ?? "unknown",
           (err as { status?: number })?.status ?? "");

@@ -166,7 +166,7 @@ function CheeryPanel({ userId, role, screen, onClose }: { userId: string; role: 
             rows={2}
             maxLength={INPUT_MAX}
             placeholder="質問を入力（カード番号やパスワードは入力しないでください）"
-            className="flex-1 resize-none bg-slate-800 border border-slate-700 focus:border-pink-500/50 rounded-2xl px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none"
+            className="flex-1 resize-none bg-slate-800 border border-slate-700 focus:border-pink-500/50 rounded-2xl px-3 py-2 text-base md:text-sm text-white placeholder:text-slate-500 outline-none"
           />
           <button type="submit" disabled={busy || !input.trim()} aria-label="送る" className="w-10 h-10 rounded-2xl bg-pink-500 text-white flex items-center justify-center disabled:opacity-40 shrink-0">
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

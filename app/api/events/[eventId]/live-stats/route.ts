@@ -123,7 +123,7 @@ export async function GET(
   // レコードのため、決済ログには表示しない
   const { data: transactions } = await admin
     .from("transactions")
-    .select("transaction_id, total_gross_amount, stripe_fee, platform_fee, net_amount, created_at, qr_config_id, sender_name, sender_comment, sender_email, payment_method, product:products!product_id(type, name)")
+    .select("transaction_id, total_gross_amount, stripe_fee, platform_fee, net_amount, created_at, qr_config_id, sender_name, sender_comment, sender_email, payment_method, captured_at, stripe_payment_intent_id, product:products!product_id(type, name, payment_type)")
     .in("qr_config_id", qrConfigIds)
     .eq("status", "completed")
     .neq("transaction_type", "invitation")
@@ -229,6 +229,19 @@ export async function GET(
   // 現場取消はイベント当事者（admin / 主催organizer / 担当agent）のみ
   const canCancel = isAdmin || isOrganizer || isAgent;
 
+  // 売上が確定済み（取り消すと返金・手数料はオーガナイザー負担）の決済。一覧の「確定済み」表示に使う。
+  //   - 開催承認・タッチ決済の自動キャプチャでキャプチャした（captured_at）
+  //   - 購入時点で確定する経路：PayPay、前売即時確定（エントランスB。Checkout の自動キャプチャ）
+  // ウェルカムチアは入場券と同じ決済（PI）にまとめて支払われるので、同じPIの行はまとめて確定済みにする。
+  // 確認ダイアログの文言はこの表示ではなく、取消APIの事前確認（その時点のStripeの状態）で決める
+  const capturedPis = new Set(
+    txList
+      .filter((t) => (t as any).captured_at != null || t.payment_method === "paypay" ||
+        ((t.product as any)?.type === "entrance" && (t.product as any)?.payment_type === "B"))
+      .map((t) => (t as any).stripe_payment_intent_id as string | null)
+      .filter(Boolean),
+  );
+
   const recentTransactions = pagedTxList.map((tx) => ({
     transaction_id: tx.transaction_id,
     total_gross_amount: tx.total_gross_amount ?? 0,
@@ -239,6 +252,8 @@ export async function GET(
     product_type: (tx.product as any)?.type ?? null,
     product_name: (tx.product as any)?.name ?? null,
     payment_method: tx.payment_method ?? "card",
+    // キャプチャ済み（開催承認・タッチ決済の自動キャプチャ）なら、取消は返金になり手数料は主催者負担
+    captured: canCancel ? capturedPis.has((tx as any).stripe_payment_intent_id) : false,
     recipient_name: qrRecipientMap.get(tx.qr_config_id) ?? null,
     my_net_amount: myDistByTx.get(tx.transaction_id) ?? null,
   }));

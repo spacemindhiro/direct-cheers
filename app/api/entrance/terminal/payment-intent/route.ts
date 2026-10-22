@@ -5,15 +5,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkConnectCapabilities } from "@/lib/stripe-check";
 import { canOperateEvent } from "@/lib/event-operator";
 import { SOLD_OUT_MESSAGE, TERMINAL_HOLD_TTL_SEC, holdStock, releaseStock } from "@/lib/stock-hold";
-import { CLOSED_LIFECYCLES } from "@/lib/purchase-window";
+import { evaluatePurchaseWindow, purchaseWindowErrorMessage } from "@/lib/purchase-window";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 // POST /api/entrance/terminal/payment-intent
 // スタッフが商品・人数を選択した直後に、card_present（Terminal）のPaymentIntentを
-// オーソリのみ（capture_method: manual）で作成する。他の決済経路と同じく、
-// 開催承認（settle）まで資金を確定させないことがこのプラットフォームのマネロン対策の
-// 核心原則のため、対面タッチ決済でも例外を作らない。
+// オーソリのみ（capture_method: manual）で作成する。開催中の打ち間違いはオーソリ取消（手数料なし）で
+// 消せるようにするため。ただし Amex の対面オーソリは2日で切れ、開催承認を待つと回収できないことが
+// あるので、締め時刻かオーソリから24時間の早い方で自動キャプチャする（app/api/cron/touchpay-capture）。
+// キャプチャしても送金は開催承認（証跡確認）の後なので、お金が出ていく関門は変わらない（2026-10-22 決定）。
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
 
   const { data: qrc } = await admin
     .from("qr_configs")
-    .select("qr_config_id, touchpay_enabled, event:events!event_id(organizer_profile_id, agent_id, venue, lifecycle_status)")
+    .select("qr_config_id, touchpay_enabled, bypass_validity, event:events!event_id(organizer_profile_id, agent_id, venue, lifecycle_status, start_at, end_at)")
     .eq("product_id", product_id)
     .is("deleted_at", null)
     .maybeSingle();
@@ -81,11 +82,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "この商品は対面タッチ決済が許可されていません" }, { status: 400 });
   }
 
-  // QR自己決済（evaluatePurchaseWindow）と同じく、下書き・承認待ち・中止・精算済みのイベントでは決済を起こさない。
-  // 以前はこの経路だけイベント状態を見ておらず、精算済み・中止のイベントでもスタッフ操作で決済が作れた
-  const lifecycleStatus = (qrc.event as unknown as { lifecycle_status: string | null } | null)?.lifecycle_status;
-  if (!lifecycleStatus || (CLOSED_LIFECYCLES as readonly string[]).includes(lifecycleStatus)) {
-    return NextResponse.json({ error: "このイベントは現在決済を受け付けていません" }, { status: 400 });
+  // QR自己決済と同じ関数で、イベント状態（下書き・承認待ち・中止・精算済みは不可）と受付期間
+  // （開始〜締め時刻＝終了3時間後）を判定する。以前はイベント状態しか見ておらず、イベントが
+  // 終わった後もタッチ決済を受け付けていた（2026-10-22）。期間判定だけはテスト用QR（bypass_validity）で飛ばせる
+  const qrEvent = qrc.event as unknown as { lifecycle_status: string | null; start_at: string | null; end_at: string | null } | null;
+  const verdict = evaluatePurchaseWindow({
+    lifecycleStatus: qrEvent?.lifecycle_status,
+    eventStartAt: qrEvent?.start_at,
+    eventEndAt: qrEvent?.end_at,
+    product,
+    bypassValidity: qrc.bypass_validity === true,
+  });
+  if (!verdict.ok) {
+    return NextResponse.json({ error: purchaseWindowErrorMessage(verdict), reason: verdict.reason }, { status: 400 });
   }
 
   // サインアップQRを表示すべき子機を1台に絞るため必須。ペアリングされていない

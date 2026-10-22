@@ -639,7 +639,7 @@ if (alreadyProcessed) return NextResponse.json({ received: true }); // スキッ
 
 | サブケース | 検証内容 | アサーション |
 |------------|----------|-------------|
-| A. イベント終了 | `/api/events/[eventId]/end` → `lifecycle_status = "ended"` | HTTP 200、DB で `ended` を確認 |
+| A. （削除） | 終了ボタン（`/api/events/[eventId]/end`）は2026-10-22に廃止。イベントの終わりは締め時刻（終了3時間後）で判定する（TC-CLOSE） | ― |
 | B. StripeログとDB照合 | `/api/admin/reconcile/event` → succeeded PI の `amount_received` と DB gross が一致 | `amount_verified=true`、`amount_mismatch=0`、`reconciled_at` が NULL でない、`reconciliation_logs` が記録される |
 | C. エビデンスなし → settle ブロック | エビデンス未提出状態で settle を呼ぶ | HTTP 400 `No evidence submitted`（出金不可） |
 | D. Settle 実行・分配精度 | エビデンス提出後に settle → agent+org+artist の Transfer 額が1円単位で正確 | `agentTransfer.amount = floor(gross×0.05)`、`orgTransfer.amount = floor(net×0.5)`、`artistTransfer.amount = floor(net×0.5)`、合計一致 |

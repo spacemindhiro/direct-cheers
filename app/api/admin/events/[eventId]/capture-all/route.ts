@@ -74,11 +74,29 @@ export async function POST(
       await stripe.paymentIntents.capture(piId);
       captured++;
       console.log(`[capture-all] captured pi=${piId}`);
+      // 同じPIを持つ行（ウェルカムチアの1階・2階）すべてにキャプチャ日時を残す。現場取消の案内
+      // （オーソリ取消か返金か）と精算管理の表示に使う
+      await admin
+        .from("transactions")
+        .update({ captured_at: new Date().toISOString() })
+        .eq("stripe_payment_intent_id", tx.stripe_payment_intent_id)
+        .is("captured_at", null);
     } catch (err: any) {
       errors++;
       errorDetails.push({ pi_id: piId, error: err.message });
       console.error(`[capture-all] failed pi=${piId}:`, err.message);
     }
+  }
+
+  // 全件キャプチャできたときだけ「開催承認済み」にする。1件でも失敗があれば未承認のまま（再実行で拾う）。
+  // 以前はDBに何も残さず、精算管理の画面は照合が終わるまで「要承認」のままで、押しても承認済みに
+  // 見えなかった（2026-10-22）
+  if (errors === 0) {
+    await admin
+      .from("events")
+      .update({ capture_approved_at: new Date().toISOString() })
+      .eq("event_id", eventId)
+      .is("capture_approved_at", null);
   }
 
   return NextResponse.json({ success: true, captured, skipped, errors, errorDetails });

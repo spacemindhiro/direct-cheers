@@ -238,8 +238,8 @@ async function SettlementsContent() {
                   settled ? "border-emerald-500/20" : isExpired ? "border-red-500/40" : isExpiring ? "border-orange-500/40" : isRejected ? "border-red-500/20" : readyToSettle ? "border-sky-500/20" : hasEvidence ? "border-amber-500/20" : "border-slate-800"
                 }`}
               >
-                {/* ヘッダー */}
-                <div className="flex items-start justify-between gap-3">
+                {/* ヘッダー（スマホではボタンを見出しの下に回す。横並びだとボタンに幅を取られて見出しが潰れ、差戻しがカードからはみ出していた） */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2">
                       {settled ? (
@@ -267,7 +267,7 @@ async function SettlementsContent() {
                       {event.title}
                       <ExternalLink size={11} className="text-slate-600 group-hover:text-indigo-400 shrink-0" />
                     </Link>
-                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
                       {event.venue && (
                         <span className="flex items-center gap-1"><MapPin size={10} />{event.venue}</span>
                       )}

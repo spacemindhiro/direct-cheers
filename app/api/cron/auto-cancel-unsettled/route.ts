@@ -7,7 +7,7 @@ import { releaseStockForTransactions } from "@/lib/stock-hold";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-// check-auth-expiry の警告基準(イベント開始から7日)と同じ締切。
+// 精算期限（イベント開始から7日）。期限2日前の催促は cron/evidence-request（lib/evidence-request.ts と同じ値）。
 // 警告だけで終わらせず、締切そのものに達したら自動でオーソリ取消・イベント中止まで実行する。
 const AUTH_EXPIRE_DAYS = 7;
 

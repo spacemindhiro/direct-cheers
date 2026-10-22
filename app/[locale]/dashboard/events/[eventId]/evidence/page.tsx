@@ -5,6 +5,7 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEventAccess } from "@/lib/event-access";
 import { EvidenceUploadForm } from "@/components/evidence-upload-form";
+import { eventCloseAt, isEventClosed, RUNNING_LIFECYCLES } from "@/lib/purchase-window";
 import { Loader2, Calendar, MapPin, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
@@ -34,7 +35,10 @@ async function EvidencePageContent({
   const access = await getEventAccess(admin, eventId, user.id, profile?.role);
   if (!access?.canOperate) redirect("/dashboard");
 
-  const hasEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
+  // 締め時刻（終了3時間後＝当日決済の受付終了）を過ぎた、公開後〜精算前のイベントだけ提出できる（提出APIと同じ判定）
+  const hasEnded = isEventClosed(event.end_at) &&
+    (RUNNING_LIFECYCLES as readonly string[]).includes(event.lifecycle_status);
+  const closeAtLabel = fmtDateTime(eventCloseAt(event.end_at).toISOString(), { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
   // 既存エビデンス
   const { data: existingEvidences } = await admin
@@ -78,9 +82,9 @@ async function EvidencePageContent({
               {fmtDate(event.end_at)}終了
             </span>
           </div>
-          {!hasEnded && (
+          {!hasEnded && !isEventClosed(event.end_at) && (
             <p className="text-xs text-amber-400 font-bold">
-              ※ イベント終了後にエビデンスを提出できます
+              ※ {closeAtLabel}（終了の3時間後）からエビデンスを提出できます
             </p>
           )}
         </div>
@@ -143,7 +147,9 @@ async function EvidencePageContent({
         ) : (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
             <p className="text-slate-600 text-sm font-bold">
-              イベント終了後に提出できます
+              {isEventClosed(event.end_at)
+                ? "このイベントは現在エビデンスを提出できません"
+                : `${closeAtLabel}（終了の3時間後）から提出できます`}
             </p>
           </div>
         )}

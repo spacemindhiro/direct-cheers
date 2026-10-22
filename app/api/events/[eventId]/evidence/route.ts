@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getEventAccess } from "@/lib/event-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEvidenceSubmittedEmail } from "@/lib/email/notification";
+import { isEventClosed, RUNNING_LIFECYCLES } from "@/lib/purchase-window";
+import { EVIDENCE_NOTIFICATION_TYPES } from "@/lib/evidence-request";
 
 export async function POST(
   req: Request,
@@ -35,8 +37,11 @@ export async function POST(
   const isAdmin = profile?.role === "admin";
   if (!isOwnerOrganizer && !isAssignedAgent && !isAdmin)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const eventEnded = new Date(event.end_at) < new Date() || event.lifecycle_status === "ended";
-  if (!eventEnded)
+  // 締め時刻（終了3時間後＝当日決済の受付終了）を過ぎてから。決済を受け付けている最中に承認まで
+  // 進まないようにする。下書き・承認待ち・中止・精算済みのイベントには提出させない（画面と同じ判定）
+  if (!(RUNNING_LIFECYCLES as readonly string[]).includes(event.lifecycle_status))
+    return NextResponse.json({ error: "このイベントは現在エビデンスを提出できません" }, { status: 400 });
+  if (!isEventClosed(event.end_at))
     return NextResponse.json({ error: "Event has not ended yet" }, { status: 400 });
 
   const { description, photo_paths, attendance_count } = await req.json() as {
@@ -75,6 +80,14 @@ export async function POST(
     .update({ is_read: true })
     .eq("profile_id", user.id)
     .eq("type", "evidence_rejected")
+    .eq("is_read", false)
+    .filter("metadata->>event_id", "eq", eventId);
+
+  // 提出依頼・催促のお知らせを消し込む（主催者・担当エージェント・admin の全員分。誰が提出しても同じ）
+  await admin
+    .from("notifications")
+    .update({ is_read: true })
+    .in("type", EVIDENCE_NOTIFICATION_TYPES)
     .eq("is_read", false)
     .filter("metadata->>event_id", "eq", eventId);
 

@@ -15,7 +15,7 @@ import {
   insertProduct,
   insertTicket,
 } from "../helpers/seed";
-import { testAdmin } from "../helpers/db-reset";
+import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(() => ({ get: () => null, getAll: () => [] })),
@@ -178,13 +178,10 @@ beforeAll(async () => {
 afterAll(async () => {
   if (cleanup.ticketIds.length)
     await testAdmin.from("tickets").delete().in("ticket_id", cleanup.ticketIds);
-  if (cleanup.transactionIds.length)
-    await testAdmin.from("transactions").delete().in("transaction_id", cleanup.transactionIds);
-  if (cleanup.qrConfigIds.length)
-    await testAdmin.from("qr_configs").delete().in("qr_config_id", cleanup.qrConfigIds);
-  if (cleanup.productIds.length)
-    await testAdmin.from("products").delete().in("product_id", cleanup.productIds);
-  await testAdmin.from("events").delete().in("event_id", cleanup.eventIds);
+  // API が作った決済など、テストが把握していない子の行も親から辿って消す。以前は個別に消していて
+  // 外部キーでイベントの削除が黙って失敗し、終了済みイベントと未照合の決済が毎回残っていた。
+  // 自動照合が締め時刻を過ぎた公開中イベントを対象にしてから、それが照合のテストを壊した（2026-10-22）
+  await cleanupTestData({ transactionIds: cleanup.transactionIds, qrConfigIds: cleanup.qrConfigIds, eventIds: cleanup.eventIds });
   await deleteAuthUsers(cleanup.profileIds);
 });
 

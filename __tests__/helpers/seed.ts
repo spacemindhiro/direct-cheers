@@ -1,4 +1,4 @@
-import { testAdmin } from "./db-reset";
+import { testAdmin, cleanupTestData } from "./db-reset";
 
 function newId(): string {
   return crypto.randomUUID();
@@ -31,11 +31,20 @@ export async function insertProfile(params: {
   return id;
 }
 
-// auth user を削除（afterAll のクリーンアップ用）
+// auth user を削除（afterAll のクリーンアップ用）。
+// そのユーザーが主催・担当したイベントやQR・決済など、参照している行を先に片付けてから消す。
+// 以前は削除の失敗を握りつぶしており、外部キーで消せなかったユーザーとイベントがローカルDBに溜まって、
+// 締め時刻を過ぎたイベントが定期照合の対象に入り、照合系のテストを時間差で落としていた（2026-10-23）
 export async function deleteAuthUsers(profileIds: string[]): Promise<void> {
-  await Promise.all(
-    profileIds.map((id) => testAdmin.auth.admin.deleteUser(id).catch(() => {})),
-  );
+  const ids = [...new Set(profileIds)];
+  if (ids.length === 0) return;
+  await cleanupTestData({ profileIds: ids });
+  const errors: string[] = [];
+  for (const id of ids) {
+    const { error } = await testAdmin.auth.admin.deleteUser(id);
+    if (error && error.status !== 404) errors.push(`${id}: ${error.message}`);
+  }
+  if (errors.length) throw new Error(`deleteAuthUsers: 削除に失敗\n${errors.join("\n")}`);
 }
 
 /**

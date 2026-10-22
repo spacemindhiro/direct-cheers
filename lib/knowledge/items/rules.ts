@@ -23,6 +23,7 @@ export const RULES_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "表示価格と手数料",
     sources: ["components/legal/law-document.tsx"],
+    goto: { href: "/dashboard/profile/law", label: "特定商取引法に基づく表記を開く" },
     body: [
       { type: "p", text: "QRの画面に表示される金額は消費税込みで、お客様が払うのはその金額だけです。システム利用料10%と決済手数料（クレジットカード等 3.96%）は表示価格の中に含まれており、別に上乗せされることはありません。" },
       { type: "p", text: "インターネットの通信料はお客様の負担です。" },
@@ -34,6 +35,7 @@ export const RULES_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "支払いが確定するタイミング（オーソリ）",
     sources: ["app/api/pay/cheers/route.ts", "app/api/admin/events/[eventId]/capture-all/route.ts", "app/api/cron/entrance-auth/route.ts", "app/api/entrance/reserve/route.ts", "app/api/cron/touchpay-capture/route.ts"],
+    goto: { href: "/dashboard/profile/law", label: "特定商取引法に基づく表記を開く" },
     body: [
       { type: "p", text: "チアやチケットの決済は、購入した時点ではカードの利用枠を確保する「オーソリ（与信）」の状態です。実際の請求は、イベントが開催されたことを運営が確認してから確定します。" },
       { type: "p", text: "このため、イベントが中止になった場合は、確保していた枠が取り消されるだけで、お客様に請求は発生しません。カード会社のアプリなどで一時的に「利用（未確定）」と表示されることがありますが、取り消されれば消えます。" },
@@ -47,6 +49,7 @@ export const RULES_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "キャンセル・返金の考え方",
     sources: ["components/legal/law-document.tsx"],
+    goto: { href: "/dashboard/profile/law", label: "特定商取引法に基づく表記を開く" },
     body: [
       { type: "p", text: "チアなどのデジタルコンテンツは、性質上、決済が終わった後のお客様都合によるキャンセル・返金には応じていません。" },
       {
@@ -77,6 +80,7 @@ export const RULES_ITEMS: KnowledgeItem[] = [
     minRole: "user",
     title: "問い合わせ先",
     sources: ["components/legal/law-document.tsx"],
+    goto: { href: "/dashboard/profile/law", label: "特定商取引法に基づく表記を開く" },
     body: [
       { type: "p", text: "解決しないことは support@direct-cheers.com へ。オーガナイザー・アーティストは、担当エージェントにも相談できます。" },
     ],
@@ -191,6 +195,7 @@ export const RULES_ITEMS: KnowledgeItem[] = [
     minRole: "organizer",
     title: "売上から差し引かれるもの",
     sources: ["components/legal/law-document.tsx", "lib/payout-config.ts"],
+    goto: { href: "/dashboard/profile/law", label: "特定商取引法に基づく表記を開く" },
     body: [
       { type: "p", text: "お客様が払った金額から、決済手数料（クレジットカード等 3.96%）とシステム利用料10%が差し引かれた残りが、配分設定の比率に従って主催者・出演者に配られます。配分額は自動で計算され、あとから手で変えることはできません。" },
       { type: "p", text: "出金のときは、別に振込手数料¥{{TRANSFER_FEE}}がかかります（[[organizer.payout]]）。" },

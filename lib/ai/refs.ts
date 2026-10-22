@@ -1,6 +1,7 @@
 // チアリー(AI) の答えの「行き先ボタン」と「動画カード」。
 // AI には URL や画面名を作らせず、答えの最後に根拠の項目IDを〔参照:ID,ID〕で書かせる。
 // サーバーがそのIDを本人のロールで見てよい項目か確かめ、知識集からボタン・カードの材料を作って画面へ渡す。
+// 押す先（ヘルプ・行き先・動画）が1つも無い項目はカードにしない（題名だけのカードは邪魔になる）。
 import { itemsForRole, helpLocation } from "@/lib/knowledge/assemble";
 import { toPlainText } from "@/lib/knowledge/markup";
 import { TUTORIAL_VIDEO_IDS } from "@/lib/tutorial-videos";
@@ -27,7 +28,7 @@ export function extractRefs(text: string, role: string | null | undefined): Chee
       if (id && allowed.has(id) && !ids.includes(id)) ids.push(id);
     }
   }
-  return ids.slice(0, MAX_REFS).map((id) => {
+  const refs = ids.map((id): CheeryRef => {
     const item = allowed.get(id)!;
     const title = item.kind === "faq" ? toPlainText(item.q) : item.title;
     const loc = helpLocation(item);
@@ -41,4 +42,5 @@ export function extractRefs(text: string, role: string | null | undefined): Chee
       ...(youtubeId ? { video: { youtubeId, label: `動画で見る：${title}` } } : {}),
     };
   });
+  return refs.filter((r) => r.help || r.goto || r.video).slice(0, MAX_REFS);
 }

@@ -4,6 +4,7 @@
  * - AI が答えの最後に書いた〔参照:ID,ID〕から、本人のロールで見てよい項目だけをカードにする
  * - 上位ロール向けの項目・存在しないID・重複は捨てる。最大3つ
  * - ヘルプに載っている項目だけ「ヘルプで見る」、goto がある項目だけ「画面を開く」、動画がある項目だけ動画カード
+ * - 押す先が1つも無い項目はカードにしない（最大3つは、カードにする項目で数える）
  * - 本文から〔参照:…〕を取り除く
  */
 import { describe, it, expect } from "vitest";
@@ -41,9 +42,24 @@ describe("TC-CHEERY-REFS", () => {
     }]);
   });
 
-  it("ヘルプに載っていない項目はヘルプのボタンを付けない", () => {
-    const r = extractRefs("〔参照:rules.hold-period〕", "artist");
-    expect(r).toEqual([{ id: "rules.hold-period", title: "売上がすぐ出金できない理由（留保期間）" }]);
+  it("ヘルプに載っていない項目はヘルプのボタンを付けない（行き先だけのカード）", () => {
+    expect(extractRefs("〔参照:rules.cancel-policy〕", "user")).toEqual([{
+      id: "rules.cancel-policy",
+      title: "キャンセル・返金の考え方",
+      goto: { href: "/dashboard/profile/law", label: "特定商取引法に基づく表記を開く" },
+    }]);
+  });
+
+  it("押す先が1つも無い項目はカードにしない（2026-10-22 STG で題名だけのカードが出た）", () => {
+    for (const id of ["rules.account-terms", "rules.hold-period", "rules.what-is-dc"]) {
+      expect(`${id}:${JSON.stringify(extractRefs(`〔参照:${id}〕`, "admin"))}`).toBe(`${id}:[]`);
+    }
+    // 実際に出た答えの並び：押す先の無い項目は飛ばして、残りだけ
+    expect(ids("〔参照:organizer.create-qr, rules.account-terms, organizer.entrance-qr〕", "organizer")).toEqual(["organizer.create-qr", "organizer.entrance-qr"]);
+  });
+
+  it(`最大${MAX_REFS}つは、カードにする項目で数える（押す先の無い項目が先にあっても枠を使わない）`, () => {
+    expect(ids("〔参照:rules.account-terms, rules.hold-period, user.login, user.account, user.collection〕", "artist")).toEqual(["user.login", "user.account", "user.collection"]);
   });
 
   it("本文から〔参照:…〕を取り除く", () => {

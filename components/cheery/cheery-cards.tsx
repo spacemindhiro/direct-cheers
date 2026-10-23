@@ -1,13 +1,14 @@
 "use client";
 
-// チアリー(AI) の確認カード（イベントの下書き・会場の登録・ピンを置く地図）。
+// チアリー(AI) の確認カード（イベントの下書き・会場の登録・ピンを置く地図・QR の作成）。
 // 材料はサーバーがツールの結果から作ったもの（lib/cheery/cards.ts）。ボタンを押したときだけ /api/cheery/action に送る。
 // まだ誰にも届いていないこと・登録した会場は全主催者が選べることを必ず書く（requirements.md 9章、p5-design.md）。
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarPlus, Check, ExternalLink, Loader2, LocateFixed, MapPin, PencilLine } from "lucide-react";
+import { CalendarPlus, Check, ExternalLink, Loader2, LocateFixed, MapPin, PencilLine, QrCode } from "lucide-react";
+import { QRImageUpload } from "@/components/qr-image-upload";
 import { jstDateTime } from "@/lib/mcp/format";
-import { slotDecided, type CardDone, type CheeryCard, type EventDraftCard, type VenuePinCard, type VenueRegisterCard } from "@/lib/cheery/cards";
+import { slotDecided, type CardDone, type CheeryCard, type EventDraftCard, type QrCreateCard, type VenuePinCard, type VenueRegisterCard } from "@/lib/cheery/cards";
 
 type Handlers = {
   onDone: (cardId: string, done: CardDone, note: string) => void;
@@ -44,6 +45,7 @@ export function CheeryCards({ cards, done, ...h }: { cards: CheeryCard[]; done?:
       {cards.map((c) =>
         c.kind === "event_draft" ? <EventDraftView key={c.card_id} card={c} done={done?.[c.card_id]} {...h} />
         : c.kind === "venue_register" ? <VenueRegisterView key={c.card_id} card={c} done={done?.[c.card_id]} {...h} />
+        : c.kind === "qr_create" ? <QrCreateView key={c.card_id} card={c} done={done?.[c.card_id]} {...h} />
         : <VenuePinView key={c.card_id} card={c} done={done?.[c.card_id]} {...h} />,
       )}
     </>
@@ -318,6 +320,134 @@ function EventDraftView({ card, done, onDone, onNavigate }: { card: EventDraftCa
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={create} disabled={busy || unresolved} className={primary}>
               {busy ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} 下書きを作る
+            </button>
+            <button type="button" onClick={() => setEditing(true)} disabled={busy} className={secondary}><PencilLine size={11} /> 項目を直す</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── QR の確認カード ──────────────────────────────
+
+const QR_TYPE_LABEL = { standard: "スタンダード", message: "メッセージ", entrance: "エントランス" } as const;
+const QR_PAYMENT_LABEL = { A: "前売事後確定（5日前確定）", B: "前売即時確定", C: "当日決済" } as const;
+const yen = (n: number) => `¥${n.toLocaleString()}`;
+
+function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; done?: CardDone } & Handlers) {
+  // 言われた人ごとに選んだ候補（"profile_id::role"）。完全に同じ名前の1人だけなら決まり、それ以外は本人が選ぶまで作れない
+  const key = (o: { profile_id: string; role: string }) => `${o.profile_id}::${o.role}`;
+  const [picked, setPicked] = useState<string[]>(() => card.people.map((p) => (slotDecided(p) ? key(p.options[0]) : "?")));
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const option = (i: number) => card.people[i].options.find((o) => key(o) === picked[i]) ?? null;
+  const recipient = option(card.recipient);
+  const unresolved = picked.some((p) => p === "?") || (card.needs_image && !imageUrl);
+  const createHref = `/dashboard/events/${card.event.event_id}/qr/create`;
+
+  const create = async () => {
+    if (!recipient) return;
+    setBusy(true);
+    setError(null);
+    const r = await act({
+      action: "create_qr", card_id: card.card_id, event_id: card.event.event_id, product_type: card.product_type, payment_type: card.payment_type,
+      label: card.label, min_amount: card.min_amount, max_amount: card.max_amount, stock_limit: card.stock_limit,
+      sales_start_at: card.sales_start_at, sales_end_at: card.sales_end_at,
+      recipient_profile_id: recipient.profile_id, recipient_name_context: recipient.role,
+      targets: card.targets.map((t) => ({ profile_id: option(t.person)!.profile_id, distribution_ratio: t.percent / 100 })),
+      image_url: card.needs_image ? imageUrl : null,
+    });
+    setBusy(false);
+    if (!r.ok) { setError(r.error ?? "作れませんでした"); return; }
+    onDone(card.card_id, { kind: "qr_created", event_id: String(r.eventId), qr_config_id: String(r.qrConfigId), label: String(r.label) },
+      `（QR「${String(r.label)}」を作りました${card.event.draft ? "。イベントが承認されるまでは確認用で、決済はできません" : ""}）`);
+  };
+
+  const personRow = (i: number, forRecipient: boolean) => {
+    const slot = card.people[i];
+    if (slotDecided(slot)) return <span className="text-slate-200">{slot.options[0].name}{forRecipient && slot.options[0].role === "organizer" ? "（主催者名義）" : ""}</span>;
+    return (
+      <div className="space-y-1">
+        <p className="text-slate-400">{slot.exact ? `「${slot.query}」に当たる候補が${slot.options.length}つあります。選んでください` : `「${slot.query}」と同じ名前の人はいません。この中にいれば選んでください`}</p>
+        {slot.options.map((o) => (
+          <label key={key(o)} className="flex items-center gap-1.5 text-slate-200">
+            <input type="radio" name={`${card.card_id}-${i}`} disabled={!!done} checked={picked[i] === key(o)} onChange={() => setPicked((p) => p.map((v, j) => (j === i ? key(o) : v)))} />
+            {o.name}{forRecipient ? <span className="text-slate-500">（{o.role === "organizer" ? "主催者名義" : "出演者名義"}）</span> : null}
+          </label>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className={box} data-cheery-card="qr_create">
+      <p className="text-[11px] font-black text-white flex items-center gap-1"><QrCode size={12} className="text-pink-400" /> QR の確認</p>
+      <Row k="イベント" v={card.event.title} />
+      <Row k="タイプ" v={`${QR_TYPE_LABEL[card.product_type]}${card.payment_type ? `・${QR_PAYMENT_LABEL[card.payment_type]}` : ""}`} />
+      <Row k="ラベル" v={card.label} />
+      <Row k="金額" v={card.min_amount === card.max_amount ? yen(card.min_amount) : `${yen(card.min_amount)}〜${yen(card.max_amount)}`} />
+      {card.payment_type && <Row k="上限数" v={card.stock_limit ?? "無制限"} />}
+      {card.sales_start_at && card.sales_end_at && <Row k="販売期間" v={`${jstDateTime(card.sales_start_at)}〜${jstDateTime(card.sales_end_at)}`} />}
+      <div className="flex gap-2 text-[11px]">
+        <span className="w-14 shrink-0 text-slate-500">宛先</span>
+        <div className="flex-1 min-w-0">{personRow(card.recipient, true)}</div>
+      </div>
+      <div className="flex gap-2 text-[11px]">
+        <span className="w-14 shrink-0 text-slate-500">配分</span>
+        <div className="flex-1 min-w-0 space-y-1">
+          {card.targets.map((t) => (
+            <div key={t.person} className="flex gap-2">
+              <div className="flex-1 min-w-0">{t.person === card.recipient ? <span className="text-slate-200">{recipient?.name ?? card.people[t.person].query}</span> : personRow(t.person, false)}</div>
+              <span className="shrink-0 text-slate-200">{t.percent}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {card.needs_image && !done && (
+        recipient?.avatar_url || card.flyer_url ? (
+          <QRImageUpload
+            required
+            allowUpload={false}
+            sources={{
+              recipient: recipient?.avatar_url ? { url: recipient.avatar_url, originalUrl: recipient.avatar_original_url, name: recipient.name } : null,
+              flyerUrl: card.flyer_url,
+            }}
+            onUploadComplete={setImageUrl}
+          />
+        ) : (
+          <p className="text-[10px] text-slate-400">
+            宛先の画像もフライヤーも無いので、QR の画像は作成画面でアップロードしてください：
+            <Link href={createHref} onClick={onNavigate} className="ml-1 text-indigo-300 font-bold">作成画面を開く</Link>
+          </p>
+        )
+      )}
+      {done?.kind === "qr_created" ? (
+        <>
+          <p className="flex items-center gap-1 text-[11px] font-bold text-emerald-300"><Check size={12} /> QR を作りました</p>
+          <Link href={`/dashboard/events/${done.event_id}/qr/${done.qr_config_id}`} onClick={onNavigate} className={primary + " w-fit"}>
+            <ExternalLink size={11} /> QR を開く
+          </Link>
+        </>
+      ) : (
+        <>
+          <p className={notice}>
+            宛先・配分先の人に通知は届きません。
+            {card.event.draft ? "このイベントは下書きなので、承認されるまでこの QR では決済できません（確認用）。" : ""}
+            色・タッチ決済・ウェルカムチアなどは作成画面で設定できます。
+          </p>
+          {editing && (
+            <p className="text-[10px] text-slate-400">
+              直したいところをチャットで伝えてください。カードを作り直します。作成画面で直接入れることもできます：
+              <Link href={createHref} onClick={onNavigate} className="ml-1 text-indigo-300 font-bold">作成画面を開く</Link>
+            </p>
+          )}
+          {error && <p className="text-[11px] text-amber-300">{error}</p>}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={create} disabled={busy || unresolved} className={primary}>
+              {busy ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} QRを作る
             </button>
             <button type="button" onClick={() => setEditing(true)} disabled={busy} className={secondary}><PencilLine size={11} /> 項目を直す</button>
           </div>

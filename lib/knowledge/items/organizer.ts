@@ -139,7 +139,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "QRを作成する（スタンダード／メッセージ）",
     help: { tab: "organizer", group: "prep", icon: "QrCode", subtitle: "QR Config", video: "o-07" },
-    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts"],
+    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts", "lib/qr/create-qr.ts"],
     body: [
       { type: "p", text: "イベント詳細ページの「QR 作成」から、チア／チケット用のQRコードを商品タイプ別に発行します。" },
       {
@@ -160,7 +160,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "エントランスQRを作成する",
     help: { tab: "organizer", group: "prep", icon: "DoorOpen", subtitle: "Entrance QR", video: "o-11" },
-    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts", "lib/purchase-window.ts"],
+    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts", "lib/qr/create-qr.ts", "lib/purchase-window.ts"],
     body: [
       { type: "p", text: "入場チケットをQRで販売するときは、「QR 作成」で商品タイプ「エントランス」を選びます。" },
       {

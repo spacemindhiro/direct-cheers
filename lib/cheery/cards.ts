@@ -2,7 +2,7 @@
 // カードの材料は MCP のツールの結果（_meta の CARDS_META_KEY）からだけ作り、AI の書いた文字からは作らない。
 // 材料には内部 ID（venue_id・profile_id）が入るので、AI には渡さない（lib/mcp/in-process.ts が AI に渡す前に取り分ける）。
 // 本人がカードのボタンを押すと、画面が /api/cheery/action に送り、DC のサーバーが書き込みのツールを呼ぶ。
-// 送られてきた中身は信用せず、書き込みの側（lib/venues.ts・lib/events/create-draft.ts）がすべて判定し直す。
+// 送られてきた中身は信用せず、書き込みの側（lib/venues.ts・lib/events/create-draft.ts・lib/qr/create-qr.ts）がすべて判定し直す。
 
 export const CARDS_META_KEY = "direct-cheers.com/cards";
 
@@ -38,7 +38,7 @@ export type PerformerSlot = {
   options: { profile_id: string; name: string; sub: string | null; connected: boolean }[];
 };
 
-export const slotDecided = (s: PerformerSlot) => s.exact && s.options.length === 1;
+export const slotDecided = (s: { exact: boolean; options: unknown[] }) => s.exact && s.options.length === 1;
 
 export type EventDraftCard = {
   kind: "event_draft";
@@ -51,9 +51,34 @@ export type EventDraftCard = {
   performers: PerformerSlot[];
 };
 
-export type CheeryCard = VenueRegisterCard | VenuePinCard | EventDraftCard;
+// QR の宛先・配分先の候補（そのイベントの主催者・出演者だけ。lib/qr/candidates.ts）。
+// 同じ人が主催者名義と出演者名義の2つで出ることがある（role で区別）
+export type QrPersonOption = { profile_id: string; role: "organizer" | "artist"; name: string; avatar_url: string | null; avatar_original_url: string | null };
+export type QrPersonSlot = { query: string; exact: boolean; options: QrPersonOption[] };
+
+export type QrCreateCard = {
+  kind: "qr_create";
+  card_id: string;
+  event: { event_id: string; title: string; draft: boolean };
+  product_type: "standard" | "message" | "entrance";
+  payment_type: "A" | "B" | "C" | null; // エントランスだけ
+  label: string;
+  min_amount: number;
+  max_amount: number;
+  stock_limit: number | null;
+  sales_start_at: string | null; // UTC の ISO（前売り A/B だけ）
+  sales_end_at: string | null;
+  people: QrPersonSlot[]; // 言われた人（宛先と配分先で同じ人は1つ）
+  recipient: number; // people の何番目が宛先か
+  targets: { person: number; percent: number }[];
+  needs_image: boolean;
+  flyer_url: string | null;
+};
+
+export type CheeryCard = VenueRegisterCard | VenuePinCard | EventDraftCard | QrCreateCard;
 
 // 書き込みが済んだあとの状態（端末の会話に一緒に残す）
 export type CardDone =
   | { kind: "venue_registered"; venue_name: string }
-  | { kind: "event_created"; event_id: string; title: string };
+  | { kind: "event_created"; event_id: string; title: string }
+  | { kind: "qr_created"; event_id: string; qr_config_id: string; label: string };

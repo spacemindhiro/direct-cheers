@@ -25,6 +25,7 @@ import { MY_CONVERSATIONS, READ_CONVERSATION, listConversations, readConversatio
 import { ADMIN_OVERVIEW, adminOverview } from "./tools/admin-overview";
 import { FIND_VENUE, CHECK_VENUE_ADDRESS, VENUE_PIN, REGISTER_VENUE, findVenue, checkVenueAddress, venuePin, registerVenueTool } from "./tools/venue-tools";
 import { PREPARE_EVENT_DRAFT, CREATE_EVENT_DRAFT, prepareEventDraft, createEventDraftTool } from "./tools/event-draft";
+import { PREPARE_QR, CREATE_QR, prepareQr, createQrTool } from "./tools/qr-create";
 import { CARDS_META_KEY, type CheeryCard } from "@/lib/cheery/cards";
 import { detailIndexForRole } from "@/lib/knowledge/assemble";
 
@@ -204,13 +205,14 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
       async (input) => safe(() => readConversation(ctx, input)),
     );
   }
-  // イベント作成（P5）。読み取り：会場を探す・住所を確かめる・ピンのカード・下書きの確認カード
+  // イベント作成（P5）。読み取り：会場を探す・住所を確かめる・ピンのカード・下書きの確認カード・QR の確認カード
   const lookup = { readOnlyHint: true, openWorldHint: true }; // Google の地図サービスを呼ぶものがある
   for (const [def, run] of [
     [FIND_VENUE, (i: never) => findVenue(ctx, i)],
     [CHECK_VENUE_ADDRESS, (i: never) => checkVenueAddress(ctx, i)],
     [VENUE_PIN, (i: never) => venuePin(ctx, i)],
     [PREPARE_EVENT_DRAFT, (i: never) => prepareEventDraft(ctx, i)],
+    [PREPARE_QR, (i: never) => prepareQr(ctx, i)],
   ] as const) {
     if (!allowed(def.minRole)) continue;
     server.registerTool(
@@ -234,6 +236,13 @@ export function createDcMcpServer(ctx: DcMcpContext): McpServer {
         CREATE_EVENT_DRAFT.name,
         { title: CREATE_EVENT_DRAFT.title, description: CREATE_EVENT_DRAFT.description, inputSchema: CREATE_EVENT_DRAFT.inputSchema, annotations: write },
         async (input) => safeWrite(() => createEventDraftTool(ctx, input)),
+      );
+    }
+    if (allowed(CREATE_QR.minRole)) {
+      server.registerTool(
+        CREATE_QR.name,
+        { title: CREATE_QR.title, description: CREATE_QR.description, inputSchema: CREATE_QR.inputSchema, annotations: write },
+        async (input) => safeWrite(() => createQrTool(ctx, input)),
       );
     }
   }

@@ -15,6 +15,8 @@ type Props = {
   required?: boolean;
   // 素材の選択肢（宛先の画像・フライヤー）。無ければ「アップロード」だけが使える
   sources?: ImageSourceOptions;
+  // false なら端末の画像のアップロードを出さない（チアリーの確認カード）
+  allowUpload?: boolean;
   onUploadComplete: (url: string | null) => void;
 };
 
@@ -44,7 +46,7 @@ async function resizeImage(blob: Blob): Promise<Blob> {
   );
 }
 
-export function QRImageUpload({ currentUrl, pathPrefix, required, sources, onUploadComplete }: Props) {
+export function QRImageUpload({ currentUrl, pathPrefix, required, sources, allowUpload = true, onUploadComplete }: Props) {
   const [rawSrc, setRawSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -87,7 +89,7 @@ export function QRImageUpload({ currentUrl, pathPrefix, required, sources, onUpl
 
   const handlePicked = (src: string) => { setRawSrc(src); setCropOpen(true); };
   const handleRemove = () => { setDisplayUrl(null); setRawSrc(null); onUploadComplete(null); };
-  const handleAreaClick = () => { rawSrc ? setCropOpen(true) : fileRef.current?.click(); };
+  const handleAreaClick = () => { if (rawSrc) setCropOpen(true); else if (allowUpload) fileRef.current?.click(); };
 
   return (
     <div className="space-y-2">
@@ -98,7 +100,7 @@ export function QRImageUpload({ currentUrl, pathPrefix, required, sources, onUpl
       <ImageSourcePicker
         sources={sources}
         onPicked={handlePicked}
-        onUploadClick={() => fileRef.current?.click()}
+        onUploadClick={allowUpload ? () => fileRef.current?.click() : undefined}
         disabled={uploading}
       />
 
@@ -124,7 +126,7 @@ export function QRImageUpload({ currentUrl, pathPrefix, required, sources, onUpl
         ) : (
           <div className="flex flex-col items-center gap-2 text-slate-600 pointer-events-none">
             <Camera size={22} />
-            <p className="text-[10px] font-bold">タップして追加 (3:2)</p>
+            <p className="text-[10px] font-bold">{allowUpload ? "タップして追加 (3:2)" : "上のボタンで選ぶ (3:2)"}</p>
           </div>
         )}
       </div>

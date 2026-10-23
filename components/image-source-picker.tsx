@@ -24,7 +24,8 @@ export function ImageSourcePicker({
 }: {
   sources?: ImageSourceOptions;
   onPicked: (src: string) => void;
-  onUploadClick: () => void;
+  // 無ければ「アップロード」を出さない（チアリーの確認カード。アップロードは作成画面で行う）
+  onUploadClick?: () => void;
   disabled?: boolean;
 }) {
   const [loading, setLoading] = useState<"recipient" | "flyer" | null>(null);
@@ -74,16 +75,18 @@ export function ImageSourcePicker({
           <span>フライヤー</span>
           <span className="text-[9px] font-normal text-slate-500 truncate max-w-full">{flyerUrl ? "イベントの画像" : "未登録"}</span>
         </button>
-        <button
-          type="button"
-          disabled={disabled || loading !== null}
-          onClick={() => { setPickedLowRes(false); onUploadClick(); }}
-          className={`${base} ${enabledCls}`}
-        >
-          <Upload size={14} />
-          <span>アップロード</span>
-          <span className="text-[9px] font-normal text-slate-500">端末の画像</span>
-        </button>
+        {onUploadClick && (
+          <button
+            type="button"
+            disabled={disabled || loading !== null}
+            onClick={() => { setPickedLowRes(false); onUploadClick(); }}
+            className={`${base} ${enabledCls}`}
+          >
+            <Upload size={14} />
+            <span>アップロード</span>
+            <span className="text-[9px] font-normal text-slate-500">端末の画像</span>
+          </button>
+        )}
       </div>
       {!flyerUrl && (
         <p className="text-[9px] text-slate-600">フライヤーはイベントの編集画面で登録できます。</p>

@@ -7,7 +7,7 @@ import { QRCreateForm } from "@/components/qr-create-form";
 import { getFeeConfig } from "@/lib/fee-config";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import { avatarFields } from "@/lib/image-source";
+import { qrCandidateEvent } from "@/lib/qr/candidates";
 import { organizerBalance } from "@/lib/qr/rules";
 
 async function QRCreateContent({ params }: { params: Promise<{ eventId: string }> }) {
@@ -29,16 +29,8 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
   }
 
   const adminForEvent = createAdminClient();
-  const { data: event } = await adminForEvent
-    .from("events")
-    .select(`
-      event_id, title, lifecycle_status, start_at, venue, paypay_enabled, base_flyer_url,
-      organizer_profile_id,
-      organizer:profiles!organizer_profile_id(display_name, organizer_name, organizer_avatar_url, avatar_url, organizer_avatar_original_url, avatar_original_url),
-      event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name, artist_name, artist_avatar_url, avatar_url, artist_avatar_original_url, avatar_original_url))
-    `)
-    .eq("event_id", eventId)
-    .single();
+  // 宛先・配分先の候補はチアリーの確認カードと同じ関数（lib/qr/candidates.ts）
+  const event = await qrCandidateEvent(adminForEvent, eventId);
 
   if (!event) notFound();
   // このイベントを操作できる人（主催者・エージェント・admin。lib/event-access.ts）以外には存在しない扱い。
@@ -48,36 +40,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
   if (!["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status)) {
     redirect(`/dashboard/events/${eventId}`);
   }
-
-  // 配分対象候補: オーガナイザー自身 + 出演依頼済みアーティスト（rejected/deleted以外）
-  // 宛先の表示名・画像は名義（organizer_name/artist_name、organizer_avatar_url/artist_avatar_url）
-  // 優先で表示する（無ければ基本のavatar_urlにフォールバック）。
-  // 同一人物がオーガナイザー兼演者の場合、profile_idは同じだがroleが異なる2行になる
-  // （recipient_name_context で名義を区別して保存するため、UI上では別候補として扱う）
-  const targets = [
-    {
-      profile_id: event.organizer_profile_id,
-      display_name: (event.organizer as any)?.organizer_name ?? (event.organizer as any)?.display_name ?? "オーガナイザー",
-      ...avatarFields(
-        { url: (event.organizer as any)?.organizer_avatar_url, originalUrl: (event.organizer as any)?.organizer_avatar_original_url },
-        { url: (event.organizer as any)?.avatar_url, originalUrl: (event.organizer as any)?.avatar_original_url },
-      ),
-      role: "organizer" as const,
-      status: "confirmed" as const,
-    },
-    ...(event.event_artists ?? [])
-      .filter((ea: any) => ea.status !== "rejected" && ea.deleted_at === null)
-      .map((ea: any) => ({
-        profile_id: ea.artist_profile_id,
-        display_name: ea.artist?.artist_name ?? ea.artist?.display_name ?? "—",
-        ...avatarFields(
-          { url: ea.artist?.artist_avatar_url, originalUrl: ea.artist?.artist_avatar_original_url },
-          { url: ea.artist?.avatar_url, originalUrl: ea.artist?.avatar_original_url },
-        ),
-        role: "artist" as const,
-        status: ea.status as string,
-      })),
-  ];
+  const targets = event.targets;
 
   const feeConfig = await getFeeConfig();
 
@@ -100,10 +63,10 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
       <QRCreateForm
         eventId={eventId}
         eventTitle={event.title}
-        eventStartAt={(event as any).start_at ?? null}
-        eventVenue={(event as any).venue ?? null}
+        eventStartAt={event.start_at}
+        eventVenue={event.venue}
         targets={targets}
-        eventFlyerUrl={(event as any).base_flyer_url ?? null}
+        eventFlyerUrl={event.base_flyer_url}
         feeConfig={feeConfig}
         organizerBalance={balance}
         productTypeConfigs={productTypeConfigs ?? []}

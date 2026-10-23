@@ -13,10 +13,10 @@ import type { VenueRegisterCard } from "@/lib/cheery/cards";
 
 // POST /api/cheery/action
 // チアリー(AI) の確認カードのボタン。AI は通らない（本人が押したときだけ、画面からここに来る）。
-//   register_venue / create_event_draft：DC のデータを書く。MCP の書き込みのツールを、本人のまま action モードで呼ぶ
+//   register_venue / create_event_draft / create_qr：DC のデータを書く。MCP の書き込みのツールを、本人のまま action モードで呼ぶ
 //   pin_to_address：地図に置いたピンの位置から、一番近い住所で会場の確認カードを作る（Google の位置から住所）
 //   map_load：ピンを置く地図を出してよいか（地図の表示の無料の上限）。出すときに1回と数える
-// 送られてきた中身は信用しない（書き込みの側がすべて判定し直す：lib/venues.ts・lib/events/create-draft.ts）。
+// 送られてきた中身は信用しない（書き込みの側がすべて判定し直す：lib/venues.ts・lib/events/create-draft.ts・lib/qr/create-qr.ts）。
 
 const Body = z.discriminatedUnion("action", [
   z.object({
@@ -42,6 +42,23 @@ const Body = z.discriminatedUnion("action", [
     performer_ids: z.array(z.string().uuid()).max(20),
   }),
   z.object({
+    action: z.literal("create_qr"),
+    card_id: z.string().uuid(),
+    event_id: z.string().uuid(),
+    product_type: z.enum(["standard", "message", "entrance"]),
+    payment_type: z.enum(["A", "B", "C"]).nullable(),
+    label: z.string().min(1).max(50),
+    min_amount: z.number().int(),
+    max_amount: z.number().int(),
+    stock_limit: z.number().int().min(1).max(100000).nullable(),
+    sales_start_at: z.string().max(40).nullable(),
+    sales_end_at: z.string().max(40).nullable(),
+    recipient_profile_id: z.string().uuid(),
+    recipient_name_context: z.enum(["organizer", "artist"]),
+    targets: z.array(z.object({ profile_id: z.string().uuid(), distribution_ratio: z.number().min(0).max(1) })).min(1).max(10),
+    image_url: z.string().max(500).nullable(),
+  }),
+  z.object({
     action: z.literal("pin_to_address"),
     name: z.string().min(1).max(100),
     latitude: z.number().min(-90).max(90),
@@ -56,6 +73,8 @@ const ERROR_TEXT: Record<string, string> = {
   "No agent assigned": "担当エージェントが決まっていないため、まだイベントを作れません",
   Forbidden: "この名義では作れません",
   "Missing required fields": "入力が足りません",
+  "Event not found": "イベントが見つかりません",
+  "Invalid product type": "このタイプの QR は作れません",
 };
 
 export async function POST(req: Request) {

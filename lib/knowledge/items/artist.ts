@@ -83,7 +83,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     minRole: "artist",
     title: "チアの受け取り方",
     help: { tab: "artist", icon: "Heart", subtitle: "Cheers Card", video: "a-05" },
-    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts", "app/[locale]/dashboard/events/[eventId]/qr/[qrConfigId]/page.tsx"],
+    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts", "lib/qr/create-qr.ts", "app/[locale]/dashboard/events/[eventId]/qr/[qrConfigId]/page.tsx"],
     body: [
       { type: "p", text: "アーティスト個人が常時使える「マイQR」はありません。チア用のQRコードは、出演するイベントごとにオーガナイザーが発行し、そこに配分先の1人としてあなたが登録される仕組みです。" },
       {
@@ -178,7 +178,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     id: "artist.faq.my-qr",
     minRole: "artist",
     help: { tab: "artist" },
-    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts"],
+    sources: ["components/qr-create-form.tsx", "app/api/qr/create/route.ts", "lib/qr/create-qr.ts"],
     q: "自分専用のQRコードを作れますか？",
     a: "いいえ、アーティスト個人の常設QRはありません。出演するイベントごとにオーガナイザーが発行するQRの中に、配分先として登録されます。",
   },

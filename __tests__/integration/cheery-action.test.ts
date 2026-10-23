@@ -7,6 +7,7 @@
  * | 未ログイン             | × 401                     | × 401                               |
  * | 一般ユーザー           | × 403                     | × 403（ツールが無い）・行が増えない     |
  * | オーガナイザー         | ○                         | ○（中身は MCP の書き込みのツール）     |
+ * create_qr も同じ（中身の判定は TC-CHEERY-QR）。
  * 地図の表示は呼ぶたびに1回と数える。共用の関数の英語のエラーは画面の文にする。
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -129,5 +130,20 @@ describe("TC-CHEERY-ACTION", () => {
     events.push(body.eventId);
     const ng = await post(draft({ organizer_profile_id: P.usr }));
     expect([ng.status, await ng.json()]).toEqual([400, { ok: false, error: "この名義では作れません" }]);
+  });
+
+  it("A-07: 一般ユーザーは create_qr も使えない。QR 用に、作成 API の英語のエラーは画面の文にする", async () => {
+    const qr = (over: Record<string, unknown> = {}) => ({
+      action: "create_qr", card_id: crypto.randomUUID(), event_id: crypto.randomUUID(), product_type: "standard", payment_type: null, label: "ACT",
+      min_amount: 1000, max_amount: 1000, stock_limit: null, sales_start_at: null, sales_end_at: null,
+      recipient_profile_id: P.org, recipient_name_context: "organizer", targets: [{ profile_id: P.org, distribution_ratio: 1 }], image_url: null, ...over,
+    });
+    asUser(P.usr);
+    const ng = await post(qr());
+    expect([ng.status, await ng.json()]).toEqual([403, { ok: false, error: "この操作はできません" }]);
+    // 存在しないイベント（作成 API は「Event not found」）
+    asUser(P.org);
+    const missing = await post(qr());
+    expect([missing.status, await missing.json()]).toEqual([400, { ok: false, error: "このイベントの QR は作れません" }]);
   });
 });

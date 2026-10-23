@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
 import { isValidQrImageUrl } from "@/lib/image-source";
+import { getFeeConfig } from "@/lib/fee-config";
+import { needsQrImage, organizerBalance, qrPeople, recipientError, salesPeriodError, targetsError, typeBReserveRequired } from "@/lib/qr/rules";
 
 // フォールバック（product_type_configs が取得できなかった場合）
 const PRODUCT_TYPE_FALLBACK: Record<string, { min: number; max: number; label: string }> = {
@@ -148,6 +150,14 @@ export async function POST(req: Request) {
     );
   }
 
+  // ラベル・QR画像（画面と同じ判定。API を直接呼ぶと飛ばせていた）
+  if (typeof label !== "string" || !label.trim()) {
+    return NextResponse.json({ error: "ラベルを入力してください" }, { status: 400 });
+  }
+  if (needsQrImage(product_type, payment_type) && !image_url) {
+    return NextResponse.json({ error: "QR画像をアップロードしてください" }, { status: 400 });
+  }
+
   // 宛先必須チェック
   if (!recipient_profile_id) {
     return NextResponse.json({ error: "宛先を選択してください" }, { status: 400 });
@@ -157,8 +167,17 @@ export async function POST(req: Request) {
   }
 
   // 配分先必須チェック・比率合計チェック
-  if (!targets || targets.length === 0) {
+  if (!Array.isArray(targets) || targets.length === 0) {
     return NextResponse.json({ error: "配分先を1人以上指定してください" }, { status: 400 });
+  }
+  // 宛先・配分先はこのイベントの主催者と出演者（断った人を除く）だけ。宛先は配分先に入っていること（画面と同じ）
+  const people = await qrPeople(createAdminClient(), event_id, event.organizer_profile_id);
+  const personError = recipientError(people, recipient_profile_id, recipient_name_context) ?? targetsError(people, targets);
+  if (personError) {
+    return NextResponse.json({ error: personError }, { status: 400 });
+  }
+  if (!targets.some((t) => t.profile_id === recipient_profile_id)) {
+    return NextResponse.json({ error: "宛先を配分先に含めてください" }, { status: 400 });
   }
   // 1人ずつ 0〜100% の範囲。合計だけの確認では「109% と -9%」が通り、精算で運営の資金から払い出されていた
   if (!targets.every((t) => typeof t.distribution_ratio === "number" && Number.isFinite(t.distribution_ratio)
@@ -168,6 +187,25 @@ export async function POST(req: Request) {
   const totalRatio = targets.reduce((sum, t) => sum + t.distribution_ratio, 0);
   if (Math.abs(totalRatio - 1.0) > 0.001) {
     return NextResponse.json({ error: "配分比率の合計を100%にしてください" }, { status: 400 });
+  }
+
+  // 前売り（エントランス×A/B）の販売期間と、前売即時確定（B）の残高（画面と同じ判定）
+  const periodError = salesPeriodError(product_type, payment_type, sales_start_at, sales_end_at);
+  if (periodError) {
+    return NextResponse.json({ error: periodError }, { status: 400 });
+  }
+  const reserveRequired = typeBReserveRequired({
+    productType: product_type, paymentType: payment_type, stockLimit: stock_limit, maxAmount: max_amount,
+    stripeRate: (await getFeeConfig()).stripe_rate,
+  });
+  if (reserveRequired > 0) {
+    const balance = await organizerBalance(createAdminClient(), event.organizer_profile_id);
+    if (balance < reserveRequired) {
+      return NextResponse.json(
+        { error: `前売即時確定タイプを利用するには残高が ¥${reserveRequired.toLocaleString()} 以上必要です（現在: ¥${balance.toLocaleString()}）` },
+        { status: 400 },
+      );
+    }
   }
 
   const artistId = targets.length === 1 ? targets[0].profile_id : null;

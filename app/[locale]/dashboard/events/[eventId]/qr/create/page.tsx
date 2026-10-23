@@ -8,6 +8,7 @@ import { getFeeConfig } from "@/lib/fee-config";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { avatarFields } from "@/lib/image-source";
+import { organizerBalance } from "@/lib/qr/rules";
 
 async function QRCreateContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -86,18 +87,8 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
     .select("type, label, min_amount, max_amount, is_enabled")
     .order("sort_order");
 
-  // オーガナイザーの現在残高（タイプB 残高チェック用）
-  const admin = createAdminClient();
-  const { data: balanceDists } = await admin
-    .from("transaction_distributions")
-    .select("actual_amount, is_frozen")
-    .eq("profile_id", event.organizer_profile_id)
-    .eq("distribution_status", "accrued")
-    .is("deleted_at", null);
-  const organizerBalance = (balanceDists ?? []).reduce(
-    (sum, d) => (d.is_frozen ? sum : sum + (d.actual_amount ?? 0)),
-    0
-  );
+  // オーガナイザーの現在残高（タイプB 残高チェック用。API も同じ関数で確かめる）
+  const balance = await organizerBalance(adminForEvent, event.organizer_profile_id);
 
   return (
     <div className="space-y-8">
@@ -114,7 +105,7 @@ async function QRCreateContent({ params }: { params: Promise<{ eventId: string }
         targets={targets}
         eventFlyerUrl={(event as any).base_flyer_url ?? null}
         feeConfig={feeConfig}
-        organizerBalance={organizerBalance}
+        organizerBalance={balance}
         productTypeConfigs={productTypeConfigs ?? []}
         userRole={role}
       />

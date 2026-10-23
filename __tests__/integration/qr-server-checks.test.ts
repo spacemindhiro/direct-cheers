@@ -2,7 +2,7 @@
 /**
  * TC-QR-SRV: QR の作成・編集で、これまで画面だけが確かめていたことを API も確かめる（2026-10-23）
  *   A 宛先・配分先：イベントの主催者と出演者（断った人・外された人を除く）だけ／宛先は配分先に入っていること
- *   B 前売り（エントランス×A/B）の販売期間・前売即時確定（B）の残高
+ *   B 前売り（エントランス×A/B）の販売期間・前売即時確定（B）の販売上限数（必須・2026-10-24）と残高
  *   C ラベル・QR画像
  *   D 編集：新しく入れる人だけ確かめ、すでに入っている人（あとで断った人）はそのまま通す
  * 弾いたときは products・qr_configs・qr_config_targets の行が増えない・変わらないことまで見る
@@ -163,7 +163,7 @@ describe("TC-QR-SRV-B: 作成・前売りの販売期間と残高", () => {
     expect((await post(entrance("A"))).status).toBe(200);
   });
 
-  it("B-03: B で在庫ありは、残高が 上限金額×在庫×手数料率 に足りなければ 400。ちょうど足りれば作れる。在庫なしは確かめない", async () => {
+  it("B-03: B は、残高が 上限金額×在庫×手数料率 に足りなければ 400。ちょうど足りれば作れる", async () => {
     mockAs(org, "organizer");
     const rate = (await getFeeConfig()).stripe_rate;
     const required = Math.ceil(3000 * 10 * rate);
@@ -185,7 +185,16 @@ describe("TC-QR-SRV-B: 作成・前売りの販売期間と残高", () => {
 
     await insertDistribution({ transactionId: tx, eventId: otherEventId, profileId: org, role: "organizer", actualAmount: 1 });
     expect((await post(entrance("B", { stock_limit: 10 }))).status).toBe(200);
-    expect((await post(entrance("B", { stock_limit: null }))).status).toBe(200);
+  });
+
+  it("B-04: B は販売上限数が必須（無い・0・小数・文字 → 400・行が増えない）。A・C は無くても作れる", async () => {
+    mockAs(org, "organizer");
+    const before = await counts();
+    for (const stock of [null, undefined, 0, -1, 1.5, "10"]) {
+      await expectRejected(await post(entrance("B", { stock_limit: stock })), "前売即時確定タイプは販売上限数を入力してください", before);
+    }
+    expect((await post(entrance("A", { stock_limit: null }))).status).toBe(200);
+    expect((await post(entrance("C", { stock_limit: null, sales_start_at: null, sales_end_at: null }))).status).toBe(200);
   });
 });
 
@@ -245,6 +254,22 @@ describe("TC-QR-SRV-D: 編集", () => {
     expect(res.status).toBe(200);
     expect(await recipientOf(qr)).toEqual({ recipient_profile_id: rejected, recipient_name_context: "artist", label: "直した" });
     expect(await activeTargets(qr)).toEqual([`${confirmed}:0.5`, `${rejected}:0.5`].sort());
+  });
+
+  it("D-04: B の QR は、編集で販売上限数を外す（null）・在庫管理を OFF にすると 400・変わらない。上限数を替える・ラベルだけ直すのは通る", async () => {
+    mockAs(org, "organizer");
+    const productId = await insertProduct({ eventId, name: "前売B", type: "entrance", paymentType: "B", minAmount: 3000, maxAmount: 3000, stockLimit: 10, trackInventory: true });
+    const qr = await insertQrConfig({ eventId, creatorProfileId: org, recipientProfileId: org, productId, recipientNameContext: "organizer" });
+    await insertQrConfigTargets(qr, [{ profileId: org, ratio: 1 }]);
+    const product = async () => (await testAdmin.from("products").select("stock_limit, track_inventory").eq("product_id", productId).single()).data;
+    for (const over of [{ stock_limit: null }, { track_inventory: false }, { stock_limit: null, track_inventory: false }]) {
+      const res = await patch(qr, { product_name: "前売B", min_amount: 3000, max_amount: 3000, ...over });
+      expect([res.status, (await res.json()).error]).toEqual([400, "前売即時確定タイプは販売上限数を入力してください"]);
+    }
+    expect(await product()).toEqual({ stock_limit: 10, track_inventory: true });
+    expect((await patch(qr, { product_name: "前売B", min_amount: 3000, max_amount: 3000, stock_limit: 20, track_inventory: true })).status).toBe(200);
+    expect((await patch(qr, { label: "前売入場券" })).status).toBe(200);
+    expect(await product()).toEqual({ stock_limit: 20, track_inventory: true });
   });
 
   it("D-03: 宛先・配分先をイベントの人に替えるのは通る。名義だけを取り違えた形に替えるのは 400", async () => {

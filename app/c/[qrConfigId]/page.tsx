@@ -269,7 +269,8 @@ async function CheersContent({
       <div className="px-6 py-8 max-w-md mx-auto space-y-6">
         <div>
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">{heading.kicker}</p>
-          <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mt-1">
+          {/* ラベルはお客様が支払いの中身を確かめる名前なので、主催者が入れた文字のまま出す（英字を大文字にしない） */}
+          <h2 className="text-2xl font-black text-white italic tracking-tighter mt-1">
             {qr.label ?? heading.title}
           </h2>
         </div>

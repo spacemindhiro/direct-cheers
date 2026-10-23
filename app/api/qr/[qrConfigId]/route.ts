@@ -194,6 +194,10 @@ export async function PATCH(
         );
       }
     }
+    // 前売即時確定（エントランス×B）は販売上限数が必須で、在庫管理も外せない（作成時と同じ。外すと上限なしで売れてしまう）
+    if (product.type === "entrance" && product.payment_type === "B" && (stock_limit === null || track_inventory === false)) {
+      return NextResponse.json({ error: "前売即時確定タイプは販売上限数を入力してください" }, { status: 400 });
+    }
     if (stock_limit !== undefined && stock_limit !== null) {
       if (!Number.isInteger(stock_limit) || stock_limit < 1) {
         return NextResponse.json({ error: "在庫上限が不正です" }, { status: 400 });

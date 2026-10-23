@@ -58,7 +58,8 @@ function DrinkTicketReceipt({ quantity, productName }: { quantity: number; produ
 
   return (
     <div className="bg-gradient-to-br from-cyan-500/10 to-slate-900 border border-cyan-500/30 rounded-3xl p-8 text-center space-y-4">
-      <p className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em]">{productName || "ドリンクチケット"}</p>
+      {/* 商品名（＝ラベル）は主催者が入れた文字のまま出す（英字を大文字にしない） */}
+      <p className="text-[10px] font-black text-cyan-400 tracking-[0.3em]">{productName || "ドリンクチケット"}</p>
       <p className="text-8xl font-black text-white italic tracking-tighter tabular-nums leading-none">
         {quantity}
       </p>

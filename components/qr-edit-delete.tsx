@@ -147,6 +147,7 @@ export function QREditDelete({
 
   // 対面タッチ決済（Case④）: エントランスCタイプ、バウチャー×金額固定、
   // またはドリンクチケット×杯数指定オフ（常に数量1固定）のみ対象
+  const isTypeB = isEntrance && paymentType === "B";
   const touchpayEligible = (isEntrance && paymentType === "C") || (isVoucher && !isRange) || (isDrinkTicket && !drinkQuantitySelectable);
   const [targets, setTargets] = useState<DistTarget[]>(
     currentTargets.map((t) => ({
@@ -254,6 +255,11 @@ export function QREditDelete({
       }
       if (newMin > newMax) {
         setError("最低金額が最高金額を上回っています");
+        return;
+      }
+      // 前売即時確定（エントランス×B）は販売上限数が必須（作成時と同じ。中止時の手数料の見積もりに使う）
+      if (isTypeB && editStock.trim() === "") {
+        setError("前売即時確定タイプは販売上限数を入力してください");
         return;
       }
       if ((isEntrance || isVoucher) && editStock.trim() !== "") {
@@ -499,15 +505,16 @@ export function QREditDelete({
                   value={editStock}
                   onChange={(e) => setEditStock(e.target.value)}
                   min={Math.max(soldCount, 1)}
-                  placeholder="無制限"
+                  placeholder={isTypeB ? "必須" : "無制限"}
                   className="h-12 w-40 bg-slate-950/50 border-slate-700 rounded-xl px-4 text-sm text-white placeholder:text-slate-600 focus:border-pink-500 focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
-                <span className="text-xs text-slate-500 font-bold">件（空欄で無制限）</span>
+                <span className="text-xs text-slate-500 font-bold">{isTypeB ? "件（前売即時確定タイプは必須）" : "件（空欄で無制限）"}</span>
               </div>
               {soldCount > 0 && (
                 <p className="text-[10px] text-slate-600">販売済み {soldCount}件。それ未満には設定できません。</p>
               )}
-              {isEntrance && (
+              {/* 前売即時確定は在庫管理を外せない（外すと上限なしで売れてしまう） */}
+              {isEntrance && !isTypeB && (
                 <div className="flex items-center justify-between bg-slate-800/50 rounded-2xl px-4 py-3 mt-2">
                   <div>
                     <p className="text-xs font-black text-slate-300">在庫管理</p>

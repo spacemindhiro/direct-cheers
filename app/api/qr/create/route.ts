@@ -194,6 +194,10 @@ export async function POST(req: Request) {
   if (periodError) {
     return NextResponse.json({ error: periodError }, { status: 400 });
   }
+  // 前売即時確定（エントランス×B）は販売上限数が必須（中止時の手数料の見積もりに使う。画面は必須入力だが API は見ていなかった）
+  if (product_type === "entrance" && payment_type === "B" && !(Number.isInteger(stock_limit) && (stock_limit as number) > 0)) {
+    return NextResponse.json({ error: "前売即時確定タイプは販売上限数を入力してください" }, { status: 400 });
+  }
   const reserveRequired = typeBReserveRequired({
     productType: product_type, paymentType: payment_type, stockLimit: stock_limit, maxAmount: max_amount,
     stripeRate: (await getFeeConfig()).stripe_rate,

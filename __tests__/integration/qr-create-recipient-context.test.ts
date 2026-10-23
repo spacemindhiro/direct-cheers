@@ -7,7 +7,8 @@
  * statement_descriptor_suffix の名前解決が正しく分岐することを保証する。
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import { insertProfile, deleteAuthUsers, insertEvent } from "../helpers/seed";
+import { insertProfile, deleteAuthUsers, insertEvent, insertEventArtist } from "../helpers/seed";
+import { storagePublicPrefix } from "@/lib/image-source";
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -66,6 +67,9 @@ beforeAll(async () => {
 
   eventId = await insertEvent({ organizerProfileId, title: "TC-QRC イベント" });
   cleanup.eventIds.push(eventId);
+  // 宛先・配分先はイベントの主催者と出演者だけ（2026-10-23〜 API も確かめる）。兼任ケースのため主催者も出演者に入れる
+  await insertEventArtist({ eventId, artistProfileId });
+  await insertEventArtist({ eventId, artistProfileId: organizerProfileId });
 }, 60_000);
 
 afterAll(async () => {
@@ -82,6 +86,7 @@ function buildBody(overrides: Record<string, any> = {}) {
     event_id: eventId,
     label: "テストQR",
     product_type: "standard",
+    image_url: `${storagePublicPrefix("qr-images")}tc-qrc/x.jpg`,
     min_amount: 500,
     max_amount: 3000,
     recipient_profile_id: artistProfileId,

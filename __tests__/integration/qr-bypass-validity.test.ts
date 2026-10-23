@@ -36,6 +36,7 @@ vi.mock("@/lib/apple-wallet-push", () => ({
 import { createClient } from "@/lib/supabase/server";
 import { POST as qrCreatePOST } from "@/app/api/qr/create/route";
 import { PATCH as qrPATCH } from "@/app/api/qr/[qrConfigId]/route";
+import { storagePublicPrefix } from "@/lib/image-source";
 
 let adminId: string;
 let organizerId: string;
@@ -88,6 +89,7 @@ function buildCreateBody(overrides: Record<string, any> = {}) {
     event_id: eventId,
     label: "テストQR",
     product_type: "standard",
+    image_url: `${storagePublicPrefix("qr-images")}tc-qr-bypass/x.jpg`,
     min_amount: 500,
     max_amount: 3000,
     recipient_profile_id: organizerId,

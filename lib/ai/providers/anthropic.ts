@@ -53,7 +53,8 @@ export function createAnthropicProvider(client: Anthropic = new Anthropic()): Ch
         if (round + 1 >= req.maxToolRounds) return { usage, finish: "tool_rounds" };
         req.onToolRound?.();
 
-        messages.push({ role: "assistant", content: message.content });
+        // 前置きの文は画面から消すので、AI にも戻さない（見えない文を「もう言った」と受け取って同じことを繰り返すのを防ぐ）
+        messages.push({ role: "assistant", content: toolUses });
         const results: Anthropic.ToolResultBlockParam[] = [];
         for (const tu of toolUses) {
           const r = await runTool(req.tools, tu.name, tu.input);

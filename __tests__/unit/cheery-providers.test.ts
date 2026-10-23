@@ -93,13 +93,15 @@ describe("TC-CHEERY-PROVIDER: Anthropic", () => {
 
   it("ツールを呼ぶ周の前置きのあとに onToolRound を呼ぶ（画面が前置きを消す）。最後の周では呼ばない", async () => {
     const calls: unknown[] = [];
-    const { client } = fakeAnthropic([
+    const { client, sent } = fakeAnthropic([
       { text: "確認します", msg: { content: [{ type: "text", text: "確認します" }, { type: "tool_use", id: "tu1", name: "my_events", input: { limit: 1 } }], stop_reason: "tool_use", usage: aUsage(1, 1) } },
       { text: "1件です", msg: { content: [{ type: "text", text: "1件です" }], stop_reason: "end_turn", usage: aUsage(1, 1) } },
     ]);
     const r = req({ tools: [echoTool(calls)] });
     await createAnthropicProvider(client).run(r);
     expect(r.texts).toEqual(["確認します", "<RESET>", "1件です"]);
+    // 画面から消した前置きは AI にも戻さない（ツールの呼び出しだけ戻す）
+    expect(sent[1].messages[1]).toEqual({ role: "assistant", content: [{ type: "tool_use", id: "tu1", name: "my_events", input: { limit: 1 } }] });
   });
 
   it("ツールがエラーを返したら is_error を付けて返す", async () => {
@@ -177,13 +179,15 @@ describe("TC-CHEERY-PROVIDER: OpenAI", () => {
 
   it("ツールを呼ぶ周の前置きのあとに onToolRound を呼ぶ（画面が前置きを消す）。最後の周では呼ばない", async () => {
     const calls: unknown[] = [];
-    const { client } = fakeOpenAI([
+    const { client, sent } = fakeOpenAI([
       { text: "出演者を教えてください", completion: { choices: [{ finish_reason: "tool_calls", message: { content: "出演者を教えてください", refusal: null, tool_calls: [{ id: "c1", type: "function", function: { name: "my_events", arguments: "{\"limit\":1}" } }] } }], usage: oUsage(1, 1) } },
       { text: "出演者を教えてください", completion: { choices: [{ finish_reason: "stop", message: { content: "出演者を教えてください", refusal: null } }], usage: oUsage(1, 1) } },
     ]);
     const r = req({ tools: [echoTool(calls)] });
     await createOpenAIProvider(client).run(r);
     expect(r.texts).toEqual(["出演者を教えてください", "<RESET>", "出演者を教えてください"]);
+    // 画面から消した前置きは AI にも戻さない（ツールの呼び出しだけ戻す）
+    expect(sent[1].messages[2]).toEqual({ role: "assistant", content: null, tool_calls: [{ id: "c1", type: "function", function: { name: "my_events", arguments: "{\"limit\":1}" } }] });
   });
 
   it("壊れた引数・拒否・長さ切れ", async () => {

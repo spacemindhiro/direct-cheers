@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   if (!prepared.ok) return NextResponse.json({ error: INPUT_MESSAGES[prepared.reason] }, { status: 400 });
 
   // ロールは画面から受け取らず、サーバーで読む
-  const { data: profile } = await supabase.from("profiles").select("role").eq("profile_id", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("role, display_name").eq("profile_id", user.id).maybeSingle();
   const role = profile?.role ?? null;
 
   const spec = modelFor("faq");
@@ -70,6 +70,7 @@ export async function POST(req: Request) {
         const result = await runAndRecord(deps, {
           profileId: user.id,
           role,
+          displayName: profile?.display_name ?? null,
           turns: prepared.turns,
           screen: parsed.data.screen,
           // 本文に区切り記号・消す印が混ざると、画面がカードの材料として読んだり本文を消したりしてしまう（データに仕込まれた偽のカード）。必ず取り除く

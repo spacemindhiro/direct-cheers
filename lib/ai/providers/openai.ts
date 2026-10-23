@@ -53,7 +53,8 @@ export function createOpenAIProvider(client: OpenAI = new OpenAI()): ChatProvide
         if (round + 1 >= req.maxToolRounds) return { usage, finish: "tool_rounds" };
         req.onToolRound?.();
 
-        messages.push({ role: "assistant", content: choice.message.content ?? null, tool_calls: calls });
+        // 前置きの文は画面から消すので、AI にも戻さない（見えない文を「もう言った」と受け取って同じことを繰り返すのを防ぐ）
+        messages.push({ role: "assistant", content: null, tool_calls: calls });
         for (const call of calls) {
           let input: unknown = {};
           try { input = JSON.parse(call.function.arguments || "{}"); } catch { input = null; }

@@ -66,7 +66,7 @@ export const INPUT_MAX_CHARS = 2000;      // 1回の入力
 export const HISTORY_MAX_TURNS = 20;
 export const HISTORY_MAX_CHARS = 12000;
 export const MAX_OUTPUT_TOKENS = 1500;
-export const MAX_TOOL_ROUNDS = 4;         // 1回の質問でデータ取得を繰り返す上限
+export const MAX_TOOL_ROUNDS = 6;         // 1回の質問でデータ取得を繰り返す上限（AI はツールを1つずつ順に呼ぶことがあり、4では下書きの会場確認→カードまで届かないことがあった）
 
 export function costUsd(
   spec: ModelSpec,

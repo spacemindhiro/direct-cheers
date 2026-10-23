@@ -53,12 +53,12 @@ export async function reserve(deps: CheeryDeps, profileId: string): Promise<Rese
 // 利用枠を確保したあとに呼ぶ。AIの返答は onText に少しずつ流す
 export async function runAndRecord(
   deps: CheeryDeps,
-  args: { profileId: string; role: string | null; turns: ChatTurn[]; screen?: string; onText: (d: string) => void; onToolRound?: () => void; signal?: AbortSignal },
+  args: { profileId: string; role: string | null; displayName?: string | null; turns: ChatTurn[]; screen?: string; onText: (d: string) => void; onToolRound?: () => void; signal?: AbortSignal },
 ): Promise<ChatResult> {
   const result = await deps.provider.run({
     model: deps.spec.model,
     systemStable: buildStableSystem(args.role),
-    systemVolatile: buildVolatileSystem(args.screen, deps.now),
+    systemVolatile: buildVolatileSystem(args.screen, deps.now, args.displayName),
     turns: args.turns,
     tools: deps.tools,
     maxOutputTokens: MAX_OUTPUT_TOKENS,

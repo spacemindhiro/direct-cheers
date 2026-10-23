@@ -69,7 +69,8 @@ export type QrCreateCard = {
   sales_start_at: string | null; // UTC の ISO（前売り A/B だけ）
   sales_end_at: string | null;
   people: QrPersonSlot[]; // 言われた人（宛先と配分先で同じ人は1つ）
-  recipient: number; // people の何番目が宛先か
+  recipient: number; // people の何番目が宛先か（AI が選んだ人）
+  recipient_said: boolean; // 配分先が1人で、本人がその人の名前を言ったか。false ならカードで本人が配分先の中から選ぶまで作れない
   targets: { person: number; percent: number }[];
   needs_image: boolean;
   flyer_url: string | null;

@@ -22,6 +22,12 @@
  * | 本人の発言にそのまま書かれている             | カードに入る（それでも本人がカードで印を付けるまで作れない） |
  * | 本人の発言に無い（AI が考えた・言い換えた）   | カードに入れない（空欄。本人が候補から選ぶか書く） |
  * | 全角半角だけ違う                            | カードに入れない |
+ *
+ * | 宛先（支払い画面とカード明細に出る販売者の名前） | 期待 |
+ * |-------------------------------------------|------|
+ * | 配分先が1人で、本人がその人の名前（主催者なら「主催者」等）を言った | カードで決まり |
+ * | 本人が言っていない人を AI が選んだ             | 未定（カードで本人が配分先から選ぶまで作れない） |
+ * | 配分先が2人以上（名前を言っていても）           | 未定（誰を宛先にするかは本人がカードで選ぶ） |
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient } from "@supabase/supabase-js";
@@ -45,7 +51,8 @@ const T = (k: string) => `QRチア${k}${ts}`; // イベント名
 const name = (k: string) => `QR${k}${ts}`; // 出演者名
 
 // 本人の発言（ラベルはこの中にそのまま書かれていなければカードが出ない）
-const SAID = ["ラベルは「DJブース」、「前売」、「当日券」でお願いします"];
+// 本人の発言（ラベル・宛先の名前は、この中にそのまま書かれていなければカードで本人が決め直す）
+const SAID = [`ラベルは「DJブース」、「前売」、「当日券」でお願いします。宛先は${name("perf")}、${name("invited")}、${name("同名")}、主催者のどれかです`];
 
 async function mcpAs(key: string, role: string, mode: "chat" | "action" = "chat", userTexts: string[] = SAID) {
   const c = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -150,7 +157,7 @@ describe("TC-CHEERY-QR-2: 確認カード（prepare_qr）", () => {
     const text = await prepare(s, { event: T("pub"), recipient: name("perf") });
     expect(text).toBe([
       "QR の確認カードを出しました。本人が［QRを作る］を押すまで作られません。作っても、宛先・配分先の人に通知は届きません。",
-      "QR の画像は、カードで「宛先の画像」か「フライヤー」から選んでもらいます。ほかの画像を使うときは作成画面でアップロードしてもらってください。",
+      "QR の画像は、カードで「宛先の画像」か「フライヤー」から選んでもらいます。著作権・肖像権に問題のない画像だけ使えます（利用規約 第7条）。フライヤーに他の人の写真・イラスト・ロゴが入っているときは、使ってよいか確かめてください。本人がカードで確かめて印を付けるまで作れません。ほかの画像を使うときは作成画面でアップロードしてもらってください。",
       `- イベント：${T("pub")}`,
       "- タイプ：スタンダード",
       "- ラベル：DJブース（本人の言葉。お客様の画面に出る名前なので、本人がカードで確かめて印を付けるまで作れません）",
@@ -158,6 +165,7 @@ describe("TC-CHEERY-QR-2: 確認カード（prepare_qr）", () => {
       `- 宛先：${name("perf")}`,
       `- 配分：${name("perf")} 100%`,
       "色・タッチ決済・ウェルカムチア・入場確定などは、作ったあとや作成画面で設定してもらいます。",
+      "作ったあとの注意（本人に伝えてください）：QR を掲示できるのは、イベント会場の中と運営が認めた公式のライブ配信の中だけです。SNS などには載せられません（利用規約 第3条）。自分のカードで自分のイベントに決済するのは、テストでも禁止です（追加約款 第9条）。",
     ].join("\n"));
     expect(UUID.test(text)).toBe(false);
     const card = lastCard(s);
@@ -165,7 +173,7 @@ describe("TC-CHEERY-QR-2: 確認カード（prepare_qr）", () => {
       kind: "qr_create", card_id: "x", event: { event_id: E.pub, title: T("pub"), draft: false }, product_type: "standard", payment_type: null,
       label: "DJブース", min_amount: 1000, max_amount: 1000, stock_limit: null, sales_start_at: null, sales_end_at: null,
       people: [{ query: name("perf"), exact: true, options: [{ profile_id: P.perf, role: "artist", name: name("perf"), avatar_url: null, avatar_original_url: null }] }],
-      recipient: 0, targets: [{ person: 0, percent: 100 }], needs_image: true, flyer_url: null,
+      recipient: 0, recipient_said: true, targets: [{ person: 0, percent: 100 }], needs_image: true, flyer_url: null,
     });
   });
 
@@ -246,7 +254,7 @@ describe("TC-CHEERY-QR-2: 確認カード（prepare_qr）", () => {
   });
 
   it("L-01〜03: 本人の発言にそのまま無いラベル（AI が考えた・言い換えた・全角半角を変えた）はカードに入れない。候補と案内を AI に返す", async () => {
-    const s = await mcpAs("org", "organizer", "chat", ["night-streamer さん宛てのスタンダードの QR を1000円で作りたいです。ラベルは「DJブース」で"]);
+    const s = await mcpAs("org", "organizer", "chat", [`${name("perf")} さん宛てのスタンダードの QR を1000円で作りたいです。ラベルは「DJブース」で`]);
     for (const label of ["スタンダード QR", `${name("perf")} さん応援`, "ＤＪブース", "DJブース用"]) {
       const text = await prepare(s, { event: T("pub"), recipient: name("perf"), label });
       expect(lastCard(s).label).toBe(null);
@@ -260,6 +268,35 @@ describe("TC-CHEERY-QR-2: 確認カード（prepare_qr）", () => {
     // 本人の言葉どおりなら入る（前後の空白は除く）
     await prepare(s, { event: T("pub"), recipient: name("perf"), label: " DJブース " });
     expect(lastCard(s).label).toBe("DJブース");
+  });
+
+  it("R-01〜03: 本人が言っていない人を宛先にしたら未定（カードで配分先から選ぶ）。主催者は「主催者」か名前で言えば決まり", async () => {
+    // 等分の配分だけ言い、宛先は言っていない → AI が選んだ人は使わない
+    const s = await mcpAs("org", "organizer", "chat", [`${name("perf")} と ${name("invited")} で半分ずつのチア QR を作りたいです。ラベルは「DJブース」で`]);
+    const text = await prepare(s, { event: T("pub"), recipient: "主催者", targets: [{ name: "主催者", percent: 0 }, { name: name("perf"), percent: 50 }, { name: name("invited"), percent: 50 }] });
+    expect(lastCard(s).recipient_said).toBe(false);
+    expect(text.split("\n").find((l) => l.startsWith("- 宛先："))).toBe(
+      "- 宛先：未定（本人がカードで配分先の中から選びます。宛先は必ず1人です。お客様の支払い画面とカード明細（「DC for」の後ろ）に出る、販売者としての名前になります。配分を等分にしたいときも、宛先は1人決めます。迷うときは代表の主催者にすると安心です。配分先が2人以上なので、宛先は必ずカードで本人が選びます。本人に誰にするか聞いてください。あなたは決めません）",
+    );
+    // 宛先が未定なら、チアの候補も出さない（誰へのチアか決まらないため）
+    const noLabel = await prepare(s, { event: T("pub"), recipient: "主催者", label: undefined, targets: [{ name: "主催者", percent: 0 }, { name: name("perf"), percent: 50 }, { name: name("invited"), percent: 50 }] });
+    expect(noLabel.includes("宛先が決まると候補が出ます。")).toBe(true);
+    // 本人が「主催者」と言えば決まり
+    const s2 = await mcpAs("org", "organizer", "chat", ["宛先は主催者で、ラベルは「DJブース」で"]);
+    await prepare(s2, { event: T("pub"), recipient: "主催者" });
+    expect(lastCard(s2).recipient_said).toBe(true);
+    // 配分先が2人以上なら、2人とも名前を言っていても未定（AI がどちらかを選んだことになるため）
+    const s4 = await mcpAs("org", "organizer", "chat", [`${name("perf")} と ${name("invited")} で半分ずつ。ラベルは「DJブース」で`]);
+    await prepare(s4, { event: T("pub"), recipient: name("perf"), targets: [{ name: name("perf"), percent: 50 }, { name: name("invited"), percent: 50 }] });
+    expect(lastCard(s4).recipient_said).toBe(false);
+    // 1人だけで、本人がその名前を言っていなければ未定
+    const s5 = await mcpAs("org", "organizer", "chat", ["チアの QR を作りたいです。ラベルは「DJブース」で"]);
+    await prepare(s5, { event: T("pub"), recipient: name("perf") });
+    expect(lastCard(s5).recipient_said).toBe(false);
+    // 主催者の名前で言っても決まり
+    const s3 = await mcpAs("org", "organizer", "chat", [`宛先はQR主催${ts}さんで、ラベルは「DJブース」で`]);
+    await prepare(s3, { event: T("pub"), recipient: "主催者" });
+    expect(lastCard(s3).recipient_said).toBe(true);
   });
 
   it("DQ12: 確認カードを何回出しても QR の行は増えない", async () => {

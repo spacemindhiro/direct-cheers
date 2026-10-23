@@ -14,6 +14,7 @@ import { qrCandidateEvent, type QrCandidate } from "@/lib/qr/candidates";
 import { createQr } from "@/lib/qr/create-qr";
 import { needsQrImage, organizerBalance, salesPeriodError, typeBReserveRequired } from "@/lib/qr/rules";
 import { LABEL_GUIDE, labelFromUser, labelSuggestions } from "@/lib/qr/label";
+import { IMAGE_RIGHTS_GUIDE, QR_AFTER_NOTES, RECIPIENT_GUIDE } from "@/lib/qr/guide";
 import { getFeeConfig } from "@/lib/fee-config";
 import { pickOperableEvent } from "../event-pick";
 import type { DcMcpContext } from "../context";
@@ -47,7 +48,7 @@ export const PREPARE_QR = {
     stock_limit: z.number().int().min(1).max(100000).optional().describe("エントランスの販売上限数（B は必須。A・C は言われたときだけ）"),
     sales_start: z.string().optional().describe("前売り（A/B）の販売開始（日本時間、例 2026-11-01T10:00）"),
     sales_end: z.string().optional().describe("前売り（A/B）の販売終了（日本時間）"),
-    recipient: z.string().min(1).max(100).describe("宛先（QR に名前が出る人）の名前"),
+    recipient: z.string().min(1).max(100).describe("宛先の名前。必ず1人。お客様の支払い画面とカード明細に出る販売者の名前。本人が決めた人だけ入れる（本人が言っていない人はカードで本人が選び直す）。迷っていれば代表の主催者を勧め、そのときは主催者を配分先にも入れる（0%でもよい）"),
     targets: z.array(z.object({ name: z.string().min(1).max(100), percent: z.number().min(0).max(100) })).max(10).optional()
       .describe("配分先と割合（%）。言われていなければ省く（宛先に100%）。宛先も必ず含める"),
   },
@@ -166,7 +167,14 @@ export async function prepareQr(ctx: DcMcpContext, input: PrepareInput): Promise
   // ラベル：本人がこの会話でそのまま書いた文字だけをカードに入れる（AI が考えた・言い換えたものは入れない）。
   // 決まっていなければ空欄で、カードに「誰に・何を払うものか」が分かる候補と案内を出し、本人が決めて印を付けるまで作れない
   const saidLabel = input.label != null && labelFromUser(ctx.userTexts, input.label) ? input.label.trim() : null;
-  const recipientName = slotDecided(people[recipient]) ? people[recipient].options[0].name : null;
+  // 宛先：決まりにするのは「配分先が1人で、本人がその人の名前（主催者なら「主催者」「オーガナイザー」か主催者の名前）を言った」ときだけ。
+  // 配分先が2人以上なら、名前が出ていても誰を宛先にするかは AI が選んだことになるので、カードで本人が選ぶ
+  const organizerName = ev.targets.find((c) => c.role === "organizer")?.display_name ?? "";
+  const recipientQuery = people[recipient].query;
+  const recipientSaid = targets.length === 1 && (ORGANIZER_WORDS.includes(recipientQuery)
+    ? [...ORGANIZER_WORDS, organizerName].some((w) => w && labelFromUser(ctx.userTexts, w))
+    : labelFromUser(ctx.userTexts, recipientQuery));
+  const recipientName = recipientSaid && slotDecided(people[recipient]) ? people[recipient].options[0].name : null;
   const suggestions = labelSuggestions(input.product_type, paymentType, recipientName);
   const labelLine = saidLabel
     ? `- ラベル：${saidLabel}（本人の言葉。お客様の画面に出る名前なので、本人がカードで確かめて印を付けるまで作れません）`
@@ -187,6 +195,7 @@ export async function prepareQr(ctx: DcMcpContext, input: PrepareInput): Promise
     sales_end_at: salesEnd,
     people,
     recipient,
+    recipient_said: recipientSaid,
     targets,
     needs_image: needsImage,
     flyer_url: ev.base_flyer_url,
@@ -196,17 +205,20 @@ export async function prepareQr(ctx: DcMcpContext, input: PrepareInput): Promise
     text: [
       "QR の確認カードを出しました。本人が［QRを作る］を押すまで作られません。作っても、宛先・配分先の人に通知は届きません。",
       ...(card.event.draft ? ["このイベントは下書きなので、この QR ではまだ決済できません（確認用の QR になります。イベントが承認されると使えます）。"] : []),
-      needsImage ? "QR の画像は、カードで「宛先の画像」か「フライヤー」から選んでもらいます。ほかの画像を使うときは作成画面でアップロードしてもらってください。" : "",
+      needsImage ? `QR の画像は、カードで「宛先の画像」か「フライヤー」から選んでもらいます。${IMAGE_RIGHTS_GUIDE}。本人がカードで確かめて印を付けるまで作れません。ほかの画像を使うときは作成画面でアップロードしてもらってください。` : "",
       `- イベント：${ev.title}`,
       `- タイプ：${TYPE_LABEL[input.product_type]}${paymentType ? `・${PAYMENT_LABEL[paymentType]}` : ""}`,
       labelLine,
       `- 金額：${min === max ? yen(min) : `${yen(min)}〜${yen(max)}（100円単位）`}`,
       ...(paymentType ? [`- 販売上限数：${stock ?? "無制限"}`] : []),
       ...(salesStart && salesEnd ? [`- 販売期間：${jstDateTime(salesStart)}〜${jstDateTime(salesEnd)}`] : []),
-      `- 宛先：${name(recipient)}`,
+      recipientSaid
+        ? `- 宛先：${name(recipient)}`
+        : `- 宛先：未定（本人がカードで配分先の中から選びます。${RECIPIENT_GUIDE}。${targets.length > 1 ? "配分先が2人以上なので、宛先は必ずカードで本人が選びます。" : ""}本人に誰にするか聞いてください。あなたは決めません）`,
       `- 配分：${targets.map((t) => `${name(t.person)} ${t.percent}%`).join("、")}`,
       ...notes,
       "色・タッチ決済・ウェルカムチア・入場確定などは、作ったあとや作成画面で設定してもらいます。",
+      `作ったあとの注意（本人に伝えてください）：${QR_AFTER_NOTES.join("。")}。`,
     ].filter(Boolean).join("\n"),
     cards: [card],
   };

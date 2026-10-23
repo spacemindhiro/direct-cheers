@@ -8,8 +8,9 @@ import Link from "next/link";
 import { CalendarPlus, Check, ExternalLink, Loader2, LocateFixed, MapPin, PencilLine, QrCode } from "lucide-react";
 import { QRImageUpload } from "@/components/qr-image-upload";
 import { LABEL_GUIDE, labelSuggestions, labelWarning } from "@/lib/qr/label";
+import { IMAGE_RIGHTS_GUIDE, QR_AFTER_NOTES, RECIPIENT_GUIDE } from "@/lib/qr/guide";
 import { jstDateTime } from "@/lib/mcp/format";
-import { slotDecided, type CardDone, type CheeryCard, type EventDraftCard, type QrCreateCard, type VenuePinCard, type VenueRegisterCard } from "@/lib/cheery/cards";
+import { slotDecided, type CardDone, type CheeryCard, type EventDraftCard, type QrCreateCard, type QrPersonOption, type VenuePinCard, type VenueRegisterCard } from "@/lib/cheery/cards";
 
 type Handlers = {
   onDone: (cardId: string, done: CardDone, note: string) => void;
@@ -341,6 +342,10 @@ function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; 
   const key = (o: { profile_id: string; role: string }) => `${o.profile_id}::${o.role}`;
   const [picked, setPicked] = useState<string[]>(() => card.people.map((p) => (slotDecided(p) ? key(p.options[0]) : "?")));
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  // 画像は著作権・肖像権に問題のないものだけ（利用規約 第7条）。本人が印を付けるまで作れない（画像を替えたら印は外れる）
+  const [imageOk, setImageOk] = useState(false);
+  // 宛先：本人が会話で名前を言っていなければ、AI の選んだ人は使わず、ここで配分先の中から本人が選ぶ
+  const [recipientChoice, setRecipientChoice] = useState("");
   // ラベルはお客様の画面に出る唯一の名前。本人がここで確かめて印を付けるまで作れない（直したら印は外れる）
   const [label, setLabel] = useState(card.label ?? "");
   const [labelOk, setLabelOk] = useState(false);
@@ -348,8 +353,9 @@ function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; 
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const option = (i: number) => card.people[i].options.find((o) => key(o) === picked[i]) ?? null;
-  const recipient = option(card.recipient);
-  const unresolved = picked.some((p) => p === "?") || (card.needs_image && !imageUrl) || !labelOk || !label.trim();
+  const targetOptions = card.targets.map((t) => option(t.person)).filter((o): o is QrPersonOption => o != null);
+  const recipient = card.recipient_said ? option(card.recipient) : targetOptions.find((o) => key(o) === recipientChoice) ?? null;
+  const unresolved = picked.some((p) => p === "?") || !recipient || (card.needs_image && (!imageUrl || !imageOk)) || !labelOk || !label.trim();
   // 候補：本人が会話で言ったラベル＋「誰に・何を払うものか」が分かる形（宛先を選ぶと変わる）
   const suggestions = [...new Set([...(card.label ? [card.label] : []), ...labelSuggestions(card.product_type, card.payment_type, recipient?.name ?? null)])];
   const createHref = `/dashboard/events/${card.event.event_id}/qr/create`;
@@ -425,14 +431,27 @@ function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; 
       {card.sales_start_at && card.sales_end_at && <Row k="販売期間" v={`${jstDateTime(card.sales_start_at)}〜${jstDateTime(card.sales_end_at)}`} />}
       <div className="flex gap-2 text-[11px]">
         <span className="w-14 shrink-0 text-slate-500">宛先</span>
-        <div className="flex-1 min-w-0">{personRow(card.recipient, true)}</div>
+        <div className="flex-1 min-w-0">
+          {card.recipient_said ? personRow(card.recipient, true) : done ? <span className="text-slate-200">{recipient?.name}</span> : (
+            <div className="space-y-1" data-qr-recipient>
+              <p className="text-[10px] leading-snug text-slate-300">{RECIPIENT_GUIDE}。配分先の中から1人選んでください</p>
+              {targetOptions.length === 0 && <p className="text-slate-400">先に配分先の人を選んでください</p>}
+              {targetOptions.map((o) => (
+                <label key={key(o)} className="flex items-center gap-1.5 text-slate-200">
+                  <input type="radio" name={`${card.card_id}-recipient`} checked={recipientChoice === key(o)} onChange={() => setRecipientChoice(key(o))} />
+                  {o.name}<span className="text-slate-500">（{o.role === "organizer" ? "主催者名義・迷ったらこちら" : "出演者名義"}）</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <div className="flex gap-2 text-[11px]">
         <span className="w-14 shrink-0 text-slate-500">配分</span>
         <div className="flex-1 min-w-0 space-y-1">
           {card.targets.map((t) => (
             <div key={t.person} className="flex gap-2">
-              <div className="flex-1 min-w-0">{t.person === card.recipient ? <span className="text-slate-200">{recipient?.name ?? card.people[t.person].query}</span> : personRow(t.person, false)}</div>
+              <div className="flex-1 min-w-0">{card.recipient_said && t.person === card.recipient ? <span className="text-slate-200">{recipient?.name ?? card.people[t.person].query}</span> : personRow(t.person, false)}</div>
               <span className="shrink-0 text-slate-200">{t.percent}%</span>
             </div>
           ))}
@@ -440,15 +459,22 @@ function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; 
       </div>
       {card.needs_image && !done && (
         recipient?.avatar_url || card.flyer_url ? (
-          <QRImageUpload
-            required
-            allowUpload={false}
-            sources={{
-              recipient: recipient?.avatar_url ? { url: recipient.avatar_url, originalUrl: recipient.avatar_original_url, name: recipient.name } : null,
-              flyerUrl: card.flyer_url,
-            }}
-            onUploadComplete={setImageUrl}
-          />
+          <div className="space-y-1.5" data-qr-image>
+            <QRImageUpload
+              required
+              allowUpload={false}
+              sources={{
+                recipient: recipient?.avatar_url ? { url: recipient.avatar_url, originalUrl: recipient.avatar_original_url, name: recipient.name } : null,
+                flyerUrl: card.flyer_url,
+              }}
+              onUploadComplete={(url) => { setImageUrl(url); setImageOk(false); }}
+            />
+            <p className="text-[10px] leading-snug text-slate-300">{IMAGE_RIGHTS_GUIDE}</p>
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-200">
+              <input type="checkbox" checked={imageOk} disabled={!imageUrl} onChange={(e) => setImageOk(e.target.checked)} />
+              著作権・肖像権に問題のない画像です
+            </label>
+          </div>
         ) : (
           <p className="text-[10px] text-slate-400">
             宛先の画像もフライヤーも無いので、QR の画像は作成画面でアップロードしてください：
@@ -470,6 +496,9 @@ function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; 
             {card.event.draft ? "このイベントは下書きなので、承認されるまでこの QR では決済できません（確認用）。" : ""}
             色・タッチ決済・ウェルカムチアなどは作成画面で設定できます。
           </p>
+          <ul className="text-[10px] leading-snug text-slate-400 list-disc pl-4 space-y-0.5">
+            {QR_AFTER_NOTES.map((n) => <li key={n}>{n}</li>)}
+          </ul>
           {editing && (
             <p className="text-[10px] text-slate-400">
               直したいところをチャットで伝えてください。カードを作り直します。作成画面で直接入れることもできます：

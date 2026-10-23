@@ -59,7 +59,9 @@ export async function POST(req: Request) {
   // DC のデータに触る機能は、すべて本人用の MCP サーバー（lib/mcp）を通す。本人とロールはここで固定する
   // 出演者の照会検索は、ダッシュボードのパスキー確認（24時間）が済んでいるときだけ（directory/search と同じ判定）
   const stepUpFresh = isStepUpFresh((await cookies()).get("dc_stepup")?.value);
-  const mcp = await connectDcMcp({ userId: user.id, email: user.email ?? null, role: role ?? "user", supabase, admin, stepUpFresh, mode: "chat" });
+  // 本人の発言も渡す（QR のラベルは本人の言葉そのままでなければカードを出さない。lib/mcp/tools/qr-create.ts）
+  const userTexts = prepared.turns.filter((t) => t.role === "user").map((t) => t.text);
+  const mcp = await connectDcMcp({ userId: user.id, email: user.email ?? null, role: role ?? "user", supabase, admin, stepUpFresh, mode: "chat", userTexts });
   deps.tools = mcp.tools;
 
   const encoder = new TextEncoder();

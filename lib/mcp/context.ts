@@ -17,5 +17,8 @@ export type DcMcpContext = {
   // chat：AI との会話（読み取りのツールだけ）。action：本人が確認カードのボタンを押したとき（書き込みのツールも出す）。
   // 書き込みのツールは AI に渡さない（p5-design.md 3章）。action は /api/cheery/action だけが付ける
   mode?: "chat" | "action";
+  // この会話で本人が書いた文（chat だけ。端末から毎回送られてくる履歴の、本人の発言）。
+  // QR のラベルのように「本人の言葉そのまま」でなければならない項目を、AI が考えた文字で埋めないための確認に使う
+  userTexts?: string[];
   now?: Date;
 };

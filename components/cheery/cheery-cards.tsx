@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CalendarPlus, Check, ExternalLink, Loader2, LocateFixed, MapPin, PencilLine, QrCode } from "lucide-react";
 import { QRImageUpload } from "@/components/qr-image-upload";
+import { LABEL_GUIDE, labelSuggestions, labelWarning } from "@/lib/qr/label";
 import { jstDateTime } from "@/lib/mcp/format";
 import { slotDecided, type CardDone, type CheeryCard, type EventDraftCard, type QrCreateCard, type VenuePinCard, type VenueRegisterCard } from "@/lib/cheery/cards";
 
@@ -340,12 +341,17 @@ function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; 
   const key = (o: { profile_id: string; role: string }) => `${o.profile_id}::${o.role}`;
   const [picked, setPicked] = useState<string[]>(() => card.people.map((p) => (slotDecided(p) ? key(p.options[0]) : "?")));
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  // ラベルはお客様の画面に出る唯一の名前。本人がここで確かめて印を付けるまで作れない（直したら印は外れる）
+  const [label, setLabel] = useState(card.label ?? "");
+  const [labelOk, setLabelOk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const option = (i: number) => card.people[i].options.find((o) => key(o) === picked[i]) ?? null;
   const recipient = option(card.recipient);
-  const unresolved = picked.some((p) => p === "?") || (card.needs_image && !imageUrl);
+  const unresolved = picked.some((p) => p === "?") || (card.needs_image && !imageUrl) || !labelOk || !label.trim();
+  // 候補：本人が会話で言ったラベル＋「誰に・何を払うものか」が分かる形（宛先を選ぶと変わる）
+  const suggestions = [...new Set([...(card.label ? [card.label] : []), ...labelSuggestions(card.product_type, card.payment_type, recipient?.name ?? null)])];
   const createHref = `/dashboard/events/${card.event.event_id}/qr/create`;
 
   const create = async () => {
@@ -354,7 +360,7 @@ function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; 
     setError(null);
     const r = await act({
       action: "create_qr", card_id: card.card_id, event_id: card.event.event_id, product_type: card.product_type, payment_type: card.payment_type,
-      label: card.label, min_amount: card.min_amount, max_amount: card.max_amount, stock_limit: card.stock_limit,
+      label: label.trim(), min_amount: card.min_amount, max_amount: card.max_amount, stock_limit: card.stock_limit,
       sales_start_at: card.sales_start_at, sales_end_at: card.sales_end_at,
       recipient_profile_id: recipient.profile_id, recipient_name_context: recipient.role,
       targets: card.targets.map((t) => ({ profile_id: option(t.person)!.profile_id, distribution_ratio: t.percent / 100 })),
@@ -387,7 +393,33 @@ function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; 
       <p className="text-[11px] font-black text-white flex items-center gap-1"><QrCode size={12} className="text-pink-400" /> QR の確認</p>
       <Row k="イベント" v={card.event.title} />
       <Row k="タイプ" v={`${QR_TYPE_LABEL[card.product_type]}${card.payment_type ? `・${QR_PAYMENT_LABEL[card.payment_type]}` : ""}`} />
-      <Row k="ラベル" v={card.label} />
+      {done ? <Row k="ラベル" v={label.trim()} /> : (
+        <div className="space-y-1.5 rounded-xl border border-pink-500/40 bg-pink-500/5 px-2.5 py-2" data-qr-label>
+          <p className="text-[11px] font-black text-pink-200">ラベル（お客様に見える名前）</p>
+          <p className="text-[10px] leading-snug text-slate-300">{LABEL_GUIDE}。</p>
+          {suggestions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] text-slate-400">候補：</span>
+              {suggestions.map((sug) => (
+                <button key={sug} type="button" onClick={() => { setLabel(sug); setLabelOk(false); }}
+                  className={`text-[11px] font-bold rounded-lg px-2 py-1 border ${label === sug ? "border-pink-400 bg-pink-500/20 text-white" : "border-slate-600 text-slate-200 hover:border-pink-500/50"}`}>
+                  {sug}{sug === card.label ? <span className="ml-1 text-[9px] font-normal text-slate-400">（あなたの言葉）</span> : null}
+                </button>
+              ))}
+            </div>
+          )}
+          <input value={label} maxLength={50} onChange={(e) => { setLabel(e.target.value); setLabelOk(false); }} aria-label="ラベル"
+            placeholder={suggestions[0] ? `例：${suggestions[0]}` : "例：〇〇 へのチア／当日入場券"}
+            className="w-full h-9 bg-slate-800 border border-slate-700 rounded-lg px-2 text-base md:text-sm font-bold text-white outline-none focus:border-pink-500/50 placeholder:text-slate-600 placeholder:font-normal" />
+          {labelWarning(card.product_type, label, recipient?.name ?? null) && (
+            <p className="text-[10px] leading-snug text-amber-300">注意：{labelWarning(card.product_type, label, recipient?.name ?? null)}。このままでよいか確かめてください</p>
+          )}
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-200">
+            <input type="checkbox" checked={labelOk} disabled={!label.trim()} onChange={(e) => setLabelOk(e.target.checked)} />
+            「{label.trim() || "（未入力）"}」でお客様に表示する
+          </label>
+        </div>
+      )}
       <Row k="金額" v={card.min_amount === card.max_amount ? yen(card.min_amount) : `${yen(card.min_amount)}〜${yen(card.max_amount)}`} />
       {card.payment_type && <Row k="上限数" v={card.stock_limit ?? "無制限"} />}
       {card.sales_start_at && card.sales_end_at && <Row k="販売期間" v={`${jstDateTime(card.sales_start_at)}〜${jstDateTime(card.sales_end_at)}`} />}

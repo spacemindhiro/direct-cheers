@@ -16,6 +16,12 @@
  * | イベントと関係ない人・断った出演者           | × いない／拒否・行が増えない |
  * | 宛先が配分先にいない・合計が100%でない        | × |
  * | 同じ名前が2人                              | カードで本人が選ぶまで決まらない |
+ *
+ * | ラベル（お客様の画面に出る唯一の名前）        | 期待 |
+ * |-------------------------------------------|------|
+ * | 本人の発言にそのまま書かれている             | カードに入る（それでも本人がカードで印を付けるまで作れない） |
+ * | 本人の発言に無い（AI が考えた・言い換えた）   | カードに入れない（空欄。本人が候補から選ぶか書く） |
+ * | 全角半角だけ違う                            | カードに入れない |
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient } from "@supabase/supabase-js";
@@ -38,11 +44,14 @@ const IMG = `${url}/storage/v1/object/public/qr-images/test-${ts}/qr.jpg`;
 const T = (k: string) => `QRチア${k}${ts}`; // イベント名
 const name = (k: string) => `QR${k}${ts}`; // 出演者名
 
-async function mcpAs(key: string, role: string, mode: "chat" | "action" = "chat") {
+// 本人の発言（ラベルはこの中にそのまま書かれていなければカードが出ない）
+const SAID = ["ラベルは「DJブース」、「前売」、「当日券」でお願いします"];
+
+async function mcpAs(key: string, role: string, mode: "chat" | "action" = "chat", userTexts: string[] = SAID) {
   const c = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { error } = await c.auth.signInWithPassword({ email: email(key), password: "TestPass123!" });
   if (error) throw error;
-  const s = await connectDcMcp({ userId: P[key], email: email(key), role, supabase: c, admin: testAdmin, mode });
+  const s = await connectDcMcp({ userId: P[key], email: email(key), role, supabase: c, admin: testAdmin, mode, userTexts });
   sessions.push(s);
   return s;
 }
@@ -144,7 +153,7 @@ describe("TC-CHEERY-QR-2: 確認カード（prepare_qr）", () => {
       "QR の画像は、カードで「宛先の画像」か「フライヤー」から選んでもらいます。ほかの画像を使うときは作成画面でアップロードしてもらってください。",
       `- イベント：${T("pub")}`,
       "- タイプ：スタンダード",
-      "- ラベル：DJブース",
+      "- ラベル：DJブース（本人の言葉。お客様の画面に出る名前なので、本人がカードで確かめて印を付けるまで作れません）",
       "- 金額：¥1,000",
       `- 宛先：${name("perf")}`,
       `- 配分：${name("perf")} 100%`,
@@ -234,6 +243,23 @@ describe("TC-CHEERY-QR-2: 確認カード（prepare_qr）", () => {
     expect(await prepare(s, { event: T("cancelled"), recipient: name("perf") }))
       .toBe(`「${T("cancelled")}」はもう QR を作れない状態です（中止・終了・精算済み）。`);
     expect(s.cards()).toEqual([]);
+  });
+
+  it("L-01〜03: 本人の発言にそのまま無いラベル（AI が考えた・言い換えた・全角半角を変えた）はカードに入れない。候補と案内を AI に返す", async () => {
+    const s = await mcpAs("org", "organizer", "chat", ["night-streamer さん宛てのスタンダードの QR を1000円で作りたいです。ラベルは「DJブース」で"]);
+    for (const label of ["スタンダード QR", `${name("perf")} さん応援`, "ＤＪブース", "DJブース用"]) {
+      const text = await prepare(s, { event: T("pub"), recipient: name("perf"), label });
+      expect(lastCard(s).label).toBe(null);
+      expect(text.split("\n").find((l) => l.startsWith("- ラベル："))).toBe(
+        `- ラベル：未定（本人がカードで決めます。お客様が支払う画面の見出しや、支払い後の画面・メールに、この文字のまま出ます。誰に・何を払うものかが一目で分かる名前にしてください（分からないと、身に覚えのない支払いとして異議を出されることがあります）。カードの候補：${name("perf")} へのチア。本人が言ったラベルでなければ、あなたは決めずにカードで選んでもらってください）`,
+      );
+    }
+    // 省いたときも空欄
+    await prepare(s, { event: T("pub"), recipient: name("perf"), label: undefined });
+    expect(lastCard(s).label).toBe(null);
+    // 本人の言葉どおりなら入る（前後の空白は除く）
+    await prepare(s, { event: T("pub"), recipient: name("perf"), label: " DJブース " });
+    expect(lastCard(s).label).toBe("DJブース");
   });
 
   it("DQ12: 確認カードを何回出しても QR の行は増えない", async () => {

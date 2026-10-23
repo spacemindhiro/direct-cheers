@@ -62,7 +62,7 @@ export type QrCreateCard = {
   event: { event_id: string; title: string; draft: boolean };
   product_type: "standard" | "message" | "entrance";
   payment_type: "A" | "B" | "C" | null; // エントランスだけ
-  label: string;
+  label: string | null; // 本人がこの会話でそのまま書いたラベルだけ。無ければ null（カードで本人が決める。lib/qr/label.ts）
   min_amount: number;
   max_amount: number;
   stock_limit: number | null;

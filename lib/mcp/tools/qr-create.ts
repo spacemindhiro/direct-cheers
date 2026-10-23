@@ -13,6 +13,7 @@ import { slotDecided, type QrCreateCard, type QrPersonOption, type QrPersonSlot 
 import { qrCandidateEvent, type QrCandidate } from "@/lib/qr/candidates";
 import { createQr } from "@/lib/qr/create-qr";
 import { needsQrImage, organizerBalance, salesPeriodError, typeBReserveRequired } from "@/lib/qr/rules";
+import { LABEL_GUIDE, labelFromUser, labelSuggestions } from "@/lib/qr/label";
 import { getFeeConfig } from "@/lib/fee-config";
 import { pickOperableEvent } from "../event-pick";
 import type { DcMcpContext } from "../context";
@@ -32,13 +33,13 @@ export const PREPARE_QR = {
   minRole: "organizer",
   title: "QR の確認カードを出す",
   description:
-    "会話で聞き取った QR の内容（イベント・タイプ・ラベル・金額・宛先・配分）を確かめて、確認カードを本人に見せる。QR は作らない（本人がカードの［QRを作る］を押したときだけ作られる）。" +
+    "会話で聞き取った QR の内容（イベント・タイプ・金額・宛先・配分。ラベルは本人が決めたときだけ）を確かめて、確認カードを本人に見せる。QR は作らない（本人がカードの［QRを作る］を押したときだけ作られる）。" +
     "作れるのはスタンダード・メッセージ・エントランス（決済タイプ A/B/C）だけ。宛先・配分先はそのイベントの主催者と出演者（断った人を除く）だけで、名前で指定する（主催者は「主催者」でもよい）。" +
     "配分を言われていなければ宛先に100%。販売期間は日本時間で「YYYY-MM-DDTHH:mm」。",
   inputSchema: {
     event: z.string().min(1).max(100).describe("イベント名（本人が主催・担当するイベント）"),
     product_type: z.enum(["standard", "message", "entrance"]).describe("standard＝スタンダード、message＝メッセージ、entrance＝エントランス（入場チケット）"),
-    label: z.string().min(1).max(50).describe("ラベル（お客様の画面に出る名前。例：当日券、DJブース用）"),
+    label: z.string().min(1).max(50).optional().describe("ラベル（お客様の画面に出る唯一の名前）。本人が「ラベルは〇〇」と決めたときだけ、その文字を一字一句そのまま入れる。決まっていなければ省く（カードで本人が候補から選ぶか書く）。本人の発言にそのまま無い文字はカードに入らない"),
     price: z.number().int().optional().describe("ワンプライスの金額（円）。エントランスは必ずこれ"),
     min_price: z.number().int().optional().describe("金額を選べるようにするときの下限（円。スタンダード・メッセージだけ）"),
     max_price: z.number().int().optional().describe("金額を選べるようにするときの上限（円）"),
@@ -53,7 +54,7 @@ export const PREPARE_QR = {
 } as const;
 
 type PrepareInput = {
-  event: string; product_type: "standard" | "message" | "entrance"; label: string;
+  event: string; product_type: "standard" | "message" | "entrance"; label?: string;
   price?: number; min_price?: number; max_price?: number;
   payment_type?: "A" | "B" | "C"; stock_limit?: number; sales_start?: string; sales_end?: string;
   recipient: string; targets?: { name: string; percent: number }[];
@@ -162,6 +163,15 @@ export async function prepareQr(ctx: DcMcpContext, input: PrepareInput): Promise
       : `「${p.query}」と完全に同じ名前の人はいません。候補：${p.options.map((o) => o.name).join("、")}。どの人か本人に聞き返してください。カードでも選べます。`);
   }
 
+  // ラベル：本人がこの会話でそのまま書いた文字だけをカードに入れる（AI が考えた・言い換えたものは入れない）。
+  // 決まっていなければ空欄で、カードに「誰に・何を払うものか」が分かる候補と案内を出し、本人が決めて印を付けるまで作れない
+  const saidLabel = input.label != null && labelFromUser(ctx.userTexts, input.label) ? input.label.trim() : null;
+  const recipientName = slotDecided(people[recipient]) ? people[recipient].options[0].name : null;
+  const suggestions = labelSuggestions(input.product_type, paymentType, recipientName);
+  const labelLine = saidLabel
+    ? `- ラベル：${saidLabel}（本人の言葉。お客様の画面に出る名前なので、本人がカードで確かめて印を付けるまで作れません）`
+    : `- ラベル：未定（本人がカードで決めます。${LABEL_GUIDE}。${suggestions.length ? `カードの候補：${suggestions.join("、")}。` : ""}本人が言ったラベルでなければ、あなたは決めずにカードで選んでもらってください）`;
+
   const needsImage = needsQrImage(input.product_type, paymentType ?? "A");
   const card: QrCreateCard = {
     kind: "qr_create",
@@ -169,7 +179,7 @@ export async function prepareQr(ctx: DcMcpContext, input: PrepareInput): Promise
     event: { event_id: ev.event_id, title: ev.title, draft: ev.lifecycle_status === "draft" },
     product_type: input.product_type,
     payment_type: paymentType,
-    label: input.label.trim(),
+    label: saidLabel,
     min_amount: min,
     max_amount: max,
     stock_limit: stock,
@@ -189,7 +199,7 @@ export async function prepareQr(ctx: DcMcpContext, input: PrepareInput): Promise
       needsImage ? "QR の画像は、カードで「宛先の画像」か「フライヤー」から選んでもらいます。ほかの画像を使うときは作成画面でアップロードしてもらってください。" : "",
       `- イベント：${ev.title}`,
       `- タイプ：${TYPE_LABEL[input.product_type]}${paymentType ? `・${PAYMENT_LABEL[paymentType]}` : ""}`,
-      `- ラベル：${card.label}`,
+      labelLine,
       `- 金額：${min === max ? yen(min) : `${yen(min)}〜${yen(max)}（100円単位）`}`,
       ...(paymentType ? [`- 販売上限数：${stock ?? "無制限"}`] : []),
       ...(salesStart && salesEnd ? [`- 販売期間：${jstDateTime(salesStart)}〜${jstDateTime(salesEnd)}`] : []),

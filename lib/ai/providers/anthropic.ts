@@ -1,6 +1,6 @@
 // Anthropic（Claude）で会話を1回分実行する。ツール（本人の実データ取得）があれば、決めた回数まで繰り返す。
 import Anthropic from "@anthropic-ai/sdk";
-import { addUsage, emptyUsage, runTool, type ChatProvider, type ChatRequest, type ChatResult, type ChatUsage } from "../types";
+import { addUsage, emptyUsage, toolRunner, type ChatProvider, type ChatRequest, type ChatResult, type ChatUsage } from "../types";
 
 function usageOf(u: Anthropic.Usage): ChatUsage {
   return {
@@ -29,6 +29,7 @@ export function createAnthropicProvider(client: Anthropic = new Anthropic()): Ch
       const messages: Anthropic.MessageParam[] = req.turns.map((t) => ({ role: t.role, content: t.text }));
 
       let usage = emptyUsage();
+      const runTool = toolRunner(req.tools);
       for (let round = 0; ; round++) {
         const stream = client.messages.stream(
           {
@@ -57,7 +58,7 @@ export function createAnthropicProvider(client: Anthropic = new Anthropic()): Ch
         messages.push({ role: "assistant", content: toolUses });
         const results: Anthropic.ToolResultBlockParam[] = [];
         for (const tu of toolUses) {
-          const r = await runTool(req.tools, tu.name, tu.input);
+          const r = await runTool(tu.name, tu.input);
           results.push({ type: "tool_result", tool_use_id: tu.id, content: r.content, ...(r.isError ? { is_error: true } : {}) });
         }
         messages.push({ role: "user", content: results });

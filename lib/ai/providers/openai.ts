@@ -1,6 +1,6 @@
 // OpenAI で会話を1回分実行する。store: false で OpenAI 側に会話を保存させない（requirements.md 5.1）。
 import OpenAI from "openai";
-import { addUsage, emptyUsage, runTool, type ChatProvider, type ChatRequest, type ChatResult, type ChatUsage } from "../types";
+import { addUsage, emptyUsage, toolRunner, type ChatProvider, type ChatRequest, type ChatResult, type ChatUsage } from "../types";
 
 // prompt_tokens はキャッシュ読み・書き込みを含む合計（公式のキャッシュ説明の費用計算：通常の入力＝入力−読み−書き込み）。
 // completion_tokens は考えた分（reasoning）も含み、出力として課金される
@@ -25,6 +25,7 @@ export function createOpenAIProvider(client: OpenAI = new OpenAI()): ChatProvide
       ];
 
       let usage = emptyUsage();
+      const runTool = toolRunner(req.tools);
       for (let round = 0; ; round++) {
         const stream = client.chat.completions.stream(
           {
@@ -58,7 +59,7 @@ export function createOpenAIProvider(client: OpenAI = new OpenAI()): ChatProvide
         for (const call of calls) {
           let input: unknown = {};
           try { input = JSON.parse(call.function.arguments || "{}"); } catch { input = null; }
-          const r = await runTool(req.tools, call.function.name, input);
+          const r = await runTool(call.function.name, input);
           messages.push({ role: "tool", tool_call_id: call.id, content: r.content });
         }
       }

@@ -70,3 +70,18 @@ export async function runTool(tools: AiTool[], name: string, rawInput: unknown):
     return { content: "データの取得に失敗しました", isError: true };
   }
 }
+
+export const REPEATED_CALL_TEXT = "この内容はすでに調べました（結果は上にあります）。もう一度呼ばずに、その結果を使って答えてください。";
+
+// 1回の質問の中で使う runTool。同じ機能を同じ入力でもう一度呼ばれたら、動かさずに断る
+// （AI が同じ呼び出しを繰り返して上限まで空回りすることがある。カードが2枚出るのも防ぐ）。エラーで返った呼び出しは、呼び直せるよう数えない
+export function toolRunner(tools: AiTool[]): (name: string, rawInput: unknown) => Promise<{ content: string; isError: boolean }> {
+  const done = new Set<string>();
+  return async (name, rawInput) => {
+    const key = `${name}\n${JSON.stringify(rawInput ?? {})}`;
+    if (done.has(key)) return { content: REPEATED_CALL_TEXT, isError: false };
+    const r = await runTool(tools, name, rawInput);
+    if (!r.isError) done.add(key);
+    return r;
+  };
+}

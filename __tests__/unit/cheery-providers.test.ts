@@ -7,7 +7,7 @@
 import { describe, it, expect } from "vitest";
 import { createAnthropicProvider } from "@/lib/ai/providers/anthropic";
 import { createOpenAIProvider } from "@/lib/ai/providers/openai";
-import type { AiTool, ChatRequest } from "@/lib/ai/types";
+import { REPEATED_CALL_TEXT, type AiTool, type ChatRequest } from "@/lib/ai/types";
 
 function req(over: Partial<ChatRequest> = {}): ChatRequest & { texts: string[] } {
   const texts: string[] = [];
@@ -100,6 +100,7 @@ describe("TC-CHEERY-PROVIDER: Anthropic", () => {
     const r = req({ tools: [echoTool(calls)] });
     await createAnthropicProvider(client).run(r);
     expect(r.texts).toEqual(["確認します", "<RESET>", "1件です"]);
+    expect(calls).toEqual([{ limit: 1 }]);
     // 画面から消した前置きは AI にも戻さない（ツールの呼び出しだけ戻す）
     expect(sent[1].messages[1]).toEqual({ role: "assistant", content: [{ type: "tool_use", id: "tu1", name: "my_events", input: { limit: 1 } }] });
   });
@@ -125,6 +126,16 @@ describe("TC-CHEERY-PROVIDER: Anthropic", () => {
     const r = await createAnthropicProvider(loop.client).run(req({ tools: [echoTool(calls)], maxToolRounds: 2 }));
     expect(r.finish).toBe("tool_rounds");
     expect(loop.sent.length).toBe(2);
+  });
+
+  it("同じ機能を同じ入力で呼び直されたら、2回目は動かさずに断る", async () => {
+    const calls: unknown[] = [];
+    const tu = (id: string) => ({ msg: { content: [{ type: "tool_use", id, name: "my_events", input: { limit: 1 } }], stop_reason: "tool_use", usage: aUsage(1, 1) } });
+    const { client, sent } = fakeAnthropic([tu("t1"), tu("t2"), { msg: { content: [{ type: "text", text: "ok" }], stop_reason: "end_turn", usage: aUsage(1, 1) } }]);
+    const r = await createAnthropicProvider(client).run(req({ tools: [echoTool(calls)] }));
+    expect(r.finish).toBe("end");
+    expect(calls).toEqual([{ limit: 1 }]);
+    expect(sent[2].messages[4]).toEqual({ role: "user", content: [{ type: "tool_result", tool_use_id: "t2", content: REPEATED_CALL_TEXT }] });
   });
 });
 
@@ -188,6 +199,30 @@ describe("TC-CHEERY-PROVIDER: OpenAI", () => {
     expect(r.texts).toEqual(["出演者を教えてください", "<RESET>", "出演者を教えてください"]);
     // 画面から消した前置きは AI にも戻さない（ツールの呼び出しだけ戻す）
     expect(sent[1].messages[2]).toEqual({ role: "assistant", content: null, tool_calls: [{ id: "c1", type: "function", function: { name: "my_events", arguments: "{\"limit\":1}" } }] });
+  });
+
+  it("同じ質問の中で同じ機能を同じ入力で呼び直されたら、動かさずに断る（入力が違えば動かす・エラーの後は呼び直せる）", async () => {
+    const calls: unknown[] = [];
+    const call = (id: string, args: string) => ({ id, type: "function", function: { name: "my_events", arguments: args } });
+    const toolTurn = (...cs: any[]) => ({ completion: { choices: [{ finish_reason: "tool_calls", message: { content: null, refusal: null, tool_calls: cs } }], usage: oUsage(1, 1) } });
+    const { client, sent } = fakeOpenAI([
+      toolTurn(call("c1", "{\"limit\":1}")),
+      toolTurn(call("c2", "{\"limit\":1}"), call("c3", "{\"limit\":2}")),
+      toolTurn(call("c4", "{\"limit\":99}")),
+      toolTurn(call("c5", "{\"limit\":99}")),
+      { completion: { choices: [{ finish_reason: "stop", message: { content: "ok", refusal: null } }], usage: oUsage(1, 1) } },
+    ]);
+    const r = await createOpenAIProvider(client).run(req({ tools: [echoTool(calls)], maxToolRounds: 6 }));
+    expect(r.finish).toBe("end");
+    expect(calls).toEqual([{ limit: 1 }, { limit: 2 }]);
+    const toolMsgs = sent[4].messages.filter((m: any) => m.role === "tool");
+    expect(toolMsgs).toEqual([
+      { role: "tool", tool_call_id: "c1", content: "events:1" },
+      { role: "tool", tool_call_id: "c2", content: REPEATED_CALL_TEXT },
+      { role: "tool", tool_call_id: "c3", content: "events:2" },
+      { role: "tool", tool_call_id: "c4", content: "入力の形式が正しくありません" },
+      { role: "tool", tool_call_id: "c5", content: "入力の形式が正しくありません" },
+    ]);
   });
 
   it("壊れた引数・拒否・長さ切れ", async () => {

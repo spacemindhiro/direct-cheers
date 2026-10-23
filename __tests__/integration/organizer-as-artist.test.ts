@@ -37,6 +37,7 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { PATCH as eventPATCH } from "@/app/api/events/[eventId]/route";
 import { POST as lineupPOST } from "@/app/api/events/[eventId]/lineup/[artistId]/route";
 import { POST as qrCreatePOST } from "@/app/api/qr/create/route";
+import { storagePublicPrefix } from "@/lib/image-source";
 
 // ─── フィクスチャ ──────────────────────────────────────────────────────
 let ownerOrgId: string;
@@ -234,6 +235,9 @@ describe("TC-ORG-AS-ARTIST-B: POST /lineup/[artistId] — organizerロールのa
   });
 });
 
+// 宛先・配分先・画像が正しい形で、権限だけを見る（画像は 2026-10-23〜 API でも必須）
+const QR_IMAGE = `${storagePublicPrefix("qr-images")}tc-org-as-artist/x.jpg`;
+
 // ── C. POST /api/qr/create ———————————————————————————————————————————
 describe("TC-ORG-AS-ARTIST-C: POST /api/qr/create — artistとして招待されてもQR作成不可", () => {
   it("TC-ORG-AS-ARTIST-C-01: ownerOrg（本来のオーガナイザー）はQRを作成できる", async () => {
@@ -245,6 +249,7 @@ describe("TC-ORG-AS-ARTIST-C: POST /api/qr/create — artistとして招待さ�
         event_id: eventId,
         label: "ownerOrg QR",
         product_type: "standard",
+        image_url: QR_IMAGE,
         min_amount: 500,
         max_amount: 500,
         recipient_profile_id: ownerOrgId,
@@ -268,6 +273,7 @@ describe("TC-ORG-AS-ARTIST-C: POST /api/qr/create — artistとして招待さ�
         event_id: eventId,
         label: "orgAsArtist QR（作成NG）",
         product_type: "standard",
+        image_url: QR_IMAGE,
         min_amount: 500,
         max_amount: 500,
         recipient_profile_id: orgAsArtistId,
@@ -288,6 +294,7 @@ describe("TC-ORG-AS-ARTIST-C: POST /api/qr/create — artistとして招待さ�
         event_id: eventId,
         label: "artist QR（作成NG）",
         product_type: "standard",
+        image_url: QR_IMAGE,
         min_amount: 500,
         max_amount: 500,
         recipient_profile_id: regularArtistId,

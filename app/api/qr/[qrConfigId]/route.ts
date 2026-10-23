@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 import { isValidQrImageUrl } from "@/lib/image-source";
+import { qrPeople, recipientError, targetsError } from "@/lib/qr/rules";
 
 async function getQRWithPermission(qrConfigId: string, userId: string) {
   const supabase = await createClient();
@@ -10,7 +11,7 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
 
   const { data: qr } = await admin
     .from("qr_configs")
-    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id, product_id, default_amount, touchpay_enabled, is_welcome_cheer_default, image_url, strip_image_url")
+    .select("qr_config_id, event_id, creator_profile_id, recipient_profile_id, recipient_name_context, product_id, default_amount, touchpay_enabled, is_welcome_cheer_default, image_url, strip_image_url")
     .eq("qr_config_id", qrConfigId)
     .is("deleted_at", null)
     .single();
@@ -35,7 +36,7 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
   const isAgent = profile?.role === "agent" && event?.agent_id === userId;
   const isRecipient = qr.recipient_profile_id === userId;
 
-  return { qr, supabase, admin, isAdmin, isOrganizer, isAgent, isRecipient, error: null };
+  return { qr, supabase, admin, isAdmin, isOrganizer, isAgent, isRecipient, organizerId: event?.organizer_profile_id as string | undefined, error: null };
 }
 
 const isValidRatio = (r: unknown) => typeof r === "number" && Number.isFinite(r) && r >= 0 && r <= 1;
@@ -50,7 +51,7 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { qr, admin, isAdmin, isOrganizer, isAgent, isRecipient, error } = await getQRWithPermission(qrConfigId, user.id);
+  const { qr, admin, isAdmin, isOrganizer, isAgent, isRecipient, organizerId, error } = await getQRWithPermission(qrConfigId, user.id);
   if (!qr) return NextResponse.json({ error }, { status: error === "Not found" ? 404 : 500 });
 
   const canEdit = isAdmin || isOrganizer || isAgent;
@@ -263,6 +264,22 @@ export async function PATCH(
     );
     if (!eligible) {
       return NextResponse.json({ error: "この商品は対面タッチ決済に対応していません" }, { status: 400 });
+    }
+  }
+
+  // 宛先・配分先はこのイベントの主催者と出演者（断った人を除く）だけ（画面と同じ。API を直接呼ぶと関係ない人を入れられた）。
+  // すでに入っている宛先・配分先はそのまま通す（あとで出演を断った人がいても、ほかの項目を直せるように）
+  if ((recipient_profile_id !== undefined || recipient_name_context !== undefined || targets !== undefined) && organizerId) {
+    const people = await qrPeople(adminC, qr.event_id, organizerId);
+    if (recipient_profile_id !== undefined || recipient_name_context !== undefined) {
+      const err = recipientError(people, recipient_profile_id ?? qr.recipient_profile_id, recipient_name_context ?? qr.recipient_name_context,
+        { id: qr.recipient_profile_id, context: qr.recipient_name_context });
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
+    }
+    if (Array.isArray(targets)) {
+      const { data: current } = await adminC.from("qr_config_targets").select("profile_id").eq("qr_config_id", qrConfigId).is("deleted_at", null);
+      const err = targetsError(people, targets, new Set((current ?? []).map((t) => t.profile_id as string)));
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
   }
 

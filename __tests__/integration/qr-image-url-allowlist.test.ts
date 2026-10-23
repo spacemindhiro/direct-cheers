@@ -18,6 +18,7 @@ import {
   insertEvent,
   insertQrConfig,
   insertProduct,
+  insertEventArtist,
 } from "../helpers/seed";
 import { testAdmin } from "../helpers/db-reset";
 import { storagePublicPrefix } from "@/lib/image-source";
@@ -135,6 +136,8 @@ beforeAll(async () => {
 
   eventId = await insertEvent({ organizerProfileId: organizerId, title: "TC-QR-IMGURL イベント" });
   cleanup.eventIds.push(eventId);
+  // 宛先・配分先はイベントの出演者だけ（2026-10-23〜 API も確かめる）
+  await insertEventArtist({ eventId, artistProfileId: artistId });
 }, 30_000);
 
 afterAll(async () => {
@@ -178,15 +181,26 @@ describe("TC-QR-IMGURL-A: 新規作成時の画像URL", () => {
     expect(await countQrs()).toBe(before);
   });
 
-  it("TC-QR-IMGURL-A-04: 画像なし（省略）→ 保存され、画像は null", async () => {
+  // QR 画像が要らないタイプ（エントランス）は、画像なしで保存される
+  it("TC-QR-IMGURL-A-04: エントランスで画像なし（省略）→ 保存され、画像は null", async () => {
     mockAs(organizerId, "organizer");
-    const res = await callCreate(buildCreateBody());
+    const res = await callCreate(buildCreateBody({ product_type: "entrance", payment_type: "C" }));
     const data = await res.json();
     expect(res.status).toBe(200);
     cleanup.qrConfigIds.push(data.qr_config_id);
     const qr = await readQr(data.qr_config_id);
     expect(qr.image_url).toBe(null);
     expect(qr.strip_image_url).toBe(null);
+  });
+
+  // スタンダード・メッセージは画像が必須（画面と同じ。2026-10-23〜 API も確かめる）
+  it("TC-QR-IMGURL-A-05: スタンダードで画像なし → 400、QRは作られない", async () => {
+    mockAs(organizerId, "organizer");
+    const before = await countQrs();
+    const res = await callCreate(buildCreateBody());
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("QR画像をアップロードしてください");
+    expect(await countQrs()).toBe(before);
   });
 });
 

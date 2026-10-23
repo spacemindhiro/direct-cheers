@@ -170,7 +170,7 @@ export async function prepareQr(ctx: DcMcpContext, input: PrepareInput): Promise
   const suggestions = labelSuggestions(input.product_type, paymentType, recipientName);
   const labelLine = saidLabel
     ? `- ラベル：${saidLabel}（本人の言葉。お客様の画面に出る名前なので、本人がカードで確かめて印を付けるまで作れません）`
-    : `- ラベル：未定（本人がカードで決めます。${LABEL_GUIDE}。${suggestions.length ? `カードの候補：${suggestions.join("、")}。` : ""}本人が言ったラベルでなければ、あなたは決めずにカードで選んでもらってください）`;
+    : `- ラベル：未定（本人がカードで決めます。${LABEL_GUIDE}。${suggestions.length ? `カードの候補：${suggestions.join("、")}。この候補を案として本人に示し、` : "宛先が決まると候補が出ます。"}カードで選ぶか書いてもらってください。あなたは決めません）`;
 
   const needsImage = needsQrImage(input.product_type, paymentType ?? "A");
   const card: QrCreateCard = {

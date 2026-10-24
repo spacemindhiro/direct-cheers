@@ -16,7 +16,7 @@ import { buildStableSystem, buildVolatileSystem } from "@/lib/ai/prompt";
 import { addUsage, emptyUsage } from "@/lib/ai/types";
 import { connectDcMcp } from "@/lib/mcp/in-process";
 import { trimRewrite } from "@/lib/cheery/stream";
-import type { EventDraftCard, QrCreateCard } from "@/lib/cheery/cards";
+import type { EventDraftCard, QrCreateCard, QrEditCard } from "@/lib/cheery/cards";
 import { testAdmin } from "../helpers/db-reset";
 import { insertProfile, deleteAuthUsers } from "../helpers/seed";
 
@@ -40,6 +40,7 @@ const ORG_NAME = "Demo主催者";
 const ARTIST = `ナイト${TAG}`;
 const EVENT = `挙動確認ライブ${TAG}`;
 const VENUE = `挙動確認会場${TAG}`;
+const OLD_LABEL = `旧ラベル${TAG}`;
 const P: Record<string, string> = {};
 let eventId = "";
 let venueId = "";
@@ -70,7 +71,7 @@ type Scenario = {
   id: string;
   title: string;
   turns: string[]; // 本人が順に送る文（前の答えを会話に入れて続ける）
-  judge: (o: { answers: string[]; qr: QrCreateCard[]; drafts: EventDraftCard[] }) => Check[];
+  judge: (o: { answers: string[]; qr: QrCreateCard[]; drafts: EventDraftCard[]; edits: QrEditCard[] }) => Check[];
 };
 
 const SCENARIOS: Scenario[] = [
@@ -140,6 +141,24 @@ const SCENARIOS: Scenario[] = [
       { name: "自分のカードでのテスト決済の禁止を伝える", ok: /自分のカード|ご自身のカード/.test(answers.join("")) },
     ],
   },
+  {
+    id: "B9", title: "QR のラベルをはっきり言って変える",
+    turns: [`「${EVENT}」の「${OLD_LABEL}」の QR のラベルを「${ARTIST} への応援」に変えたいです。`],
+    judge: ({ answers, edits }) => [
+      { name: "変更のカードが出る", ok: edits.length > 0 },
+      { name: "本人の言葉がそのまま新しいラベルに入る", ok: edits.length > 0 && edits.every((e) => e.change.label === `${ARTIST} への応援`) },
+      { name: "すでに買ったお客様の Wallet にも出ると伝える", ok: /Wallet|ウォレット/.test(answers.join("")) },
+      { name: "「変更しました」と言わない", ok: !/変更しました|変えました/.test(answers.join("")) },
+    ],
+  },
+  {
+    id: "B10", title: "QR のラベルを変えたいとだけ言う",
+    turns: [`「${EVENT}」の「${OLD_LABEL}」の QR のラベルを、もっと分かりやすいものに変えたいです。`],
+    judge: ({ answers, edits }) => [
+      { name: "新しいラベルを決めない（カードなら空欄、カードが無ければ聞く）", ok: edits.every((e) => e.change.label === null || e.change.label === undefined) },
+      { name: "誰に・何の案を出す", ok: answers.join("").includes(`${ARTIST} へのチア`) || answers.join("").includes(`${ARTIST}へのチア`) },
+    ],
+  },
 ];
 
 beforeAll(async () => {
@@ -160,6 +179,10 @@ beforeAll(async () => {
   }).select("event_id").single();
   eventId = e!.event_id;
   await testAdmin.from("event_artists").insert({ event_id: eventId, artist_profile_id: P.art, status: "confirmed" });
+  // 変更の場面（B9・B10）で使う、作ってある QR
+  const { data: prod } = await testAdmin.from("products").insert({ event_id: eventId, name: OLD_LABEL, type: "standard", payment_type: "A", min_amount: 1000, max_amount: 1000 }).select("product_id").single();
+  const { data: qr } = await testAdmin.from("qr_configs").insert({ event_id: eventId, creator_profile_id: P.org, recipient_profile_id: P.art, recipient_name_context: "artist", product_id: prod!.product_id, label: OLD_LABEL }).select("qr_config_id").single();
+  await testAdmin.from("qr_config_targets").insert({ qr_config_id: qr!.qr_config_id, profile_id: P.art, distribution_ratio: 1 });
 }, 60_000);
 
 afterAll(async () => {
@@ -204,6 +227,12 @@ afterAll(async () => {
   console.log(`結果: ${OUT_DIR}/behavior-${stamp}.md（全回で守れた ${allOk}/${byCheck.size}、$${spent.toFixed(5)}）`);
 
   await testAdmin.from("cheery_card_uses").delete().eq("profile_id", P.org);
+  const { data: qrs } = await testAdmin.from("qr_configs").select("qr_config_id, product_id").eq("event_id", eventId);
+  for (const q of qrs ?? []) {
+    await testAdmin.from("qr_config_targets").delete().eq("qr_config_id", q.qr_config_id);
+    await testAdmin.from("qr_configs").delete().eq("qr_config_id", q.qr_config_id);
+    if (q.product_id) await testAdmin.from("products").delete().eq("product_id", q.product_id);
+  }
   await testAdmin.from("event_artists").delete().eq("event_id", eventId);
   await testAdmin.from("events").delete().eq("event_id", eventId);
   await testAdmin.from("venues").delete().eq("venue_id", venueId);
@@ -225,6 +254,7 @@ describe.skipIf(!LIVE)("TC-CHEERY-BEHAVIOR: 挙動の質問集を実際のAIに�
       let usage = emptyUsage();
       const qr: QrCreateCard[] = [];
       const drafts: EventDraftCard[] = [];
+      const edits: QrEditCard[] = [];
       for (const t of sc.turns) {
         history.push({ role: "user", text: t });
         const mcp = await connectDcMcp({
@@ -249,6 +279,7 @@ describe.skipIf(!LIVE)("TC-CHEERY-BEHAVIOR: 挙動の質問集を実際のAIに�
         for (const card of mcp.cards()) {
           if (card.kind === "qr_create") qr.push(card);
           if (card.kind === "event_draft") drafts.push(card);
+          if (card.kind === "qr_edit") edits.push(card);
         }
         await mcp.close();
         if (process.env.CHEERY_TRACE) fs.appendFileSync(process.env.CHEERY_TRACE!, `[答え] ${JSON.stringify(answer)}\n`);
@@ -263,9 +294,10 @@ describe.skipIf(!LIVE)("TC-CHEERY-BEHAVIOR: 挙動の質問集を実際のAIに�
       const cardText = [
         ...qr.map((q) => `QR（ラベル：${q.label ?? "空欄"}・宛先：${q.recipient_said ? q.people[q.recipient].options.map((o) => o.name).join("/") : "未定"}）`),
         ...drafts.map((d) => `下書き（出演者：${d.performers.map((p) => p.query).join("、") || "なし"}）`),
+        ...edits.map((e) => `QR の変更（ラベル：${e.change.label === undefined ? "変えない" : e.change.label ?? "空欄"}）`),
       ].join("、");
       const rep = answers.map(repeatedSentence).find(Boolean);
-      const checks = [...sc.judge({ answers, qr, drafts }), { name: `同じ文を繰り返さない${rep ? `（「${rep}」）` : ""}`, ok: !rep }];
+      const checks = [...sc.judge({ answers, qr, drafts, edits }), { name: `同じ文を繰り返さない${rep ? `（「${rep}」）` : ""}`, ok: !rep }];
       results.push({ id: sc.id, run, title: sc.title, turns: sc.turns, answers, cards: cardText, checks, costUsd: cost });
       expect(answers.every((a) => a.length > 0)).toBe(true);
     }, 120_000);

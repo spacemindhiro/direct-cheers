@@ -76,10 +76,31 @@ export type QrCreateCard = {
   flyer_url: string | null;
 };
 
-export type CheeryCard = VenueRegisterCard | VenuePinCard | EventDraftCard | QrCreateCard;
+// QR の変更（変える前と後）。change に入っている項目だけを変える（lib/mcp/tools/qr-edit.ts）
+export type QrEditCard = {
+  kind: "qr_edit";
+  card_id: string;
+  event: { event_id: string; title: string };
+  qr_config_id: string;
+  product_type: string;
+  payment_type: string | null;
+  current: { label: string | null; min_amount: number; max_amount: number; stock_limit: number | null; recipient: string; targets: { name: string; percent: number }[] };
+  change: {
+    label?: string | null; // null は「変えるが未定」（カードで本人が決める）
+    min_amount?: number;
+    max_amount?: number;
+    stock_limit?: number;
+    recipient?: { person: number; said: boolean }; // people の何番目か。said でなければカードで本人が配分先から選ぶ
+    targets?: { person: number; percent: number }[];
+  };
+  people: QrPersonSlot[];
+};
+
+export type CheeryCard = VenueRegisterCard | VenuePinCard | EventDraftCard | QrCreateCard | QrEditCard;
 
 // 書き込みが済んだあとの状態（端末の会話に一緒に残す）
 export type CardDone =
   | { kind: "venue_registered"; venue_name: string }
   | { kind: "event_created"; event_id: string; title: string }
-  | { kind: "qr_created"; event_id: string; qr_config_id: string; label: string };
+  | { kind: "qr_created"; event_id: string; qr_config_id: string; label: string }
+  | { kind: "qr_edited"; event_id: string; qr_config_id: string; label: string | null };

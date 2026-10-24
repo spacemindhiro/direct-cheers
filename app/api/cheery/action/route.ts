@@ -13,10 +13,10 @@ import type { VenueRegisterCard } from "@/lib/cheery/cards";
 
 // POST /api/cheery/action
 // チアリー(AI) の確認カードのボタン。AI は通らない（本人が押したときだけ、画面からここに来る）。
-//   register_venue / create_event_draft / create_qr：DC のデータを書く。MCP の書き込みのツールを、本人のまま action モードで呼ぶ
+//   register_venue / create_event_draft / create_qr / edit_qr：DC のデータを書く。MCP の書き込みのツールを、本人のまま action モードで呼ぶ
 //   pin_to_address：地図に置いたピンの位置から、一番近い住所で会場の確認カードを作る（Google の位置から住所）
 //   map_load：ピンを置く地図を出してよいか（地図の表示の無料の上限）。出すときに1回と数える
-// 送られてきた中身は信用しない（書き込みの側がすべて判定し直す：lib/venues.ts・lib/events/create-draft.ts・lib/qr/create-qr.ts）。
+// 送られてきた中身は信用しない（書き込みの側がすべて判定し直す：lib/venues.ts・lib/events/create-draft.ts・lib/qr/create-qr.ts・lib/qr/update-qr.ts）。
 
 const Body = z.discriminatedUnion("action", [
   z.object({
@@ -57,6 +57,18 @@ const Body = z.discriminatedUnion("action", [
     recipient_name_context: z.enum(["organizer", "artist"]),
     targets: z.array(z.object({ profile_id: z.string().uuid(), distribution_ratio: z.number().min(0).max(1) })).min(1).max(10),
     image_url: z.string().max(500).nullable(),
+  }),
+  z.object({
+    action: z.literal("edit_qr"),
+    card_id: z.string().uuid(),
+    qr_config_id: z.string().uuid(),
+    label: z.string().min(1).max(50).optional(),
+    min_amount: z.number().int().optional(),
+    max_amount: z.number().int().optional(),
+    stock_limit: z.number().int().min(1).max(100000).optional(),
+    recipient_profile_id: z.string().uuid().optional(),
+    recipient_name_context: z.enum(["organizer", "artist"]).optional(),
+    targets: z.array(z.object({ profile_id: z.string().uuid(), distribution_ratio: z.number().min(0).max(1) })).min(1).max(10).optional(),
   }),
   z.object({
     action: z.literal("pin_to_address"),

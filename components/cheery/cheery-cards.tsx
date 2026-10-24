@@ -10,7 +10,7 @@ import { QRImageUpload } from "@/components/qr-image-upload";
 import { LABEL_GUIDE, labelSuggestions, labelWarning } from "@/lib/qr/label";
 import { IMAGE_RIGHTS_GUIDE, QR_AFTER_NOTES, RECIPIENT_GUIDE } from "@/lib/qr/guide";
 import { jstDateTime } from "@/lib/mcp/format";
-import { slotDecided, type CardDone, type CheeryCard, type EventDraftCard, type QrCreateCard, type QrPersonOption, type VenuePinCard, type VenueRegisterCard } from "@/lib/cheery/cards";
+import { slotDecided, type CardDone, type CheeryCard, type EventDraftCard, type QrCreateCard, type QrEditCard, type QrPersonOption, type VenuePinCard, type VenueRegisterCard } from "@/lib/cheery/cards";
 
 type Handlers = {
   onDone: (cardId: string, done: CardDone, note: string) => void;
@@ -48,6 +48,7 @@ export function CheeryCards({ cards, done, ...h }: { cards: CheeryCard[]; done?:
         c.kind === "event_draft" ? <EventDraftView key={c.card_id} card={c} done={done?.[c.card_id]} {...h} />
         : c.kind === "venue_register" ? <VenueRegisterView key={c.card_id} card={c} done={done?.[c.card_id]} {...h} />
         : c.kind === "qr_create" ? <QrCreateView key={c.card_id} card={c} done={done?.[c.card_id]} {...h} />
+        : c.kind === "qr_edit" ? <QrEditView key={c.card_id} card={c} done={done?.[c.card_id]} {...h} />
         : <VenuePinView key={c.card_id} card={c} done={done?.[c.card_id]} {...h} />,
       )}
     </>
@@ -400,31 +401,8 @@ function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; 
       <Row k="イベント" v={card.event.title} />
       <Row k="タイプ" v={`${QR_TYPE_LABEL[card.product_type]}${card.payment_type ? `・${QR_PAYMENT_LABEL[card.payment_type]}` : ""}`} />
       {done ? <Row k="ラベル" v={label.trim()} /> : (
-        <div className="space-y-1.5 rounded-xl border border-pink-500/40 bg-pink-500/5 px-2.5 py-2" data-qr-label>
-          <p className="text-[11px] font-black text-pink-200">ラベル（お客様に見える名前）</p>
-          <p className="text-[10px] leading-snug text-slate-300">{LABEL_GUIDE}。</p>
-          {suggestions.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-slate-400">候補：</span>
-              {suggestions.map((sug) => (
-                <button key={sug} type="button" onClick={() => { setLabel(sug); setLabelOk(false); }}
-                  className={`text-[11px] font-bold rounded-lg px-2 py-1 border ${label === sug ? "border-pink-400 bg-pink-500/20 text-white" : "border-slate-600 text-slate-200 hover:border-pink-500/50"}`}>
-                  {sug}{sug === card.label ? <span className="ml-1 text-[9px] font-normal text-slate-400">（あなたの言葉）</span> : null}
-                </button>
-              ))}
-            </div>
-          )}
-          <input value={label} maxLength={50} onChange={(e) => { setLabel(e.target.value); setLabelOk(false); }} aria-label="ラベル"
-            placeholder={suggestions[0] ? `例：${suggestions[0]}` : "例：〇〇 へのチア／当日入場券"}
-            className="w-full h-9 bg-slate-800 border border-slate-700 rounded-lg px-2 text-base md:text-sm font-bold text-white outline-none focus:border-pink-500/50 placeholder:text-slate-600 placeholder:font-normal" />
-          {labelWarning(card.product_type, label, recipient?.name ?? null) && (
-            <p className="text-[10px] leading-snug text-amber-300">注意：{labelWarning(card.product_type, label, recipient?.name ?? null)}。このままでよいか確かめてください</p>
-          )}
-          <label className="flex items-center gap-1.5 text-[11px] text-slate-200">
-            <input type="checkbox" checked={labelOk} disabled={!label.trim()} onChange={(e) => setLabelOk(e.target.checked)} />
-            「{label.trim() || "（未入力）"}」でお客様に表示する
-          </label>
-        </div>
+        <LabelBox label={label} setLabel={setLabel} labelOk={labelOk} setLabelOk={setLabelOk} suggestions={suggestions}
+          saidLabel={card.label} productType={card.product_type} recipientName={recipient?.name ?? null} />
       )}
       <Row k="金額" v={card.min_amount === card.max_amount ? yen(card.min_amount) : `${yen(card.min_amount)}〜${yen(card.max_amount)}`} />
       {card.payment_type && <Row k="上限数" v={card.stock_limit ?? "無制限"} />}
@@ -511,6 +489,159 @@ function QrCreateView({ card, done, onDone, onNavigate }: { card: QrCreateCard; 
               {busy ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} QRを作る
             </button>
             <button type="button" onClick={() => setEditing(true)} disabled={busy} className={secondary}><PencilLine size={11} /> 項目を直す</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ラベル（お客様に見える唯一の名前）の欄。QR の作成と変更で共用。どこに出るか・なぜ大事かの案内、誰に何を払うか分かる候補、
+// 分かりにくいラベルへの注意を出し、本人が「このラベルでお客様に表示する」に印を付けるまで決まらない（直したら印は外れる）
+function LabelBox({ label, setLabel, labelOk, setLabelOk, suggestions, saidLabel, productType, recipientName }: {
+  label: string; setLabel: (v: string) => void; labelOk: boolean; setLabelOk: (v: boolean) => void;
+  suggestions: string[]; saidLabel: string | null; productType: string; recipientName: string | null;
+}) {
+  const warning = labelWarning(productType, label, recipientName);
+  return (
+    <div className="space-y-1.5 rounded-xl border border-pink-500/40 bg-pink-500/5 px-2.5 py-2" data-qr-label>
+      <p className="text-[11px] font-black text-pink-200">ラベル（お客様に見える名前）</p>
+      <p className="text-[10px] leading-snug text-slate-300">{LABEL_GUIDE}。</p>
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-slate-400">候補：</span>
+          {suggestions.map((sug) => (
+            <button key={sug} type="button" onClick={() => { setLabel(sug); setLabelOk(false); }}
+              className={`text-[11px] font-bold rounded-lg px-2 py-1 border ${label === sug ? "border-pink-400 bg-pink-500/20 text-white" : "border-slate-600 text-slate-200 hover:border-pink-500/50"}`}>
+              {sug}{sug === saidLabel ? <span className="ml-1 text-[9px] font-normal text-slate-400">（あなたの言葉）</span> : null}
+            </button>
+          ))}
+        </div>
+      )}
+      <input value={label} maxLength={50} onChange={(e) => { setLabel(e.target.value); setLabelOk(false); }} aria-label="ラベル"
+        placeholder={suggestions[0] ? `例：${suggestions[0]}` : "例：〇〇 へのチア／当日入場券"}
+        className="w-full h-9 bg-slate-800 border border-slate-700 rounded-lg px-2 text-base md:text-sm font-bold text-white outline-none focus:border-pink-500/50 placeholder:text-slate-600 placeholder:font-normal" />
+      {warning && <p className="text-[10px] leading-snug text-amber-300">注意：{warning}。このままでよいか確かめてください</p>}
+      <label className="flex items-center gap-1.5 text-[11px] text-slate-200">
+        <input type="checkbox" checked={labelOk} disabled={!label.trim()} onChange={(e) => setLabelOk(e.target.checked)} />
+        「{label.trim() || "（未入力）"}」でお客様に表示する
+      </label>
+    </div>
+  );
+}
+
+// ── QR の変更の確認カード ──────────────────────────────
+
+function QrEditView({ card, done, onDone, onNavigate }: { card: QrEditCard; done?: CardDone } & Handlers) {
+  const ch = card.change;
+  const key = (o: { profile_id: string; role: string }) => `${o.profile_id}::${o.role}`;
+  const [picked, setPicked] = useState<string[]>(() => card.people.map((p) => (slotDecided(p) ? key(p.options[0]) : "?")));
+  const [recipientChoice, setRecipientChoice] = useState("");
+  const [label, setLabel] = useState(ch.label ?? "");
+  const [labelOk, setLabelOk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const option = (i: number) => card.people[i].options.find((o) => key(o) === picked[i]) ?? null;
+  const targetOptions = (ch.targets ?? []).map((t) => option(t.person)).filter((o): o is QrPersonOption => o != null);
+  const recipient = !ch.recipient ? null : ch.recipient.said ? option(ch.recipient.person) : targetOptions.find((o) => key(o) === recipientChoice) ?? null;
+  const unresolved = picked.some((p) => p === "?") || (ch.recipient && !recipient) || (ch.label !== undefined && (!labelOk || !label.trim()));
+  const amount = (min: number, max: number) => (min === max ? yen(min) : `${yen(min)}〜${yen(max)}`);
+  const suggestions = [...new Set([...(ch.label ? [ch.label] : []), ...labelSuggestions(card.product_type, card.payment_type, recipient?.name ?? card.current.recipient)])];
+  const detailHref = `/dashboard/events/${card.event.event_id}/qr/${card.qr_config_id}`;
+
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    const r = await act({
+      action: "edit_qr", card_id: card.card_id, qr_config_id: card.qr_config_id,
+      ...(ch.label !== undefined && { label: label.trim() }),
+      ...(ch.min_amount !== undefined && { min_amount: ch.min_amount, max_amount: ch.max_amount }),
+      ...(ch.stock_limit !== undefined && { stock_limit: ch.stock_limit }),
+      ...(recipient && { recipient_profile_id: recipient.profile_id, recipient_name_context: recipient.role }),
+      ...(ch.targets && { targets: ch.targets.map((t) => ({ profile_id: option(t.person)!.profile_id, distribution_ratio: t.percent / 100 })) }),
+    });
+    setBusy(false);
+    if (!r.ok) { setError(r.error ?? "変えられませんでした"); return; }
+    const newLabel = (r.label as string | null) ?? null;
+    onDone(card.card_id, { kind: "qr_edited", event_id: String(r.eventId), qr_config_id: String(r.qrConfigId), label: newLabel }, `（QR「${newLabel ?? card.current.label ?? ""}」を変更しました）`);
+  };
+
+  const before = (v: string) => <span className="text-slate-500 line-through">{v}</span>;
+  return (
+    <div className={box} data-cheery-card="qr_edit">
+      <p className="text-[11px] font-black text-white flex items-center gap-1"><PencilLine size={12} className="text-pink-400" /> QR の変更の確認</p>
+      <Row k="イベント" v={card.event.title} />
+      <Row k="QR" v={card.current.label ?? "（ラベルなし）"} />
+      {ch.label !== undefined && (done ? <Row k="ラベル" v={<>{before(card.current.label ?? "なし")} → {label.trim()}</>} /> : (
+        <div className="space-y-1">
+          <Row k="ラベル" v={<>{before(card.current.label ?? "なし")} → 下で決めます</>} />
+          <LabelBox label={label} setLabel={setLabel} labelOk={labelOk} setLabelOk={setLabelOk} suggestions={suggestions}
+            saidLabel={ch.label ?? null} productType={card.product_type} recipientName={recipient?.name ?? card.current.recipient} />
+        </div>
+      ))}
+      {ch.min_amount !== undefined && <Row k="金額" v={<>{before(amount(card.current.min_amount, card.current.max_amount))} → {amount(ch.min_amount, ch.max_amount!)}（これからの決済だけ）</>} />}
+      {ch.stock_limit !== undefined && <Row k="上限数" v={<>{before(String(card.current.stock_limit ?? "無制限"))} → {ch.stock_limit}</>} />}
+      {ch.recipient && (
+        <div className="flex gap-2 text-[11px]">
+          <span className="w-14 shrink-0 text-slate-500">宛先</span>
+          <div className="flex-1 min-w-0 space-y-1">
+            <p>{before(card.current.recipient)} → {recipient?.name ?? "下で選びます"}</p>
+            {!ch.recipient.said && !done && (
+              <div className="space-y-1" data-qr-recipient>
+                <p className="text-[10px] leading-snug text-slate-300">{RECIPIENT_GUIDE}。配分先の中から1人選んでください</p>
+                {targetOptions.map((o) => (
+                  <label key={key(o)} className="flex items-center gap-1.5 text-slate-200">
+                    <input type="radio" name={`${card.card_id}-recipient`} checked={recipientChoice === key(o)} onChange={() => setRecipientChoice(key(o))} />
+                    {o.name}<span className="text-slate-500">（{o.role === "organizer" ? "主催者名義・迷ったらこちら" : "出演者名義"}）</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {ch.targets && (
+        <div className="flex gap-2 text-[11px]">
+          <span className="w-14 shrink-0 text-slate-500">配分</span>
+          <div className="flex-1 min-w-0 space-y-1">
+            <p>{before(card.current.targets.map((t) => `${t.name} ${t.percent}%`).join("、"))}</p>
+            {ch.targets.map((t) => {
+              const slot = card.people[t.person];
+              return (
+                <div key={t.person} className="flex gap-2">
+                  <div className="flex-1 min-w-0">
+                    {slotDecided(slot) ? <span className="text-slate-200">{slot.options[0].name}</span> : slot.options.map((o) => (
+                      <label key={key(o)} className="flex items-center gap-1.5 text-slate-200">
+                        <input type="radio" name={`${card.card_id}-${t.person}`} disabled={!!done} checked={picked[t.person] === key(o)} onChange={() => setPicked((p) => p.map((v, j) => (j === t.person ? key(o) : v)))} />
+                        {o.name}
+                      </label>
+                    ))}
+                  </div>
+                  <span className="shrink-0 text-slate-200">{t.percent}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {done?.kind === "qr_edited" ? (
+        <>
+          <p className="flex items-center gap-1 text-[11px] font-bold text-emerald-300"><Check size={12} /> 変更しました</p>
+          <Link href={detailHref} onClick={onNavigate} className={primary + " w-fit"}><ExternalLink size={11} /> QR を開く</Link>
+        </>
+      ) : (
+        <>
+          <p className={notice}>
+            {ch.label !== undefined || ch.recipient ? "ラベルや宛先を変えると、すでに買ったお客様の Wallet のカード・チケットにも新しい名前が出ます。" : ""}
+            {ch.min_amount !== undefined ? "金額の変更は、これからの決済だけに効きます。" : ""}
+            画像・色・タッチ決済・削除は QR の詳細画面で変えられます。
+          </p>
+          {error && <p className="text-[11px] text-amber-300">{error}</p>}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={save} disabled={busy || !!unresolved} className={primary}>
+              {busy ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} 変更する
+            </button>
+            <Link href={detailHref} onClick={onNavigate} className={secondary}><ExternalLink size={11} /> 詳細画面で変える</Link>
           </div>
         </>
       )}

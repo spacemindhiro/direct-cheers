@@ -1,12 +1,20 @@
 // チアリー(AI)の答え合わせ質問集。
-//   expect：そのロールの人への答えに入っているべき事実（知識集の文言の一部）
+//   expect：そのロールの人への答えに入っているべき事実（知識集の文言の一部）。
+//     配列にすると「どれか1つ入っていればよい」（先頭が知識集の文言。AI の正しい言い換えを外れにしないため。2026-10-24）
 //   forbid：そのロールの人に渡す知識に入っていてはいけない文言（上位ロール向け・内部情報）
 // 今（P2）は「ロール別に組み立てた知識に、答えの根拠が入っているか／入ってはいけないものが無いか」を
 // テストで確かめる（__tests__/unit/knowledge-qa.test.ts）。P6 では同じ質問を実際のAIに投げて、
 // 答えに expect が含まれるかを確かめる。仕様を変えて答えが変わるときは、ここも一緒に直す。
 import type { KnowledgeRole } from "./types";
 
-export type QaCase = { id: string; role: KnowledgeRole; q: string; expect: string[]; forbid?: string[] };
+export type QaExpect = string | string[];
+export type QaCase = { id: string; role: KnowledgeRole; q: string; expect: QaExpect[]; forbid?: string[] };
+
+// 知識集に入っているべき文言（言い換えの組は先頭）
+export const canonical = (e: QaExpect) => (Array.isArray(e) ? e[0] : e);
+// AI の答えに入っているか（言い換えの組はどれか1つ）
+export const answerHas = (answer: string, e: QaExpect) => (Array.isArray(e) ? e : [e]).some((x) => answer.includes(x));
+export const expectLabel = (e: QaExpect) => (Array.isArray(e) ? e.join("／") : e);
 
 // どのロールにも渡してはいけない内部情報（エージェント報酬の割合など）
 export const GLOBAL_FORBIDDEN = ["50%", "二分の一", "agent_fee", "エージェント報酬の割合"];
@@ -21,8 +29,8 @@ export const QA_SET: QaCase[] = [
   { id: "u01", role: "user", q: "Apple Payのボタンが出てこない", expect: ["アプリ内ブラウザ", "他のブラウザで開く"], forbid: USER_FORBID },
   { id: "u02", role: "user", q: "会員登録はどこでするの？", expect: ["専用の会員登録"], forbid: USER_FORBID },
   { id: "u03", role: "user", q: "買ったチケットをキャンセルしたい", expect: ["5日前"], forbid: USER_FORBID },
-  { id: "u04", role: "user", q: "イベントが中止になったらお金はどうなる？", expect: ["請求は発生しません"], forbid: USER_FORBID },
-  { id: "u05", role: "user", q: "手数料は別にかかる？", expect: ["上乗せ"], forbid: USER_FORBID },
+  { id: "u04", role: "user", q: "イベントが中止になったらお金はどうなる？", expect: [["請求は発生しません", "請求されません"]], forbid: USER_FORBID },
+  { id: "u05", role: "user", q: "手数料は別にかかる？", expect: [["上乗せ", "追加の手数料はかかりません"]], forbid: USER_FORBID },
   { id: "u06", role: "user", q: "カード明細に知らない名前がある", expect: ["DC for"], forbid: USER_FORBID },
   { id: "u07", role: "user", q: "アーティストにメッセージを送りたい", expect: ["メッセージを送る"], forbid: USER_FORBID },
   { id: "u08", role: "user", q: "別のメールアドレスで応援してしまった", expect: ["応援履歴を統合"], forbid: USER_FORBID },
@@ -36,12 +44,12 @@ export const QA_SET: QaCase[] = [
   { id: "a01", role: "artist", q: "出金はいつからできる？", expect: ["2週間（14日）"], forbid: ARTIST_FORBID },
   { id: "a02", role: "artist", q: "出金の手数料は？", expect: ["500"], forbid: ARTIST_FORBID },
   { id: "a03", role: "artist", q: "手数料なしで出金できる？", expect: ["120日", "月1回"], forbid: ARTIST_FORBID },
-  { id: "a04", role: "artist", q: "自分専用のQRを作りたい", expect: ["オーガナイザーが発行"], forbid: ARTIST_FORBID },
+  { id: "a04", role: "artist", q: "自分専用のQRを作りたい", expect: [["オーガナイザーが発行", "主催者が発行"]], forbid: ARTIST_FORBID },
   { id: "a05", role: "artist", q: "口座登録したのに受取可能にならない", expect: ["最終審査"], forbid: ARTIST_FORBID },
   { id: "a06", role: "artist", q: "口座登録前に精算されたらお金はどうなる？", expect: ["失われ"], forbid: ARTIST_FORBID },
   { id: "a07", role: "artist", q: "出金残高が凍結中になっている", expect: ["チャージバック", "凍結"], forbid: ARTIST_FORBID },
-  { id: "a08", role: "artist", q: "急ぎでお金が要るので早く出金したい", expect: ["短く"], forbid: ARTIST_FORBID },
-  { id: "a09", role: "artist", q: "QRを自分のSNSに載せていい？", expect: ["SNS", "できません"], forbid: ARTIST_FORBID },
+  { id: "a08", role: "artist", q: "急ぎでお金が要るので早く出金したい", expect: [["短く", "早めて", "早めること"]], forbid: ARTIST_FORBID },
+  { id: "a09", role: "artist", q: "QRを自分のSNSに載せていい？", expect: ["SNS", ["できません", "載せられません"]], forbid: ARTIST_FORBID },
   { id: "a10", role: "artist", q: "応援してくれた人にお礼の特典を送りたい", expect: ["Thanks Gift", "公開する"], forbid: ARTIST_FORBID },
 
   // ── オーガナイザー ──
@@ -53,12 +61,12 @@ export const QA_SET: QaCase[] = [
   { id: "o06", role: "organizer", q: "イベントを中止したら前売り分は？", expect: ["取り消"], forbid: ORGANIZER_FORBID },
   { id: "o07", role: "organizer", q: "自分のカードでテスト決済していい？", expect: ["禁止"], forbid: ORGANIZER_FORBID },
   { id: "o08", role: "organizer", q: "自分がエージェントも兼ねている。自分で承認できる？", expect: ["運営"], forbid: ORGANIZER_FORBID },
-  { id: "o09", role: "organizer", q: "口座登録がまだだけどQRは作れる？", expect: ["エラー"], forbid: ORGANIZER_FORBID },
+  { id: "o09", role: "organizer", q: "口座登録がまだだけどQRは作れる？", expect: [["エラー", "失敗"]], forbid: ORGANIZER_FORBID },
   { id: "o10", role: "organizer", q: "未登録の人をアーティストとして招待したい", expect: ["30日"], forbid: ORGANIZER_FORBID },
   { id: "o11", role: "organizer", q: "イベントを作成しようとしたらエラーになる", expect: ["担当エージェント"], forbid: ORGANIZER_FORBID },
   { id: "o12", role: "organizer", q: "売上から何が引かれる？", expect: ["10%", "3.96%"], forbid: ORGANIZER_FORBID },
-  { id: "o13", role: "organizer", q: "イベントが終わった後もチアは受け付ける？", expect: ["終了予定時刻"], forbid: ORGANIZER_FORBID },
-  { id: "o15", role: "organizer", q: "承認依頼中のイベントのQRで先にチケットを売れる？", expect: ["受け付けません"], forbid: ORGANIZER_FORBID },
+  { id: "o13", role: "organizer", q: "イベントが終わった後もチアは受け付ける？", expect: [["終了予定時刻", "終了時刻の3時間後"]], forbid: ORGANIZER_FORBID },
+  { id: "o15", role: "organizer", q: "承認依頼中のイベントのQRで先にチケットを売れる？", expect: [["受け付けません", "受け付けない"]], forbid: ORGANIZER_FORBID },
   { id: "o14", role: "organizer", q: "タッチ決済のカードリーダーが繋がらない", expect: ["切り替え"], forbid: ORGANIZER_FORBID },
   { id: "o16", role: "organizer", q: "サンクス特典を公開したらお客さんに通知される？", expect: ["お返しが届いています"], forbid: ORGANIZER_FORBID },
 
@@ -66,7 +74,7 @@ export const QA_SET: QaCase[] = [
   { id: "g01", role: "agent", q: "代理で作った下書きは主催者に見えている？", expect: ["主催者に確認を依頼"], forbid: AGENT_FORBID },
   { id: "g02", role: "agent", q: "担当イベントをほかのエージェントに頼みたい", expect: ["「承認待ち」「公開済み」「開催中」"], forbid: AGENT_FORBID },
   { id: "g03", role: "agent", q: "自主開催のイベントを自分で承認したい", expect: ["運営"], forbid: AGENT_FORBID },
-  { id: "g04", role: "agent", q: "代打したイベントの報酬は誰のもの？", expect: ["引き継ぎ先"], forbid: AGENT_FORBID },
+  { id: "g04", role: "agent", q: "代打したイベントの報酬は誰のもの？", expect: [["引き継ぎ先", "実際に対応したエージェント"]], forbid: AGENT_FORBID },
   { id: "g05", role: "agent", q: "主催者から中止申請が来た", expect: ["公開済み"], forbid: AGENT_FORBID },
   { id: "g06", role: "agent", q: "オーソリ期限の警告が来た", expect: ["開催証跡"], forbid: AGENT_FORBID },
 

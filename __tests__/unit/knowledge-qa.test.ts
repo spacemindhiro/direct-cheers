@@ -7,7 +7,7 @@
  * 仕様変更で知識集の文言が変わり答えの根拠が消えたら、ここで落ちる。
  */
 import { describe, it, expect } from "vitest";
-import { QA_SET, GLOBAL_FORBIDDEN } from "@/lib/knowledge/qa-set";
+import { QA_SET, GLOBAL_FORBIDDEN, canonical } from "@/lib/knowledge/qa-set";
 import { fullKnowledgeTextForRole as knowledgeTextForRole } from "@/lib/knowledge/assemble";
 import type { KnowledgeRole } from "@/lib/knowledge/types";
 
@@ -23,7 +23,7 @@ describe("TC-KNOWLEDGE-QA: 質問集", () => {
   for (const c of QA_SET) {
     it(`${c.id}（${c.role}）${c.q}`, () => {
       const text = knowledgeTextForRole(c.role);
-      for (const e of c.expect) expect(`入っているべき「${e}」:${text.includes(e)}`).toBe(`入っているべき「${e}」:true`);
+      for (const e of c.expect.map(canonical)) expect(`入っているべき「${e}」:${text.includes(e)}`).toBe(`入っているべき「${e}」:true`);
       for (const f of c.forbid ?? []) expect(`入っていてはいけない「${f}」:${text.includes(f)}`).toBe(`入っていてはいけない「${f}」:false`);
     });
   }

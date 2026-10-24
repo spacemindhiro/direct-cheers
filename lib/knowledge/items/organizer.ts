@@ -253,7 +253,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
       {
         type: "warn",
         tone: "red",
-        title: "提出・精算の期限はイベント開始から{{AUTH_EXPIRE_DAYS}}日以内です",
+        title: "提出・精算の期限（売上のオーソリの期限）はイベント開始から{{AUTH_EXPIRE_DAYS}}日以内です",
         text: "開始から{{AUTH_EXPIRE_WARN_DAY}}日目（期限の{{AUTH_EXPIRE_WARN_DAYS_BEFORE}}日前）になっても未提出の場合は、オーガナイザーと担当エージェントに、もう一度メールとお知らせが届きます。 {{AUTH_EXPIRE_DAYS}}日を過ぎても精算が完了していない場合、システムが自動的にそのイベントの決済をすべて取り消し（カード決済はオーソリ取消、決済済みのものは返金）、イベント自体も「中止」扱いになります。 返金にかかった決済手数料はオーガナイザー負担として計上されるため、証跡提出と精算は早めに進めてください。",
       },
     ],

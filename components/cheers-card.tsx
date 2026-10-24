@@ -78,7 +78,7 @@ export function CheersCard({
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-900/80" />
               {/* 画像内のテキストより常に最新名を優先表示（ウォレットの logoText 相当） */}
               <div className="absolute bottom-3 left-4 right-12">
-                <p className="text-base font-black text-white italic uppercase tracking-tight leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)] truncate">
+                <p className="text-base font-black text-white italic tracking-tight leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)] truncate">
                   {artistName}
                 </p>
               </div>
@@ -122,7 +122,7 @@ export function CheersCard({
                 </div>
               )}
               <div className="min-w-0">
-                <p className="text-lg font-black text-white italic uppercase tracking-tighter leading-none truncate">{artistName}</p>
+                <p className="text-lg font-black text-white italic tracking-tighter leading-none truncate">{artistName}</p>
                 <p className="text-xs text-slate-400 font-medium truncate mt-0.5">{eventTitle}</p>
               </div>
             </div>
@@ -205,7 +205,7 @@ export function CheersCard({
                   </div>
                 )}
                 <div>
-                  <p className="text-sm font-black text-white italic uppercase tracking-tight">{artistName}</p>
+                  <p className="text-sm font-black text-white italic tracking-tight">{artistName}</p>
                   <p className="text-[10px] text-pink-300/70">からあなたへ</p>
                 </div>
               </div>

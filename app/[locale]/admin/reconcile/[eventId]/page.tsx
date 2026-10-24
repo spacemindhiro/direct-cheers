@@ -79,7 +79,7 @@ async function ReconcileEventContent({ params }: { params: Promise<{ eventId: st
           { label: "Reconcile", href: "/admin/reconcile" },
           { label: event.title },
         ]} />
-        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter truncate">{event.title}</h1>
+        <h1 className="text-2xl font-black text-white italic tracking-tighter truncate">{event.title}</h1>
         <p className="text-xs text-slate-500">
           終了: {fmtDate(event.end_at)}
           　{event.lifecycle_status === "settled" ? "精算済み" : event.lifecycle_status === "ended" ? "終了" : event.lifecycle_status}

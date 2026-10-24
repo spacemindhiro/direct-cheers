@@ -77,11 +77,11 @@ export default function ArtistCheersPage() {
             <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em] flex items-center gap-1.5 ml-1">
               <User size={12} /> Artist Profile
             </p>
-            <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase leading-none drop-shadow-2xl">{artist.name}</h2>
+            <h2 className="text-5xl font-black text-white italic tracking-tighter leading-none drop-shadow-2xl">{artist.name}</h2>
           </div>
           <div className="space-y-1 border-l-2 border-pink-500/30 pl-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-1.5"><Music size={12} /> Playing At</p>
-            <p className="text-slate-200 text-sm font-bold tracking-tight uppercase">{artist.event}</p>
+            <p className="text-slate-200 text-sm font-bold tracking-tight">{artist.event}</p>
           </div>
         </div>
       </div>

@@ -108,7 +108,7 @@ async function InsightsContent() {
               </div>
             )}
             <div>
-              <p className="text-2xl font-black text-white italic uppercase tracking-tighter">{top1.display_name}</p>
+              <p className="text-2xl font-black text-white italic tracking-tighter">{top1.display_name}</p>
               <p className="text-sm text-slate-400">{top1.role === "artist" ? "アーティスト" : "オーガナイザー"}</p>
             </div>
             <div className="ml-auto text-right">

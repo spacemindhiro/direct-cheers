@@ -106,7 +106,7 @@ async function DetailContent({ params }: { params: Promise<{ profileId: string }
           { label: "口座審査", href: "/admin/connect-review" },
           { label: profile.display_name ?? "—" },
         ]} />
-        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">
+        <h1 className="text-2xl font-black text-white italic tracking-tighter">
           {profile.display_name ?? "—"}
         </h1>
         <p className="text-slate-500 text-sm">{ROLE_LABELS[profile.role] ?? profile.role}</p>

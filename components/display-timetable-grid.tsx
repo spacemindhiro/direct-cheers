@@ -80,7 +80,7 @@ export function DisplayTimetableGrid({
           return (
             <div key={col.track_id ?? "common"} className="shrink-0 border-l border-slate-800 px-1.5" style={{ width: COLUMN_WIDTH }}>
               <div className="h-8 flex items-center justify-center">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{col.name}</p>
+                <p className="text-[10px] font-black text-slate-400 tracking-widest truncate">{col.name}</p>
               </div>
               <div className="relative" style={{ height: gridHeight }}>
                 {hourMarks.map((t, i) => (

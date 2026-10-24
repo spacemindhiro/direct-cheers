@@ -197,7 +197,7 @@ async function QRDetailContent({
     <div className="space-y-8">
       <div className="space-y-1">
 <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">QR Code</p>
-        <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
+        <h1 className="text-3xl font-black text-white italic tracking-tighter">
           {qr.label ?? "QRコード"}
         </h1>
         <p className="text-slate-500 text-sm">{event.title}</p>

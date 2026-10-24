@@ -86,7 +86,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   const {
     isAdmin, isEventOrganizer, isEventAgent, isLineupArtist, isSelfOrganized, hasEnded,
     canRequestReview, canProxyNotify, canApprove, canCreateQR, canSubmitEvidence,
-    canRequestCancel, canApproveCancellation, isHandoffCandidate, canRequestHandoff,
+    canRequestCancel, canApproveCancellation, isHandoffCandidate, canRequestHandoff, canEdit,
   } = eventActions({ userId: user.id, role: profile?.role, event, isLineupArtist: isLineupArtistHere, pendingHandoff });
 
   const { data: allQrConfigs } = await adminClient
@@ -172,7 +172,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Event</p>
             <h1 className="text-3xl font-black text-white italic tracking-tighter">{event.title}</h1>
           </div>
-          {(isEventOrganizer || isEventAgent) && event.lifecycle_status !== "settled" && (
+          {canEdit && (
             <Link
               href={`/dashboard/events/${eventId}/edit`}
               className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-black text-slate-300 transition-all shrink-0 mt-1"

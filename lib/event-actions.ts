@@ -1,6 +1,6 @@
 // イベント詳細画面で「この人が今できる操作」の判定。画面（app/[locale]/dashboard/events/[eventId]/page.tsx）と
 // チアリー(AI) の event_detail で共用する。ボタンを出すかどうかの判定で、実際の権限は各 API が改めて確かめる。
-import { isEventClosed, RUNNING_LIFECYCLES } from "@/lib/purchase-window";
+import { isEventClosed, isEventEditable, RUNNING_LIFECYCLES } from "@/lib/purchase-window";
 
 export type EventActionInput = {
   userId: string;
@@ -36,14 +36,15 @@ export function eventActions(i: EventActionInput) {
     // 担当エージェント（またはadmin）が主催者名義の下書きを主催者に送る（代理作成の確認依頼）
     canProxyNotify: (isEventAgent || isAdmin) && status === "draft" && !isSelfOrganized && event.organizer_profile_id !== userId,
     canApprove: (isEventAgent || isAdmin) && status === "review_requested" && (!isSelfOrganized || isAdmin),
-    canCreateQR: (isEventOrganizer || isEventAgent) && ["draft", "review_requested", "published", "ongoing"].includes(status),
+    // 終わった（締め時刻後）・中止申請中・中止のイベントには QR を作らない・編集しない（API と同じ）
+    canCreateQR: (isEventOrganizer || isEventAgent) && isEventEditable(status, event.end_at, i.now),
     canSubmitEvidence: (isEventOrganizer || isEventAgent) && hasEnded,
     canRequestCancel: isEventOrganizer && CANCELLABLE_STATUSES.includes(status),
     canApproveCancellation: (isEventAgent || isAdmin) && status === "cancellation_requested",
     isHandoffCandidate: i.pendingHandoff?.to_agent_id === userId,
     // 自主開催（エージェント自身が主催者）のイベントは承認がadminルートのため代打の対象外
     canRequestHandoff: isEventAgent && !isAdmin && !isSelfOrganized && !i.pendingHandoff && HANDOFF_ELIGIBLE_STATUSES.includes(status),
-    canEdit: (isEventOrganizer || isEventAgent) && status !== "settled",
+    canEdit: (isEventOrganizer || isEventAgent) && isEventEditable(status, event.end_at, i.now),
   };
 }
 

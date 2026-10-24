@@ -36,6 +36,18 @@ export function isEventClosed(eventEndAt: string | Date | null | undefined, now:
   return now > eventCloseAt(eventEndAt);
 }
 
+/**
+ * イベント本体・QR の中身を主催者側が変えられるか（イベント編集・QR 作成・QR 編集で共用）。
+ * 下書き・承認待ちはまだ売っていないので、日付が過ぎていても直せる。公開済み・開催中は締め時刻まで。
+ * 終わったイベントは状態が published のまま残るため、状態だけでなく締め時刻で見る（2026-10-24）。
+ * 中止申請中・中止・終了・精算済みは変えない
+ */
+export function isEventEditable(lifecycleStatus: string | null | undefined, eventEndAt: string | Date | null | undefined, now: Date = new Date()): boolean {
+  if (lifecycleStatus === "draft" || lifecycleStatus === "review_requested") return true;
+  if (lifecycleStatus === "published" || lifecycleStatus === "ongoing") return !isEventClosed(eventEndAt, now);
+  return false;
+}
+
 /** 証跡の提出・自動照合の対象になるイベント状態（公開後〜精算前）。下書き・承認待ち・中止・精算済みは対象外 */
 export const RUNNING_LIFECYCLES = ["published", "ongoing", "ended"] as const;
 

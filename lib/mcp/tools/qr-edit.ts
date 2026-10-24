@@ -16,6 +16,7 @@ import { updateQr } from "@/lib/qr/update-qr";
 import { LABEL_GUIDE, labelFromUser, labelSuggestions } from "@/lib/qr/label";
 import { RECIPIENT_GUIDE } from "@/lib/qr/guide";
 import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
+import { isEventEditable } from "@/lib/purchase-window";
 import { pickOperableEvent } from "../event-pick";
 import type { DcMcpContext } from "../context";
 import { stripHonorific } from "./event-draft";
@@ -23,7 +24,6 @@ import { findQrPerson } from "./qr-create";
 
 export type QrEditToolOutput = { text: string; cards?: QrEditCard[] };
 
-const EDITABLE_LIFECYCLES = ["draft", "review_requested", "published", "ongoing"];
 const ORGANIZER_WORDS = ["主催者", "オーガナイザー"];
 const TYPE_LABEL: Record<string, string> = { standard: "スタンダード", message: "メッセージ", entrance: "エントランス", custom: "カスタム" };
 const yen = (n: number) => `¥${n.toLocaleString()}`;
@@ -78,7 +78,7 @@ export async function prepareQrEdit(ctx: DcMcpContext, input: PrepareInput): Pro
   if ("message" in picked) return { text: picked.message };
   const ev = await qrCandidateEvent(ctx.admin, picked.event.event_id);
   if (!ev) return { text: "イベントが見つかりません。" };
-  if (!EDITABLE_LIFECYCLES.includes(ev.lifecycle_status)) return { text: `「${ev.title}」は終わった（または中止の）イベントなので、チャットでは QR を変えません。` };
+  if (!isEventEditable(ev.lifecycle_status, ev.end_at)) return { text: `「${ev.title}」は終わった（または中止の）イベントなので、チャットでは QR を変えません。` };
 
   // QR を今のラベルで探す（完全に同じラベルが1つなら決まり。それ以外は聞き返す）
   const qrs = await eventQrs(ctx, ev.event_id);
@@ -239,9 +239,9 @@ function editErrorText(error: string): string {
 export async function editQrTool(ctx: DcMcpContext, input: EditQrToolInput): Promise<QrEditWriteResult> {
   const { data: qr } = await ctx.admin.from("qr_configs").select("qr_config_id, event_id, label, recipient_profile_id, recipient_name_context").eq("qr_config_id", input.qr_config_id).is("deleted_at", null).maybeSingle();
   if (!qr) return { ok: false, error: "この QR は変えられません" };
-  const { data: ev } = await ctx.admin.from("events").select("lifecycle_status, agent_id").eq("event_id", qr.event_id).maybeSingle();
+  const { data: ev } = await ctx.admin.from("events").select("lifecycle_status, agent_id, end_at").eq("event_id", qr.event_id).maybeSingle();
   // 編集画面・API より狭くする所：終わったイベント・代理の下書き（未送信）の名義の主催者・決済のあとの宛先・配分先にいない宛先
-  if (!ev || !EDITABLE_LIFECYCLES.includes(ev.lifecycle_status)) return { ok: false, error: "終わった（または中止の）イベントの QR は、チャットでは変えません" };
+  if (!ev || !isEventEditable(ev.lifecycle_status, ev.end_at)) return { ok: false, error: "終わった（または中止の）イベントの QR は、チャットでは変えません" };
   if (ctx.role !== "admin" && ev.agent_id !== ctx.userId && await isProxyDraftHiddenFrom(ctx.admin as never, qr.event_id, ctx.userId)) {
     return { ok: false, error: "この QR は変えられません" };
   }

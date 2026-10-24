@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isEventEditable } from "@/lib/purchase-window";
 import { getEventAccess } from "@/lib/event-access";
 import { QRDisplay } from "@/components/qr-display";
 import { WalletCheerPreview } from "@/components/wallet-cheer-preview";
@@ -65,8 +66,8 @@ async function QRDetailContent({
   );
   const isRecipient = qr.recipient_profile_id === user.id;
   const canEdit = isAdmin || isOrganizer || isAgent;
-  // 終わった（終了・精算済み）・中止のイベントの QR は変えない（API と同じ）
-  const editableLifecycle = ["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status);
+  // 終わった（締め時刻後・終了・精算済み）・中止のイベントの QR は変えない（API と同じ）
+  const editableLifecycle = isEventEditable(event.lifecycle_status, event.end_at);
   // 関係者（lib/event-access.ts）と、このQRの宛先以外には存在しない扱い
   const access = await getEventAccess(createAdminClient(), eventId, user.id, profile?.role);
   if (!access?.canView && !isRecipient) notFound();

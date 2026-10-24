@@ -90,7 +90,7 @@ describe("TC-EVENTS-DETAIL-A: events/[eventId] PATCH — イベント更新", ()
     expect(ev?.venue).toBe("新会場");
   });
 
-  it("TC-EVENTS-DETAIL-A-02: settled イベント更新 → 400 精算済み", async () => {
+  it("TC-EVENTS-DETAIL-A-02: settled イベント更新 → 400（終わったイベントは編集できない）", async () => {
     const eventId = await insertEvent({ organizerProfileId, agentId: agentProfileId, title: "settled event" });
     cleanup.eventIds.push(eventId);
     await testAdmin.from("events").update({ lifecycle_status: "settled" }).eq("event_id", eventId);
@@ -104,7 +104,7 @@ describe("TC-EVENTS-DETAIL-A: events/[eventId] PATCH — イベント更新", ()
     const res = await eventPATCH(req, { params: Promise.resolve({ eventId }) });
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toMatch(/精算済み/);
+    expect(data.error).toBe("終わった（または中止の）イベントは編集できません");
   });
 
   it("TC-EVENTS-DETAIL-A-03: 別オーガナイザー → 403", async () => {

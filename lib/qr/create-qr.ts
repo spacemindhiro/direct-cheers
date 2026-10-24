@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
 import { isValidQrImageUrl } from "@/lib/image-source";
 import { getFeeConfig } from "@/lib/fee-config";
+import { isEventEditable } from "@/lib/purchase-window";
 import { needsQrImage, organizerBalance, qrPeople, recipientError, salesPeriodError, targetsError, typeBReserveRequired } from "@/lib/qr/rules";
 
 // フォールバック（product_type_configs が取得できなかった場合）
@@ -102,14 +103,15 @@ export async function createQr(supabase: SupabaseClient, userId: string, body: R
   // イベントが published かつ自分が organizer or agent であることを確認
   const { data: event } = await supabase
     .from("events")
-    .select("event_id, lifecycle_status, organizer_profile_id, agent_id")
+    .select("event_id, lifecycle_status, organizer_profile_id, agent_id, end_at")
     .eq("event_id", event_id)
     .single();
 
   if (!event) {
     return fail("Event not found", 404);
   }
-  if (!["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status)) {
+  // 終わった（締め時刻後）・中止のイベントには作らない（lib/purchase-window.ts）
+  if (!isEventEditable(event.lifecycle_status, event.end_at)) {
     return fail("このイベントではQRを作成できません", 400);
   }
   const { data: me } = await supabase.from("profiles").select("role").eq("profile_id", user.id).single();

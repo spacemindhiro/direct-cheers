@@ -20,6 +20,7 @@ export type QrCandidateEvent = {
   title: string;
   lifecycle_status: string;
   start_at: string | null;
+  end_at: string | null;
   venue: string | null;
   base_flyer_url: string | null;
   organizer_profile_id: string;
@@ -31,7 +32,7 @@ export async function qrCandidateEvent(admin: SupabaseClient, eventId: string): 
   const { data: event } = await admin
     .from("events")
     .select(`
-      event_id, title, lifecycle_status, start_at, venue, base_flyer_url,
+      event_id, title, lifecycle_status, start_at, end_at, venue, base_flyer_url,
       organizer_profile_id,
       organizer:profiles!organizer_profile_id(display_name, organizer_name, organizer_avatar_url, avatar_url, organizer_avatar_original_url, avatar_original_url),
       event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name, artist_name, artist_avatar_url, avatar_url, artist_avatar_original_url, avatar_original_url))
@@ -69,6 +70,7 @@ export async function qrCandidateEvent(admin: SupabaseClient, eventId: string): 
     title: event.title,
     lifecycle_status: event.lifecycle_status,
     start_at: event.start_at ?? null,
+    end_at: event.end_at ?? null,
     venue: event.venue ?? null,
     base_flyer_url: event.base_flyer_url ?? null,
     organizer_profile_id: event.organizer_profile_id,

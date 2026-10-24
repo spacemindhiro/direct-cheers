@@ -6,6 +6,8 @@ import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 import { isValidFlyerUrl } from "@/lib/image-source";
 import { sendLineupInvites } from "@/lib/lineup-invite";
 import { findIneligiblePerformers } from "@/lib/directory";
+import { isEventEditable } from "@/lib/purchase-window";
+import { eventHasBuyers } from "@/lib/event-buyers";
 
 export async function PATCH(
   req: Request,
@@ -27,7 +29,7 @@ export async function PATCH(
 
   const { data: event } = await supabase
     .from("events")
-    .select("event_id, title, lifecycle_status, organizer_profile_id, agent_id, venue, start_at, end_at")
+    .select("event_id, title, lifecycle_status, organizer_profile_id, agent_id, venue, venue_id, start_at, end_at")
     .eq("event_id", eventId)
     .single();
 
@@ -45,8 +47,10 @@ export async function PATCH(
   if (!isAgent && await isProxyDraftHiddenFrom(createAdminClient(), eventId, user.id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (event.lifecycle_status === "settled") {
-    return NextResponse.json({ error: "精算済みのイベントは編集できません" }, { status: 400 });
+  // 終わった（締め時刻後・終了・精算済み）・中止申請中・中止のイベントは変えない。
+  // 以前は精算済みだけを止めていて、締め時刻後や中止申請中に日程を変えると下書きに戻り、精算の流れ・中止申請から外れた
+  if (!isEventEditable(event.lifecycle_status, event.end_at)) {
+    return NextResponse.json({ error: "終わった（または中止の）イベントは編集できません" }, { status: 400 });
   }
 
   const body = await req.json();
@@ -90,6 +94,16 @@ export async function PATCH(
     (venue !== undefined && venue !== event.venue) ||
     (start_at !== undefined && normDt(start_at) !== normDt(event.start_at)) ||
     (end_at !== undefined && normDt(end_at) !== normDt(event.end_at));
+
+  // お客様がいる（決済・チケット・カード登録済みの前売予約がある）イベントは日程・会場を変えない。
+  // 買った日・場所と違うイベントになり、身に覚えのない請求の異議につながるため。延期は中止して作り直す
+  const venueIdChanged = venue_id !== undefined && (venue_id || null) !== (event.venue_id ?? null);
+  if ((scheduleOrVenueChanged || venueIdChanged) && await eventHasBuyers(createAdminClient(), eventId)) {
+    return NextResponse.json(
+      { error: "このイベントにはすでにお客様の決済・チケットがあるため、日程・会場は変更できません。延期する場合はイベントを中止して作り直してください。" },
+      { status: 409 },
+    );
+  }
 
   const updates: Record<string, unknown> = {};
   if (title !== undefined) updates.title = title;

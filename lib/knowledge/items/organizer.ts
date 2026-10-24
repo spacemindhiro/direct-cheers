@@ -60,7 +60,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     goto: { href: "/dashboard/events/create", label: "イベント作成を開く" },
     title: "イベントを作成する",
     help: { tab: "organizer", group: "prep", icon: "CalendarPlus", subtitle: "Events", video: "o-03" },
-    sources: ["components/event-create-form.tsx", "app/[locale]/dashboard/events/create/page.tsx", "app/api/events/create/route.ts"],
+    sources: ["components/event-create-form.tsx", "app/[locale]/dashboard/events/create/page.tsx", "app/api/events/create/route.ts", "components/event-edit-form.tsx", "app/api/events/[eventId]/route.ts", "lib/purchase-window.ts", "lib/event-buyers.ts"],
     body: [
       { type: "p", text: "「新規イベント作成」からタイトル・会場・開始/終了日時・出演アーティストを入力して作成します（作成直後は「下書き」状態です）。" },
       {
@@ -68,6 +68,9 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
         items: [
           "出演アーティストは、コネクション済みのアーティストから選ぶか、「+ 新規アーティストに依頼」で検索して依頼メッセージを添えて招待できます（詳しくは[[organizer.lineup-invite]]参照）",
           "「下書き」の間は、作成者本人がイベントを削除できます",
+          "作成後もイベント詳細の「編集」から変更できます。公開済みのイベントで日程・会場を変えると、承認待ちに戻り、承認されるまで決済を受け付けません",
+          "お客様の決済・チケット（カード登録まで済んだ前売りの予約を含む）があるイベントは、日程・会場を変更できません（タイトルは変更できます）。延期する場合は、イベントを中止して作り直します",
+          "締め時刻（終了時刻の{{POST_EVENT_GRACE_HOURS}}時間後）を過ぎたイベントと、中止申請中・中止・精算済みのイベントは、イベントもQRも変更できません。下書き・承認待ちのイベントは、日付が過ぎていても変更できます",
         ],
       },
     ],

@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { claimCard, finishCard, releaseCard } from "@/lib/cheery/card-claim";
 import { slotDecided, type QrCreateCard, type QrPersonOption, type QrPersonSlot } from "@/lib/cheery/cards";
 import { qrCandidateEvent, type QrCandidate } from "@/lib/qr/candidates";
+import { isEventEditable } from "@/lib/purchase-window";
 import { createQr } from "@/lib/qr/create-qr";
 import { needsQrImage, organizerBalance, salesPeriodError, typeBReserveRequired } from "@/lib/qr/rules";
 import { LABEL_GUIDE, labelFromUser, labelSuggestions } from "@/lib/qr/label";
@@ -23,7 +24,6 @@ import { jstLocalToIso, stripHonorific } from "./event-draft";
 
 export type QrToolOutput = { text: string; cards?: QrCreateCard[] };
 
-const QR_LIFECYCLES = ["draft", "review_requested", "published", "ongoing"];
 const TYPE_LABEL = { standard: "スタンダード", message: "メッセージ", entrance: "エントランス" } as const;
 const PAYMENT_LABEL = { A: "前売事後確定タイプ（5日前確定）", B: "前売即時確定タイプ（即時確定）", C: "当日決済タイプ" } as const;
 // 主催者を名前でなく立場で言われたとき
@@ -90,7 +90,7 @@ export async function prepareQr(ctx: DcMcpContext, input: PrepareInput): Promise
   if ("message" in picked) return { text: picked.message };
   const ev = await qrCandidateEvent(ctx.admin, picked.event.event_id);
   if (!ev) return { text: "イベントが見つかりません。" };
-  if (!QR_LIFECYCLES.includes(ev.lifecycle_status)) return { text: `「${ev.title}」はもう QR を作れない状態です（中止・終了・精算済み）。` };
+  if (!isEventEditable(ev.lifecycle_status, ev.end_at)) return { text: `「${ev.title}」はもう QR を作れない状態です（中止・終了・精算済み）。` };
 
   // 金額（商品タイプの範囲は作成 API と同じ product_type_configs）
   const { data: cfg } = await ctx.supabase.from("product_type_configs").select("type, min_amount, max_amount, is_enabled").eq("type", input.product_type).maybeSingle();

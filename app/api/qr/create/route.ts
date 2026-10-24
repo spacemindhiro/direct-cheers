@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isEventEditable } from "@/lib/purchase-window";
 import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
 import { isValidQrImageUrl } from "@/lib/image-source";
 import { getFeeConfig } from "@/lib/fee-config";
@@ -103,14 +104,15 @@ export async function POST(req: Request) {
   // イベントが published かつ自分が organizer or agent であることを確認
   const { data: event } = await supabase
     .from("events")
-    .select("event_id, lifecycle_status, organizer_profile_id, agent_id")
+    .select("event_id, lifecycle_status, organizer_profile_id, agent_id, end_at")
     .eq("event_id", event_id)
     .single();
 
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
-  if (!["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status)) {
+  // 終わった（締め時刻後）・中止のイベントには作らない（lib/purchase-window.ts）
+  if (!isEventEditable(event.lifecycle_status, event.end_at)) {
     return NextResponse.json({ error: "このイベントではQRを作成できません" }, { status: 400 });
   }
   const { data: me } = await supabase.from("profiles").select("role").eq("profile_id", user.id).single();

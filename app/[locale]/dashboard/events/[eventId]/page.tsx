@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getEventAccess } from "@/lib/event-access";
-import { isEventClosed, RUNNING_LIFECYCLES } from "@/lib/purchase-window";
+import { isEventClosed, isEventEditable, RUNNING_LIFECYCLES } from "@/lib/purchase-window";
 import { Loader2, MapPin, Calendar, QrCode, FileImage, BarChart2, Pencil, CheckCircle2, ScanLine } from "lucide-react";
 import Link from "next/link";
 import { EventApproveButton } from "@/components/event-approve-button";
@@ -129,8 +129,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
   );
   const canApprove = (isEventAgent || isAdmin) && event.lifecycle_status === "review_requested" &&
     (!isSelfOrganized || isAdmin);
-  const canCreateQR = (isEventOrganizer || isEventAgent) &&
-    ["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status);
+  const canCreateQR = (isEventOrganizer || isEventAgent) && isEventEditable(event.lifecycle_status, event.end_at);
   // 証跡は締め時刻（終了3時間後＝当日決済の受付終了）を過ぎてから。決済を受け付けている最中に
   // 承認まで進まないようにする（lib/purchase-window.ts）。終了ボタンは2026-10-22に廃止
   const hasEnded = isEventClosed(event.end_at) &&
@@ -211,7 +210,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
             <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Event</p>
             <h1 className="text-3xl font-black text-white italic tracking-tighter">{event.title}</h1>
           </div>
-          {(isEventOrganizer || isEventAgent) && event.lifecycle_status !== "settled" && (
+          {(isEventOrganizer || isEventAgent) && isEventEditable(event.lifecycle_status, event.end_at) && (
             <Link
               href={`/dashboard/events/${eventId}/edit`}
               className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-black text-slate-300 transition-all shrink-0 mt-1"

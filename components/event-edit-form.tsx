@@ -25,6 +25,8 @@ type EventEditFormProps = {
   currentArtists: Artist[];
   connectedArtists: Artist[];
   lifecycleStatus: string;
+  /** お客様（決済・チケット・前売予約）がいるので日程・会場を変えない */
+  lockSchedule?: boolean;
 };
 
 export function EventEditForm({
@@ -34,6 +36,7 @@ export function EventEditForm({
   currentArtists,
   connectedArtists,
   lifecycleStatus,
+  lockSchedule = false,
 }: EventEditFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -72,7 +75,7 @@ export function EventEditForm({
     const start_at = fd.get("start_at") as string;
     const end_at = fd.get("end_at") as string;
 
-    if (!end_at || !start_at || end_at <= start_at) {
+    if (!lockSchedule && (!end_at || !start_at || end_at <= start_at)) {
       setError("終了日時は開始日時より後にしてください");
       return;
     }
@@ -83,10 +86,13 @@ export function EventEditForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          venue,
-          venue_id,
-          start_at: jstLocalToUtcIso(start_at),
-          end_at: jstLocalToUtcIso(end_at),
+          // お客様がいるときは日程・会場を送らない（API も止める）
+          ...(lockSchedule ? {} : {
+            venue,
+            venue_id,
+            start_at: jstLocalToUtcIso(start_at),
+            end_at: jstLocalToUtcIso(end_at),
+          }),
           artists: selectedArtists.map((a) => ({
             profile_id: a.profile_id,
             invite_message: artistMessages[a.profile_id] || null,
@@ -111,7 +117,15 @@ export function EventEditForm({
     <form onSubmit={handleSubmit}>
       <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 space-y-6">
 
-        {lifecycleStatus !== "draft" && (
+        {lockSchedule && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
+            <p className="text-xs text-amber-400 font-bold">
+              すでにお客様の決済・チケットがあるため、日程・会場は変更できません。延期する場合はイベントを中止して作り直してください。
+            </p>
+          </div>
+        )}
+
+        {lifecycleStatus !== "draft" && !lockSchedule && (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
             <p className="text-xs text-amber-400 font-bold">
               日程・場所を変更すると承認待ちに戻り、エージェントの再承認が必要になります。
@@ -131,7 +145,16 @@ export function EventEditForm({
           />
         </div>
 
-        <VenueSelect initialName={defaultValues.venue} initialSelected={initialVenue} />
+        {lockSchedule ? (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">会場</label>
+            <p className="h-14 flex items-center bg-slate-950/30 border border-slate-800 rounded-2xl px-5 text-sm text-slate-400">
+              {initialVenue?.name ?? defaultValues.venue}
+            </p>
+          </div>
+        ) : (
+          <VenueSelect initialName={defaultValues.venue} initialSelected={initialVenue} />
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -142,6 +165,7 @@ export function EventEditForm({
               name="start_at"
               type="datetime-local"
               required
+              disabled={lockSchedule}
               value={startAt}
               onChange={(e) => {
                 const v = e.target.value;
@@ -151,7 +175,7 @@ export function EventEditForm({
                   setEndAt(addHoursToLocalDT(v, 3));
                 }
               }}
-              className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none"
+              className="block w-full min-h-[3.5rem] bg-slate-950/50 border border-slate-700 rounded-2xl px-5 py-3 text-sm text-white focus:border-pink-500 outline-none disabled:opacity-50"
             />
           </div>
           <div className="space-y-2">
@@ -162,10 +186,11 @@ export function EventEditForm({
               name="end_at"
               type="datetime-local"
               required
+              disabled={lockSchedule}
               value={endAt}
               onChange={(e) => setEndAt(e.target.value)}
               min={startAt || undefined}
-              className={`block w-full min-h-[3.5rem] bg-slate-950/50 border rounded-2xl px-5 py-3 text-sm text-white focus:outline-none ${
+              className={`block w-full min-h-[3.5rem] bg-slate-950/50 border rounded-2xl px-5 py-3 text-sm text-white focus:outline-none disabled:opacity-50 ${
                 endBeforeStart ? "border-red-500 focus:border-red-500" : "border-slate-700 focus:border-pink-500"
               }`}
             />

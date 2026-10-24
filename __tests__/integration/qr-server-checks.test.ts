@@ -4,7 +4,8 @@
  *   A 宛先・配分先：イベントの主催者と出演者（断った人・外された人を除く）だけ／宛先は配分先に入っていること
  *   B 前売り（エントランス×A/B）の販売期間・前売即時確定（B）の販売上限数（必須・2026-10-24）と残高
  *   C ラベル・QR画像
- *   D 編集：新しく入れる人だけ確かめ、すでに入っている人（あとで断った人）はそのまま通す
+ *   D 編集：新しく入れる人だけ確かめ、すでに入っている人（あとで断った人）はそのまま通す／
+ *     前売即時確定（B）は上限数を外せない・在庫か上限金額を増やすときは残高を確かめる（2026-10-24）
  * 弾いたときは products・qr_configs・qr_config_targets の行が増えない・変わらないことまで見る
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -15,6 +16,7 @@ import {
 import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 import { storagePublicPrefix } from "@/lib/image-source";
 import { getFeeConfig } from "@/lib/fee-config";
+import { organizerBalance } from "@/lib/qr/rules";
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn(), getUser: vi.fn() }));
 vi.mock("next/headers", () => ({
@@ -267,9 +269,44 @@ describe("TC-QR-SRV-D: 編集", () => {
       expect([res.status, (await res.json()).error]).toEqual([400, "前売即時確定タイプは販売上限数を入力してください"]);
     }
     expect(await product()).toEqual({ stock_limit: 10, track_inventory: true });
-    expect((await patch(qr, { product_name: "前売B", min_amount: 3000, max_amount: 3000, stock_limit: 20, track_inventory: true })).status).toBe(200);
+    // 減らすのは残高を見ない
+    expect((await patch(qr, { product_name: "前売B", min_amount: 3000, max_amount: 3000, stock_limit: 5, track_inventory: true })).status).toBe(200);
     expect((await patch(qr, { label: "前売入場券" })).status).toBe(200);
-    expect(await product()).toEqual({ stock_limit: 20, track_inventory: true });
+    expect(await product()).toEqual({ stock_limit: 5, track_inventory: true });
+  });
+
+  it("D-05: B の QR は、在庫か上限金額を増やして必要な残高が上がるとき、残高が足りなければ 400・変わらない。足りれば通る・減らすのは見ない", async () => {
+    mockAs(org, "organizer");
+    const rate = (await getFeeConfig()).stripe_rate;
+    const need = (stock: number, max: number) => Math.ceil(max * stock * rate);
+    const productId = await insertProduct({ eventId, name: "前売B2", type: "entrance", paymentType: "B", minAmount: 3000, maxAmount: 3000, stockLimit: 5, trackInventory: true });
+    const qr = await insertQrConfig({ eventId, creatorProfileId: org, recipientProfileId: org, productId, recipientNameContext: "organizer" });
+    await insertQrConfigTargets(qr, [{ profileId: org, ratio: 1 }]);
+    const product = async () => (await testAdmin.from("products").select("stock_limit, max_amount").eq("product_id", productId).single()).data;
+    // 今の残高ではまかなえない増やし方（在庫・金額）を選ぶ
+    const balance = await organizerBalance(testAdmin, org);
+    const bigStock = Math.floor(balance / (3000 * rate)) + 1000;
+    let res = await patch(qr, { product_name: "前売B2", min_amount: 3000, max_amount: 3000, stock_limit: bigStock });
+    expect([res.status, (await res.json()).error]).toEqual([400,
+      `前売即時確定タイプを利用するには残高が ¥${need(bigStock, 3000).toLocaleString()} 以上必要です（現在: ¥${balance.toLocaleString()}）`]);
+    const bigPrice = 30000;
+    if (need(5, bigPrice) > balance) {
+      res = await patch(qr, { product_name: "前売B2", min_amount: bigPrice, max_amount: bigPrice });
+      expect([res.status, (await res.json()).error]).toEqual([400,
+        `前売即時確定タイプを利用するには残高が ¥${need(5, bigPrice).toLocaleString()} 以上必要です（現在: ¥${balance.toLocaleString()}）`]);
+    }
+    expect(await product()).toEqual({ stock_limit: 5, max_amount: 3000 });
+    // 残高を足すと通る（ちょうど足りる）
+    const target = 50;
+    const add = Math.max(0, need(target, 3000) - balance);
+    if (add > 0) {
+      const p2 = await insertProduct({ eventId: otherEventId, name: "残高用2", type: "standard", minAmount: 500, maxAmount: 500 });
+      const q2 = await insertQrConfig({ eventId: otherEventId, creatorProfileId: otherOrg, recipientProfileId: otherOrg, productId: p2 });
+      const tx = await insertTransaction({ qrConfigId: q2, grossAmount: add, netAmount: add, stripeFee: 0, platformFee: 0, stripePaymentIntentId: `pi_qrsrv_d05_${Date.now()}` });
+      await insertDistribution({ transactionId: tx, eventId: otherEventId, profileId: org, role: "organizer", actualAmount: add });
+    }
+    expect((await patch(qr, { product_name: "前売B2", min_amount: 3000, max_amount: 3000, stock_limit: target })).status).toBe(200);
+    expect(await product()).toEqual({ stock_limit: target, max_amount: 3000 });
   });
 
   it("D-03: 宛先・配分先をイベントの人に替えるのは通る。名義だけを取り違えた形に替えるのは 400", async () => {

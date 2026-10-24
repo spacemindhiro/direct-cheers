@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 import { isValidQrImageUrl } from "@/lib/image-source";
-import { qrPeople, recipientError, targetsError } from "@/lib/qr/rules";
+import { getFeeConfig } from "@/lib/fee-config";
+import { organizerBalance, qrPeople, recipientError, targetsError, typeBReserveRequired } from "@/lib/qr/rules";
 
 async function getQRWithPermission(qrConfigId: string, userId: string) {
   const supabase = await createClient();
@@ -207,6 +208,23 @@ export async function PATCH(
           { error: `在庫上限は販売済み数（${product.sold_count}件）以上にしてください` },
           { status: 400 },
         );
+      }
+    }
+    // 前売即時確定（エントランス×B）で、在庫か上限金額を増やして必要な残高（上限金額×在庫×手数料率）が上がるときは、
+    // 作成時と同じく主催者の残高を確かめる（作成後に在庫を増やすと、作成時の確かめを通らずに済んでいた）
+    if (product.type === "entrance" && product.payment_type === "B" && organizerId) {
+      const stripeRate = (await getFeeConfig()).stripe_rate;
+      const reserve = (stockLimit: number | null, maxAmount: number) =>
+        typeBReserveRequired({ productType: "entrance", paymentType: "B", stockLimit, maxAmount, stripeRate });
+      const required = reserve(stock_limit !== undefined ? stock_limit : product.stock_limit, effMax);
+      if (required > reserve(product.stock_limit, product.max_amount)) {
+        const balance = await organizerBalance(adminC, organizerId);
+        if (balance < required) {
+          return NextResponse.json(
+            { error: `前売即時確定タイプを利用するには残高が ¥${required.toLocaleString()} 以上必要です（現在: ¥${balance.toLocaleString()}）` },
+            { status: 400 },
+          );
+        }
       }
     }
     if (quantity_selectable !== undefined || bulk_pricing !== undefined) {

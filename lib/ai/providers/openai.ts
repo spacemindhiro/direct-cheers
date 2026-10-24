@@ -1,6 +1,6 @@
 // OpenAI で会話を1回分実行する。store: false で OpenAI 側に会話を保存させない（requirements.md 5.1）。
 import OpenAI from "openai";
-import { addUsage, emptyUsage, toolRunner, type ChatProvider, type ChatRequest, type ChatResult, type ChatUsage } from "../types";
+import { REPEATED_CALL_TEXT, addUsage, emptyUsage, toolRunner, type ChatProvider, type ChatRequest, type ChatResult, type ChatUsage } from "../types";
 
 // prompt_tokens はキャッシュ読み・書き込みを含む合計（公式のキャッシュ説明の費用計算：通常の入力＝入力−読み−書き込み）。
 // completion_tokens は考えた分（reasoning）も含み、出力として課金される
@@ -26,7 +26,11 @@ export function createOpenAIProvider(client: OpenAI = new OpenAI()): ChatProvide
 
       let usage = emptyUsage();
       const runTool = toolRunner(req.tools);
+      // 同じ呼び出しを断った次の周と最後の周は、ツールを使わせず答えだけを書かせる
+      // （AI が同じ呼び出しを繰り返して上限まで空回りし、答えが空のまま終わることがあった。2026-10-24 の挙動確認で10回に1回）
+      let forceAnswer = false;
       for (let round = 0; ; round++) {
+        const answerOnly = forceAnswer || round + 1 >= req.maxToolRounds;
         const stream = client.chat.completions.stream(
           {
             model: req.model,
@@ -37,7 +41,8 @@ export function createOpenAIProvider(client: OpenAI = new OpenAI()): ChatProvide
             store: false,
             stream_options: { include_usage: true },
             messages,
-            ...(tools.length ? { tools } : {}),
+            // 一覧は毎回同じに渡し（キャッシュのため）、使わせないときは tool_choice で止める
+            ...(tools.length ? { tools, ...(answerOnly ? { tool_choice: "none" as const } : {}) } : {}),
           },
           { signal: req.signal },
         );
@@ -56,10 +61,12 @@ export function createOpenAIProvider(client: OpenAI = new OpenAI()): ChatProvide
 
         // 前置きの文は画面から消すので、AI にも戻さない（見えない文を「もう言った」と受け取って同じことを繰り返すのを防ぐ）
         messages.push({ role: "assistant", content: null, tool_calls: calls });
+        forceAnswer = false;
         for (const call of calls) {
           let input: unknown = {};
           try { input = JSON.parse(call.function.arguments || "{}"); } catch { input = null; }
           const r = await runTool(call.function.name, input);
+          if (r.content === REPEATED_CALL_TEXT) forceAnswer = true;
           messages.push({ role: "tool", tool_call_id: call.id, content: r.content });
         }
       }

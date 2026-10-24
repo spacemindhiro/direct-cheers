@@ -33,6 +33,14 @@ export function jstLocalToIso(s: string): string | null {
   return iso;
 }
 
+// 名前の後ろの敬称（「さん」「様」など）と空白を外す。AI が「〇〇 さん」のまま渡すと完全一致にならず、余計な聞き返しになるため
+export function stripHonorific(name: string): string {
+  return name.trim().replace(/[\s　]*(さん|様|さま|くん|君|ちゃん|氏)$/u, "").trim();
+}
+
+// 本人がこの会話で出演者について何か言ったか（「出演者なし」「いない」も含む）。何も言っていないのに出演者が空なら、カードを出さずに聞き返す
+const PERFORMER_WORDS = /出演|演者|アーティスト|DJ|ゲスト|なし|いない|いません|未定/i;
+
 export const PREPARE_EVENT_DRAFT = {
   name: "prepare_event_draft",
   minRole: "organizer",
@@ -108,7 +116,11 @@ export async function prepareEventDraft(ctx: DcMcpContext, input: PrepareInput):
   // 出演者
   const slots: PerformerSlot[] = [];
   const notes: string[] = [];
-  for (const q of input.performers) {
+  if (input.performers.length === 0 && ctx.userTexts && !ctx.userTexts.some((t) => PERFORMER_WORDS.test(t))) {
+    return { text: "出演者について、本人はまだ何も言っていません。カードは出していません。出演者がいるか（いれば名前）を本人に一度だけ聞き、答えをもらってから呼び直してください。「出演者なし」と言われたときだけ performers を空にします。" };
+  }
+  for (const raw of input.performers) {
+    const q = stripHonorific(raw);
     const { exact, options } = await findPerformers(ctx, organizerId, q);
     if (options.length === 0) {
       notes.push(`出演者「${q}」は見つかりませんでした${ctx.stepUpFresh ? "" : "（コネクション済みの中だけを探しました）"}。下書きを作った後、イベントの編集画面で検索して追加できます。`);

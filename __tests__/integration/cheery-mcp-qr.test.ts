@@ -188,6 +188,13 @@ describe("TC-CHEERY-QR-2: 確認カード（prepare_qr）", () => {
     expect(card.targets).toEqual([{ person: 0, percent: 60 }, { person: 1, percent: 40 }]);
   });
 
+  it("2-02b: 宛先・配分先の名前に敬称（さん・様）が付いていても、外して探す", async () => {
+    const s = await mcpAs("org", "organizer", "chat", [`${name("perf")} さん宛てで、ラベルは「DJブース」で`]);
+    await prepare(s, { event: T("pub"), recipient: `${name("perf")} さん`, targets: [{ name: `${name("perf")}様`, percent: 100 }] });
+    const card = lastCard(s);
+    expect([card.people.length, card.people[0].query, slotDecided(card.people[0]), card.recipient_said]).toEqual([1, name("perf"), true, true]);
+  });
+
   it("2-03: 同じ名前が2人いれば決まらない（カードで本人が選ぶ）。AI には聞き返すよう返す", async () => {
     const s = await mcpAs("org", "organizer");
     const text = await prepare(s, { event: T("pub"), recipient: name("同名") });

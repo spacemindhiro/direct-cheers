@@ -9,7 +9,7 @@ import { providerFor } from "@/lib/ai/providers";
 import { sendCheeryMonthlyStopEmail } from "@/lib/email/notification";
 import { connectDcMcp } from "@/lib/mcp/in-process";
 import { REFS_SEPARATOR, extractRefs } from "@/lib/ai/refs";
-import { RESET_MARK } from "@/lib/cheery/stream";
+import { RESET_MARK, trimRewrite } from "@/lib/cheery/stream";
 
 export const maxDuration = 60;
 
@@ -81,6 +81,12 @@ export async function POST(req: Request) {
           onToolRound: () => { answer = ""; controller.enqueue(encoder.encode(RESET_MARK)); },
           signal: req.signal,
         });
+        // AI が答えを書き直して付け足していたら、2回目を落として表示を差し替える（消す印＋整えた答え）
+        const trimmed = trimRewrite(answer);
+        if (trimmed !== answer) {
+          controller.enqueue(encoder.encode(`${RESET_MARK}${trimmed}`));
+          answer = trimmed;
+        }
         const note = FINISH_NOTES[result.finish];
         if (note) controller.enqueue(encoder.encode(`\n\n${note}`));
         // 答えの根拠に挙がった項目から、行き先ボタン・動画カードの材料を作って最後に付ける（本人のロールで見てよい項目だけ）。

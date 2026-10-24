@@ -73,11 +73,11 @@ function fakeFetch(input: any, init?: any) {
   return realFetch(input, init);
 }
 
-async function mcpAs(key: string, role: string, opts: { mode?: "chat" | "action"; stepUpFresh?: boolean } = {}) {
+async function mcpAs(key: string, role: string, opts: { mode?: "chat" | "action"; stepUpFresh?: boolean; userTexts?: string[] } = {}) {
   const c = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { error } = await c.auth.signInWithPassword({ email: email(key), password: "TestPass123!" });
   if (error) throw error;
-  const s = await connectDcMcp({ userId: P[key], email: email(key), role, supabase: c, admin: testAdmin, mode: opts.mode ?? "chat", stepUpFresh: opts.stepUpFresh ?? true });
+  const s = await connectDcMcp({ userId: P[key], email: email(key), role, supabase: c, admin: testAdmin, mode: opts.mode ?? "chat", stepUpFresh: opts.stepUpFresh ?? true, userTexts: opts.userTexts });
   sessions.push(s);
   return s;
 }
@@ -328,6 +328,26 @@ describe("TC-CHEERY-DRAFT-3: 下書きの確認カードと作成", () => {
     const text = await run(s, "prepare_event_draft", base);
     expect(text.includes("- 出演者：なし（本人が「出演者なし」と言っていなければ、出演者がいるか聞き返してください。カードでは本人が「出演者なしで作る」を選ぶまで作れません）")).toBe(true);
     expect(lastDraftCard(s).performers).toEqual([]);
+  });
+
+  it("3-02e: 本人が出演者について何も言っていないのに出演者が空 → カードを出さず、聞き返すよう返す。「出演者なし」と言っていれば出す", async () => {
+    const asked = await mcpAs("org", "organizer", { userTexts: [`12月10日の19時から${EXISTING_VENUE}で下書きを作りたい`] });
+    expect(await run(asked, "prepare_event_draft", base)).toBe(
+      "出演者について、本人はまだ何も言っていません。カードは出していません。出演者がいるか（いれば名前）を本人に一度だけ聞き、答えをもらってから呼び直してください。「出演者なし」と言われたときだけ performers を空にします。",
+    );
+    expect(asked.cards()).toEqual([]);
+    const none = await mcpAs("org", "organizer", { userTexts: [`12月10日の19時から${EXISTING_VENUE}で下書きを作りたい`, "出演者なしでお願いします"] });
+    await run(none, "prepare_event_draft", base);
+    expect(lastDraftCard(none).performers).toEqual([]);
+  });
+
+  it("3-02f: 出演者の名前に敬称（さん・様）が付いていても、外して探す（余計な聞き返しをしない）", async () => {
+    const s = await mcpAs("org", "organizer");
+    for (const honorific of [" さん", "さん", "様", "　さま"]) {
+      await run(s, "prepare_event_draft", { ...base, performers: [`ミライ${ts}${honorific}`] });
+      const slot = lastDraftCard(s).performers[0];
+      expect([slot.query, slotDecided(slot), slot.options[0].profile_id]).toEqual([`ミライ${ts}`, true, P.perf]);
+    }
   });
 
   it("3-02c: 名義の主催者も、部分的にしか合わなければ決めずに聞き返す", async () => {

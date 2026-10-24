@@ -137,6 +137,25 @@ describe("TC-CHEERY-PROVIDER: Anthropic", () => {
     expect(calls).toEqual([{ limit: 1 }]);
     expect(sent[2].messages[4]).toEqual({ role: "user", content: [{ type: "tool_result", tool_use_id: "t2", content: REPEATED_CALL_TEXT }] });
   });
+
+  it("同じ呼び出しを断った次の周と最後の周は、ツールを使わせない（tool_choice none。一覧はそのまま渡す）", async () => {
+    const calls: unknown[] = [];
+    const tu = (id: string, limit: number) => ({ msg: { content: [{ type: "tool_use", id, name: "my_events", input: { limit } }], stop_reason: "tool_use", usage: aUsage(1, 1) } });
+    const end = { text: "ok", msg: { content: [{ type: "text", text: "ok" }], stop_reason: "end_turn", usage: aUsage(1, 1) } };
+    // 1周目：実行／2周目：同じ呼び出し（断る）／3周目：答えだけ
+    const a = fakeAnthropic([tu("t1", 1), tu("t2", 1), end]);
+    await createAnthropicProvider(a.client).run(req({ tools: [echoTool(calls)], maxToolRounds: 6 }));
+    expect(a.sent.map((p) => p.tool_choice ?? null)).toEqual([null, null, { type: "none" }]);
+    expect(a.sent[2].tools.length).toBe(1);
+    // 最後の周（maxToolRounds=2 なら2周目）も答えだけ
+    const b = fakeAnthropic([tu("t1", 1), end]);
+    await createAnthropicProvider(b.client).run(req({ tools: [echoTool(calls)], maxToolRounds: 2 }));
+    expect(b.sent.map((p) => p.tool_choice ?? null)).toEqual([null, { type: "none" }]);
+    // ツールが無いときは指定しない
+    const c = fakeAnthropic([end]);
+    await createAnthropicProvider(c.client).run(req({ maxToolRounds: 1 }));
+    expect("tool_choice" in c.sent[0]).toBe(false);
+  });
 });
 
 // ── OpenAI の偽クライアント ──
@@ -223,6 +242,20 @@ describe("TC-CHEERY-PROVIDER: OpenAI", () => {
       { role: "tool", tool_call_id: "c4", content: "入力の形式が正しくありません" },
       { role: "tool", tool_call_id: "c5", content: "入力の形式が正しくありません" },
     ]);
+  });
+
+  it("同じ呼び出しを断った次の周と最後の周は、ツールを使わせない（tool_choice none。一覧はそのまま渡す）", async () => {
+    const calls: unknown[] = [];
+    const call = (id: string, args: string) => ({ id, type: "function", function: { name: "my_events", arguments: args } });
+    const toolTurn = (...cs: any[]) => ({ completion: { choices: [{ finish_reason: "tool_calls", message: { content: null, refusal: null, tool_calls: cs } }], usage: oUsage(1, 1) } });
+    const end = { completion: { choices: [{ finish_reason: "stop", message: { content: "ok", refusal: null } }], usage: oUsage(1, 1) } };
+    const a = fakeOpenAI([toolTurn(call("c1", "{\"limit\":1}")), toolTurn(call("c2", "{\"limit\":1}")), end]);
+    await createOpenAIProvider(a.client).run(req({ tools: [echoTool(calls)], maxToolRounds: 6 }));
+    expect(a.sent.map((p) => p.tool_choice ?? null)).toEqual([null, null, "none"]);
+    expect(a.sent[2].tools.length).toBe(1);
+    const b = fakeOpenAI([toolTurn(call("c1", "{\"limit\":1}")), end]);
+    await createOpenAIProvider(b.client).run(req({ tools: [echoTool(calls)], maxToolRounds: 2 }));
+    expect(b.sent.map((p) => p.tool_choice ?? null)).toEqual([null, "none"]);
   });
 
   it("壊れた引数・拒否・長さ切れ", async () => {

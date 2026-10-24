@@ -231,6 +231,13 @@ describe("TC-CHEERY-CHAT-C: /api/cheery/chat", () => {
     expect(body).toBe(`前置き〔参照:artist.payout〕${RESET_MARK}答えです${REFS_SEPARATOR}{"refs":[],"cards":[]}`);
   });
 
+  it("C-05d: AI が答えを書き直して付け足していたら、消す印のあとに整えた答えを送る", async () => {
+    asUser(organizerId);
+    fakeProvider(["出演者はどなたですか？ いなければ教えてくださいね。\n", "会場はあります。出演者はどなたですか？ いなければ教えてくださいね。"]);
+    const body = await (await POST(chatReq({ turns: [{ role: "user", text: "質問" }] }))).text();
+    expect(body).toBe(`出演者はどなたですか？ いなければ教えてくださいね。\n会場はあります。出演者はどなたですか？ いなければ教えてくださいね。${RESET_MARK}出演者はどなたですか？ いなければ教えてくださいね。${REFS_SEPARATOR}{"refs":[],"cards":[]}`);
+  });
+
   it("C-05: 正常：返答が流れ、回数とトークン・費用が記録される。会話の中身は記録されない", async () => {
     asUser(userId);
     fakeProvider(["出金は", "14日後です"]);

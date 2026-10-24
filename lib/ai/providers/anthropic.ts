@@ -1,6 +1,6 @@
 // Anthropic（Claude）で会話を1回分実行する。ツール（本人の実データ取得）があれば、決めた回数まで繰り返す。
 import Anthropic from "@anthropic-ai/sdk";
-import { addUsage, emptyUsage, toolRunner, type ChatProvider, type ChatRequest, type ChatResult, type ChatUsage } from "../types";
+import { REPEATED_CALL_TEXT, addUsage, emptyUsage, toolRunner, type ChatProvider, type ChatRequest, type ChatResult, type ChatUsage } from "../types";
 
 function usageOf(u: Anthropic.Usage): ChatUsage {
   return {
@@ -30,7 +30,10 @@ export function createAnthropicProvider(client: Anthropic = new Anthropic()): Ch
 
       let usage = emptyUsage();
       const runTool = toolRunner(req.tools);
+      // 同じ呼び出しを断った次の周と最後の周は、ツールを使わせず答えだけを書かせる（openai.ts と同じ）
+      let forceAnswer = false;
       for (let round = 0; ; round++) {
+        const answerOnly = forceAnswer || round + 1 >= req.maxToolRounds;
         const stream = client.messages.stream(
           {
             model: req.model,
@@ -39,7 +42,8 @@ export function createAnthropicProvider(client: Anthropic = new Anthropic()): Ch
             thinking: { type: "disabled" },
             system,
             messages,
-            ...(tools.length ? { tools } : {}),
+            // 一覧は毎回同じに渡し（キャッシュのため）、使わせないときは tool_choice で止める
+            ...(tools.length ? { tools, ...(answerOnly ? { tool_choice: { type: "none" as const } } : {}) } : {}),
           },
           { signal: req.signal },
         );
@@ -57,8 +61,10 @@ export function createAnthropicProvider(client: Anthropic = new Anthropic()): Ch
         // 前置きの文は画面から消すので、AI にも戻さない（見えない文を「もう言った」と受け取って同じことを繰り返すのを防ぐ）
         messages.push({ role: "assistant", content: toolUses });
         const results: Anthropic.ToolResultBlockParam[] = [];
+        forceAnswer = false;
         for (const tu of toolUses) {
           const r = await runTool(tu.name, tu.input);
+          if (r.content === REPEATED_CALL_TEXT) forceAnswer = true;
           results.push({ type: "tool_result", tool_use_id: tu.id, content: r.content, ...(r.isError ? { is_error: true } : {}) });
         }
         messages.push({ role: "user", content: results });

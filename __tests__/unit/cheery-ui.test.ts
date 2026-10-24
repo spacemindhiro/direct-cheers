@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { screenOf, showFloatingButton } from "@/lib/cheery/screen";
-import { splitAnswer, stripRefs, REFS_SEPARATOR, RESET_MARK } from "@/lib/cheery/stream";
+import { splitAnswer, stripRefs, trimRewrite, REFS_SEPARATOR, RESET_MARK } from "@/lib/cheery/stream";
 import { SCREEN_LABELS } from "@/lib/ai/prompt";
 
 describe("TC-CHEERY-UI: 画面の種類", () => {
@@ -83,5 +83,28 @@ describe("TC-CHEERY-UI: 応答の切り分け", () => {
 
   it("カードの材料が途中までしか届いていなければ null（壊れた JSON で落ちない）", () => {
     expect(splitAnswer(`本文${REFS_SEPARATOR}{"refs":[{"id"`)).toEqual({ text: "本文", refs: null, cards: null });
+  });
+});
+
+describe("TC-CHEERY-UI: 書き直しの付け足しを落とす（trimRewrite）", () => {
+  it("書き終えた答えを改行のあとに書き直していたら、2回目の行から後ろを落とす（実際に出た答え）", () => {
+    const a = "会場は「X」で見つかりました。2026年12月20日（日）19:00〜22:00で合っていますか。あと一つだけ、出演者のお名前を教えてください。\n会場は「X」で見つかりました。2026年12月20日（日）19:00〜22:00で進めます。\n\nあと一つだけ、出演者のお名前を教えてくださいね。 \n〔参照:organizer.create-event〕";
+    expect(trimRewrite(a)).toBe("会場は「X」で見つかりました。2026年12月20日（日）19:00〜22:00で合っていますか。あと一つだけ、出演者のお名前を教えてください。\n〔参照:organizer.create-event〕");
+  });
+
+  it("2回目の行の途中から重なっていても、その行から落とす", () => {
+    const a = "出演者はどなたですか？ いなければ「出演者なし」と教えてくださいね。\n会場「X」は会場マスタにあります。出演者はどなたですか？ いなければ「出演者なし」と教えてくださいね。";
+    expect(trimRewrite(a)).toBe("出演者はどなたですか？ いなければ「出演者なし」と教えてくださいね。");
+  });
+
+  it("同じ行の中で重なった文は、その文だけ落とす", () => {
+    expect(trimRewrite("出演者はいますか？いる場合は名前を教えてください。いる場合は名前を教えてください。"))
+      .toBe("出演者はいますか？いる場合は名前を教えてください。");
+  });
+
+  it("重なりが無い・短い文（8文字未満）の重なりはそのまま", () => {
+    const plain = "QRの確認カードを出しました。\n\n作成後、QRを掲示できるのは会場内だけです。〔参照:organizer.create-qr〕";
+    expect(trimRewrite(plain)).toBe(plain);
+    expect(trimRewrite("はい。\nはい。")).toBe("はい。\nはい。");
   });
 });

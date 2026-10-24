@@ -20,6 +20,38 @@ export function stripRefs(text: string): string {
   return out.replace(/\s+$/, "");
 }
 
+// AI が書き終えた答えを、改行のあとに書き直して付け足すことがある（gpt-6-luna。2026-10-24 の挙動確認で、出演者を聞き返す場面の1〜3割。
+// 指示文で止めようとすると逆に増えた）。同じ文（8文字以上）がもう一度出てきたら、
+//   前の行に出ていた → その行から後ろを落とす（書き直しの始まり）
+//   同じ行の中で重なった → その文だけ落とす
+// 〔参照:…〕は残す（行き先ボタンの材料）。重なりが無ければそのまま返す
+const MIN_SENTENCE = 8;
+export function trimRewrite(text: string): string {
+  const refs = [...new Set(text.match(REF_PATTERN) ?? [])];
+  const lines = text.replace(REF_PATTERN, "").split("\n");
+  const before = new Set<string>(); // 前の行までに出た文
+  const out: string[] = [];
+  let changed = false;
+  for (const line of lines) {
+    const inLine = new Set<string>();
+    const kept: string[] = [];
+    let rewrite = false;
+    for (const part of line.split(/(?<=[。？！?!])/)) {
+      const t = part.trim();
+      if (t.length >= MIN_SENTENCE && before.has(t)) { rewrite = true; break; }
+      if (t.length >= MIN_SENTENCE && inLine.has(t)) { changed = true; continue; }
+      if (t.length >= MIN_SENTENCE) inLine.add(t);
+      kept.push(part);
+    }
+    if (rewrite) { changed = true; break; }
+    out.push(kept.join(""));
+    for (const t of inLine) before.add(t);
+  }
+  if (!changed) return text;
+  const body = out.join("\n").replace(/\s+$/, "");
+  return refs.length ? `${body}\n${refs.join("")}` : body;
+}
+
 // 受け取った途中までの文字列を、画面に出す本文とカードに分ける（カードは届き切るまで null）。
 // cards は確認カード（イベントの下書き・会場の登録）
 export function splitAnswer(raw: string): { text: string; refs: CheeryRef[] | null; cards: CheeryCard[] | null } {

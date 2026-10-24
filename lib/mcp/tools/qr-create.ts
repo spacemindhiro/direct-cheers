@@ -19,7 +19,7 @@ import { getFeeConfig } from "@/lib/fee-config";
 import { pickOperableEvent } from "../event-pick";
 import type { DcMcpContext } from "../context";
 import { jstDateTime } from "../format";
-import { jstLocalToIso } from "./event-draft";
+import { jstLocalToIso, stripHonorific } from "./event-draft";
 
 export type QrToolOutput = { text: string; cards?: QrCreateCard[] };
 
@@ -67,7 +67,7 @@ const toOption = (c: QrCandidate): QrPersonOption => ({
 
 // 名前から候補を探す。完全に同じ名前の人がいればその人たちだけ。forRecipient でなければ、同じ人の名義違いは1つにまとめる
 export function findQrPerson(candidates: QrCandidate[], query: string, forRecipient: boolean): QrPersonSlot {
-  const q = query.trim();
+  const q = stripHonorific(query);
   const lower = q.toLowerCase();
   let exact: QrCandidate[];
   let partial: QrCandidate[];
@@ -139,7 +139,7 @@ export async function prepareQr(ctx: DcMcpContext, input: PrepareInput): Promise
   // 宛先・配分先（言われた人だけ。同じ名前は1つにまとめる）
   const people: QrPersonSlot[] = [];
   const indexOf = (name: string, forRecipient: boolean) => {
-    const q = name.trim();
+    const q = stripHonorific(name);
     const i = people.findIndex((p) => p.query === q);
     if (i >= 0) return i;
     people.push(findQrPerson(ev.targets, q, forRecipient));

@@ -182,7 +182,7 @@ export function DigitalTicket({
 
         {/* イベント名・チケット種別 */}
         <div>
-          <p className="text-xl font-black italic uppercase tracking-tighter leading-tight" style={{ color: fgColor }}>
+          <p className="text-xl font-black italic tracking-tighter leading-tight" style={{ color: fgColor }}>
             {eventTitle}
           </p>
           <p className="text-sm font-bold mt-1" style={{ color: labelColor }}>{productName}</p>

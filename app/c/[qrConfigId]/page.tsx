@@ -238,11 +238,12 @@ async function CheersContent({
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
         <div className="absolute bottom-8 left-6 right-6 space-y-3">
           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.3em]">Direct Cheers</p>
-          <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none">
+          {/* 宛先の名前・イベント名は、お客様が誰に払うかを確かめる名前なので、登録された文字のまま出す（英字を大文字にしない） */}
+          <h1 className="text-4xl font-black text-white italic tracking-tighter leading-none">
             {recipientName}
           </h1>
           <div className="space-y-1 border-l-2 border-pink-500/30 pl-4">
-            <p className="text-sm font-bold text-slate-200 uppercase tracking-tight">{event.title}</p>
+            <p className="text-sm font-bold text-slate-200 tracking-tight">{event.title}</p>
             <div className="flex items-center gap-4 text-xs text-slate-400">
               {event.venue && (
                 <span className="flex items-center gap-1">
@@ -269,7 +270,8 @@ async function CheersContent({
       <div className="px-6 py-8 max-w-md mx-auto space-y-6">
         <div>
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">{heading.kicker}</p>
-          <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter mt-1">
+          {/* ラベルはお客様が支払いの中身を確かめる名前なので、主催者が入れた文字のまま出す（英字を大文字にしない） */}
+          <h2 className="text-2xl font-black text-white italic tracking-tighter mt-1">
             {qr.label ?? heading.title}
           </h2>
         </div>

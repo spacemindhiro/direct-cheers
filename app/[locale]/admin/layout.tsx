@@ -60,7 +60,7 @@ async function AdminHeader() {
                 <UserCircle size={18} className="text-slate-400 group-hover:text-pink-500 transition-colors" />
               )}
             </div>
-            <span className="text-[10px] font-bold text-slate-500 group-hover:text-pink-500 uppercase tracking-widest hidden sm:block transition-colors">
+            <span className="text-[10px] font-bold text-slate-500 group-hover:text-pink-500 tracking-widest hidden sm:block transition-colors">
               {profile?.display_name}
             </span>
           </Link>

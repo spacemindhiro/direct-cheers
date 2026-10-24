@@ -209,7 +209,7 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Event</p>
-            <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">{event.title}</h1>
+            <h1 className="text-3xl font-black text-white italic tracking-tighter">{event.title}</h1>
           </div>
           {(isEventOrganizer || isEventAgent) && event.lifecycle_status !== "settled" && (
             <Link

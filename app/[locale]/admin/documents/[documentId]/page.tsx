@@ -95,7 +95,7 @@ async function DocumentContent({ params }: { params: Promise<{ documentId: strin
           { label: "Documents", href: "/admin/documents" },
           { label: subject?.display_name ?? "Document" },
         ]} />
-        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">
+        <h1 className="text-2xl font-black text-white italic tracking-tighter">
           {subject?.display_name ?? '—'}
         </h1>
       </div>

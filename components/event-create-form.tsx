@@ -236,7 +236,7 @@ export function EventCreateForm({
                     key={a.profile_id}
                     type="button"
                     onClick={() => toggleArtist(a)}
-                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    className={`px-4 py-2 rounded-xl text-xs font-black tracking-widest transition-all ${
                       selectedIds.has(a.profile_id)
                         ? "bg-pink-500 text-white shadow-[0_0_20px_rgba(236,72,153,0.3)]"
                         : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700"

@@ -207,7 +207,7 @@ function InviteErrorPage({ message }: { message: string }) {
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">
           Invitation
         </p>
-        <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter">
+        <h1 className="text-2xl font-black text-white italic tracking-tighter">
           {message}
         </h1>
         <Link

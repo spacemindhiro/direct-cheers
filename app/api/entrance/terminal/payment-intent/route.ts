@@ -73,7 +73,7 @@ export async function POST(req: Request) {
 
   const { data: qrc } = await admin
     .from("qr_configs")
-    .select("qr_config_id, touchpay_enabled, bypass_validity, event:events!event_id(organizer_profile_id, agent_id, venue, lifecycle_status, start_at, end_at)")
+    .select("qr_config_id, touchpay_enabled, bypass_validity, sales_stopped_at, event:events!event_id(organizer_profile_id, agent_id, venue, lifecycle_status, start_at, end_at)")
     .eq("product_id", product_id)
     .is("deleted_at", null)
     .maybeSingle();
@@ -92,6 +92,7 @@ export async function POST(req: Request) {
     eventEndAt: qrEvent?.end_at,
     product,
     bypassValidity: qrc.bypass_validity === true,
+    salesStoppedAt: qrc.sales_stopped_at,
   });
   if (!verdict.ok) {
     return NextResponse.json({ error: purchaseWindowErrorMessage(verdict), reason: verdict.reason }, { status: 400 });

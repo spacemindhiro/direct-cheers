@@ -77,6 +77,7 @@ export async function POST(req: Request) {
         event_id,
         recipient_name_context,
         bypass_validity,
+        sales_stopped_at,
         event:events!event_id(organizer_profile_id, title, venue, lifecycle_status, start_at, end_at),
         recipient:profiles!recipient_profile_id(display_name, artist_name, organizer_name, artist_name_ascii, organizer_name_ascii),
         product:products!product_id(name, min_amount, max_amount, deleted_at, type, payment_type, quantity_selectable, bulk_pricing, sales_start_at, sales_end_at)
@@ -140,6 +141,7 @@ export async function POST(req: Request) {
     eventEndAt: eventRow?.end_at,
     product: resolvedProduct,
     bypassValidity: (qrc as any).bypass_validity === true,
+    salesStoppedAt: qrc.sales_stopped_at,
   });
   if (!verdict.ok) {
     return NextResponse.json({ error: purchaseWindowErrorMessage(verdict), reason: verdict.reason }, { status: 409 });

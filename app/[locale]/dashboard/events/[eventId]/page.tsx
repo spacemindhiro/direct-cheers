@@ -21,6 +21,7 @@ import { LiveSalesBoard } from "@/components/live-sales-board";
 import { EventPayPayToggle } from "@/components/event-paypay-toggle";
 import { EventDetailTabs } from "@/components/event-detail-tabs";
 import { EventAgentContact } from "@/components/event-agent-contact";
+import { AdminQrSalesStop } from "@/components/admin-qr-sales-stop";
 
 async function EventDetailContent({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -378,6 +379,8 @@ async function EventDetailContent({ params }: { params: Promise<{ eventId: strin
 
       {/* 中止承認ボタン（エージェント） */}
       {canApproveCancellation && <EventCancelApproveButton eventId={eventId} />}
+
+      {isAdmin && <AdminQrSalesStop target="event" id={eventId} stopped={false} />}
 
       {/* エビデンス提出ボタン（オーガナイザー） */}
       {canSubmitEvidence && (

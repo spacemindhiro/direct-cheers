@@ -63,24 +63,28 @@ export type PurchaseWindowInput = {
   };
   /** QRの bypass_validity（テスト用QR等）。期間判定だけを飛ばす。イベント状態の判定は飛ばさない */
   bypassValidity?: boolean;
+  /** QR の販売を止めた日時（qr_configs.sales_stopped_at）。辞退・admin の停止。bypassValidity でも飛ばさない */
+  salesStoppedAt?: string | null;
   now?: Date;
 };
 
 export type PurchaseWindowVerdict =
   | { ok: true }
   | { ok: false; reason: "closed" }
+  | { ok: false; reason: "stopped" }
   | { ok: false; reason: "before_sales"; salesStart: Date }
   | { ok: false; reason: "after_sales" }
   | { ok: false; reason: "before_event"; eventStart: Date }
   | { ok: false; reason: "after_event" };
 
 export function evaluatePurchaseWindow(input: PurchaseWindowInput): PurchaseWindowVerdict {
-  const { lifecycleStatus, eventStartAt, eventEndAt, product, bypassValidity } = input;
+  const { lifecycleStatus, eventStartAt, eventEndAt, product, bypassValidity, salesStoppedAt } = input;
   const now = input.now ?? new Date();
 
   if (!lifecycleStatus || (CLOSED_LIFECYCLES as readonly string[]).includes(lifecycleStatus)) {
     return { ok: false, reason: "closed" };
   }
+  if (salesStoppedAt) return { ok: false, reason: "stopped" };
   if (bypassValidity) return { ok: true };
 
   // 前売り（エントランスA/B）は商品の販売期間で判定する
@@ -106,6 +110,7 @@ export function evaluatePurchaseWindow(input: PurchaseWindowInput): PurchaseWind
 export function purchaseWindowErrorMessage(verdict: Exclude<PurchaseWindowVerdict, { ok: true }>): string {
   switch (verdict.reason) {
     case "closed": return "このイベントは現在決済を受け付けていません";
+    case "stopped": return "このQRコードの販売は停止しています";
     case "before_sales": return "販売期間前です";
     case "after_sales": return "販売期間が終了しました";
     case "before_event": return "イベント当日からご利用いただけます";

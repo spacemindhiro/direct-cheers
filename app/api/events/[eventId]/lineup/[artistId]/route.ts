@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendLineupResponseEmail } from "@/lib/email/notification";
+import { reassignLineupToOrganizer } from "@/lib/lineup-remove";
 
 // POST: アーティストが出演依頼に承認 or 辞退
 export async function POST(
@@ -51,21 +52,12 @@ export async function POST(
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  // 拒否時: このイベントのQR配分からアーティストを除外
+  // 辞退時: この人の配分・宛先をオーガナイザーに付け替える。決済のある QR の宛先だったら販売を止める（lib/lineup-remove.ts）
+  let stoppedCount = 0;
   if (action === "reject") {
-    const { data: eventQrs } = await admin
-      .from("qr_configs")
-      .select("qr_config_id")
-      .eq("event_id", eventId)
-      .is("deleted_at", null);
-    const qrIds = (eventQrs ?? []).map((q) => q.qr_config_id);
-    if (qrIds.length > 0) {
-      await admin
-        .from("qr_config_targets")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("profile_id", artistId)
-        .in("qr_config_id", qrIds)
-        .is("deleted_at", null);
+    const { data: ev } = await admin.from("events").select("organizer_profile_id").eq("event_id", eventId).single();
+    if (ev?.organizer_profile_id) {
+      stoppedCount = (await reassignLineupToOrganizer(admin, { eventId, artistId, organizerId: ev.organizer_profile_id, actorId: artistId })).stoppedQrIds.length;
     }
   }
 
@@ -134,7 +126,8 @@ export async function POST(
         title: action === "accept" ? "出演依頼が承認されました" : "出演依頼が辞退されました",
         body: action === "accept"
           ? `${artistDisplayName} が「${event.title}」への出演を承認しました。`
-          : `${artistDisplayName} が「${event.title}」への出演を辞退しました。`,
+          : `${artistDisplayName} が「${event.title}」への出演を辞退しました。` +
+            (stoppedCount > 0 ? `${artistDisplayName} が宛先で決済のある QR が ${stoppedCount} 件あるため、販売を止めました。新しい QR を作って差し替えてください。` : ""),
         metadata: { event_id: eventId, artist_id: artistId },
       });
 

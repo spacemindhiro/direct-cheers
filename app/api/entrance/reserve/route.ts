@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   if (qr_config_id) {
     const { data: qrc } = await admin
       .from("qr_configs")
-      .select("product_id, event_id, bypass_validity")
+      .select("product_id, event_id, bypass_validity, sales_stopped_at")
       .eq("qr_config_id", qr_config_id)
       .is("deleted_at", null)
       .maybeSingle();
@@ -95,6 +95,15 @@ export async function POST(req: Request) {
     }
     bypassValidity = qrc.bypass_validity === true;
   }
+  // 販売停止（辞退・admin）は QR を通さず商品だけを指定した予約にも効かせる（この商品の QR が止まっていれば断る）
+  const { data: stoppedQr } = await admin
+    .from("qr_configs")
+    .select("sales_stopped_at")
+    .eq("product_id", product_id)
+    .is("deleted_at", null)
+    .not("sales_stopped_at", "is", null)
+    .limit(1)
+    .maybeSingle();
 
   // 販売期間・イベント状態は決済画面と同じ関数で判定する（画面だけの判定だったため
   // APIを直接叩けば販売期間外・中止イベントでも予約できていた。2026-10-10修正）。
@@ -105,6 +114,7 @@ export async function POST(req: Request) {
     eventEndAt: event?.end_at,
     product: product as any,
     bypassValidity,
+    salesStoppedAt: stoppedQr?.sales_stopped_at ?? null,
   });
   if (!verdict.ok) {
     return NextResponse.json({ error: purchaseWindowErrorMessage(verdict), reason: verdict.reason }, { status: 409 });

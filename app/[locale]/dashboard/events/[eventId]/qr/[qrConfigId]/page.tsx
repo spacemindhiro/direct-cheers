@@ -15,6 +15,7 @@ import { WelcomeCheerEligibleEditor } from "@/components/welcome-cheer-eligible-
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { avatarFields } from "@/lib/image-source";
+import { AdminQrSalesStop } from "@/components/admin-qr-sales-stop";
 
 async function QRDetailContent({
   params,
@@ -37,7 +38,7 @@ async function QRDetailContent({
 
   const { data: qr } = await adminClient
     .from("qr_configs")
-    .select("qr_config_id, label, image_url, strip_image_url, bg_color, fg_color, label_color, recipient_profile_id, recipient_name_context, created_at, event_id, bypass_validity, product_id, amount_step, default_amount, touchpay_enabled, serial_scope")
+    .select("qr_config_id, label, image_url, strip_image_url, bg_color, fg_color, label_color, recipient_profile_id, recipient_name_context, created_at, event_id, bypass_validity, product_id, amount_step, default_amount, touchpay_enabled, serial_scope, sales_stopped_at, sales_stopped_reason")
     .eq("qr_config_id", qrConfigId)
     .eq("event_id", eventId)
     .is("deleted_at", null)
@@ -324,6 +325,19 @@ async function QRDetailContent({
       {canEdit && isEntrance && (
         <WelcomeCheerEligibleEditor qrConfigId={qrConfigId} />
       )}
+
+      {canEdit && qr.sales_stopped_at && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 space-y-1">
+          <p className="text-xs font-black text-red-400">販売を停止しています</p>
+          <p className="text-xs text-red-300/80">
+            {qr.sales_stopped_reason === "lineup_declined"
+              ? "宛先の出演者が出演を辞退しました。すでに決済があるため宛先は替えられません。新しい QR を作って差し替えてください。"
+              : "運営が販売を止めています。お問い合わせは運営までご連絡ください。"}
+          </p>
+        </div>
+      )}
+
+      {isAdmin && <AdminQrSalesStop target="qr" id={qrConfigId} stopped={!!qr.sales_stopped_at} />}
 
       {canEdit && !editableLifecycle && (
         <p className="text-xs text-slate-500 bg-slate-900/50 border border-slate-800 rounded-2xl px-4 py-3">

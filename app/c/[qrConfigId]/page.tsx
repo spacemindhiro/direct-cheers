@@ -79,6 +79,7 @@ async function CheersContent({
       image_url,
       product_id,
       bypass_validity,
+      sales_stopped_at,
       amount_step,
       default_amount,
       recipient_name_context,
@@ -132,11 +133,19 @@ async function CheersContent({
     eventEndAt: event.end_at,
     product: products[0] as any,
     bypassValidity,
+    salesStoppedAt: qr.sales_stopped_at,
   });
   if (!verdict.ok) {
     switch (verdict.reason) {
       case "closed":
         notFound();
+      case "stopped":
+        return (
+          <ValidityMessage
+            title="販売を停止しています"
+            message="このQRコードは現在お支払いを受け付けていません"
+          />
+        );
       case "before_sales":
         return (
           <ValidityMessage

@@ -574,7 +574,7 @@ function QrEditView({ card, done, onDone, onNavigate }: { card: QrEditCard; done
       <Row k="QR" v={card.current.label ?? "（ラベルなし）"} />
       {ch.label !== undefined && (done ? <Row k="ラベル" v={<>{before(card.current.label ?? "なし")} → {label.trim()}</>} /> : (
         <div className="space-y-1">
-          <Row k="ラベル" v={<>{before(card.current.label ?? "なし")} → 下で決めます</>} />
+          <Row k="ラベル" v={<>{before(card.current.label ?? "なし")} → {ch.label ? "下で確かめます" : "下で決めます"}</>} />
           <LabelBox label={label} setLabel={setLabel} labelOk={labelOk} setLabelOk={setLabelOk} suggestions={suggestions}
             saidLabel={ch.label ?? null} productType={card.product_type} recipientName={recipient?.name ?? card.current.recipient} />
         </div>

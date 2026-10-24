@@ -298,6 +298,11 @@ export function QREditDelete({
       }
       parsedDrinkTiers = drinkTiers.map((t) => ({ min_quantity: parseInt(t.min_quantity, 10), unit_price: parseInt(t.unit_price.replace(/,/g, ""), 10) }));
     }
+    // 宛先は配分先の中の人（API と同じ）
+    if (!targets.some((t) => t.profile_id === recipientId)) {
+      setError("宛先を配分先に含めてください");
+      return;
+    }
     setError(null);
     startTransition(async () => {
       const body: Record<string, unknown> = {
@@ -813,6 +818,8 @@ export function QREditDelete({
             ) : (
               <select
                 value={`${recipientId}::${recipientRole}`}
+                // 決済のあとは宛先を替えない（すでに払ったお客様の明細の名前と、Wallet のカードの名前が食い違うため。API も止める）
+                disabled={hasTransactions}
                 onChange={(e) => {
                   const [pid, role] = e.target.value.split("::");
                   setRecipientId(pid);
@@ -826,6 +833,11 @@ export function QREditDelete({
                   </option>
                 ))}
               </select>
+            )}
+            {hasTransactions && (
+              <p className="text-[10px] text-amber-400/80">
+                決済が発生しているため宛先は変更できません（すでに払ったお客様の明細に出ている名前と食い違うため）。変更したい場合は新しいQRコードを作成してください。
+              </p>
             )}
           </div>
 

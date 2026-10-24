@@ -46,7 +46,7 @@ async function QRDetailContent({
   const { data: event } = await adminClient
     .from("events")
     .select(`
-      title, organizer_profile_id, agent_id, start_at, end_at, venue, serial_scope, base_flyer_url,
+      title, organizer_profile_id, agent_id, start_at, end_at, venue, serial_scope, base_flyer_url, lifecycle_status,
       organizer:profiles!organizer_profile_id(display_name, organizer_name, organizer_avatar_url, avatar_url, organizer_avatar_original_url, avatar_original_url),
       event_artists(artist_profile_id, status, deleted_at, artist:profiles!artist_profile_id(display_name, artist_name, artist_avatar_url, avatar_url, artist_avatar_original_url, avatar_original_url))
     `)
@@ -65,6 +65,8 @@ async function QRDetailContent({
   );
   const isRecipient = qr.recipient_profile_id === user.id;
   const canEdit = isAdmin || isOrganizer || isAgent;
+  // 終わった（終了・精算済み）・中止のイベントの QR は変えない（API と同じ）
+  const editableLifecycle = ["draft", "review_requested", "published", "ongoing"].includes(event.lifecycle_status);
   // 関係者（lib/event-access.ts）と、このQRの宛先以外には存在しない扱い
   const access = await getEventAccess(createAdminClient(), eventId, user.id, profile?.role);
   if (!access?.canView && !isRecipient) notFound();
@@ -322,7 +324,13 @@ async function QRDetailContent({
         <WelcomeCheerEligibleEditor qrConfigId={qrConfigId} />
       )}
 
-      {canEdit && (
+      {canEdit && !editableLifecycle && (
+        <p className="text-xs text-slate-500 bg-slate-900/50 border border-slate-800 rounded-2xl px-4 py-3">
+          終わった（または中止の）イベントの QR は変更できません。
+        </p>
+      )}
+
+      {canEdit && editableLifecycle && (
         <QREditDelete
           qrConfigId={qrConfigId}
           eventId={eventId}

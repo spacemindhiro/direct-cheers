@@ -63,7 +63,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
     goto: { href: "/dashboard", label: "ダッシュボードを開く" },
     title: "出演依頼を受ける",
     help: { tab: "artist", icon: "CheckCircle2", subtitle: "Lineup Invitations", video: "a-04" },
-    sources: ["components/lineup-invitations.tsx", "app/api/events/[eventId]/lineup/[artistId]/route.ts", "lib/lineup-invites.ts"],
+    sources: ["components/lineup-invitations.tsx", "app/api/events/[eventId]/lineup/[artistId]/route.ts", "lib/lineup-invites.ts", "lib/lineup-remove.ts"],
     body: [
       { type: "p", text: "オーガナイザーからイベントへの出演依頼が届くと、ダッシュボードホームに「出演（依頼 N件）」のカードが表示されます。" },
       {
@@ -71,7 +71,7 @@ export const ARTIST_ITEMS: KnowledgeItem[] = [
         items: [
           "カードにはイベント名・会場・日付、依頼元のオーガナイザー名、メッセージ（あれば）が表示されます（ステータス「出演依頼 — 承認待ち」）",
           "「承認」を押すと「出演確定」バッジに変わり、そのイベントの詳細ページに遷移できるようになります",
-          "「辞退」を押すとその場で依頼が取り下げられます",
+          "「辞退」を押すとその場で依頼が取り下げられます。そのイベントのQRであなたが受け取る予定だった配分は、主催者に移ります（すでに決済があるあなた宛てのQRは、販売が止まります）",
           "出演依頼をきっかけに、オーガナイザーとのメッセージ画面（DM）が自動的に作られます",
         ],
       },

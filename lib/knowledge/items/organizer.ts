@@ -82,7 +82,7 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
     goto: { href: "/dashboard/events", label: "イベント一覧を開く" },
     title: "出演依頼",
     help: { tab: "organizer", group: "prep", icon: "UserPlus", subtitle: "Lineup Invitations", video: "o-04" },
-    sources: ["components/event-create-form.tsx", "components/event-edit-form.tsx", "app/api/events/create/route.ts", "app/api/events/[eventId]/route.ts", "app/api/events/[eventId]/lineup/[artistId]/route.ts", "components/lineup-invitations.tsx"],
+    sources: ["components/event-create-form.tsx", "components/event-edit-form.tsx", "app/api/events/create/route.ts", "app/api/events/[eventId]/route.ts", "app/api/events/[eventId]/lineup/[artistId]/route.ts", "components/lineup-invitations.tsx", "lib/lineup-remove.ts"],
     body: [
       { type: "p", text: "すでにDirect Cheersに登録済みのアーティストをイベントに呼ぶための機能です。" },
       {
@@ -91,6 +91,8 @@ export const ORGANIZER_ITEMS: KnowledgeItem[] = [
           "イベントの作成・編集画面の中で行います。コネクション済みのアーティストから選ぶか、名前検索して依頼メッセージを添えて送ります",
           "依頼を受けたアーティストのダッシュボードに「出演依頼」として通知され、承諾されると「出演確定」になります",
           "出演依頼をきっかけに、アーティストとのメッセージ画面（DM）が自動的に作られます",
+          "出演者を編集画面で外したり、出演者が辞退したりすると、その人が受け取る予定だったQRの配分は主催者に移ります。その人が宛先のQRは、決済がまだなら宛先も主催者（主催者名義）に替わります",
+          "すでに決済があるQRの宛先になっている出演者は、外せません（払ったお客様の明細の名前と食い違うため）。その出演者が辞退した場合は、そのQRの販売が止まり、お知らせが届きます。新しいQRを作って差し替えてください",
         ],
       },
     ],

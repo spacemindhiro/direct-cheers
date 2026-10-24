@@ -152,6 +152,8 @@ export const RULES_ITEMS: KnowledgeItem[] = [
       "app/api/events/[eventId]/settle/route.ts",
       "lib/purchase-window.ts",
       "app/api/entrance/terminal/payment-intent/route.ts",
+      "app/api/admin/qr-sales-stop/route.ts",
+      "lib/qr/sales-stop.ts",
     ],
     body: [
       {
@@ -166,6 +168,7 @@ export const RULES_ITEMS: KnowledgeItem[] = [
         ],
       },
       { type: "p", text: "下書き・承認待ち・中止・精算済みのイベントでは、QRがあっても決済を受け付けません（承認されるまでは下書きと同じ扱いです）。対面タッチ決済も同じです。当日決済（チア・当日券など）は、イベントの開始時刻から、終了予定時刻の{{POST_EVENT_GRACE_HOURS}}時間後まで受け付けます（イベントに設定した終了予定時刻が基準です）。前売りの入場チケットは、設定した販売期間の間だけ受け付けます。" },
+      { type: "p", text: "販売を止めたQRも決済を受け付けません。宛先の出演者が辞退したとき（すでに決済がありQRの宛先を替えられない場合）と、運営が不正のおそれなどで止めたときです。止まっているQRは、QR詳細に「販売を停止しています」と理由が表示されます。運営が止めたQRの再開は運営だけができます。" },
     ],
   },
   {

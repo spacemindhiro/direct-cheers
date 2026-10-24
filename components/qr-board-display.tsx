@@ -1108,7 +1108,7 @@ export function QRBoardDisplay({
         {/* QR表示 */}
         {qrState ? (
           <div className="relative flex flex-col items-center gap-4 px-4 py-6 w-full pointer-events-none">
-            <p className="text-4xl font-black text-white uppercase tracking-tight text-center leading-tight">
+            <p className="text-4xl font-black text-white tracking-tight text-center leading-tight">
               {qrState.label || qrState.product_name}
             </p>
             <p className="text-base font-bold text-slate-400 text-center">

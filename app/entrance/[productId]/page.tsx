@@ -304,7 +304,7 @@ function EntrancePageContent() {
           <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em]">
             Entrance Ticket
           </p>
-          <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter">
+          <h1 className="text-3xl font-black text-white italic tracking-tighter">
             {product.event.title}
           </h1>
           <p className="text-indigo-300 font-bold">{product.name}</p>

@@ -76,13 +76,15 @@ function callDelete(qrConfigId: string) {
   return qrDELETE(req, { params: Promise.resolve({ qrConfigId }) });
 }
 
-// エントランス商品つきQRを1セット作る
+// エントランス商品つきQRを1セット作る。
+// 在庫上限を外す・在庫管理を OFF にする編集を確かめるので、前売事後確定（A）にする
+// （前売即時確定＝B は上限数が必須で外せない。TC-QR-SRV D-04）
 async function seedEntranceQr(opts?: { soldCount?: number; stockLimit?: number; minAmount?: number; maxAmount?: number; recipientId?: string }) {
   const productId = await insertProduct({
     eventId,
     name: "前売りチケット",
     type: "entrance",
-    paymentType: "B",
+    paymentType: "A",
     minAmount: opts?.minAmount ?? 3000,
     maxAmount: opts?.maxAmount ?? 3000,
     stockLimit: opts?.stockLimit ?? 100,

@@ -270,7 +270,7 @@ export type QrWriteResult = { ok: true; eventId: string; qrConfigId: string; lab
 
 export async function createQrTool(ctx: DcMcpContext, input: CreateQrToolInput): Promise<QrWriteResult> {
   const entrance = input.product_type === "entrance";
-  // チャットで作れる範囲（作成 API より狭い）。エントランスは決済タイプ必須・ワンプライス。前売即時確定は在庫必須（作成画面と同じ）
+  // チャットで作れる範囲（作成 API より狭い）。エントランスは決済タイプ必須・ワンプライス。前売即時確定の在庫必須は作成 API でも確かめる（PR#190）
   if (entrance !== (input.payment_type != null)) return { ok: false, error: "決済タイプの指定が正しくありません" };
   if (entrance && input.min_amount !== input.max_amount) return { ok: false, error: "エントランスの金額は1つにしてください" };
   if (input.payment_type === "B" && input.stock_limit == null) return { ok: false, error: "前売即時確定タイプは販売上限数を入力してください" };

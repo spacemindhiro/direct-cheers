@@ -757,7 +757,7 @@ async function DashboardContent() {
         <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">
           Dashboard
         </p>
-        <h1 className="text-4xl font-black text-white italic uppercase tracking-tighter break-words">
+        <h1 className="text-4xl font-black text-white italic tracking-tighter break-words">
           Hey, {profile?.display_name}
         </h1>
         <p className="text-slate-500 text-sm font-medium">

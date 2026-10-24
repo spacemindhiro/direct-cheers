@@ -824,7 +824,7 @@ export function QRControlPanel({
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[10px] font-black text-pink-500 uppercase tracking-[0.4em]">Control Panel</p>
-          <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-tight">{eventTitle}</h1>
+          <h1 className="text-2xl font-black text-white italic tracking-tighter leading-tight">{eventTitle}</h1>
         </div>
         {connected ? (
           <div className="flex items-center gap-1.5 text-xs text-green-400 font-bold"><Radio size={12} className="animate-pulse" /> LIVE</div>
@@ -1128,7 +1128,7 @@ export function QRControlPanel({
                   key={d.device_id}
                   type="button"
                   onClick={() => setTargetDeviceId(d.device_id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-black tracking-widest border transition-all ${
                     targetDeviceId === d.device_id
                       ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40"
                       : "bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-600"
@@ -1157,7 +1157,7 @@ export function QRControlPanel({
             </div>
           )}
 
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">
+          <p className="text-[10px] font-black text-slate-500 tracking-[0.4em]">
             QRを選んで{targetDeviceId ? (mergedDevices.find(d => d.device_id === targetDeviceId)?.device_name ?? "選択端末") : "全台"}にプッシュ（強制）
           </p>
           {pushError && (

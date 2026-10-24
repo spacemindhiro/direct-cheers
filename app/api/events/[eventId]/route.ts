@@ -8,6 +8,7 @@ import { sendLineupInvites } from "@/lib/lineup-invite";
 import { findIneligiblePerformers } from "@/lib/directory";
 import { isEventEditable } from "@/lib/purchase-window";
 import { eventHasBuyers } from "@/lib/event-buyers";
+import { findRecipientsWithPayments, reassignLineupToOrganizer } from "@/lib/lineup-remove";
 
 export async function PATCH(
   req: Request,
@@ -85,6 +86,17 @@ export async function PATCH(
     if ((await findIneligiblePerformers(createAdminClient(), additions)).length > 0) {
       return NextResponse.json({ error: "出演者に指定できないユーザーが含まれています" }, { status: 400 });
     }
+    // 決済のある QR の宛先になっている人は外さない（宛先を替えると払ったお客様の明細と食い違い、替えなければ出ない人の名前で売り続けるため）
+    const newIdSet = new Set(artistList.map((a) => a.profile_id));
+    const removals = [...already].filter((id) => !newIdSet.has(id));
+    const blocking = await findRecipientsWithPayments(createAdminClient(), eventId, removals);
+    if (blocking.length > 0) {
+      const labels = [...new Set(blocking.map((b) => `「${b.label ?? "ラベルなし"}」`))].join("");
+      return NextResponse.json(
+        { error: `外そうとしている出演者が宛先の QR ${labels}にすでに決済があるため、外せません。QR の販売を止める場合は運営にご連絡ください。` },
+        { status: 409 },
+      );
+    }
   }
 
   // 日程・場所が変わったら draft に戻す（再承認が必要）
@@ -147,6 +159,10 @@ export async function PATCH(
         .from("event_artists")
         .update({ deleted_at: new Date().toISOString() })
         .in("event_artist_id", toRemove.map((a) => a.event_artist_id));
+      // 外した人の配分・宛先をオーガナイザーに付け替える（lib/lineup-remove.ts。決済のある QR の宛先は上で止めている）
+      for (const a of toRemove) {
+        await reassignLineupToOrganizer(writer, { eventId, artistId: a.artist_profile_id, organizerId: event.organizer_profile_id, actorId: user.id });
+      }
     }
 
     // 下書きの間は出演依頼を送らず、主催者が承認依頼を送った時点で request-review がまとめて送る。

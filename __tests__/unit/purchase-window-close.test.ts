@@ -10,6 +10,7 @@ import {
   eventCloseAt,
   isEventClosed,
   evaluatePurchaseWindow,
+  purchaseWindowErrorMessage,
 } from "@/lib/purchase-window";
 
 const endAt = "2026-10-18T13:00:00.000Z"; // 22:00 JST
@@ -46,5 +47,21 @@ describe("TC-CLOSE-UNIT: 締め時刻", () => {
       now,
     });
     expect(verdict.ok).toBe(!isEventClosed(endAt, now));
+  });
+});
+
+describe("販売停止（qr_configs.sales_stopped_at）", () => {
+  const base = {
+    lifecycleStatus: "published",
+    eventStartAt: "2026-10-24T10:00:00Z",
+    eventEndAt: "2026-10-24T14:00:00Z",
+    product: { type: "standard", payment_type: "C" },
+    now: new Date("2026-10-24T12:00:00Z"),
+  };
+  it("止めている QR は受付期間中でも断る。テスト用QR（bypassValidity）でも断る", () => {
+    expect(evaluatePurchaseWindow(base)).toEqual({ ok: true });
+    expect(evaluatePurchaseWindow({ ...base, salesStoppedAt: "2026-10-24T11:00:00Z" })).toEqual({ ok: false, reason: "stopped" });
+    expect(evaluatePurchaseWindow({ ...base, salesStoppedAt: "2026-10-24T11:00:00Z", bypassValidity: true })).toEqual({ ok: false, reason: "stopped" });
+    expect(purchaseWindowErrorMessage({ ok: false, reason: "stopped" })).toBe("このQRコードの販売は停止しています");
   });
 });

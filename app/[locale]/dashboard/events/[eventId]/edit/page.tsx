@@ -4,6 +4,9 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EventEditForm } from "@/components/event-edit-form";
 import { findUnsentLineupInvites } from "@/lib/lineup-invite";
+import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
+import { isEventEditable } from "@/lib/purchase-window";
+import { eventHasBuyers } from "@/lib/event-buyers";
 import { utcIsoToJstLocal } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -35,9 +38,14 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
     event.agent_id === user.id;
 
   if (!isOrganizer && !isAgent) redirect("/dashboard");
-  if (event.lifecycle_status === "settled") redirect(`/dashboard/events/${eventId}`);
 
   const admin = createAdminClient();
+  // 代理作成でまだ主催者に送っていない下書きは、主催者からは存在しない扱い（API・詳細画面と同じ）
+  if (!isAgent && await isProxyDraftHiddenFrom(admin, eventId, user.id)) notFound();
+  // 終わった（締め時刻後・終了・精算済み）・中止申請中・中止のイベントは編集しない（API と同じ）
+  if (!isEventEditable(event.lifecycle_status, event.end_at)) redirect(`/dashboard/events/${eventId}`);
+  // お客様がいるイベントは日程・会場を変えない（API と同じ）
+  const lockSchedule = await eventHasBuyers(admin, eventId);
 
   // 現在の出演アーティスト（rejected 以外）
   const { data: eventArtists } = await admin
@@ -93,6 +101,7 @@ async function EventEditContent({ params }: { params: Promise<{ eventId: string 
         currentArtists={currentArtists}
         connectedArtists={connectedArtists}
         lifecycleStatus={event.lifecycle_status}
+        lockSchedule={lockSchedule}
       />
     </div>
   );

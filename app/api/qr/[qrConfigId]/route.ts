@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
+import { isEventEditable } from "@/lib/purchase-window";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 import { isValidQrImageUrl } from "@/lib/image-source";
 import { getFeeConfig } from "@/lib/fee-config";
@@ -22,7 +23,7 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
 
   const { data: event } = await admin
     .from("events")
-    .select("organizer_profile_id, agent_id, lifecycle_status")
+    .select("organizer_profile_id, agent_id, lifecycle_status, end_at")
     .eq("event_id", qr.event_id)
     .single();
 
@@ -43,11 +44,8 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
     return { qr: null, supabase, error: "Not found" };
   }
 
-  return { qr, supabase, admin, isAdmin, isOrganizer, isAgent, isRecipient, organizerId: event?.organizer_profile_id as string | undefined, lifecycle: event?.lifecycle_status as string | undefined, error: null };
+  return { qr, supabase, admin, isAdmin, isOrganizer, isAgent, isRecipient, organizerId: event?.organizer_profile_id as string | undefined, lifecycle: event?.lifecycle_status as string | undefined, endAt: event?.end_at as string | undefined, error: null };
 }
-
-// QR を変えられるイベントの状態（作成 API と同じ）。終わった・中止のイベントの QR は変えない
-const EDITABLE_LIFECYCLES = ["draft", "review_requested", "published", "ongoing"];
 
 const isValidRatio = (r: unknown) => typeof r === "number" && Number.isFinite(r) && r >= 0 && r <= 1;
 
@@ -61,7 +59,7 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { qr, admin, isAdmin, isOrganizer, isAgent, isRecipient, organizerId, lifecycle, error } = await getQRWithPermission(qrConfigId, user.id);
+  const { qr, admin, isAdmin, isOrganizer, isAgent, isRecipient, organizerId, lifecycle, endAt, error } = await getQRWithPermission(qrConfigId, user.id);
   if (!qr) return NextResponse.json({ error }, { status: error === "Not found" ? 404 : 500 });
 
   const canEdit = isAdmin || isOrganizer || isAgent;
@@ -127,8 +125,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
-  // 終わった（終了・精算済み）・中止のイベントの QR は変えない（宛先本人の画像の差し替えだけは今までどおり）
-  if (canEdit && !EDITABLE_LIFECYCLES.includes(lifecycle ?? "")) {
+  // 終わった（締め時刻後・終了・精算済み）・中止のイベントの QR は変えない（宛先本人の画像の差し替えだけは今までどおり）
+  if (canEdit && !isEventEditable(lifecycle, endAt)) {
     return NextResponse.json({ error: "終わった（または中止の）イベントの QR は変更できません" }, { status: 400 });
   }
   // 画像は自分たちの Storage に上げたものだけ（外部URLはウォレットカード作成時にサーバーが取りに行くため）。

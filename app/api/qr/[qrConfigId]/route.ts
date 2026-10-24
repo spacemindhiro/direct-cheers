@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isProxyDraftHiddenFrom } from "@/lib/proxy-draft";
 import { pushWalletUpdateBySerial } from "@/lib/apple-wallet-push";
 import { isValidQrImageUrl } from "@/lib/image-source";
 import { getFeeConfig } from "@/lib/fee-config";
@@ -21,7 +22,7 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
 
   const { data: event } = await admin
     .from("events")
-    .select("organizer_profile_id, agent_id")
+    .select("organizer_profile_id, agent_id, lifecycle_status")
     .eq("event_id", qr.event_id)
     .single();
 
@@ -37,8 +38,16 @@ async function getQRWithPermission(qrConfigId: string, userId: string) {
   const isAgent = profile?.role === "agent" && event?.agent_id === userId;
   const isRecipient = qr.recipient_profile_id === userId;
 
-  return { qr, supabase, admin, isAdmin, isOrganizer, isAgent, isRecipient, organizerId: event?.organizer_profile_id as string | undefined, error: null };
+  // 代理作成で主催者にまだ送っていない下書きは、名義の主催者からは存在しない扱い（作成 API と同じ）
+  if (!isAdmin && event?.agent_id !== userId && await isProxyDraftHiddenFrom(admin, qr.event_id, userId)) {
+    return { qr: null, supabase, error: "Not found" };
+  }
+
+  return { qr, supabase, admin, isAdmin, isOrganizer, isAgent, isRecipient, organizerId: event?.organizer_profile_id as string | undefined, lifecycle: event?.lifecycle_status as string | undefined, error: null };
 }
+
+// QR を変えられるイベントの状態（作成 API と同じ）。終わった・中止のイベントの QR は変えない
+const EDITABLE_LIFECYCLES = ["draft", "review_requested", "published", "ongoing"];
 
 const isValidRatio = (r: unknown) => typeof r === "number" && Number.isFinite(r) && r >= 0 && r <= 1;
 
@@ -52,7 +61,7 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { qr, admin, isAdmin, isOrganizer, isAgent, isRecipient, organizerId, error } = await getQRWithPermission(qrConfigId, user.id);
+  const { qr, admin, isAdmin, isOrganizer, isAgent, isRecipient, organizerId, lifecycle, error } = await getQRWithPermission(qrConfigId, user.id);
   if (!qr) return NextResponse.json({ error }, { status: error === "Not found" ? 404 : 500 });
 
   const canEdit = isAdmin || isOrganizer || isAgent;
@@ -117,6 +126,10 @@ export async function PATCH(
     if (label !== undefined || recipient_profile_id !== undefined || recipient_name_context !== undefined || targets !== undefined || hasProductUpdates) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+  }
+  // 終わった（終了・精算済み）・中止のイベントの QR は変えない（宛先本人の画像の差し替えだけは今までどおり）
+  if (canEdit && !EDITABLE_LIFECYCLES.includes(lifecycle ?? "")) {
+    return NextResponse.json({ error: "終わった（または中止の）イベントの QR は変更できません" }, { status: 400 });
   }
   // 画像は自分たちの Storage に上げたものだけ（外部URLはウォレットカード作成時にサーバーが取りに行くため）。
   // 編集画面は変えていない画像もそのまま送り直すので、保存済みの値と同じなら通す
@@ -302,6 +315,33 @@ export async function PATCH(
       const { data: current } = await adminC.from("qr_config_targets").select("profile_id").eq("qr_config_id", qrConfigId).is("deleted_at", null);
       const err = targetsError(people, targets, new Set((current ?? []).map((t) => t.profile_id as string)));
       if (err) return NextResponse.json({ error: err }, { status: 400 });
+    }
+  }
+
+  // 宛先を替えるのは決済がまだのときだけ。すでに払ったお客様の明細（DC for の後ろ）は前の宛先の名前なのに、
+  // Wallet のカードが新しい宛先の名前に変わってしまい、身に覚えのない支払いの異議につながるため（配分と同じ扱い）。
+  // 編集画面は宛先を毎回送り直すので、今の宛先と同じなら通す
+  const recipientChanging =
+    (recipient_profile_id !== undefined && recipient_profile_id !== qr.recipient_profile_id) ||
+    (recipient_name_context !== undefined && recipient_name_context !== qr.recipient_name_context);
+  if (recipientChanging || targets !== undefined) {
+    const adminT = admin ?? createAdminClient();
+    if (recipientChanging) {
+      const { count } = await adminT.from("transactions").select("transaction_id", { count: "exact", head: true }).eq("qr_config_id", qrConfigId);
+      if (count && count > 0) {
+        return NextResponse.json(
+          { error: "このQRコードにはすでに決済が発生しているため宛先は変更できません。宛先を変更する場合は新しいQRコードを作成してください。" },
+          { status: 409 },
+        );
+      }
+    }
+    // 宛先は配分先の中の人（作成 API と同じ。配分を受け取らない人が販売者の名前にならないように）
+    const finalRecipient = recipient_profile_id ?? qr.recipient_profile_id;
+    const finalTargets = Array.isArray(targets)
+      ? targets.map((t) => t.profile_id)
+      : ((await adminT.from("qr_config_targets").select("profile_id").eq("qr_config_id", qrConfigId).is("deleted_at", null)).data ?? []).map((t) => t.profile_id as string);
+    if (!finalTargets.includes(finalRecipient)) {
+      return NextResponse.json({ error: "宛先を配分先に含めてください" }, { status: 400 });
     }
   }
 

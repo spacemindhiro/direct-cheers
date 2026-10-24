@@ -6,6 +6,8 @@
  *   C ラベル・QR画像
  *   D 編集：新しく入れる人だけ確かめ、すでに入っている人（あとで断った人）はそのまま通す／
  *     前売即時確定（B）は上限数を外せない・在庫か上限金額を増やすときは残高を確かめる（2026-10-24）
+ *   E 編集の範囲（2026-10-24）：終わった・中止のイベントは変えない／決済のあとは宛先を替えない／宛先は配分先の中／
+ *     代理の下書き（未送信）は名義の主催者から存在しない扱い
  * 弾いたときは products・qr_configs・qr_config_targets の行が増えない・変わらないことまで見る
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -17,6 +19,7 @@ import { cleanupTestData, testAdmin } from "../helpers/db-reset";
 import { storagePublicPrefix } from "@/lib/image-source";
 import { getFeeConfig } from "@/lib/fee-config";
 import { organizerBalance } from "@/lib/qr/rules";
+import { markProxyDraft } from "@/lib/proxy-draft";
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn(), getUser: vi.fn() }));
 vi.mock("next/headers", () => ({
@@ -27,7 +30,7 @@ vi.mock("@/lib/apple-wallet-push", () => ({ pushWalletUpdateBySerial: vi.fn().mo
 
 import { createClient } from "@/lib/supabase/server";
 import { POST as qrCreatePOST } from "@/app/api/qr/create/route";
-import { PATCH as qrPATCH } from "@/app/api/qr/[qrConfigId]/route";
+import { PATCH as qrPATCH, DELETE as qrDELETE } from "@/app/api/qr/[qrConfigId]/route";
 
 const IMG = `${storagePublicPrefix("qr-images")}tc-qr-srv/x.jpg`;
 
@@ -319,5 +322,71 @@ describe("TC-QR-SRV-D: 編集", () => {
     expect((await res.json()).error).toBe("宛先はこのイベントの主催者か出演者から選んでください");
     expect(await recipientOf(qr)).toEqual({ recipient_profile_id: pending, recipient_name_context: "artist", label: null });
     expect(await activeTargets(qr)).toEqual([`${pending}:1`]);
+  });
+});
+
+describe("TC-QR-SRV-E: 編集の範囲", () => {
+  async function seedOn(ev: string, recipient: string, targets: { profileId: string; ratio: number }[], context: "organizer" | "artist" = "artist") {
+    const productId = await insertProduct({ eventId: ev, name: "範囲用", type: "standard", minAmount: 500, maxAmount: 3000 });
+    const qr = await insertQrConfig({ eventId: ev, creatorProfileId: org, recipientProfileId: recipient, productId, recipientNameContext: context });
+    await insertQrConfigTargets(qr, targets);
+    return qr;
+  }
+  const row = async (qr: string) =>
+    (await testAdmin.from("qr_configs").select("label, recipient_profile_id, recipient_name_context").eq("qr_config_id", qr).single()).data;
+  const status = async (res: Response) => [res.status, (await res.json()).error];
+
+  it("E-01: 終了・精算済み・中止のイベントの QR は主催者が変えられない（400・変わらない）。宛先本人の画像の差し替えは今までどおり", async () => {
+    for (const lifecycle of ["ended", "settled", "cancelled"]) {
+      const ev = await insertEvent({ organizerProfileId: org, title: `TC-QR-SRV ${lifecycle}` });
+      cleanup.eventIds.push(ev);
+      await insertEventArtist({ eventId: ev, artistProfileId: confirmed });
+      const qr = await seedOn(ev, confirmed, [{ profileId: confirmed, ratio: 1 }]);
+      await testAdmin.from("events").update({ lifecycle_status: lifecycle }).eq("event_id", ev);
+      mockAs(org, "organizer");
+      expect(await status(await patch(qr, { label: "変えない" }))).toEqual([400, "終わった（または中止の）イベントの QR は変更できません"]);
+      expect((await row(qr))!.label).toBe(null);
+      mockAs(confirmed, "artist");
+      expect((await patch(qr, { image_url: IMG })).status).toBe(200);
+    }
+  });
+
+  it("E-02: 決済のある QR の宛先は替えられない（409・変わらない）。今の宛先を送り直してラベルを直すのは通る（編集画面の形）", async () => {
+    mockAs(org, "organizer");
+    const qr = await seedOn(eventId, confirmed, [{ profileId: confirmed, ratio: 0.5 }, { profileId: pending, ratio: 0.5 }]);
+    await insertTransaction({ qrConfigId: qr, grossAmount: 1000, netAmount: 900, stripeFee: 40, platformFee: 60, stripePaymentIntentId: `pi_qrsrv_e02_${Date.now()}` });
+    const msg = "このQRコードにはすでに決済が発生しているため宛先は変更できません。宛先を変更する場合は新しいQRコードを作成してください。";
+    expect(await status(await patch(qr, { recipient_profile_id: pending, recipient_name_context: "artist" }))).toEqual([409, msg]);
+    expect(await status(await patch(qr, { recipient_profile_id: org, recipient_name_context: "organizer" }))).toEqual([409, msg]);
+    expect(await row(qr)).toEqual({ label: null, recipient_profile_id: confirmed, recipient_name_context: "artist" });
+    expect((await patch(qr, { label: "直した", recipient_profile_id: confirmed, recipient_name_context: "artist" })).status).toBe(200);
+    expect((await row(qr))!.label).toBe("直した");
+  });
+
+  it("E-03: 宛先は配分先の中の人（配分先にいない人を宛先にする・配分から宛先を外す → 400・変わらない）", async () => {
+    mockAs(org, "organizer");
+    const qr = await seedOn(eventId, confirmed, [{ profileId: confirmed, ratio: 1 }]);
+    expect(await status(await patch(qr, { recipient_profile_id: pending, recipient_name_context: "artist" }))).toEqual([400, "宛先を配分先に含めてください"]);
+    expect(await status(await patch(qr, { targets: [{ profile_id: pending, distribution_ratio: 1 }] }))).toEqual([400, "宛先を配分先に含めてください"]);
+    expect(await row(qr)).toEqual({ label: null, recipient_profile_id: confirmed, recipient_name_context: "artist" });
+    // 宛先と配分を一緒に替えるのは通る
+    expect((await patch(qr, { recipient_profile_id: pending, recipient_name_context: "artist", targets: [{ profile_id: pending, distribution_ratio: 1 }] })).status).toBe(200);
+  });
+
+  it("E-04: 代理の下書き（未送信）の QR は、名義の主催者からは存在しない扱い（編集・削除とも 404・変わらない）。担当エージェントは変えられる", async () => {
+    const agent = await insertProfile({ role: "agent", displayName: "agent", email: `qrsrv-agent-${Date.now()}@test.local` });
+    cleanup.profileIds.push(agent);
+    const ev = await insertEvent({ organizerProfileId: org, agentId: agent, title: "TC-QR-SRV 代理" });
+    cleanup.eventIds.push(ev);
+    await testAdmin.from("events").update({ lifecycle_status: "draft" }).eq("event_id", ev);
+    await markProxyDraft(testAdmin, { eventId: ev, creatorId: agent, organizerId: org });
+    const qr = await seedOn(ev, org, [{ profileId: org, ratio: 1 }], "organizer");
+    mockAs(org, "organizer");
+    expect((await patch(qr, { label: "見えない" })).status).toBe(404);
+    expect((await qrDELETE(new Request("http://localhost", { method: "DELETE" }), { params: Promise.resolve({ qrConfigId: qr }) })).status).toBe(404);
+    expect(await row(qr)).toEqual({ label: null, recipient_profile_id: org, recipient_name_context: "organizer" });
+    mockAs(agent, "agent");
+    expect((await patch(qr, { label: "担当が直す" })).status).toBe(200);
+    await testAdmin.from("notifications").delete().filter("metadata->>event_id", "eq", ev);
   });
 });
